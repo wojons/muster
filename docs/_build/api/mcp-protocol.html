@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Protocol - Documentation</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        h1 { font-size: 2.5rem; border-bottom: 3px solid var(--primary-color); padding-bottom: 0.5rem; }
+        h2 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3rem; }
+        h3 { font-size: 1.5rem; }
+        
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background: var(--code-bg);
+        }
+        
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .nav {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html">← Documentation Home</a>
+    </nav>
+    <main>
+        <h1 id="mcp-protocol">MCP Protocol</h1>
+<p>Model Context Protocol implementation for OpenAPI CLI.</p>
+<h2 id="overview">Overview</h2>
+<p>OpenAPI CLI implements MCP (Model Context Protocol) to enable seamless integration with AI assistants like Claude, providing structured access to OpenAPI-specified APIs as AI tools and resources.</p>
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="running-the-mcp-server">Running the MCP Server</h3>
+<pre><code class="language-bash"># Start MCP server with stdio transport (default)
+openapi-cli mcp-server --spec openapi.yaml
+
+# Start with HTTP transport for debugging
+openapi-cli mcp-server --spec openapi.yaml --port 8080
+</code></pre>
+<h3 id="claude-desktop-configuration">Claude Desktop Configuration</h3>
+<p>Configure in Claude Desktop settings:</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;openapi-cli&quot;: {
+      &quot;command&quot;: &quot;openapi-cli&quot;,
+      &quot;args&quot;: [
+        &quot;mcp-server&quot;,
+        &quot;--spec&quot;, &quot;/path/to/openapi.yaml&quot;,
+        &quot;--base-url&quot;, &quot;https://api.example.com/v1&quot;
+      ]
+    }
+  }
+}
+</code></pre>
+<h3 id="manual-testing">Manual Testing</h3>
+<p>Test MCP server manually:</p>
+<pre><code class="language-bash">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;initialize&quot;,
+  &quot;params&quot;: {
+    &quot;protocolVersion&quot;: &quot;2024-11-05&quot;,
+    &quot;capabilities&quot;: {
+      &quot;roots&quot;: {},
+      &quot;sampling&quot;: {},
+      &quot;tools&quot;: {}
+    },
+    &quot;clientInfo&quot;: {
+      &quot;name&quot;: &quot;test-client&quot;,
+      &quot;version&quot;: &quot;1.0.0&quot;
+    }
+  },
+  &quot;id&quot;: 1
+} | openapi-cli mcp-server --spec openapi.yaml
+</code></pre>
+<h2 id="server-capabilities">Server Capabilities</h2>
+<p>The MCP server advertises these capabilities:</p>
+<pre><code class="language-json">{
+  &quot;protocolVersion&quot;: &quot;2024-11-05&quot;,
+  &quot;capabilities&quot;: {
+    &quot;roots&quot;: {
+      &quot;listChanged&quot;: true
+    },
+    &quot;sampling&quot;: {},
+    &quot;tools&quot;: {
+      &quot;listChanged&quot;: true
+    }
+  },
+  &quot;serverInfo&quot;: {
+    &quot;name&quot;: &quot;openapi-cli&quot;,
+    &quot;version&quot;: &quot;1.0.0&quot;
+  }
+}
+</code></pre>
+<h2 id="tools-methods">Tools (Methods)</h2>
+<h3 id="tool-generation-from-openapi-spec">Tool Generation from OpenAPI Spec</h3>
+<p>OpenAPI CLI automatically generates MCP tools from your OpenAPI specification. Each endpoint becomes a tool.</p>
+<h4 id="tool-naming-convention">Tool Naming Convention</h4>
+<p>Tools are named using the pattern: <code>&lt;tag&gt;_&lt;operationId&gt;</code> or <code>&lt;path&gt;_&lt;method&gt;</code> if no operationId.</p>
+<p>Examples:
+- <code>pet_find</code> - GET /pet
+- <code>pet_add</code> - POST /pet
+- <code>store_inventory</code> - GET /store/inventory</p>
+<h4 id="tool-schema">Tool Schema</h4>
+<p>Each tool provides full JSON Schema for input validation:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;pet_findById&quot;,
+  &quot;description&quot;: &quot;Find pet by ID. Returns a single pet.&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+      &quot;petId&quot;: {
+        &quot;type&quot;: &quot;integer&quot;,
+        &quot;description&quot;: &quot;ID of pet to return&quot;,
+        &quot;minimum&quot;: 1,
+        &quot;required&quot;: true
+      }
+    },
+    &quot;additionalProperties&quot;: false,
+    &quot;required&quot;: [&quot;petId&quot;]
+  }
+}
+</code></pre>
+<h3 id="toolslist"><code>tools/list</code></h3>
+<p>List all available tools (API endpoints).</p>
+<p><strong>Request</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;tools/list&quot;,
+  &quot;id&quot;: 1
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;result&quot;: {
+    &quot;tools&quot;: [
+      {
+        &quot;name&quot;: &quot;pet_add&quot;,
+        &quot;description&quot;: &quot;Add a new pet to the store&quot;,
+        &quot;inputSchema&quot;: {
+          &quot;type&quot;: &quot;object&quot;,
+          &quot;properties&quot;: {
+            &quot;name&quot;: {&quot;type&quot;: &quot;string&quot;},
+            &quot;status&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;enum&quot;: [&quot;available&quot;, &quot;pending&quot;, &quot;sold&quot;]}
+          }
+        }
+      },
+      {
+        &quot;name&quot;: &quot;pet_findById&quot;,
+        &quot;description&quot;: &quot;Find pet by ID&quot;,
+        &quot;inputSchema&quot;: {
+          &quot;type&quot;: &quot;object&quot;,
+          &quot;properties&quot;: {
+            &quot;petId&quot;: {&quot;type&quot;: &quot;integer&quot;}
+          }
+        }
+      }
+    ]
+  }
+}
+</code></pre>
+<h3 id="toolscall"><code>tools/call</code></h3>
+<p>Execute an API endpoint tool.</p>
+<p><strong>Request</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;tools/call&quot;,
+  &quot;id&quot;: 1,
+  &quot;params&quot;: {
+    &quot;name&quot;: &quot;pet_findById&quot;,
+    &quot;arguments&quot;: {
+      &quot;petId&quot;: 1
+    }
+  }
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;result&quot;: {
+    &quot;content&quot;: [
+      {
+        &quot;type&quot;: &quot;resource&quot;,
+        &quot;resource&quot;: {
+          &quot;uri&quot;: &quot;mcp://openapi-cli/pet/1&quot;
+        }
+      },
+      {
+        &quot;type&quot;: &quot;text&quot;,
+        &quot;text&quot;: &quot;Found pet with ID 1&quot;
+      }
+    ]
+  }
+}
+</code></pre>
+<p><strong>Error Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;error&quot;: {
+    &quot;code&quot;: -32603,
+    &quot;message&quot;: &quot;Pet not found&quot;,
+    &quot;data&quot;: {
+      &quot;statusCode&quot;: 404,
+      &quot;details&quot;: {}
+    }
+  }
+}
+</code></pre>
+<h2 id="resources-data-access">Resources (Data Access)</h2>
+<h3 id="resource-uris">Resource URIs</h3>
+<p>Resources are identified using URIs following the pattern:</p>
+<pre><code>mcp://openapi-cli/&lt;path&gt;#&lt;fragment&gt;
+</code></pre>
+<p>Examples:
+- <code>mcp://openapi-cli/paths//pet/~1{petId}/get</code> - GET /pet/{petId}
+- <code>mcp://openapi-cli/components/schemas/Pet</code> - Pet schema</p>
+<h3 id="resourceslist"><code>resources/list</code></h3>
+<p>List available OpenAPI specification resources.</p>
+<p><strong>Request</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;resources/list&quot;,
+  &quot;id&quot;: 1
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;result&quot;: {
+    &quot;resources&quot;: [
+      {
+        &quot;uri&quot;: &quot;mcp://openapi-cli/openapi.yaml&quot;,
+        &quot;name&quot;: &quot;OpenAPI Specification&quot;,
+        &quot;description&quot;: &quot;Complete OpenAPI 3.0 specification&quot;,
+        &quot;mimeType&quot;: &quot;application/x-yaml&quot;
+      },
+      {
+        &quot;uri&quot;: &quot;mcp://openapi-cli/paths//pet/~1{petId}/get&quot;,
+        &quot;name&quot;: &quot;Pet: Find by ID&quot;,
+        &quot;description&quot;: &quot;GET /pet/{petId} endpoint&quot;,
+        &quot;mimeType&quot;: &quot;text/plain&quot;
+      }
+    ]
+  }
+}
+</code></pre>
+<h3 id="resourcesread"><code>resources/read</code></h3>
+<p>Read a resource (OpenAPI specification or metadata).</p>
+<p><strong>Request</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;resources/read&quot;,
+  &quot;params&quot;: {
+    &quot;uri&quot;: &quot;mcp://openapi-cli/openapi.yaml&quot;
+  },
+  &quot;id&quot;: 1
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;result&quot;: {
+    &quot;contents&quot;: [
+      {
+        &quot;uri&quot;: &quot;mcp://openapi-cli/openapi.yaml&quot;,
+        &quot;mimeType&quot;: &quot;application/x-yaml&quot;,
+        &quot;text&quot;: &quot;openapi: 3.0.3\ninfo:\n  title: PetStore API\n...&quot;
+      }
+    ]
+  }
+}
+</code></pre>
+<h3 id="resourceslist_changed"><code>resources/list_changed</code></h3>
+<p>Check for specification changes since last request.</p>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;result&quot;: {
+    &quot;resources&quot;: []  // Empty list means no changes
+  }
+}
+</code></pre>
+<h2 id="authentication">Authentication</h2>
+<h3 id="mcp-auth-flow">MCP Auth Flow</h3>
+<p>The MCP server supports authentication via configuration:</p>
+<pre><code class="language-bash">openapi-cli mcp-server --spec openapi.yaml \
+  --auth.type oauth2 \
+  --auth.token your-access-token
+</code></pre>
+<p>Config file approach:</p>
+<pre><code class="language-yaml">mcp:
+  auth:
+    type: oauth2
+    token: ${OAUTH_TOKEN}
+</code></pre>
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="standard-errors">Standard Errors</h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Message</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>-32700</td>
+<td>Parse error</td>
+</tr>
+<tr>
+<td>-32600</td>
+<td>Invalid Request</td>
+</tr>
+<tr>
+<td>-32601</td>
+<td>Method not found</td>
+</tr>
+<tr>
+<td>-32602</td>
+<td>Invalid params</td>
+</tr>
+<tr>
+<td>-32603</td>
+<td>Internal error</td>
+</tr>
+<tr>
+<td>-32604</td>
+<td>Not found</td>
+</tr>
+</tbody>
+</table>
+<h3 id="application-specific-errors">Application-Specific Errors</h3>
+<p><strong>Tool Error Example</strong>:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;error&quot;: {
+    &quot;code&quot;: -32603,
+    &quot;message&quot;: &quot;API request failed&quot;,
+    &quot;data&quot;: {
+      &quot;httpStatus&quot;: 500,
+      &quot;httpMessage&quot;: &quot;Internal Server Error&quot;,
+      &quot;details&quot;: {
+        &quot;error&quot;: &quot;Database connection failed&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h2 id="lifecycle-methods">Lifecycle Methods</h2>
+<h3 id="initialize"><code>initialize</code></h3>
+<p>Initialize MCP connection:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;initialize&quot;,
+  &quot;params&quot;: {
+    &quot;protocolVersion&quot;: &quot;2024-11-05&quot;,
+    &quot;capabilities&quot;: {},
+    &quot;clientInfo&quot;: {
+      &quot;name&quot;: &quot;claude&quot;,
+      &quot;version&quot;: &quot;1.0.0&quot;
+    }
+  },
+  &quot;id&quot;: 1
+}
+</code></pre>
+<h3 id="initialized"><code>initialized</code></h3>
+<p>Acknowledge initialization:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;initialized&quot;
+}
+</code></pre>
+<h3 id="shutdown"><code>shutdown</code></h3>
+<p>Graceful shutdown:</p>
+<pre><code class="language-json">{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;shutdown&quot;,
+  &quot;id&quot;: 1
+}
+</code></pre>
+<h2 id="advanced-configuration">Advanced Configuration</h2>
+<h3 id="custom-tool-generation">Custom Tool Generation</h3>
+<p>Control tool naming and descriptions:</p>
+<pre><code class="language-yaml">mcp:
+  tools:
+    naming:
+      style: operation_id  # operation_id or path_method
+      prefix: &quot;&quot;          # Optional prefix
+    descriptions:
+      include_parameters: true
+      include_response: true
+</code></pre>
+<h3 id="resource-filtering">Resource Filtering</h3>
+<p>Control which resources are exposed:</p>
+<pre><code class="language-yaml">mcp:
+  resources:
+    include:
+      - paths**
+      - components/schemas**
+    exclude:
+      - paths/**/internal/**
+</code></pre>
+<h3 id="rate-limiting">Rate Limiting</h3>
+<p>Prevent API abuse through MCP:</p>
+<pre><code class="language-yaml">mcp:
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst: 10
+</code></pre>
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-complete-workflow">Example 1: Complete Workflow</h3>
+<pre><code class="language-bash"># Start MCP server
+openapi-cli mcp-server --spec openapi.yaml
+
+# Client workflow:
+# 1. Initialize
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;initialize&quot;,
+  &quot;params&quot;: {&quot;protocolVersion&quot;: &quot;2024-11-05&quot;},
+  &quot;id&quot;: 1
+}
+
+# 2. List tools
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;tools/list&quot;,
+  &quot;id&quot;: 2
+}
+
+# 3. Call tool
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;tools/call&quot;,
+  &quot;params&quot;: {
+    &quot;name&quot;: &quot;pet_findById&quot;,
+    &quot;arguments&quot;: {&quot;petId&quot;: 1}
+  },
+  &quot;id&quot;: 3
+}
+</code></pre>
+<h3 id="example-2-error-handling">Example 2: Error Handling</h3>
+<pre><code class="language-bash"># Invalid tool name
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;tools/call&quot;,
+  &quot;params&quot;: {
+    &quot;name&quot;: &quot;invalid_tool&quot;,
+    &quot;arguments&quot;: {}
+  },
+  &quot;id&quot;: 1
+}
+
+# Response:
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;error&quot;: {
+    &quot;code&quot;: -32601,
+    &quot;message&quot;: &quot;Tool 'invalid_tool' not found&quot;
+  }
+}
+</code></pre>
+<h3 id="example-3-resource-reading">Example 3: Resource Reading</h3>
+<pre><code class="language-bash"># Read OpenAPI spec
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;resources/read&quot;,
+  &quot;params&quot;: {
+    &quot;uri&quot;: &quot;mcp://openapi-cli/openapi.yaml&quot;
+  },
+  &quot;id&quot;: 1
+}
+
+# Response:
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;result&quot;: {
+    &quot;contents&quot;: [
+      {
+        &quot;uri&quot;: &quot;mcp://openapi-cli/openapi.yaml&quot;,
+        &quot;mimeType&quot;: &quot;application/x-yaml&quot;,
+        &quot;text&quot;: &quot;openapi: 3.0.3\n...&quot;
+      }
+    ]
+  }
+}
+</code></pre>
+<h2 id="security-considerations">Security Considerations</h2>
+<ol>
+<li><strong>Authentication</strong>: Always use proper authentication</li>
+<li><strong>Environment Variables</strong>: Store secrets in environment variables</li>
+<li><strong>Rate Limiting</strong>: Enable for production deployments</li>
+<li><strong>Input Validation</strong>: Schema validation is enforced automatically</li>
+<li><strong>Sanitization</strong>: Remove sensitive fields from responses</li>
+</ol>
+<h2 id="testing">Testing</h2>
+<h3 id="unit-testing-tools">Unit Testing Tools</h3>
+<pre><code class="language-python"># Test: tools/list
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;tools/list&quot;,
+  &quot;id&quot;: 1
+}
+
+# Verify response contains expected tools
+</code></pre>
+<h3 id="integration-testing">Integration Testing</h3>
+<pre><code class="language-bash"># Full MCP integration test
+openapi-cli mcp-server --spec test-openapi.yaml --port 8080
+
+# Send requests via HTTP or stdio
+curl -X POST http://localhost:8080 \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;tools/list&quot;,&quot;id&quot;:1}'
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Issue</strong>: "Specification not found"</p>
+<p><strong>Solution</strong>: Check spec path and file permissions:</p>
+<pre><code class="language-bash">openapi-cli mcp-server --spec /full/path/to/openapi.yaml
+</code></pre>
+<p><strong>Issue</strong>: "Tool 'xxx' not found"</p>
+<p><strong>Solution</strong>: Verify the tool name matches the operation or path:</p>
+<pre><code class="language-bash">openapi-cli inventory list openapi.yaml  # See available tools
+</code></pre>
+<h3 id="debug-mode">Debug Mode</h3>
+<p>Enable debug logging:</p>
+<pre><code class="language-bash">openapi-cli --debug mcp-server --spec openapi.yaml
+</code></pre>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="README.md">API Documentation</a> - General API reference</li>
+<li><a href="https://swagger.io/specification/">OpenAPI Spec</a> - Official specification</li>
+<li><a href="https://modelcontextprotocol.io/">MCP Standard</a> - MCP protocol specification</li>
+<li><a href="../guides/commands.md">Command Reference</a> - CLI commands</li>
+</ul>
+    </main>
+</body>
+</html>

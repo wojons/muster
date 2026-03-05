@@ -1,0 +1,42 @@
+openapi: 3.0.0
+info:
+  title: Auth Required API
+  version: 1.0.0
+  description: API with authentication requirements
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.example.com/oauth/authorize
+          tokenUrl: https://auth.example.com/oauth/token
+          scopes:
+            read: Read access
+            write: Write access
+
+    api_key:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security:
+  - oauth2: [read]
+  - api_key: []
+
+paths:
+  /protected:
+    get:
+      operationId: protectedEndpoint
+      summary: Protected endpoint
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: string

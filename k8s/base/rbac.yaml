@@ -1,0 +1,45 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: openapi-cli
+  namespace: openapi-cli
+  labels:
+    app.kubernetes.io/name: openapi-cli
+    app.kubernetes.io/component: rbac
+rules:
+  # Allow reading configmaps
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+
+  # Allow reading secrets (for API keys)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+
+  # Allow reading service discovery
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+
+  # Allow pod discovery for inventory
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: openapi-cli
+  namespace: openapi-cli
+  labels:
+    app.kubernetes.io/name: openapi-cli
+    app.kubernetes.io/component: rbac
+subjects:
+  - kind: ServiceAccount
+    name: openapi-cli
+    namespace: openapi-cli
+roleRef:
+  kind: Role
+  name: openapi-cli
+  apiGroup: rbac.authorization.k8s.io

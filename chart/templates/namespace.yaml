@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "openapi-cli.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "openapi-cli.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}

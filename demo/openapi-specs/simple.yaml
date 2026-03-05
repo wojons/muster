@@ -1,0 +1,23 @@
+openapi: 3.0.0
+info:
+  title: Simple Test API
+  version: 1.0.0
+  description: Minimal API for basic testing
+
+paths:
+  /test:
+    get:
+      operationId: simpleTest
+      summary: Simple test endpoint
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string

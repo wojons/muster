@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REST API Reference - Documentation</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        h1 { font-size: 2.5rem; border-bottom: 3px solid var(--primary-color); padding-bottom: 0.5rem; }
+        h2 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3rem; }
+        h3 { font-size: 1.5rem; }
+        
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background: var(--code-bg);
+        }
+        
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .nav {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html">← Documentation Home</a>
+    </nav>
+    <main>
+        <h1 id="rest-api-reference">REST API Reference</h1>
+<p>Complete REST API reference for OpenAPI CLI.</p>
+<h2 id="overview">Overview</h2>
+<p>OpenAPI CLI provides a REST API for programmatic access to all CLI functionality through HTTP endpoints. The REST API is useful for:
+- Building custom integrations
+- Automating workflows via webhooks
+- Creating custom UIs
+- Service-to-service communication</p>
+<h2 id="base-url">Base URL</h2>
+<p>Default: <code>http://localhost:8080</code></p>
+<p>Configurable via configuration:</p>
+<pre><code class="language-yaml">mcp:
+  enabled: true
+  port: 8080
+  host: 0.0.0.0
+</code></pre>
+<h2 id="authentication">Authentication</h2>
+<p>The REST API supports multiple authentication methods.</p>
+<h3 id="api-key-authentication">API Key Authentication</h3>
+<pre><code class="language-bash">curl -H &quot;X-API-Key: your-secret-key&quot; http://localhost:8080/spec/validate
+</code></pre>
+<p>Configuration:</p>
+<pre><code class="language-yaml">auth:
+  type: apikey
+  apikey:
+    header: X-API-Key
+    value: ${API_KEY}
+</code></pre>
+<h3 id="oauth2-bearer-token">OAuth2 Bearer Token</h3>
+<pre><code class="language-bash">curl -H &quot;Authorization: Bearer &lt;token&gt;&quot; http://localhost:8080/spec/validate
+</code></pre>
+<p>Configuration:</p>
+<pre><code class="language-yaml">auth:
+  type: oauth2
+  oauth2:
+    token_url: https://auth.example.com/oauth/token
+    scopes:
+      - read
+      - write
+</code></pre>
+<h2 id="api-endpoints">API Endpoints</h2>
+<h3 id="root-endpoint">Root Endpoint</h3>
+<p>Get API information.</p>
+<pre><code class="language-http">GET /
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;openapi-cli&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;endpoints&quot;: [&quot;/spec&quot;, &quot;/commands&quot;, &quot;/api&quot;],
+  &quot;documentation&quot;: &quot;/docs&quot;
+}
+</code></pre>
+<h2 id="specification-endpoints">Specification Endpoints</h2>
+<h3 id="validate-openapi-spec">Validate OpenAPI Spec</h3>
+<p>Validate an OpenAPI specification.</p>
+<pre><code class="language-http">POST /spec/validate
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;spec&quot;: &quot;&lt;OpenAPI spec content&gt;&quot;,
+  &quot;strict&quot;: false
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;valid&quot;: true,
+  &quot;errors&quot;: []
+}
+</code></pre>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">curl -X POST http://localhost:8080/spec/validate \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;spec&quot;:&quot;openapi: 3.0.3\ninfo:\n  title: Test\npaths: {}&quot;}'
+</code></pre>
+<h3 id="get-spec-info">Get Spec Info</h3>
+<p>Get information about an OpenAPI specification.</p>
+<pre><code class="language-http">GET /spec/info?spec=&lt;spec-path&gt;
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;title&quot;: &quot;PetStore API&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;description&quot;: &quot;Sample PetStore API&quot;,
+  &quot;endpoints&quot;: 20,
+  &quot;paths&quot;: {
+    &quot;/pet&quot;: [&quot;GET&quot;, &quot;POST&quot;],
+    &quot;/pet/{petId}&quot;: [&quot;GET&quot;, &quot;PUT&quot;, &quot;DELETE&quot;]
+  }
+}
+</code></pre>
+<h3 id="convert-spec-format">Convert Spec Format</h3>
+<p>Convert between OpenAPI formats.</p>
+<pre><code class="language-http">POST /spec/convert
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;spec&quot;: &quot;&lt;spec content&gt;&quot;,
+  &quot;fromFormat&quot;: &quot;json&quot;,
+  &quot;toFormat&quot;: &quot;yaml&quot;
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;spec&quot;: &quot;&lt;converted spec&gt;&quot;,
+  &quot;format&quot;: &quot;yaml&quot;
+}
+</code></pre>
+<h2 id="cli-command-endpoints">CLI Command Endpoints</h2>
+<h3 id="list-commands">List Commands</h3>
+<p>List all available CLI commands.</p>
+<pre><code class="language-http">GET /commands
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;commands&quot;: [
+    {
+      &quot;name&quot;: &quot;init&quot;,
+      &quot;description&quot;: &quot;Initialize CLI from spec&quot;,
+      &quot;usage&quot;: &quot;openapi-cli init &lt;spec-path&gt;&quot;,
+      &quot;aliases&quot;: [&quot;init&quot;]
+    },
+    {
+      &quot;name&quot;: &quot;inventory list&quot;,
+      &quot;description&quot;: &quot;List API resources&quot;,
+      &quot;usage&quot;: &quot;openapi-cli inventory list &lt;spec-path&gt;&quot;
+    }
+  ]
+}
+</code></pre>
+<h3 id="execute-command">Execute Command</h3>
+<p>Execute a CLI command via REST API.</p>
+<pre><code class="language-http">POST /commands/execute
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;command&quot;: &quot;init&quot;,
+  &quot;args&quot;: [&quot;petstore.json&quot;],
+  &quot;options&quot;: {
+    &quot;output&quot;: &quot;./config&quot;,
+    &quot;verbose&quot;: true
+  }
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;exitCode&quot;: 0,
+  &quot;stdout&quot;: &quot;Configuration initialized&quot;,
+  &quot;stderr&quot;: &quot;&quot;
+}
+</code></pre>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">curl -X POST http://localhost:8080/commands/execute \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;command&quot;: &quot;inventory list&quot;,
+    &quot;args&quot;: [&quot;petstore.json&quot;],
+    &quot;options&quot;: {&quot;format&quot;: &quot;json&quot;}
+  }'
+</code></pre>
+<h2 id="api-request-endpoints">API Request Endpoints</h2>
+<h3 id="make-api-request">Make API Request</h3>
+<p>Make a request to the target API.</p>
+<pre><code class="language-http">POST /api/request
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;method&quot;: &quot;GET&quot;,
+  &quot;path&quot;: &quot;/pet/1&quot;,
+  &quot;baseUrl&quot;: &quot;https://api.example.com/v1&quot;,
+  &quot;headers&quot;: {
+    &quot;Authorization&quot;: &quot;Bearer token&quot;
+  },
+  &quot;query&quot;: {
+    &quot;fields&quot;: &quot;id,name&quot;
+  }
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;status&quot;: 200,
+  &quot;headers&quot;: {
+    &quot;Content-Type&quot;: &quot;application/json&quot;
+  },
+  &quot;body&quot;: {
+    &quot;id&quot;: 1,
+    &quot;name&quot;: &quot;Fluffy&quot;
+  }
+}
+</code></pre>
+<h3 id="batch-requests">Batch Requests</h3>
+<p>Make multiple API requests in parallel.</p>
+<pre><code class="language-http">POST /api/batch
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;requests&quot;: [
+    {
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;path&quot;: &quot;/pet/1&quot;
+    },
+    {
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;path&quot;: &quot;/pet/2&quot;
+    }
+  ]
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;results&quot;: [
+    {
+      &quot;status&quot;: 200,
+      &quot;body&quot;: {&quot;id&quot;: 1, &quot;name&quot;: &quot;Fluffy&quot;}
+    },
+    {
+      &quot;status&quot;: 200,
+      &quot;body&quot;: {&quot;id&quot;: 2, &quot;name&quot;: &quot;Rex&quot;}
+    }
+  ]
+}
+</code></pre>
+<h2 id="documentation-endpoints">Documentation Endpoints</h2>
+<h3 id="generate-documentation">Generate Documentation</h3>
+<p>Generate API documentation.</p>
+<pre><code class="language-http">POST /docs/generate
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;spec&quot;: &quot;&lt;OpenAPI spec&gt;&quot;,
+  &quot;format&quot;: &quot;markdown&quot;,
+  &quot;output&quot;: &quot;/path/to/docs&quot;
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;files&quot;: [
+    &quot;/path/to/docs/index.md&quot;,
+    &quot;/path/to/docs/api.md&quot;
+  ]
+}
+</code></pre>
+<h3 id="serve-documentation">Serve Documentation</h3>
+<p>Serve documentation files.</p>
+<pre><code class="language-http">GET /docs/{path}
+</code></pre>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-bash">curl http://localhost:8080/docs/index.md
+</code></pre>
+<h2 id="configuration-endpoints">Configuration Endpoints</h2>
+<h3 id="get-configuration">Get Configuration</h3>
+<p>Get current configuration.</p>
+<pre><code class="language-http">GET /config
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;spec&quot;: {
+    &quot;path&quot;: &quot;openapi.json&quot;,
+    &quot;baseUrl&quot;: &quot;https://api.example.com/v1&quot;
+  },
+  &quot;http&quot;: {
+    &quot;timeout&quot;: &quot;30s&quot;,
+    &quot;verifySsl&quot;: true
+  },
+  &quot;output&quot;: {
+    &quot;format&quot;: &quot;table&quot;
+  }
+}
+</code></pre>
+<h3 id="update-configuration">Update Configuration</h3>
+<p>Update configuration values.</p>
+<pre><code class="language-http">PUT /config
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;http&quot;: {
+    &quot;timeout&quot;: &quot;60s&quot;
+  },
+  &quot;output&quot;: {
+    &quot;format&quot;: &quot;json&quot;
+  }
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true
+}
+</code></pre>
+<h3 id="validate-configuration">Validate Configuration</h3>
+<p>Validate current configuration.</p>
+<pre><code class="language-http">POST /config/validate
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;valid&quot;: true,
+  &quot;errors&quot;: []
+}
+</code></pre>
+<h2 id="cache-endpoints">Cache Endpoints</h2>
+<h3 id="get-cache-stats">Get Cache Stats</h3>
+<p>Get cache statistics.</p>
+<pre><code class="language-http">GET /cache/stats
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;hits&quot;: 150,
+  &quot;misses&quot;: 30,
+  &quot;size&quot;: &quot;100MB&quot;,
+  &quot;items&quot;: 500
+}
+</code></pre>
+<h3 id="clear-cache">Clear Cache</h3>
+<p>Clear the cache.</p>
+<pre><code class="language-http">DELETE /cache
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;cleared&quot;: 500
+}
+</code></pre>
+<h2 id="authentication-endpoints">Authentication Endpoints</h2>
+<h3 id="get-auth-status">Get Auth Status</h3>
+<p>Check authentication status.</p>
+<pre><code class="language-http">GET /auth/status
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;authenticated&quot;: true,
+  &quot;provider&quot;: &quot;oauth2&quot;,
+  &quot;expires&quot;: &quot;2026-03-03T10:00:00Z&quot;
+}
+</code></pre>
+<h3 id="login">Login</h3>
+<p>Authenticate with OAuth2.</p>
+<pre><code class="language-http">POST /auth/login
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;provider&quot;: &quot;google&quot;,
+  &quot;clientId&quot;: &quot;your-client-id&quot;,
+  &quot;scopes&quot;: [&quot;read&quot;, &quot;write&quot;]
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;token&quot;: &quot;access_token&quot;
+}
+</code></pre>
+<h3 id="logout">Logout</h3>
+<p>Logout and clear credentials.</p>
+<pre><code class="language-http">POST /auth/logout
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true
+}
+</code></pre>
+<h2 id="health-endpoint">Health Endpoint</h2>
+<p>Check service health.</p>
+<pre><code class="language-http">GET /health
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;healthy&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;uptime&quot;: &quot;3600s&quot;
+}
+</code></pre>
+<h2 id="error-responses">Error Responses</h2>
+<p>All endpoints return errors in this format:</p>
+<pre><code class="language-json">{
+  &quot;error&quot;: {
+    &quot;code&quot;: &quot;INVALID_SPEC&quot;,
+    &quot;message&quot;: &quot;OpenAPI specification is invalid&quot;,
+    &quot;details&quot;: {
+      &quot;line&quot;: 10,
+      &quot;column&quot;: 5,
+      &quot;error&quot;: &quot;Missing required field&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="error-codes">Error Codes</h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>HTTP Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INVALID_SPEC</td>
+<td>400</td>
+<td>Invalid OpenAPI specification</td>
+</tr>
+<tr>
+<td>AUTH_FAILED</td>
+<td>401</td>
+<td>Authentication failed</td>
+</tr>
+<tr>
+<td>NOT_FOUND</td>
+<td>404</td>
+<td>Resource not found</td>
+</tr>
+<tr>
+<td>VALIDATION_ERROR</td>
+<td>422</td>
+<td>Request validation failed</td>
+</tr>
+<tr>
+<td>TIMEOUT</td>
+<td>408</td>
+<td>Request timeout</td>
+</tr>
+<tr>
+<td>SERVER_ERROR</td>
+<td>500</td>
+<td>Internal server error</td>
+</tr>
+</tbody>
+</table>
+<h2 id="rate-limiting">Rate Limiting</h2>
+<p>The REST API includes rate limiting to prevent abuse:</p>
+<p><strong>Default Configuration</strong>:</p>
+<pre><code class="language-yaml">rate_limit:
+  enabled: true
+  requests_per_second: 10
+  burst: 100
+  algorithm: token_bucket
+</code></pre>
+<h3 id="rate-limit-headers">Rate Limit Headers</h3>
+<pre><code class="language-http">HTTP/1.1 429 Too Many Requests
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1648867200
+</code></pre>
+<h3 id="rate-limit-response">Rate Limit Response</h3>
+<pre><code class="language-json">{
+  &quot;error&quot;: {
+    &quot;code&quot;: &quot;RATE_LIMIT_EXCEEDED&quot;,
+    &quot;message&quot;: &quot;Rate limit exceeded. Please retry later.&quot;
+  }
+}
+</code></pre>
+<h2 id="cors-support">CORS Support</h2>
+<p>Configure CORS for cross-origin requests:</p>
+<pre><code class="language-yaml">mcp:
+  cors:
+    enabled: true
+    allowed_origins:
+      - &quot;http://localhost:3000&quot;
+      - &quot;https://yourdomain.com&quot;
+    allowed_methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+    allowed_headers:
+      - Content-Type
+      - Authorization
+    max_age: 3600
+</code></pre>
+<h2 id="webhooks">Webhooks</h2>
+<p>Configure webhooks for event notifications.</p>
+<h3 id="register-webhook">Register Webhook</h3>
+<pre><code class="language-http">POST /webhooks
+</code></pre>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;url&quot;: &quot;https://yourdomain.com/webhook&quot;,
+  &quot;events&quot;: [
+    &quot;api.request&quot;,
+    &quot;api.error&quot;
+  ],
+  &quot;secret&quot;: &quot;webhook-secret&quot;
+}
+</code></pre>
+<p><strong>Response</strong>:</p>
+<pre><code class="language-json">{
+  &quot;webhookId&quot;: &quot;wh_12345&quot;,
+  &quot;status&quot;: &quot;active&quot;
+}
+</code></pre>
+<h3 id="webhook-events">Webhook Events</h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>api.request</code></td>
+<td>API request made</td>
+</tr>
+<tr>
+<td><code>api.response</code></td>
+<td>API response received</td>
+</tr>
+<tr>
+<td><code>api.error</code></td>
+<td>API error occurred</td>
+</tr>
+<tr>
+<td><code>spec.loaded</code></td>
+<td>Specification loaded</td>
+</tr>
+<tr>
+<td><code>command.executed</code></td>
+<td>CLI command executed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="webhook-payload">Webhook Payload</h3>
+<pre><code class="language-json">{
+  &quot;event&quot;: &quot;api.request&quot;,
+  &quot;timestamp&quot;: &quot;2026-03-02T10:00:00Z&quot;,
+  &quot;data&quot;: {
+    &quot;method&quot;: &quot;GET&quot;,
+    &quot;path&quot;: &quot;/pet/1&quot;,
+    &quot;headers&quot;: {}
+  }
+}
+</code></pre>
+<h2 id="websocket-support">WebSocket Support</h2>
+<p>Real-time event streaming via WebSocket.</p>
+<h3 id="connect-to-websocket">Connect to WebSocket</h3>
+<pre><code class="language-javascript">const ws = new WebSocket('ws://localhost:8080/events');
+
+ws.onmessage = (event) =&gt; {
+  const data = JSON.parse(event.data);
+  console.log('Event:', data.event, data);
+};
+
+// Subscribe to events
+ws.send(JSON.stringify({
+  action: 'subscribe',
+  events: ['api.request', 'api.response']
+}));
+</code></pre>
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-validate-spec">Example 1: Validate Spec</h3>
+<pre><code class="language-bash"># Validate OpenAPI spec
+curl -X POST http://localhost:8080/spec/validate \
+  -H &quot;Content-Type: application/json&quot; \
+  -d @spec.json
+</code></pre>
+<h3 id="example-2-get-inventory">Example 2: Get Inventory</h3>
+<pre><code class="language-bash"># List API resources
+curl -X POST http://localhost:8080/commands/execute \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-API-Key: your-secret&quot; \
+  -d '{
+    &quot;command&quot;: &quot;inventory list&quot;,
+    &quot;args&quot;: [&quot;petstore.json&quot;],
+    &quot;options&quot;: {&quot;format&quot;: &quot;json&quot;}
+  }'
+</code></pre>
+<h3 id="example-3-make-api-request">Example 3: Make API Request</h3>
+<pre><code class="language-bash"># Make a single API request
+curl -X POST http://localhost:8080/api/request \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-API-Key: your-secret&quot; \
+  -d '{
+    &quot;method&quot;: &quot;GET&quot;,
+    &quot;path&quot;: &quot;/pet/1&quot;,
+    &quot;baseUrl&quot;: &quot;https://petstore.swagger.io/v2&quot;
+  }'
+</code></pre>
+<h3 id="example-4-batch-requests">Example 4: Batch Requests</h3>
+<pre><code class="language-bash"># Make multiple API requests
+curl -X POST http://localhost:8080/api/batch \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-API-Key: your-secret&quot; \
+  -d '{
+    &quot;requests&quot;: [
+      {&quot;method&quot;: &quot;GET&quot;, &quot;path&quot;: &quot;/pet/1&quot;},
+      {&quot;method&quot;: &quot;GET&quot;, &quot;path&quot;: &quot;/pet/2&quot;},
+      {&quot;method&quot;: &quot;GET&quot;, &quot;path&quot;: &quot;/pet/3&quot;}
+    ]
+  }'
+</code></pre>
+<h3 id="example-5-get-configuration">Example 5: Get Configuration</h3>
+<pre><code class="language-bash"># Get current configuration
+curl http://localhost:8080/config \
+  -H &quot;X-API-Key: your-secret&quot;
+</code></pre>
+<h3 id="example-6-update-configuration">Example 6: Update Configuration</h3>
+<pre><code class="language-bash"># Update timeout setting
+curl -X PUT http://localhost:8080/config \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-API-Key: your-secret&quot; \
+  -d '{&quot;http&quot;: {&quot;timeout&quot;: &quot;60s&quot;}}'
+</code></pre>
+<h3 id="example-7-health-check">Example 7: Health Check</h3>
+<pre><code class="language-bash"># Check service health
+curl http://localhost:8080/health
+</code></pre>
+<h3 id="example-8-clear-cache">Example 8: Clear Cache</h3>
+<pre><code class="language-bash"># Clear cache
+curl -X DELETE http://localhost:8080/cache \
+  -H &quot;X-API-Key: your-secret&quot;
+</code></pre>
+<h2 id="configuration">Configuration</h2>
+<h3 id="enable-rest-api">Enable REST API</h3>
+<pre><code class="language-yaml">mcp:
+  enabled: true
+  port: 8080
+  host: 0.0.0.0
+
+rest:
+  enabled: true
+  cors:
+    enabled: true
+  rate_limit:
+    enabled: true
+    requests_per_second: 10
+</code></pre>
+<h3 id="authentication-settings">Authentication Settings</h3>
+<pre><code class="language-yaml">auth:
+  type: apikey
+  apikey:
+    header: X-API-Key
+    value: ${API_KEY}
+</code></pre>
+<h2 id="security">Security</h2>
+<h3 id="recommendations">Recommendations</h3>
+<ol>
+<li><strong>Use HTTPS</strong> in production</li>
+<li><strong>Enable rate limiting</strong> to prevent abuse</li>
+<li><strong>Use strong secrets</strong> for API keys</li>
+<li><strong>Validate all inputs</strong> before processing</li>
+<li><strong>Log all requests</strong> for audit trails</li>
+<li><strong>Enable CORS</strong> only for trusted origins</li>
+</ol>
+<h3 id="best-practices">Best Practices</h3>
+<ul>
+<li>Store secrets in environment variables</li>
+<li>Use short-lived tokens</li>
+<li>Rotate credentials regularly</li>
+<li>Audit webhook endpoints</li>
+<li>Monitor for suspicious activity</li>
+</ul>
+<h2 id="testing">Testing</h2>
+<h3 id="manual-testing">Manual Testing</h3>
+<pre><code class="language-bash"># Health check
+curl http://localhost:8080/health
+
+# Validate spec
+curl -X POST http://localhost:8080/spec/validate -d @spec.json
+
+# Make request
+curl -X POST http://localhost:8080/commands/execute \
+  -d '{&quot;command&quot;: &quot;inventory list&quot;, &quot;args&quot;: [&quot;petstore.json&quot;]}'
+</code></pre>
+<h3 id="automated-testing-with-curl">Automated Testing with curl</h3>
+<pre><code class="language-bash">#!/bin/bash
+
+# Test suite
+echo &quot;Testing REST API...&quot;
+
+# Health check
+curl -f http://localhost:8080/health || exit 1
+
+# Validate spec
+curl -f -X POST http://localhost:8080/spec/validate \
+  -d @valid_spec.json || exit 1
+
+# Make request
+curl -f -X POST http://localhost:8080/commands/execute \
+  -H &quot;X-API-Key: $API_KEY&quot; \
+  -d '{&quot;command&quot;: &quot;version&quot;}' || exit 1
+
+echo &quot;All tests passed!&quot;
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="connection-refused">Connection Refused</h3>
+<p><strong>Issue</strong>: <code>curl: (7) Failed to connect to localhost port 8080</code></p>
+<p><strong>Solution</strong>: Ensure the REST API is enabled and running:</p>
+<pre><code class="language-bash">openapi-cli config set mcp.enabled true
+openapi-cli config set mcp.port 8080
+openapi-cli mcp-server
+</code></pre>
+<h3 id="authentication-failed">Authentication Failed</h3>
+<p><strong>Issue</strong>: <code>{"error":{"code":"AUTH_FAILED"}}</code></p>
+<p><strong>Solution</strong>: Verify your API key:</p>
+<pre><code class="language-bash"># Set API key
+export API_KEY=your-secret
+
+# Make request
+curl -H &quot;X-API-Key: $API_KEY&quot; http://localhost:8080/health
+</code></pre>
+<h3 id="rate-limit-exceeded">Rate Limit Exceeded</h3>
+<p><strong>Issue</strong>: <code>{"error":{"code":"RATE_LIMIT_EXCEEDED"}}</code></p>
+<p><strong>Solution</strong>: Wait and retry, or adjust rate limits:</p>
+<pre><code class="language-yaml">rate_limit:
+  requests_per_second: 20
+  burst: 200
+</code></pre>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="../guides/configuration.md">Configuration Guide</a> - API configuration</li>
+<li><a href="../guides/configuration.md#authentication-configuration">Authentication</a> - Auth setup</li>
+<li><a href="../guides/commands.md">Command Reference</a> - CLI commands</li>
+<li><a href="mcp-protocol.md">MCP Protocol</a> - Model Context Protocol</li>
+<li><a href="README.md">API Overview</a> - General API information</li>
+</ul>
+    </main>
+</body>
+</html>

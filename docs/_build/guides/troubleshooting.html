@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Troubleshooting Guide - Documentation</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        h1 { font-size: 2.5rem; border-bottom: 3px solid var(--primary-color); padding-bottom: 0.5rem; }
+        h2 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3rem; }
+        h3 { font-size: 1.5rem; }
+        
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background: var(--code-bg);
+        }
+        
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .nav {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html">← Documentation Home</a>
+    </nav>
+    <main>
+        <h1 id="troubleshooting-guide">Troubleshooting Guide</h1>
+<p>Common issues and solutions for OpenAPI CLI.</p>
+<h2 id="installation-issues">Installation Issues</h2>
+<h3 id="permission-denied-linuxmacos">Permission Denied (Linux/macOS)</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>bash: /usr/local/bin/openapi-cli: Permission denied
+</code></pre>
+<p><strong>Causes</strong>:
+- Binary is not executable
+- Insufficient permissions</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Fix permissions</strong>:
+   <code>bash
+   chmod +x /usr/local/bin/openapi-cli</code></p>
+</li>
+<li>
+<p><strong>Install to user directory</strong>:
+   <code>bash
+   mkdir -p ~/.local/bin
+   curl -L https://github.com/openapi-cli/openapi-cli/releases/latest/download/openapi-cli-linux-amd64 -o ~/.local/bin/openapi-cli
+   chmod +x ~/.local/bin/openapi-cli
+   export PATH="$HOME/.local/bin:$PATH"</code></p>
+</li>
+<li>
+<p><strong>Check file permissions</strong>:
+   <code>bash
+   ls -la /usr/local/bin/openapi-cli
+   # Should show: -rwxr-xr-x</code></p>
+</li>
+</ol>
+<h3 id="command-not-found">Command Not Found</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>command not found: openapi-cli
+</code></pre>
+<p><strong>Causes</strong>:
+- Binary not in PATH
+- Installation not complete
+- Shell not restarted</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Check installation location</strong>:
+   <code>bash
+   which openapi-cli || find /usr/local -name openapi-cli</code></p>
+</li>
+<li>
+<p><strong>Add to PATH</strong> (add to <code>~/.bashrc</code>, <code>~/.zshrc</code>, or <code>~/.profile</code>):
+   <code>bash
+   echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.bashrc
+   source ~/.bashrc</code></p>
+</li>
+<li>
+<p><strong>Verify PATH</strong>:
+   <code>bash
+   echo $PATH | grep -o '[^:]*bin'</code></p>
+</li>
+</ol>
+<h3 id="macos-gatekeeper-blocking">macOS Gatekeeper Blocking</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>&quot;openapi-cli&quot; can't be opened because Apple cannot check it for malicious software.
+</code></pre>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash"># Remove quarantine attribute
+xattr -d com.apple.quarantine /usr/local/bin/openapi-cli
+
+# Or allow the entire location
+sudo xattr -d -r com.apple.quarantine /usr/local/bin/
+</code></pre>
+<h3 id="windows-smartscreen-warning">Windows Smartscreen Warning</h3>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li>Click "More info"</li>
+<li>Click "Run anyway"</li>
+</ol>
+<p>Or use PowerShell:</p>
+<pre><code class="language-powershell">Unblock-File -Path C:\Path\To\openapi-cli.exe
+</code></pre>
+<h2 id="specification-issues">Specification Issues</h2>
+<h3 id="invalid-openapi-specification">Invalid OpenAPI Specification</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Invalid OpenAPI specification
+</code></pre>
+<p><strong>Causes</strong>:
+- Syntax errors in YAML/JSON
+- Missing required fields
+- Type mismatches
+- Invalid references</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Validate the specification</strong>:
+   <code>bash
+   openapi-cli spec validate --strict your-spec.yaml</code></p>
+</li>
+<li>
+<p><strong>Check common issues</strong>:</p>
+</li>
+<li>Indentation in YAML (use 2 spaces)</li>
+<li>Missing <code>openapi</code> or <code>swagger</code> version</li>
+<li>Invalid <code>$ref</code> references</li>
+<li>
+<p>Missing required fields</p>
+</li>
+<li>
+<p><strong>Use online validator</strong>:</p>
+</li>
+<li>https://validator.swagger.io/</li>
+<li>
+<p>https://apitools.dev/swagger-parser/online/</p>
+</li>
+<li>
+<p><strong>Example of valid specification</strong>:
+   <code>yaml
+   openapi: 3.0.3
+   info:
+     title: Sample API
+     version: 1.0.0
+   paths:
+     /pets:
+       get:
+         summary: List pets
+         responses:
+           '200':
+             description: Success</code></p>
+</li>
+</ol>
+<h3 id="specification-not-found">Specification Not Found</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Specification not found: openapi.yaml
+</code></pre>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Check file path</strong>:
+   <code>bash
+   ls -la openapi.yaml
+   # Use absolute path
+   openapi-cli --spec /full/path/to/openapi.yaml</code></p>
+</li>
+<li>
+<p><strong>Set spec in config</strong>:
+   <code>bash
+   openapi-cli config set spec.path ./api/openapi.yaml</code></p>
+</li>
+<li>
+<p><strong>Verify encoding</strong>:
+   <code>bash
+   file openapi.yaml
+   # Should show: ASCII text or UTF-8 Unicode text</code></p>
+</li>
+</ol>
+<h3 id="large-specification-slow-loading">Large Specification Slow Loading</h3>
+<p><strong>Cause</strong>: Large specifications (10MB+) can be slow to parse.</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Increase cache</strong>:
+   <code>yaml
+   cache:
+     enabled: true
+     max_size: 10GB</code></p>
+</li>
+<li>
+<p><strong>Split specification</strong>:
+   <code>bash
+   openapi-cli spec split openapi.yaml --output-dir ./specs</code></p>
+</li>
+<li>
+<p><strong>Generate CLI commands</strong>:
+   <code>bash
+   openapi-cli init openapi.yaml  # Pre-generates commands</code></p>
+</li>
+</ol>
+<h2 id="configuration-issues">Configuration Issues</h2>
+<h3 id="configuration-not-loading">Configuration Not Loading</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Configuration file not found
+</code></pre>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Check default locations</strong>:
+   <code>bash
+   # List config files found
+   openapi-cli config show --help</code></p>
+</li>
+<li>
+<p><strong>Specify config explicitly</strong>:
+   <code>bash
+   openapi-cli --config my-config.yaml</code></p>
+</li>
+<li>
+<p><strong>Validate configuration</strong>:
+   <code>bash
+   openapi-cli config validate</code></p>
+</li>
+</ol>
+<h3 id="environment-variables-not-working">Environment Variables Not Working</h3>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li><strong>Use correct format</strong> (section and key separated by <code>_</code>):
+   ```bash
+   # Correct
+   export MUSTER_SPEC_PATH=openapi.yaml
+   export MUSTER_HTTP_TIMEOUT=30s</li>
+</ol>
+<p># Incorrect (will be ignored)
+   export SPEC_PATH=openapi.yaml
+   ```</p>
+<ol>
+<li>
+<p><strong>Variable expansion in config</strong>:
+   <code>yaml
+   auth:
+     apikey:
+       value: ${API_KEY}  # Works</code></p>
+</li>
+<li>
+<p><strong>Verify values</strong>:
+   <code>bash
+   openapi-cli config show --resolved</code></p>
+</li>
+</ol>
+<h3 id="profile-not-found">Profile Not Found</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Profile 'production' not found
+</code></pre>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li>
+<p><strong>Check available profiles</strong>:
+   <code>bash
+   openapi-cli config show profiles</code></p>
+</li>
+<li>
+<p><strong>Define profile in config</strong>:
+   <code>yaml
+   profiles:
+     production:
+       spec:
+         base_url: https://api.prod.example.com</code></p>
+</li>
+<li>
+<p><strong>Set profile from environment</strong>:
+   <code>bash
+   export MUSTER_PROFILE=production</code></p>
+</li>
+</ol>
+<h2 id="httpapi-issues">HTTP/API Issues</h2>
+<h3 id="connection-timeout">Connection Timeout</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Request timeout after 30s
+</code></pre>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Increase timeout</strong>:
+   <code>bash
+   openapi-cli config set http.timeout 60s</code></p>
+</li>
+<li>
+<p><strong>Check network</strong>:
+   <code>bash
+   ping api.example.com
+   traceroute api.example.com</code></p>
+</li>
+<li>
+<p><strong>Test with curl</strong>:
+   <code>bash
+   curl -v https://api.example.com/v1/pets</code></p>
+</li>
+</ol>
+<h3 id="ssltls-errors">SSL/TLS Errors</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: x509: certificate signed by unknown authority
+</code></pre>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Verify SSL (most secure)</strong>:
+   <code>bash
+   openapi-cli config set http.verify_ssl true</code></p>
+</li>
+<li>
+<p><strong>Disable SSL verification (development only)</strong>:
+   <code>bash
+   openapi-cli config set http.verify_ssl false</code></p>
+</li>
+<li>
+<p><strong>Add custom CA</strong>:
+   <code>bash
+   export SSL_CERT_FILE=/path/to/ca.crt</code></p>
+</li>
+<li>
+<p><strong>Check certificate</strong>:
+   <code>bash
+   openssl s_client -connect api.example.com:443</code></p>
+</li>
+</ol>
+<h3 id="401-unauthorized">401 Unauthorized</h3>
+<p><strong>Cause</strong>: Missing or invalid authentication.</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Check authentication status</strong>:
+   <code>bash
+   openapi-cli auth status</code></p>
+</li>
+<li>
+<p><strong>Login</strong>:
+   <code>bash
+   openapi-cli auth login --provider google --client-id YOUR_ID</code></p>
+</li>
+<li>
+<p><strong>Set API key</strong>:
+   <code>bash
+   export API_KEY=your-secret-key
+   openapi-cli credentials store myapi --header X-API-Key</code></p>
+</li>
+<li>
+<p><strong>Test authentication</strong>:
+   <code>bash
+   openapi-cli config show auth</code></p>
+</li>
+</ol>
+<h3 id="429-too-many-requests">429 Too Many Requests</h3>
+<p><strong>Cause</strong>: Rate limiting by API provider.</p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Enable rate limiting</strong>:
+   <code>yaml
+   rate_limit:
+     enabled: true
+     requests_per_second: 10
+     burst: 100</code></p>
+</li>
+<li>
+<p><strong>Wait and retry</strong>:
+   <code>bash
+   openapi-cli config set http.max_retries 5
+   openapi-cli config set http.retry_delay 5s</code></p>
+</li>
+<li>
+<p><strong>Use exponential backoff</strong>:
+   <code>yaml
+   http:
+     retry_backoff: exponential</code></p>
+</li>
+</ol>
+<h3 id="500-server-error">500 Server Error</h3>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Retry request</strong>:
+   <code>bash
+   openapi-cli config set http.max_retries 3</code></p>
+</li>
+<li>
+<p><strong>Check API status</strong>:
+   <code>bash
+   openapi-cli health --endpoint https://api.example.com</code></p>
+</li>
+<li>
+<p><strong>Check API logs</strong> if available</p>
+</li>
+</ol>
+<h2 id="mcp-server-issues">MCP Server Issues</h2>
+<h3 id="mcp-server-not-starting">MCP Server Not Starting</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Failed to start MCP server
+</code></pre>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Check spec file</strong>:
+   <code>bash
+   openapi-cli spec validate openapi.yaml</code></p>
+</li>
+<li>
+<p><strong>Check port availability</strong>:
+   <code>bash
+   lsof -i :8080</code></p>
+</li>
+<li>
+<p><strong>Run with debug</strong>:
+   <code>bash
+   openapi-cli --debug mcp-server</code></p>
+</li>
+</ol>
+<h3 id="mcp-server-not-responding">MCP Server Not Responding</h3>
+<p><strong>Solution</strong>:</p>
+<p>Check in Claude Desktop or other MCP client configuration:</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;openapi-cli&quot;: {
+      &quot;command&quot;: &quot;openapi-cli&quot;,
+      &quot;args&quot;: [&quot;mcp-server&quot;, &quot;--spec&quot;, &quot;/full/path/to/openapi.yaml&quot;]
+    }
+  }
+}
+</code></pre>
+<p>Verify with:</p>
+<pre><code class="language-bash">echo '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;initialize&quot;,&quot;params&quot;:{},&quot;id&quot;:1}' | openapi-cli mcp-server
+</code></pre>
+<h2 id="wasm-issues">WASM Issues</h2>
+<h3 id="wasm-module-not-loading">WASM Module Not Loading</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Failed to load WASM module
+</code></pre>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Check WASM format</strong>:
+   <code>bash
+   file module.wasm
+   # Should show: WebAssembly (wasm) binary</code></p>
+</li>
+<li>
+<p><strong>Recompile with correct targets</strong>:
+   ```bash
+   # Go
+   GOARCH=wasm GOOS=js go build -o module.wasm main.go</p>
+</li>
+</ol>
+<p># Rust
+   rustc --target wasm32-unknown-unknown -O module.wasm
+   ```</p>
+<ol>
+<li><strong>Check WASM compatibility</strong>:
+   <code>bash
+   openapi-cli wasm validate module.wasm</code></li>
+</ol>
+<h3 id="out-of-memory">Out of Memory</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: WASM module out of memory
+</code></pre>
+<p><strong>Solution</strong>:</p>
+<p>Increase memory limit:</p>
+<pre><code class="language-bash">openapi-cli wasm run module.wasm --memory 512MB
+</code></pre>
+<p>Or set in config:</p>
+<pre><code class="language-yaml">wasm:
+  enabled: true
+  max_memory: 512MB
+</code></pre>
+<h3 id="wasm-timeout">WASM Timeout</h3>
+<p><strong>Solution</strong>:</p>
+<p>Increase timeout:</p>
+<pre><code class="language-bash">openapi-cli wasm run module.wasm --timeout 120s
+</code></pre>
+<h2 id="daemon-issues">Daemon Issues</h2>
+<h3 id="daemon-not-starting">Daemon Not Starting</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Failed to start daemon
+</code></pre>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Check PID file</strong>:
+   <code>bash
+   ls -la /var/run/openapi-cli.pid
+   cat /var/run/openapi-cli.pid</code></p>
+</li>
+<li>
+<p><strong>Check socket permissions</strong>:
+   <code>bash
+   ls -la /tmp/openapi-cli.sock
+   # Should show writable by current user</code></p>
+</li>
+<li>
+<p><strong>Check logs</strong>:
+   <code>bash
+   # Logs shown in stderr or log file
+   openapi-cli daemon status</code></p>
+</li>
+</ol>
+<h3 id="daemon-already-running">Daemon Already Running</h3>
+<p><strong>Error</strong>:</p>
+<pre><code>Error: Daemon already running (PID: 12345)
+</code></pre>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li>
+<p><strong>Stop existing daemon</strong>:
+   <code>bash
+   openapi-cli daemon stop</code></p>
+</li>
+<li>
+<p><strong>Force stop</strong>:
+   <code>bash
+   openapi-cli daemon stop --force</code></p>
+</li>
+<li>
+<p><strong>Kill manually</strong>:
+   <code>bash
+   kill $(cat /var/run/openapi-cli.pid)</code></p>
+</li>
+</ol>
+<h3 id="socket-connection-refused">Socket Connection Refused</h3>
+<p><strong>Solution</strong>:</p>
+<ol>
+<li>
+<p><strong>Check daemon status</strong>:
+   <code>bash
+   openapi-cli daemon status</code></p>
+</li>
+<li>
+<p><strong>Check socket path</strong>:
+   <code>bash
+   ls -la /tmp/openapi-cli.sock</code></p>
+</li>
+<li>
+<p><strong>Restart daemon</strong>:
+   <code>bash
+   openapi-cli daemon restart</code></p>
+</li>
+</ol>
+<h2 id="cache-issues">Cache Issues</h2>
+<h3 id="cache-not-working">Cache Not Working</h3>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>
+<p><strong>Check cache status</strong>:
+   <code>bash
+   openapi-cli cache stats</code></p>
+</li>
+<li>
+<p><strong>Clear cache</strong>:
+   <code>bash
+   openapi-cli cache clear</code></p>
+</li>
+<li>
+<p><strong>Check cache directory</strong>:
+   <code>bash
+   ls -la ~/.cache/openapi-cli</code></p>
+</li>
+</ol>
+<h2 id="logging-issues">Logging Issues</h2>
+<h3 id="no-debug-output">No Debug Output</h3>
+<p><strong>Solution</strong>:</p>
+<p>Enable debug mode:</p>
+<pre><code class="language-bash">openapi-cli --debug api request GET /pet/1
+</code></pre>
+<p>Or set log level:</p>
+<pre><code class="language-bash">export MUSTER_LOG_LEVEL=debug
+</code></pre>
+<h3 id="logs-not-written-to-file">Logs Not Written to File</h3>
+<p><strong>Solution</strong>:</p>
+<p>Configure log file:</p>
+<pre><code class="language-yaml">log:
+  level: debug
+  output: /var/log/openapi-cli.log
+</code></pre>
+<p>Check permissions:</p>
+<pre><code class="language-bash">ls -la /var/log/
+# Create log directory if needed
+sudo mkdir -p /var/log/
+sudo chmod 1777 /var/log/
+</code></pre>
+<h2 id="system-checkdiagnostics">System Check/Diagnostics</h2>
+<p>Run full system diagnostics:</p>
+<pre><code class="language-bash">openapi-cli doctor
+</code></pre>
+<p>This will check:
+- Installation and version
+- Configuration validity
+- File system permissions
+- Network connectivity
+- Dependency versions
+- TLS/SSL configuration</p>
+<h2 id="getting-more-help">Getting More Help</h2>
+<h3 id="verbose-debug-output">Verbose Debug Output</h3>
+<pre><code class="language-bash">openapi-cli --debug --trace api request GET /pet/1
+</code></pre>
+<h3 id="contact-support">Contact Support</h3>
+<ol>
+<li>Check <a href="https://github.com/openapi-cli/openapi-cli/issues">GitHub Issues</a></li>
+<li>Join <a href="https://github.com/openapi-cli/openapi-cli/discussions">GitHub Discussions</a></li>
+<li>Collect diagnostic info:</li>
+</ol>
+<p><code>bash
+   openapi-cli doctor &gt; diagnostics.txt
+   openapi-cli config show &gt; config.txt
+   cat diagnostics.txt config.txt &gt; support-request.txt</code></p>
+<h3 id="bug-reporting">Bug Reporting</h3>
+<p>When reporting bugs, include:</p>
+<ul>
+<li>OpenAPI CLI version (<code>openapi-cli --version</code>)</li>
+<li>Operating system and version</li>
+<li>Configuration (<code>openapi-cli config show</code>)</li>
+<li>Trace/Debug output with <code>--debug</code> flag</li>
+<li>Steps to reproduce the issue</li>
+</ul>
+<h2 id="common-gotchas">Common Gotchas</h2>
+<ol>
+<li><strong>YAML indentation</strong>: Always use 2 spaces, never tabs</li>
+<li><strong>Environment variables</strong>: Use <code>MUSTER_</code> prefix</li>
+<li><strong>File paths</strong>: Use absolute paths or ensure current directory is correct</li>
+<li><strong>Timeouts</strong>: May need to increase for slow APIs</li>
+<li><strong>Authentication</strong>: Always test auth before using in scripts</li>
+<li><strong>Caching</strong>: Clear cache if spec changes don't appear</li>
+</ol>
+<h2 id="platform-specific-issues">Platform-Specific Issues</h2>
+<h3 id="linux">Linux</h3>
+<p><strong>Library missing</strong>:</p>
+<pre><code class="language-bash"># Error: libssl.so.1.1: cannot open shared object file
+sudo apt-get install libssl1.1
+</code></pre>
+<h3 id="macos">macOS</h3>
+<p><strong>Xcode Command Line Tools needed</strong>:</p>
+<pre><code class="language-bash">xcode-select --install
+</code></pre>
+<h3 id="windows">Windows</h3>
+<p><strong>PowerShell execution policy</strong>:</p>
+<pre><code class="language-powershell">Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+</code></pre>
+    </main>
+</body>
+</html>

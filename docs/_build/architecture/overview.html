@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture Overview - Documentation</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        h1 { font-size: 2.5rem; border-bottom: 3px solid var(--primary-color); padding-bottom: 0.5rem; }
+        h2 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3rem; }
+        h3 { font-size: 1.5rem; }
+        
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background: var(--code-bg);
+        }
+        
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .nav {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html">← Documentation Home</a>
+    </nav>
+    <main>
+        <h1 id="architecture-overview">Architecture Overview</h1>
+<p>High-level system architecture and design principles for OpenAPI CLI.</p>
+<h2 id="system-overview">System Overview</h2>
+<p>OpenAPI CLI is a modular command-line tool that bridges OpenAPI specifications with CLI interactions, MCP server functionality, and extensible scripting.</p>
+<h3 id="core-components">Core Components</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                        CLI Frontend                         │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐│
+│  │   Cobra CLI   │ │  Interactive  │ │   Output Formatters  ││
+│  │   Framework   │ │   Prompts    │ │    (json/table)     ││
+│  └──────┬───────┘ └──────┬───────┘ └──────────┬───────────┘│
+│         │                  │                      │         │
+└─────────┼──────────────────┼──────────────────────┼─────────┘
+          │                  │                      │
+          ▼                  ▼                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Command Generator Layer                    │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐│
+│  │  OpenAPI     │ │   Request    │ │    Response          ││
+│  │   Parser     │ │    Builder   │ │     Handler          ││
+│  └──────┬───────┘ └──────┬───────┘ └──────────┬───────────┘│
+│         │                  │                      │         │
+└─────────┼──────────────────┼──────────────────────┼─────────┘
+          │                  │                      │
+          ▼                  ▼                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Business Logic Layer                    │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐│
+│  │   Inventory  │ │   Inventory  │ │    Cache             ││
+│  │   Manager    │ │   Discovery  │ │    Manager           ││
+│  └──────┬───────┘ └──────┬───────┘ └──────────┬───────────┘│
+└─────────┼──────────────────┼──────────────────────┼─────────┘
+          │                  │                      │
+          ▼                  ▼                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Service Layer                            │
+│  ┌──────────────┐ ┌──────────────────────────────────────┐ │
+│  │   HTTP       │ │         MCP Server                    │ │
+│  │   Client     │ │         (JSON-RPC)                    │ │
+│  └──────┬───────┘ └──────────────────────┬───────────────┘ │
+└─────────┼──────────────────────────────────┼────────────────┘
+          │                                  │
+          ▼                                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Platform Services                           │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
+│  │  WASM        │ │  Starlark    │ │  Daemon      │         │
+│  │  Runtime     │ │  DSL Engine  │ │  Controller  │         │
+│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘         │
+└─────────┼──────────────────┼──────────────────┼─────────────┘
+          │                  │                  │
+          ▼                  ▼                  ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Infrastructure                             │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
+│  │   Auth       │ │   Config     │ │   Logging    │         │
+│  │   Manager    │ │   Manager    │ │   &amp; Audit    │         │
+│  └──────────────┘ └──────────────┘ └──────────────┘         │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<h2 id="component-descriptions">Component Descriptions</h2>
+<h3 id="cli-frontend">CLI Frontend</h3>
+<p><strong>Cobra Framework</strong>: Provides the command-line structure, argument parsing, and built-in commands.</p>
+<p><strong>Interactive Prompts</strong>: <code>charmbracelet/bubbletea</code> for interactive CLI experiences with user-friendly prompts.</p>
+<p><strong>Output Formatters</strong>: Supports JSON, YAML, table, text output formats with color highlighting.</p>
+<h3 id="command-generator-layer">Command Generator Layer</h3>
+<p><strong>OpenAPI Parser</strong>: Uses <code>github.com/getkin/kin-openapi</code> to parse and validate OpenAPI 3.0/3.1 specifications.</p>
+<p><strong>Request Builder</strong>: Constructs HTTP requests from CLI arguments with parameter serialization and body formatting.</p>
+<p><strong>Response Handler</strong>: Processes and formats API responses with content-type detection and error handling.</p>
+<h3 id="business-logic-layer">Business Logic Layer</h3>
+<p><strong>Inventory Manager</strong>: Manages API endpoint discovery, caching, and retrieval with deduplication and validation.</p>
+<p><strong>Inventory Discovery</strong>: Dynamic endpoint discovery from OpenAPI specs with tag-based grouping and filtering.</p>
+<p><strong>Cache Manager</strong>: Multi-tier caching (memory, Redis) with TTL-based eviction and cache invalidation.</p>
+<h3 id="service-layer">Service Layer</h3>
+<p><strong>HTTP Client</strong>: Configurable HTTP client with retry logic, timeout handling, rate limiting, and connection pooling.</p>
+<p><strong>MCP Server</strong>: Model Context Protocol server over stdio with tool generation from OpenAPI specs and MCP 2024-11-05 compliance.</p>
+<h3 id="platform-services">Platform Services</h3>
+<p><strong>WASM Runtime</strong>: <code>tetratelabs/wazero</code> Go-native WebAssembly runtime with capability-based sandboxing.</p>
+<p><strong>Starlark DSL</strong>: <code>go.starlark.net</code> for embedded scripting with Go-Starlark value conversion and built-in functions.</p>
+<p><strong>Daemon Controller</strong>: Background process management with Unix sockets and graceful shutdown.</p>
+<h3 id="infrastructure">Infrastructure</h3>
+<p><strong>Auth Manager</strong>: OAuth2, mTLS, API key support with platform-native credential storage (keychain, Secret Service, Credential Manager).</p>
+<p><strong>Config Manager</strong>: Viper-based configuration with file, environment variable, and command-line flag support.</p>
+<p><strong>Logging</strong>: Structured logging (<code>uber-go/zap</code>) with configurable levels and output formats.</p>
+<h2 id="data-flow">Data Flow</h2>
+<h3 id="cli-request-flow">CLI Request Flow</h3>
+<pre><code>User Input
+    ↓
+CLI Frontend (Cobra)
+    ↓
+Command Generator
+    ↓
+Business Logic (Inventory)
+    ↓
+Service Layer (HTTP Client)
+    ↓
+API Response
+    ↓
+Response Handler
+    ↓
+Output Formatter
+    ↓
+User Output
+</code></pre>
+<h3 id="mcp-server-flow">MCP Server Flow</h3>
+<pre><code>MCP Client Request (stdio)
+    ↓
+JSON-RPC Parser
+    ↓
+Handler Registry (tools/list, tools/call)
+    ↓
+OpenAPI Spec Parser
+    ↓
+Tool Generation &amp; Execution
+    ↓
+API Request (HTTP Client)
+    ↓
+JSON-RPC Response
+    ↓
+MCP Client Response
+</code></pre>
+<h3 id="wasm-module-execution-flow">WASM Module Execution Flow</h3>
+<pre><code>Load .wasm File
+    ↓
+Validation &amp; Security Check
+    ↓
+Wazero Runtime Initialization
+    ↓
+Capability Check
+    ↓
+Module Execution (with limits)
+    ↓
+Resource Cleanup
+    ↓
+Result
+</code></pre>
+<h2 id="communication-layers">Communication Layers</h2>
+<h3 id="cli-to-api">CLI to API</h3>
+<pre><code>openapi-cli pet find-id --petId 1
+    ↓
+Command parsing
+    ↓
+OpenAPI spec lookup (/pet/{petId}, GET)
+    ↓
+Request building (GET https://api.example.com/v1/pet/1)
+    ↓
+HTTP request execution
+    ↓
+Response formatting
+    ↓
+Table/json output
+</code></pre>
+<h3 id="mcp-to-cli">MCP to CLI</h3>
+<pre><code>AI Assistant → MCP Client (JSON-RPC)
+    ↓
+MCP Server (stdio)
+    ↓
+/tools/list - Returns tool definitions from spec
+    ↓
+/tools/call - Executes API calls
+    ↓
+Returns JSON response with content
+</code></pre>
+<h2 id="security-architecture">Security Architecture</h2>
+<h3 id="authentication-flow">Authentication Flow</h3>
+<pre><code>Client Request
+    ↓
+Auth Token Validation
+    ↓
+Credential Storage Check (keychain/Secret Service)
+    ↓
+Token Refresh (if expired)
+    ↓
+Signed API Request
+    ↓
+API Response
+</code></pre>
+<h3 id="wasm-sandbox">WASM Sandbox</h3>
+<pre><code>WASM Module Load
+    ↓
+Capability Check (allowed domains, filesystem access)
+    ↓
+Resource Limits (memory, CPU, time)
+    ↓
+Execution in Sandbox
+    ↓
+Result Validation
+    ↓
+Response Return
+</code></pre>
+<h2 id="error-handling-strategy">Error Handling Strategy</h2>
+<h3 id="layered-error-handling">Layered Error Handling</h3>
+<ol>
+<li><strong>CLI Layer</strong>: User-facing error messages with exit codes</li>
+<li><strong>Business Logic</strong>: Contextual errors with retry logic</li>
+<li><strong>Service Layer</strong>: HTTP errors with status codes</li>
+<li><strong>Infrastructure</strong>: System errors with stack traces</li>
+</ol>
+<h3 id="error-propagation">Error Propagation</h3>
+<pre><code>Error Condition
+    ↓
+Error Wrapping (with context)
+    ↓
+Log Error (structured)
+    ↓
+User-Facing Message (if CLI)
+    ↓
+Appropriate Exit Code
+</code></pre>
+<h2 id="performance-characteristics">Performance Characteristics</h2>
+<h3 id="caching-strategy">Caching Strategy</h3>
+<ul>
+<li><strong>L1</strong>: Memory cache (LRU, 1000 items)</li>
+<li><strong>L2</strong>: Network cache (Redis optional)</li>
+<li><strong>TTL</strong>: 3600 seconds default</li>
+<li><strong>Invalidation</strong>: Manual or TTL-based</li>
+</ul>
+<h3 id="rate-limiting">Rate Limiting</h3>
+<ul>
+<li><strong>Algorithm</strong>: Token bucket</li>
+<li><strong>Default</strong>: 10 requests/second</li>
+<li><strong>Burst</strong>: 100 requests</li>
+<li><strong>Per-endpoint</strong>: Configurable</li>
+</ul>
+<h3 id="concurrency">Concurrency</h3>
+<ul>
+<li><strong>Max concurrent</strong>: 100 requests</li>
+<li><strong>Connection pooling</strong>: 10 connections per host</li>
+<li><strong>Timeouts</strong>: Default 30 seconds</li>
+</ul>
+<h2 id="extension-points">Extension Points</h2>
+<h3 id="custom-formatters">Custom Formatters</h3>
+<pre><code class="language-go">type Formatter interface {
+    Format(response []byte, contentType string) ([]byte, error)
+    Supports(contentType string) bool
+}
+</code></pre>
+<h3 id="custom-auth-providers">Custom Auth Providers</h3>
+<pre><code class="language-go">type AuthProvider interface {
+    Authenticate() (string, error)
+    Refresh() (string, error)
+    Validate(token string) bool
+}
+</code></pre>
+<h3 id="wasm-modules">WASM Modules</h3>
+<p>Load and execute custom WASM modules:</p>
+<pre><code class="language-bash">openapi-cli wasm run module.wasm --function process
+</code></pre>
+<h2 id="configuration-architecture">Configuration Architecture</h2>
+<h3 id="configuration-hierarchy">Configuration Hierarchy</h3>
+<ol>
+<li><strong>Defaults</strong>: Built-in default values</li>
+<li><strong>Global Config</strong>: <code>~/.config/openapi-cli/config.yaml</code></li>
+<li><strong>Project Config</strong>: <code>./openapi-cli.yaml</code></li>
+<li><strong>Environment Variables</strong>: <code>MUSTER_*</code></li>
+<li><strong>Command-line Flags</strong>: Override all</li>
+</ol>
+<h3 id="profile-support">Profile Support</h3>
+<pre><code class="language-yaml">profiles:
+  development:
+    base_url: https://dev.example.com
+    log_level: debug
+  production:
+    base_url: https://api.example.com
+    log_level: error
+</code></pre>
+<h2 id="trade-offs-and-design-decisions">Trade-offs and Design Decisions</h2>
+<h3 id="go-vs-rust">Go vs. Rust</h3>
+<p><strong>Decision</strong>: Go was chosen for the implementation due to:</p>
+<ul>
+<li><strong>Maturity</strong>: Strong ecosystem for CLI tools</li>
+<li><strong>Cross-platform</strong>: First-class support</li>
+<li><strong>Wazero</strong>: Pure Go WASM runtime (no CGO dependency)</li>
+<li><strong>Cobra</strong>: Battle-tested CLI framework</li>
+</ul>
+<h3 id="wasm-runtime-selection">WASM Runtime Selection</h3>
+<p><strong>Decision</strong>: <code>wazero</code> over <code>wasmer-go</code> due to:</p>
+<ul>
+<li><strong>Pure Go</strong>: No CGO requirement</li>
+<li><strong>Performance</strong>: Comparable performance</li>
+<li><strong>Simplicity</strong>: Easier embedding</li>
+</ul>
+<h3 id="starlark-for-dsl">Starlark for DSL</h3>
+<p><strong>Decision</strong>: Starlark (Python-like) due to:</p>
+<ul>
+<li><strong>Familiarity</strong>: Python-like syntax</li>
+<li><strong>Safety</strong>: Sandboxed by design</li>
+<li><strong>Integration</strong>: Good Go bindings</li>
+</ul>
+<h2 id="future-extensions">Future Extensions</h2>
+<h3 id="planned-features">Planned Features</h3>
+<ul>
+<li><strong>GraphQL Support</strong>: GraphQL spec parsing and CLI generation</li>
+<li><strong>Plugin System</strong>: Extensible command plugins</li>
+<li><strong>Web UI</strong>: Browser-based API testing interface</li>
+<li><strong>OpenTelemetry</strong>: Distributed tracing integration</li>
+</ul>
+<h3 id="api-versioning">API Versioning</h3>
+<p>MCP server will follow semver with protocol compatibility guarantees.</p>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://swagger.io/specification/">OpenAPI Specification</a></li>
+<li><a href="https://modelcontextprotocol.io/">MCP Protocol</a></li>
+<li><a href="https://wazero.io/">Wazero Documentation</a></li>
+<li><a href="https://github.com/spf13/cobra">Cobra Documentation</a></li>
+</ul>
+    </main>
+</body>
+</html>

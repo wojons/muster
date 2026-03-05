@@ -1,0 +1,12 @@
+openapi-cli (1.0.0) unstable; urgency=medium
+
+  * Initial release
+  * Dynamic command generation from OpenAPI specs
+  * MCP server protocol implementation
+  * WASM runtime and sandbox support
+  * OAuth2 and mTLS authentication
+  * Starlark DSL engine
+  * Daemon mode with socket proxy
+  * Cross-platform support
+
+ -- OpenAPI CLI Contributors <info@openapi-cli.io>  $(SOURCE_DATE_EPOCH)
