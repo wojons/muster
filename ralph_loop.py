@@ -266,7 +266,7 @@ class PhaseRunner:
         
         try:
             # Build command with optional model
-            cmd = ["opencode", "run"]
+            cmd = ["timeout", "1800", "opencode", "run"]
             if self.model:
                 cmd.extend(["--model", self.model])
             cmd.append(prompt)

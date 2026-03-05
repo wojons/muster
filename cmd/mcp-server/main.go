@@ -69,29 +69,44 @@ func handleFatal(err error) {
 
 var enableBinaryMode = func() {}
 
-func main() {
-	flag.Parse()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func setupSignalHandling() (context.Context, context.CancelFunc) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		<-sigChan
 		cancel()
 	}()
+
+	return ctx, cancel
+}
+
+func runMCPServer(config *MCPServerConfig, server *mcp.Server) error {
+	// If spec is provided, load and register tools
+	if config.SpecPath != "" {
+		if err := loadAndRegisterTools(server, config); err != nil {
+			return fmt.Errorf("failed to load spec: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func main() {
+	flag.Parse()
+
+	ctx, cancel := setupSignalHandling()
+	defer cancel()
 
 	config := loadConfig()
 	stdin, stdout, stderr := setupStdio()
 
 	server := mcp.NewServer(stdin, stdout, stderr)
 
-	// If spec is provided, load and register tools
-	if config.SpecPath != "" {
-		if err := loadAndRegisterTools(server, config); err != nil {
-			handleFatal(fmt.Errorf("failed to load spec: %w", err))
-		}
+	// Set up server
+	if err := runMCPServer(config, server); err != nil {
+		handleFatal(err)
 	}
 
 	if err := server.Run(ctx); err != nil && err != context.Canceled {

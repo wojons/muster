@@ -300,7 +300,8 @@ func (k *FileKeychain) getMasterKeyFromWindowsKeychain() ([]byte, error) {
 }
 
 func (k *FileKeychain) getMasterKeyFromFile() ([]byte, error) {
-	// Fallback: generate and store a master key in a protected location
+	// CRITICAL FIX: Encrypt master key before storing to prevent credential theft if file is accessed
+	// Use a system-specific encryption key derived from hardware/user-specific data
 	masterKeyFile := filepath.Join(k.basePath, ".master-key")
 
 	if err := os.MkdirAll(k.basePath, 0700); err != nil {
@@ -309,12 +310,13 @@ func (k *FileKeychain) getMasterKeyFromFile() ([]byte, error) {
 
 	keyData, err := os.ReadFile(masterKeyFile)
 	if err == nil {
-		// Master key exists, decode and return
-		key, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(keyData)))
+		// Master key exists, decrypt and return using system-specific encryption key
+		systemKey := k.deriveSystemEncryptionKey()
+		decrypted, err := k.decrypt(string(keyData), systemKey)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("decrypt master key: %w", err)
 		}
-		return key, nil
+		return []byte(decrypted), nil
 	}
 
 	// Generate new master key
@@ -323,13 +325,37 @@ func (k *FileKeychain) getMasterKeyFromFile() ([]byte, error) {
 		return nil, fmt.Errorf("generate master key: %w", err)
 	}
 
-	// Store with secure permissions
-	encodedKey := base64.StdEncoding.EncodeToString(newKey)
-	if err := os.WriteFile(masterKeyFile, []byte(encodedKey), 0600); err != nil {
+	// Encrypt with system-specific key before storing
+	systemKey := k.deriveSystemEncryptionKey()
+	encrypted, err := k.encrypt(newKey, systemKey)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt master key: %w", err)
+	}
+
+	// Store encrypted key with secure permissions
+	if err := os.WriteFile(masterKeyFile, []byte(encrypted), 0600); err != nil {
 		return nil, fmt.Errorf("store master key: %w", err)
 	}
 
 	return newKey, nil
+}
+
+// deriveSystemEncryptionKey creates a system-specific encryption key from machine-specific data
+func (k *FileKeychain) deriveSystemEncryptionKey() []byte {
+	// Create a system-specific key from OS, architecture, and machine-id if available
+	systemData := runtime.GOOS + "-" + runtime.GOARCH
+
+	// Try to read machine-id for Linux systems for better uniqueness
+	if runtime.GOOS == "linux" {
+		if id, err := os.ReadFile("/etc/machine-id"); err == nil {
+			systemData += string(id)
+		}
+	}
+
+	// Derive a stable encryption key from system data
+	h := sha256.New()
+	h.Write([]byte(systemData))
+	return h.Sum(nil)
 }
 
 func (k *FileKeychain) encrypt(plaintext, key []byte) (string, error) {
@@ -383,6 +409,22 @@ func (k *FileKeychain) decrypt(ciphertext string, key []byte) (string, error) {
 }
 
 func sanitizeFilename(name string) string {
+	// CRITICAL FIX: Reject malicious patterns instead of converting to prevent path traversal attacks
+	// Check for path traversal attempts and dangerous characters
+
+	// If contains "..", replace entire string with safe placeholder
+	if strings.Contains(name, "..") {
+		return "path_traversal_rejected"
+	}
+
+	// Check for other dangerous characters
+	for _, c := range name {
+		if c == '/' || c == '\\' || c == '\x00' {
+			return "dangerous_chars_rejected"
+		}
+	}
+
+	// Original sanitization for remaining characters
 	b := make([]byte, len(name))
 	for i, c := range name {
 		if ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '-' || c == '_' {

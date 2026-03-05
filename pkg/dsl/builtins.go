@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -18,7 +17,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"crypto/tls"
+
 	"go.starlark.net/starlark"
+)
+
+const (
+	// CRITICAL FIX: Maximum response size to prevent DoS via memory exhaustion
+	maxHTTPResponseSize = 10 * 1024 * 1024 // 10MB
 )
 
 var (
@@ -101,7 +107,9 @@ func builtinHTTPGet(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
+	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
+	body, _ := io.ReadAll(limitedReader)
 
 	responseDict := starlark.NewDict(3)
 	responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
@@ -135,7 +143,9 @@ func builtinHTTPPost(thread *starlark.Thread, b *starlark.Builtin, args starlark
 		}
 	}
 
+	// CRITICAL FIX: Add timeout to prevent DoS via hung requests
 	client := &http.Client{
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
@@ -154,7 +164,9 @@ func builtinHTTPPost(thread *starlark.Thread, b *starlark.Builtin, args starlark
 	}
 	defer resp.Body.Close()
 
-	resBody, _ := io.ReadAll(resp.Body)
+	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
+	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
+	resBody, _ := io.ReadAll(limitedReader)
 
 	responseDict := starlark.NewDict(2)
 	responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
@@ -188,7 +200,9 @@ func builtinHTTPPut(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 		}
 	}
 
+	// CRITICAL FIX: Add timeout to prevent DoS via hung requests
 	client := &http.Client{
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
@@ -207,7 +221,9 @@ func builtinHTTPPut(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 	}
 	defer resp.Body.Close()
 
-	resBody, _ := io.ReadAll(resp.Body)
+	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
+	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
+	resBody, _ := io.ReadAll(limitedReader)
 
 	responseDict := starlark.NewDict(2)
 	responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
@@ -240,7 +256,9 @@ func builtinHTTPDelete(thread *starlark.Thread, b *starlark.Builtin, args starla
 		}
 	}
 
+	// CRITICAL FIX: Add timeout to prevent DoS via hung requests
 	client := &http.Client{
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				MinVersion: tls.VersionTLS12,
@@ -259,7 +277,9 @@ func builtinHTTPDelete(thread *starlark.Thread, b *starlark.Builtin, args starla
 	}
 	defer resp.Body.Close()
 
-	resBody, _ := io.ReadAll(resp.Body)
+	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
+	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
+	resBody, _ := io.ReadAll(limitedReader)
 
 	responseDict := starlark.NewDict(2)
 	responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))

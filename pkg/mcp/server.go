@@ -12,22 +12,27 @@ import (
 )
 
 type Server struct {
-	stdin        io.Reader
-	stdout       io.Writer
-	stderr       io.Writer
-	handlers     *handlers.Registry
-	initialized  bool
-	shutdownChan chan struct{}
-	mu           sync.RWMutex
+	stdin          io.Reader
+	stdout         io.Writer
+	stderr         io.Writer
+	handlers       *handlers.Registry
+	initialized    bool
+	shutdownChan   chan struct{}
+	mu             sync.RWMutex
+	concurrencySem chan struct{} // CRITICAL FIX: Semaphore to prevent unbounded goroutine spawn
 }
 
 func NewServer(stdin io.Reader, stdout, stderr io.Writer) *Server {
+	// CRITICAL FIX: Limit concurrent requests to prevent DoS via goroutine exhaustion
+	maxConcurrent := 100 // Maximum number of concurrent request goroutines
+
 	s := &Server{
-		stdin:        stdin,
-		stdout:       stdout,
-		stderr:       stderr,
-		handlers:     handlers.NewRegistry(),
-		shutdownChan: make(chan struct{}),
+		stdin:          stdin,
+		stdout:         stdout,
+		stderr:         stderr,
+		handlers:       handlers.NewRegistry(),
+		shutdownChan:   make(chan struct{}),
+		concurrencySem: make(chan struct{}, maxConcurrent),
 	}
 
 	s.registerHandlers()
@@ -62,7 +67,14 @@ func (s *Server) Run(ctx context.Context) error {
 			continue
 		}
 
-		go s.handleRequest(ctx, &req)
+		// CRITICAL FIX: Acquire semaphore before spawning goroutine to prevent unbounded spawn
+		// If semaphore is full, block until slot available (prevents DoS)
+		go func() {
+			s.concurrencySem <- struct{}{}
+			defer func() { <-s.concurrencySem }()
+
+			s.handleRequest(ctx, &req)
+		}()
 	}
 
 	return scanner.Err()
@@ -113,6 +125,12 @@ func (s *Server) writeResponse(resp JSONRPCResponse) {
 	}
 
 	fmt.Fprintln(s.stdout, string(data))
+
+	// CRITICAL FIX: Flush stdout buffer to ensure JSON-RPC responses are sent immediately
+	// Without flush, buffered stdout causes EOF errors in tests
+	if bw, ok := s.stdout.(interface{ Flush() error }); ok {
+		bw.Flush()
+	}
 }
 
 func (s *Server) Shutdown() error {

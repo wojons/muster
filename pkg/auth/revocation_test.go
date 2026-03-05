@@ -177,8 +177,15 @@ func TestHashKey(t *testing.T) {
 	key := "test-key"
 	hashed := hashKey(key)
 
-	if hashed != key {
-		t.Errorf("hashKey() = %v, want %v", hashed, key)
+	// hashKey() should produce a SHA256 hash, not the original key
+	// Check that it's a 64-character hex string (SHA256 output)
+	if len(hashed) != 64 {
+		t.Errorf("hashKey() = %v, expected 64-character hash", hashed)
+	}
+
+	// Verify it's not equal to the original key (hashing should change it)
+	if hashed == key {
+		t.Errorf("hashKey() returned original key instead of hashing it")
 	}
 }
 

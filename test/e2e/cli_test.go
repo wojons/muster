@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -510,10 +511,10 @@ func TestCLI_ErrorHandling(t *testing.T) {
 }
 
 func TestCLI_Timeout(t *testing.T) {
-	delayReceived := false
+	var delayReceived int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
-		delayReceived = true
+		atomic.AddInt32(&delayReceived, 1)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -525,5 +526,5 @@ func TestCLI_Timeout(t *testing.T) {
 	_, err := cmd.CombinedOutput()
 
 	require.Error(t, err)
-	assert.False(t, delayReceived, "Request should have timed out before completing")
+	assert.Equal(t, int32(0), atomic.LoadInt32(&delayReceived), "Request should have timed out before completing")
 }
