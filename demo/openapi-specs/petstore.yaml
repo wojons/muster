@@ -1,0 +1,238 @@
+openapi: 3.0.0
+info:
+  title: Pet Store API
+  description: A simple API for managing pets
+  version: 1.0.0
+  contact:
+    name: Demo API
+    email: demo@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.example.com/v1
+    description: Production server
+
+paths:
+  /pets:
+    get:
+      summary: List all pets
+      operationId: listPets
+      tags:
+        - pets
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of pets to return
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          description: Number of pets to skip
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: A list of pets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pet'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      summary: Create a new pet
+      operationId: createPet
+      tags:
+        - pets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetInput'
+      responses:
+        '201':
+          description: Pet created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /pets/{petId}:
+    get:
+      summary: Get a specific pet
+      operationId: getPet
+      tags:
+        - pets
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          description: ID of the pet to retrieve
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pet details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '404':
+          description: Pet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      summary: Update a pet
+      operationId: updatePet
+      tags:
+        - pets
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          description: ID of the pet to update
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetInput'
+      responses:
+        '200':
+          description: Pet updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '404':
+          description: Pet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      summary: Delete a pet
+      operationId: deletePet
+      tags:
+        - pets
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          description: ID of the pet to delete
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Pet deleted successfully
+        '404':
+          description: Pet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the pet
+        name:
+          type: string
+          description: Name of the pet
+        species:
+          type: string
+          description: Species of the pet
+          enum:
+            - dog
+            - cat
+            - bird
+            - fish
+        age:
+          type: integer
+          description: Age of the pet in years
+          minimum: 0
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags for categorizing the pet
+        created_at:
+          type: string
+          format: date-time
+          description: When the pet was added
+    
+    PetInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the pet
+        species:
+          type: string
+          description: Species of the pet
+          enum:
+            - dog
+            - cat
+            - bird
+            - fish
+        age:
+          type: integer
+          description: Age of the pet in years
+          minimum: 0
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags for categorizing the pet
+    
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: integer
+          description: HTTP status code

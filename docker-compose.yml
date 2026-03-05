@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-1.0.0}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: openapi-cli:latest
+    container_name: openapi-cli
+    volumes:
+      - ~/.config/openapi-cli:/home/nonroot/.config/openapi-cli
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - OPENAPICLI_LOG_LEVEL=info
+      - OPENAPICLI_CONFIG_PATH=/home/nonroot/.config/openapi-cli
+    command: ["version"]
+
+  cli-daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-1.0.0}
+    image: openapi-cli:latest
+    container_name: openapi-cli-daemon
+    ports:
+      - "8080:8080"
+    volumes:
+      - ~/.config/openapi-cli:/home/nonroot/.config/openapi-cli
+    environment:
+      - OPENAPICLI_MODE=daemon
+      - OPENAPICLI_DAEMON_SOCKET=0.0.0.0:8080
+    command: ["daemon", "start"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/openapi-cli", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-1.0.0}
+    image: openapi-cli:latest
+    container_name: openapi-mcp-server
+    entrypoint: ["/usr/local/bin/openapi-mcp"]
+    command: ["--help"]
+    volumes:
+      - ~/.config/openapi-cli:/home/nonroot/.config/openapi-cli
+    environment:
+      - OPENAPICLI_LOG_LEVEL=debug
+    restart: unless-stopped

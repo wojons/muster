@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openapi-cli
+  namespace: openapi-cli
+  labels:
+    app.kubernetes.io/name: openapi-cli
+    app.kubernetes.io/component: networkpolicy
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openapi-cli
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from any source
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openapi-cli
+    - from:
+        {}
+  egress:
+    # Allow all egress traffic
+    - {}

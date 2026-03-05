@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quickstart Guide - Documentation</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        h1 { font-size: 2.5rem; border-bottom: 3px solid var(--primary-color); padding-bottom: 0.5rem; }
+        h2 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3rem; }
+        h3 { font-size: 1.5rem; }
+        
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background: var(--code-bg);
+        }
+        
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .nav {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html">← Documentation Home</a>
+    </nav>
+    <main>
+        <h1 id="quickstart-guide">Quickstart Guide</h1>
+<p>Get up and running with OpenAPI CLI in 5 minutes.</p>
+<h2 id="what-youll-learn">What You'll Learn</h2>
+<p>This quickstart will show you how to:
+1. Verify your installation
+2. Load an OpenAPI specification<br />
+3. Generate CLI commands automatically
+4. Make your first API request
+5. Run as an MCP server</p>
+<h2 id="step-1-verify-installation">Step 1: Verify Installation</h2>
+<pre><code class="language-bash">openapi-cli --version
+# Expected: openapi-cli 1.0.0
+
+openapi-cli doctor
+# Runs system checks and confirms all components are working
+</code></pre>
+<h2 id="step-2-load-an-openapi-specification">Step 2: Load an OpenAPI Specification</h2>
+<p>Download our example PetStore spec or use your own:</p>
+<pre><code class="language-bash"># Save example spec
+curl -L https://raw.githubusercontent.com/swagger-api/swagger-petstore/master/openapi.json -o petstore.json
+
+# Verify spec loads
+openapi-cli spec validate petstore.json
+# ✓ Specification is valid
+</code></pre>
+<p><strong>What's happening</strong>: OpenAPI CLI parses and validates the OpenAPI specification, ensuring it's compliant with the specification.</p>
+<h2 id="step-3-list-available-api-resources">Step 3: List Available API Resources</h2>
+<pre><code class="language-bash">openapi-cli inventory list petstore.json
+
+Available Resources:
+  /pet                              [POST] Add a new pet
+  /pet/{petId}                      [GET]    Find pet by ID
+  /pet/findByStatus                [GET]    Finds pets by status
+  /pet/{petId}                      [DELETE] Delete pet
+  /store/inventory                 [GET]    Returns pet inventories
+  /store/order/{orderId}           [GET]    Find purchase order
+  /user                             [POST]   Create user
+  /user/{username}                 [GET]    Get user by username
+  ...
+</code></pre>
+<p><strong>What's happening</strong>: The tool parses the OpenAPI specification and lists all available endpoints with their HTTP methods.</p>
+<h2 id="step-4-generate-cli-commands">Step 4: Generate CLI Commands</h2>
+<p>OpenAPI CLI automatically generates CLI commands from your API specification:</p>
+<pre><code class="language-bash"># Initialize CLI with spec
+openapi-cli init petstore.json
+
+# See generated commands
+openapi-cli --help
+# Available Commands:
+#   pet       Pet operations
+#   store     Store operations
+#   user      User operations
+
+# Explore pet commands
+openapi-cli pet --help
+# Available Commands:
+#   add         Add a new pet to the store
+#   find-id     Find pet by ID
+#   find-status Find pets by status
+#   update      Update an existing pet
+#   delete      Delete a pet
+</code></pre>
+<p><strong>What's happening</strong>: OpenAPI CLI dynamically generates CLI commands that mirror the structure of your API, making it intuitive to interact with.</p>
+<h2 id="step-5-make-your-first-api-request">Step 5: Make Your First API Request</h2>
+<pre><code class="language-bash"># Find a pet by ID
+openapi-cli pet find-id --petId 1
+
+# Response:
+# {
+#   &quot;id&quot;: 1,
+#   &quot;name&quot;: &quot;Fluffy&quot;,
+#   &quot;status&quot;: &quot;available&quot;,
+#   &quot;category&quot;: {
+#     &quot;id&quot;: 0,
+#     &quot;name&quot;: &quot;string&quot;
+#   },
+#   &quot;tags&quot;: [
+#     {
+#       &quot;id&quot;: 0,
+#   ...
+}
+
+# Find pets by status
+openapi-cli pet find-status --status available
+
+# Add a new pet
+openapi-cli pet add --name Fluffy --status available --category.name Dog
+
+# Get formatted output
+openapi-cli pet find-id --petId 1 --format table
+# ID  Name    Status     Category
+# --  ----    ------     --------
+# 1   Fluffy  available  Dog
+</code></pre>
+<p><strong>What's happening</strong>: Commands automatically build requests, handle parameters, format responses, and display results in your preferred format.</p>
+<h2 id="step-6-run-as-mcp-server">Step 6: Run as MCP Server</h2>
+<p>For AI assistant integration, run as MCP server:</p>
+<pre><code class="language-bash">openapi-cli mcp-server
+
+# This starts the MCP server over stdio for protocol communication
+# The server will:
+# - List all available tools (API endpoints)
+# - Execute tool calls (API requests)
+# - Handle resource access
+</code></pre>
+<p><strong>Integration Example</strong>:</p>
+<pre><code class="language-javascript">// Claude Desktop configuration: ~/Library/Application Support/Claude/claude_desktop_config.json
+{
+  &quot;mcpServers&quot;: {
+    &quot;openapi-cli&quot;: {
+      &quot;command&quot;: &quot;openapi-cli&quot;,
+      &quot;args&quot;: [&quot;mcp-server&quot;, &quot;--spec&quot;, &quot;/path/to/petstore.json&quot;]
+    }
+  }
+}
+</code></pre>
+<h2 id="step-7-generate-api-documentation">Step 7: Generate API Documentation</h2>
+<pre><code class="language-bash"># Generate comprehensive documentation from spec
+openapi-cli docs generate petstore.json --output ./docs
+
+# Output includes:
+# docs/index.html            # Full documentation
+# docs/api/                  # API reference
+# docs/schemas/              # Data models
+</code></pre>
+<p>Open <code>docs/index.html</code> in your browser to explore interactive API documentation with Swagger UI.</p>
+<h2 id="common-workflows">Common Workflows</h2>
+<h3 id="interactive-prompt-mode">Interactive Prompt Mode</h3>
+<pre><code class="language-bash">openapi-cli interactive
+
+# You'll enter an interactive shell:
+&gt; pet find-id --petId 1
+&gt; store inventory --format table
+&gt; user create --username testuser --email test@example.com
+&gt; exit
+</code></pre>
+<h3 id="use-custom-configurations">Use Custom Configurations</h3>
+<pre><code class="language-bash">openapi-cli config set base-url https://petstore.swagger.io/v2
+openapi-cli config set timeout 30
+openapi-cli config set output-format json
+
+# Check configuration
+openapi-cli config show
+</code></pre>
+<h3 id="build-automation-with-starlark">Build Automation with Starlark</h3>
+<pre><code class="language-bash"># Create a script file: api-test.star
+#!/usr/bin/env openapi-cli dsl
+
+# Find pet
+pet = api.pet.find_id(pet_id=1)
+print(f&quot;Found pet: {pet['name']}&quot;)
+
+# Update pet
+pet['status'] = 'sold'
+api.pet.update(id=1, body=pet)
+
+# Run script
+openapi-cli dsl run api-test.star --spec petstore.json
+</code></pre>
+<h3 id="run-as-daemon-with-socket">Run as Daemon with Socket</h3>
+<pre><code class="language-bash"># Start daemon
+openapi-cli daemon start --socket /tmp/openapi-cli.sock
+
+# Use Unix socket proxy
+curl --unix-socket /tmp/openapi-cli.sock http://localhost/pet/find-id?petId=1
+
+# Stop daemon
+openapi-cli daemon stop
+</code></pre>
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li><a href="configuration.md">Configuration Guide</a> - Customize your setup</li>
+<li><a href="commands.md">Command Reference</a> - Explore all commands</li>
+<li><a href="../api/README.md">API Documentation</a> - Complete API reference</li>
+<li><a href="../guides/starlark-dsl.md">Starlark DSL Guide</a> - Advanced scripting</li>
+</ul>
+<h2 id="common-questions">Common Questions</h2>
+<p><strong>Q: Can I use multiple specs at once?</strong></p>
+<p>A: Yes! Use the <code>--spec</code> flag or load from a working directory:</p>
+<pre><code class="language-bash">openapi-cli pet add --spec ./specs/petstore.json --name Fluffy
+openapi-cli user get --spec ./specs/users.json --username testuser
+</code></pre>
+<p><strong>Q: How do I handle authentication?</strong></p>
+<p>A: Configure auth settings:</p>
+<pre><code class="language-bash"># API Key
+openapi-cli config set auth.apikey.header X-API-Key
+openapi-cli config set auth.apikey.value my-secret-key
+
+# OAuth2
+openapi-cli auth login --provider google --client-id YOUR_CLIENT_ID
+
+# mTLS
+openapi-cli auth mtls setup --cert client.crt --key client.key
+</code></pre>
+<p><strong>Q: Can I save common commands as aliases?</strong></p>
+<p>A: Yes, create aliases in your config:</p>
+<pre><code class="language-yaml">aliases:
+  get-pet: pet find-id --petId 1
+  all-pets: pet find-status --status available
+  create-order: store order
+</code></pre>
+<h2 id="need-help">Need Help?</h2>
+<ul>
+<li>Run <code>openapi-cli --help</code> or <code>openapi-cli &lt;command&gt; --help</code></li>
+<li>Check the <a href="../README.md">Guides Index</a> for more tutorials</li>
+<li>Visit <a href="https://github.com/openapi-cli/openapi-cli/discussions">GitHub Discussions</a></li>
+</ul>
+    </main>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# Simple Greeting Module
+# This is a placeholder description - actual WASM compilation requires WAT/assembly
+
+# Simulated functionality:
+# - Takes a name string as input
+# - Returns "Hello, {name}!" as output
+# - Demonstrates basic WASM module loading
+
+# Note: For actual WASM modules, compile with:
+# wat2wasm hello.wat -o hello.wasm

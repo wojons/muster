@@ -1,0 +1,164 @@
+package cmdstore
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+)
+
+// CommandMetadata represents persistable command information
+type CommandMetadata struct {
+	Name        string         `json:"name"`
+	Use         string         `json:"use"`
+	Short       string         `json:"short"`
+	Long        string         `json:"long,omitempty"`
+	Example     string         `json:"example,omitempty"`
+	Path        string         `json:"path"`   // OpenAPI path (e.g., "/pets")
+	Method      string         `json:"method"` // HTTP method
+	Flags       []FlagMetadata `json:"flags,omitempty"`
+	GeneratedAt time.Time      `json:"generated_at"`
+	SpecHash    string         `json:"spec_hash"`
+	Args        []string       `json:"args,omitempty"` // Path parameter names
+	BaseURL     string         `json:"base_url"`       // API base URL
+}
+
+// FlagMetadata represents persistable flag information
+type FlagMetadata struct {
+	Name        string `json:"name"`
+	Shorthand   string `json:"shorthand,omitempty"`
+	Type        string `json:"type"` // string, int, bool, etc.
+	Default     string `json:"default,omitempty"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required"`
+}
+
+// CommandStore manages persistent storage for generated commands
+type CommandStore struct {
+	dataPath string
+	data     *StoredData
+	mu       sync.RWMutex
+}
+
+// StoredData represents the stored command data structure
+type StoredData struct {
+	Version     string            `json:"version"`
+	SpecPath    string            `json:"spec_path"`
+	SpecHash    string            `json:"spec_hash"`
+	BaseURL     string            `json:"base_url"`
+	GeneratedAt time.Time         `json:"generated_at"`
+	Commands    []CommandMetadata `json:"commands"`
+}
+
+// NewCommandStore creates a new command store
+func NewCommandStore(dataPath string) *CommandStore {
+	return &CommandStore{
+		dataPath: dataPath,
+	}
+}
+
+// Save saves command metadata to persistent storage
+func (s *CommandStore) Save(metadata *StoredData) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(s.dataPath), 0755); err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+
+	s.data = metadata
+
+	data, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal metadata: %w", err)
+	}
+
+	if err := os.WriteFile(s.dataPath, data, 0644); err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+
+	return nil
+}
+
+// Load loads command metadata from persistent storage
+func (s *CommandStore) Load() (*StoredData, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.data != nil {
+		return s.data, nil
+	}
+
+	data, err := os.ReadFile(s.dataPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil // Not an error, just no data
+		}
+		return nil, fmt.Errorf("read file: %w", err)
+	}
+
+	var metadata StoredData
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("unmarshal metadata: %w", err)
+	}
+
+	s.data = &metadata
+	return s.data, nil
+}
+
+// Clear removes all stored data
+func (s *CommandStore) Clear() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.data = nil
+	if err := os.Remove(s.dataPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove file: %w", err)
+	}
+	return nil
+}
+
+// HasData checks if there is stored data
+func (s *CommandStore) HasData() bool {
+	meta, err := s.Load()
+	if err != nil {
+		return false
+	}
+	return meta != nil && len(meta.Commands) > 0
+}
+
+// Commands returns the list of stored commands
+func (s *CommandStore) Commands() ([]CommandMetadata, error) {
+	meta, err := s.Load()
+	if err != nil {
+		return nil, err
+	}
+	if meta == nil {
+		return []CommandMetadata{}, nil
+	}
+	return meta.Commands, nil
+}
+
+// UpdateBaseURL updates the base URL in stored metadata
+func (s *CommandStore) UpdateBaseURL(baseURL string) error {
+	meta, err := s.Load()
+	if err != nil {
+		return err
+	}
+	if meta == nil {
+		return fmt.Errorf("no stored data")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	meta.BaseURL = baseURL
+	for i := range meta.Commands {
+		meta.Commands[i].BaseURL = baseURL
+	}
+
+	return s.Save(meta)
+}

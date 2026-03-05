@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: openapi-cli
+  namespace: openapi-cli
+  labels:
+    app.kubernetes.io/name: openapi-cli
+    app.kubernetes.io/component: servicemonitor
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openapi-cli
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

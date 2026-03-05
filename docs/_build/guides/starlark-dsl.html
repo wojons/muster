@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starlark DSL Guide - Documentation</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        h1 { font-size: 2.5rem; border-bottom: 3px solid var(--primary-color); padding-bottom: 0.5rem; }
+        h2 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3rem; }
+        h3 { font-size: 1.5rem; }
+        
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background: var(--code-bg);
+        }
+        
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .nav {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html">← Documentation Home</a>
+    </nav>
+    <main>
+        <h1 id="starlark-dsl-guide">Starlark DSL Guide</h1>
+<p>Complete guide to using Starlark scripting language with OpenAPI CLI.</p>
+<h2 id="overview">Overview</h2>
+<p>Starlark is a Python-like scripting language (Python dialect restricted for safety) that you can use to automate API interactions with OpenAPI CLI. Starlark is sandboxed by design, making it safe for scripting API workflows.</p>
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="basic-script-structure">Basic Script Structure</h3>
+<p>Create a Starlark script file (<code>.star</code> extension):</p>
+<pre><code class="language-python">#!/usr/bin/env openapi-cli dsl
+
+# Starlark DSL script
+# Make API request
+pet = api.pet.find_id(pet_id=1)
+print(f&quot;Found pet: {pet['name']}&quot;)
+
+# Update status
+pet['status'] = 'sold'
+api.pet.update(id=1, body=pet)
+
+# Create new pet
+new_pet = api.pet.add(body={&quot;name&quot;:&quot;Rex&quot;,&quot;status&quot;:&quot;available&quot;})
+print(f&quot;Created pet with ID: {new_pet['id']}&quot;)
+</code></pre>
+<h3 id="running-a-script">Running a Script</h3>
+<pre><code class="language-bash"># Run a script
+openapi-cli dsl run script.star --spec openapi.yaml
+
+# Pass variables
+openapi-cli dsl run script.star --spec openapi.yaml --var API_KEY=secret
+
+# With timeout
+openapi-cli dsl run automation.star --timeout 120s
+</code></pre>
+<h2 id="built-in-functions">Built-in Functions</h2>
+<h3 id="http-functions">HTTP Functions</h3>
+<pre><code class="language-python"># Make HTTP GET request
+response = http.get(&quot;https://api.example.com/v1/pets&quot;)
+print(response.status)
+
+# Load JSON
+data = json.loads(response.body)
+
+# POST request
+response = http.post(&quot;https://api.example.com/v1/pets&quot;,
+                     body={&quot;name&quot;:&quot;Rex&quot;,&quot;status&quot;:&quot;available&quot;},
+                     headers={&quot;Content-Type&quot;:&quot;application/json&quot;})
+</code></pre>
+<h3 id="api-client-functions">API Client Functions</h3>
+<p>The Starlark environment provides direct access to your OpenAPI specification as structured functions:</p>
+<pre><code class="language-python"># API calls mirror spec structure
+pet = api.pet.find_id(pet_id=1)
+pets = api.pet.find_status(status=&quot;available&quot;)
+
+# Update
+api.pet.update(id=1, body={&quot;name&quot;:&quot;Fluffy&quot;,&quot;status&quot;:&quot;sold&quot;})
+
+# Delete
+api.pet.delete(pet_id=1)
+</code></pre>
+<h3 id="utility-functions">Utility Functions</h3>
+<pre><code class="language-python"># Environment variables
+api_key = env.get(&quot;API_KEY&quot;)
+project_dir = env.get(&quot;PROJECT_DIR&quot;)
+
+# Hashing
+hash_val = hash.sha256(&quot;data&quot;)
+
+# JSON operations
+obj = json.loads('{&quot;name&quot;:&quot;Fluffy&quot;}')
+json_str = json.dumps(obj)
+
+# Time operations
+now = time.now()
+formatted = time.format(now, &quot;%Y-%m-%d&quot;)
+</code></pre>
+<h2 id="script-examples">Script Examples</h2>
+<h3 id="example-1-pet-store-workflow">Example 1: Pet Store Workflow</h3>
+<pre><code class="language-python">#!/usr/bin/env openapi-cli dsl
+
+# Find available pets
+pets = api.pet.find_status(status=&quot;available&quot;)
+
+print(f&quot;Found {len(pets)} available pets&quot;)
+
+# Process each pet
+for pet in pets:
+    print(f&quot;Pet {pet['id']}: {pet['name']}&quot;)
+
+    # Update status to sold
+    pet['status'] = 'sold'
+    api.pet.update(id=pet['id'], body=pet)
+
+print(&quot;All pets marked as sold&quot;)
+</code></pre>
+<h3 id="example-2-batch-api-testing">Example 2: Batch API Testing</h3>
+<pre><code class="language-python">#!/usr/bin/env openapi-cli dsl
+
+# Test endpoints
+test_endpoints = [
+    (&quot;GET /pet/1&quot;, lambda: api.pet.find_id(pet_id=1)),
+    (&quot;GET /pet/findByStatus&quot;, lambda: api.pet.find_status(status=&quot;available&quot;)),
+    (&quot;GET /store/inventory&quot;, lambda: api.store.inventory()),
+]
+
+success_count = 0
+for name, endpoint_call in test_endpoints:
+    try:
+        result = endpoint_call()
+        print(f&quot;✓ {name} - Success&quot;)
+        success_count += 1
+    except error as e:
+        print(f&quot;✗ {name} - Error: {e}&quot;)
+
+print(f&quot;\nTests passed: {success_count}/{len(test_endpoints)}&quot;)
+</code></pre>
+<h3 id="example-3-data-migration">Example 3: Data Migration</h3>
+<pre><code class="language-python">#!/usr/bin/env openapi-cli dsl
+
+# Load old API data
+old_pets = api_old.pet.list_all()
+
+# Iterate and migrate
+for old_pet in old_pets:
+    # Transform data
+    new_pet = {
+        &quot;id&quot;: old_pet['id'],
+        &quot;name&quot;: old_pet['name'],
+        &quot;status&quot;: old_pet['availability'].lower()
+    }
+
+    # Create in new API
+    api_new.pet.add(body=new_pet)
+    print(f&quot;Migrated pet {old_pet['id']}&quot;)
+
+print(&quot;Migration complete&quot;)
+</code></pre>
+<h3 id="example-4-error-handling">Example 4: Error Handling</h3>
+<pre><code class="language-python">#!/usr/bin/env openapi-cli dsl
+
+# Function to get pet with retries
+def get_pet_with_retry(pet_id, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return api.pet.find_id(pet_id=pet_id)
+        except error as e:
+            print(f&quot;Attempt {attempt + 1} failed: {e}&quot;)
+            if attempt + 1 == max_retries:
+                fail(f&quot;Failed to get pet {pet_id} after {max_retries} attempts&quot;)
+    return None
+
+# Use the function
+pet = get_pet_with_retry(1)
+print(f&quot;Retrieved pet: {pet['name']}&quot;)
+</code></pre>
+<h3 id="example-5-parallel-execution">Example 5: Parallel Execution</h3>
+<pre><code class="language-python">#!/usr/bin/env openapi-cli dsl
+
+# Load spec URLs from environment
+base_url = env.get(&quot;API_BASE_URL&quot;, &quot;https://api.example.com/v1&quot;)
+
+# Process items concurrently
+items = [1, 2, 3, 4, 5]
+
+results = []
+for item_id in items:
+    # Make request
+    response = http.get(f&quot;{base_url}/items/{item_id}&quot;)
+    if response.status == 200:
+        data = json.loads(response.body)
+        results.append(data)
+
+print(f&quot;Processed {len(results)} items&quot;)
+</code></pre>
+<h2 id="configuration">Configuration</h2>
+<h3 id="dsl-configuration-options">DSL Configuration Options</h3>
+<pre><code class="language-yaml">dsl:
+  enabled: true
+  stdlib: true                # Enable standard library
+  max_execution_time: 60s    # Maximum script execution time
+  allowed_imports:           # Allowed modules
+    - http
+    - json
+    - time
+    - io
+  max_memory: 64MB           # Maximum memory usage
+</code></pre>
+<h3 id="environment-variables">Environment Variables</h3>
+<p>Pass environment variables to scripts:</p>
+<pre><code class="language-bash"># Set API key
+export API_KEY=your-secret
+
+# URL
+export API_BASE_URL=https://api.example.com/v1
+
+# Run script
+openapi-cli dsl run script.star
+</code></pre>
+<p>Access in script:</p>
+<pre><code class="language-python">api_key = env.get(&quot;API_KEY&quot;)
+base_url = env.get(&quot;API_BASE_URL&quot;)
+</code></pre>
+<h2 id="advanced-topics">Advanced Topics</h2>
+<h3 id="working-with-lists">Working with Lists</h3>
+<pre><code class="language-python"># List operations
+pets = api.pet.find_status(status=&quot;available&quot;)
+
+# Find specific pet
+found_pet = None
+for pet in pets:
+    if pet['name'] == &quot;Fluffy&quot;:
+        found_pet = pet
+        break
+
+# Transform list
+names = [pet['name'] for pet in pets]
+
+# Filter
+available_pets = [p for p in pets if p['status'] == 'available']
+</code></pre>
+<h3 id="working-with-dictionaries">Working with Dictionaries</h3>
+<pre><code class="language-python"># Create dictionary
+pet_data = {
+    &quot;name&quot;: &quot;Fluffy&quot;,
+    &quot;status&quot;: &quot;available&quot;
+}
+
+# Update values
+pet_data[&quot;status&quot;] = &quot;sold&quot;
+
+# Check if key exists
+if &quot;name&quot; in pet_data:
+    print(pet_data[&quot;name&quot;])
+
+# Iterate keys
+for key in pet_data:
+    print(f&quot;{key}: {pet_data[key]}&quot;)
+</code></pre>
+<h3 id="string-operations">String Operations</h3>
+<pre><code class="language-python"># String manipulation
+name = &quot;Fluffy&quot;
+
+# Concatenation
+full_name = name + &quot; the Dog&quot;
+
+# Slicing
+short_name = name[0:3]
+
+# Format
+formatted = f&quot;Pet name: {name}&quot;
+
+# Case conversion
+upper_name = name.upper()
+lower_name = name.lower()
+</code></pre>
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="built-in-error-types">Built-in Error Types</h3>
+<pre><code class="language-python"># HTTP errors
+try:
+    pet = api.pet.find_id(pet_id=99999)
+except error as e:
+    print(f&quot;HTTP Error: {e}&quot;)
+
+# Validation errors
+try:
+    api.pet.add(body={})  # Missing required fields
+except error as e:
+    print(f&quot;Validation Error: {e}&quot;)
+
+# Timeout errors
+try:
+    timeout_operation()
+except error as e:
+    print(f&quot;Timeout: {e}&quot;)
+</code></pre>
+<h3 id="custom-error-handling">Custom Error Handling</h3>
+<pre><code class="language-python"># Define validation function
+def validate_pet(pet):
+    required = [&quot;id&quot;, &quot;name&quot;, &quot;status&quot;]
+    for field in required:
+        if field not in pet:
+            fail(f&quot;Missing required field: {field}&quot;)
+    return pet
+
+# Use in workflow
+new_pet = {&quot;name&quot;:&quot;Fluffy&quot;}
+try:
+    validated = validate_pet(new_pet)
+    api.pet.add(body=validated)
+except error as e:
+    print(f&quot;Validation failed: {e}&quot;)
+</code></pre>
+<h2 id="testing-scripts">Testing Scripts</h2>
+<h3 id="test-mode">Test Mode</h3>
+<pre><code class="language-bash"># Test script (dry run)
+openapi-cli dsl test script.star --spec openapi.yaml
+
+# With verbose output
+openapi-cli dsl test automation.star --verbose
+</code></pre>
+<h3 id="writing-testable-scripts">Writing Testable Scripts</h3>
+<pre><code class="language-python">#!/usr/bin/env openapi-cli dsl
+
+# Function to test
+def update_pet_status(pet_id, new_status):
+    pet = api.pet.find_id(pet_id=pet_id)
+    pet['status'] = new_status
+    api.pet.update(id=pet_id, body=pet)
+
+# Test if run directly (not via dsl import)
+def main():
+    update_pet_status(1, &quot;sold&quot;)
+    print(&quot;Pet status updated&quot;)
+
+# Only run main if script is executed directly
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-keep-scripts-simple">1. Keep Scripts Simple</h3>
+<pre><code class="language-python"># ✅ Good - Clear and simple
+pet = api.pet.find_id(pet_id=1)
+print(f&quot;Pet name: {pet['name']}&quot;)
+
+# ❌ Bad - Too complex nested logic
+result = api.pet.find_id(pet_id=1) if condition else api.pet.find_by_name(name=&quot;Fluffy&quot;)
+</code></pre>
+<h3 id="2-use-functions">2. Use Functions</h3>
+<pre><code class="language-python"># ✅ Good - Reusable function
+def find_pet(pet_id):
+    return api.pet.find_id(pet_id=pet_id)
+
+# ❌ Bad - Repeated code
+pet1 = api.pet.find_id(pet_id=1)
+pet2 = api.pet.find_id(pet_id=2)
+</code></pre>
+<h3 id="3-handle-errors">3. Handle Errors</h3>
+<pre><code class="language-python"># ✅ Good - Error handling
+try:
+    pet = api.pet.find_id(pet_id=1)
+    print(f&quot;Pet: {pet['name']}&quot;)
+except error as e:
+    print(f&quot;Error: {e}&quot;)
+
+# ❌ Bad - No error handling
+pet = api.pet.find_id(pet_id=1)
+print(f&quot;Pet: {pet['name']}&quot;)
+</code></pre>
+<h3 id="4-use-comments">4. Use Comments</h3>
+<pre><code class="language-python"># ✅ Good - Documented
+# Load pet and update status
+pet = api.pet.find_id(pet_id=1)
+pet['status'] = 'sold'
+api.pet.update(id=1, body=pet)
+
+# ❌ Bad - Unclear intent
+result = api.pet.find_id(pet_id=1)
+result['status'] = 'sold'
+api.pet.update(id=1, body=result)
+</code></pre>
+<h3 id="5-use-environment-variables">5. Use Environment Variables</h3>
+<pre><code class="language-python"># ✅ Good - Configurable
+api_key = env.get(&quot;API_KEY&quot;)
+base_url = env.get(&quot;API_BASE_URL&quot;)
+
+# ❌ Bad - Hardcoded values
+api_key = &quot;secret-key-12345&quot;
+base_url = &quot;https://api.example.com&quot;
+</code></pre>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><a href="https://github.com/bazelbuild/starlark">Starlark Language Spec</a></li>
+<li><a href="../api/README.md">OpenAPI Documentation</a> - API reference</li>
+<li><a href="configuration.md">Configuration Guide</a> - DSL configuration</li>
+<li><a href="commands.md">Command Reference</a> - DSL commands</li>
+</ul>
+<h2 id="common-patterns">Common Patterns</h2>
+<h3 id="pattern-1-batch-processing">Pattern 1: Batch Processing</h3>
+<pre><code class="language-python"># Process multiple items
+items = api.items.list_all()
+
+for item in items:
+    # Process item
+    process(item)
+
+    # Update status
+    api.items.update(id=item['id'], body={&quot;status&quot;:&quot;processed&quot;})
+</code></pre>
+<h3 id="pattern-2-data-validation">Pattern 2: Data Validation</h3>
+<pre><code class="language-python"># Validate before API call
+def validate(item):
+    if not item['name']:
+        fail(&quot;Name is required&quot;)
+    if item['status'] not in ['available', 'pending']:
+        fail(&quot;Invalid status&quot;)
+    return item
+
+# Use
+validated = validate(new_item)
+api.items.add(body=validated)
+</code></pre>
+<h3 id="pattern-3-retry-pattern">Pattern 3: Retry Pattern</h3>
+<pre><code class="language-python"># Retry on failure
+def with_retry(fn, max_attempts=3):
+    for attempt in range(max_attempts):
+        try:
+            return fn()
+        except error as e:
+            if attempt + 1 == max_attempts:
+                raise
+            print(f&quot;Attempt {attempt + 1} failed, retrying...&quot;)
+
+# Use
+result = with_retry(lambda: api.pet.find_id(pet_id=1))
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="script-wont-run">Script Won't Run</h3>
+<p><strong>Issue</strong>: <code>Error: Script execution failed</code></p>
+<p><strong>Solution</strong>: Check script syntax and indentation. Starlark uses 2-space or 4-space indentation (no tabs).</p>
+<h3 id="import-errors">Import Errors</h3>
+<p><strong>Issue</strong>: <code>Error: Module 'http' not found</code></p>
+<p><strong>Solution</strong>: Ensure the module is in the allowed_imports list:</p>
+<pre><code class="language-yaml">dsl:
+  allowed_imports:
+    - http
+</code></pre>
+<h3 id="timeout-issues">Timeout Issues</h3>
+<p><strong>Issue</strong>: <code>Error: Script execution timeout</code></p>
+<p><strong>Solution</strong>: Increase timeout in configuration:</p>
+<pre><code class="language-bash">openapi-cli dsl run script.star --timeout 180s
+</code></pre>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="configuration.md">Configuration Guide</a> - DSL configuration options</li>
+<li><a href="commands.md">Command Reference</a> - DSL commands</li>
+<li><a href="../api/README.md">API Documentation</a> - Complete API reference</li>
+<li><a href="troubleshooting.md">Troubleshooting Guide</a> - Common DSL issues</li>
+</ul>
+    </main>
+</body>
+</html>

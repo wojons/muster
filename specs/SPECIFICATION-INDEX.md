@@ -1,0 +1,288 @@
+# Specification Index
+
+**Total Files**: 276  
+**Last Updated**: 2026-03-01  
+**Generated**: Automatically from specification directory
+
+## Overview
+
+Complete index of all 276 specification files for the OpenAPI CLI + MCP Server system. This index serves as a master reference for all specification documents.
+
+## File List
+
+- `ADVERSARIAL-TESTS.md` – Specification for ADVERSARIAL TESTS
+- `API-AUTHENTICATION.md` – Specification for API AUTHENTICATION
+- `API-DOCUMENTATION.md` – Specification for API DOCUMENTATION
+- `API-ERROR-RESPONSES.md` – Specification for API ERROR RESPONSES
+- `API-INVENTORY-PROTOCOL.md` – Specification for API INVENTORY PROTOCOL
+- `API-SPECIFICATION.md` – Specification for API SPECIFICATION
+- `API-WEBHOOK-PROTOCOL.md` – Specification for API WEBHOOK PROTOCOL
+- `ARCHITECTURE-VISUAL.md` – Specification for ARCHITECTURE VISUAL
+- `ASSUMPTION-TESTING.md` – Specification for ASSUMPTION TESTING
+- `AUDIT-LOGGING.md` – Specification for AUDIT LOGGING
+- `AUTH-IMPLEMENTATION.md` – Specification for AUTH IMPLEMENTATION
+- `BASH-COMPLETION.md` – Specification for BASH COMPLETION
+- `BENCHMARK-SUITE.md` – Specification for BENCHMARK SUITE
+- `BIBLE-STANDARD-COMPLIANCE.md` – Specification for BIBLE STANDARD COMPLIANCE
+- `BIBLE-STANDARD-VALIDATION.md` – Specification for BIBLE STANDARD VALIDATION
+- `BIZ-COMMAND-GENERATOR.md` – Specification for BIZ COMMAND GENERATOR
+- `BIZ-REQUEST-BUILDER.md` – Specification for BIZ REQUEST BUILDER
+- `BIZ-RESPONSE-HANDLER.md` – Specification for BIZ RESPONSE HANDLER
+- `BUILD-SPECIFICATION.md` – Specification for BUILD SPECIFICATION
+- `BUILD-SYSTEM.md` – Specification for BUILD SYSTEM
+- `BUILTIN-COMMANDS.md` – Specification for BUILTIN COMMANDS
+- `CACHE-IMPLEMENTATION.md` – Specification for CACHE IMPLEMENTATION
+- `CACHE-LAYER.md` – Specification for CACHE LAYER
+- `CACHE-MANAGER.md` – Specification for CACHE MANAGER
+- `CACHE-POLICIES.md` – Specification for CACHE POLICIES
+- `CANONICAL-INTERFACES.md` – Specification for CANONICAL INTERFACES
+- `CAPABILITY-SYSTEM.md` – Specification for CAPABILITY SYSTEM
+- `CI-CD-GITHUB-ACTIONS.md` – Specification for CI CD GITHUB ACTIONS
+- `CIRCUIT-BREAKER-IMPLEMENTATION.md` – Specification for CIRCUIT BREAKER IMPLEMENTATION
+- `CLI-BUILT-IN-COMMANDS.md` – Specification for CLI BUILT IN COMMANDS
+- `CLI-COMMAND-STRUCTURE.md` – Specification for CLI COMMAND STRUCTURE
+- `CLI-ENTRY-POINT.md` – Specification for CLI ENTRY POINT
+- `CLI-FLAG-PARSING.md` – Specification for CLI FLAG PARSING
+- `CLI-GENERATED-COMMANDS.md` – Specification for CLI GENERATED COMMANDS
+- `CLI-INTERACTIVE-MODE.md` – Specification for CLI INTERACTIVE MODE
+- `CLI-MARKET-ALIASES.md` – Specification for CLI MARKET ALIASES
+- `CLI-MARKET-COMPLETION.md` – Specification for CLI MARKET COMPLETION
+- `CLI-MARKET-PLUGINS.md` – Specification for CLI MARKET PLUGINS
+- `CLI-MARKET-PROFILES.md` – Specification for CLI MARKET PROFILES
+- `CLI-MARKET-TEMPLATES.md` – Specification for CLI MARKET TEMPLATES
+- `CLI-OUTPUT-FORMATTERS.md` – Specification for CLI OUTPUT FORMATTERS
+- `CLI-PROGRESS-INDICATORS.md` – Specification for CLI PROGRESS INDICATORS
+- `COBRA-INTEGRATION.md` – Specification for COBRA INTEGRATION
+- `CODE-GUIDE.md` – Specification for CODE GUIDE
+- `CODE-STRUCTURE.md` – Specification for CODE STRUCTURE
+- `COMMAND-GENERATOR-IMPLEMENTATION.md` – Specification for COMMAND GENERATOR IMPLEMENTATION
+- `COMPLETION-GENERATION.md` – Specification for COMPLETION GENERATION
+- `COMPLETION-GENERATOR.md` – Specification for COMPLETION GENERATOR
+- `COMPLETION-REPORT.md` – Specification for COMPLETION REPORT
+- `COMPLIANCE-VERIFICATION.md` – Specification for COMPLIANCE VERIFICATION
+- `CONCURRENT-MAP-SPEC.md` – Specification for CONCURRENT MAP SPEC
+- `CONFIG-LOADER-IMPLEMENTATION.md` – Specification for CONFIG LOADER IMPLEMENTATION
+- `CONFIG-LOADER.md` – Specification for CONFIG LOADER
+- `CONFIGURATION-MANAGEMENT.md` – Specification for CONFIGURATION MANAGEMENT
+- `CONFIGURATION-SCHEMA.md` – Specification for CONFIGURATION SCHEMA
+- `CONTAINER-INTEGRATION.md` – Specification for CONTAINER INTEGRATION
+- `CROSS-COMPILATION.md` – Specification for CROSS COMPILATION
+- `CROSS-LANGUAGE-TESTING.md` – Specification for CROSS LANGUAGE TESTING
+- `CROSS-LANGUAGE-VALIDATION.md` – Specification for CROSS LANGUAGE VALIDATION
+- `CRYPTO-IMPLEMENTATION.md` – Specification for CRYPTO IMPLEMENTATION
+- `CRYPTO-TLS-IMPLEMENTATION.md` – Specification for CRYPTO TLS IMPLEMENTATION
+- `DAEMON-CONFIGURATION.md` – Specification for DAEMON CONFIGURATION
+- `DAEMON-CONTROLLER.md` – Specification for DAEMON CONTROLLER
+- `DAEMON-ENTRY-POINT.md` – Specification for DAEMON ENTRY POINT
+- `DAEMON-LIFECYCLE.md` – Specification for DAEMON LIFECYCLE
+- `DAEMON-PROXY.md` – Specification for DAEMON PROXY
+- `DAEMON-SOCKET.md` – Specification for DAEMON SOCKET
+- `DATABASE-CONNECTION.md` – Specification for DATABASE CONNECTION
+- `DATABASE-MIGRATIONS.md` – Specification for DATABASE MIGRATIONS
+- `DATABASE-QUERIES.md` – Specification for DATABASE QUERIES
+- `DATABASE-REPOSITORY-IMPLEMENTATIONS.md` – Specification for DATABASE REPOSITORY IMPLEMENTATIONS
+- `DATABASE-REPOSITORY.md` – Specification for DATABASE REPOSITORY
+- `DATABASE-SCHEMA.md` – Specification for DATABASE SCHEMA
+- `DEPENDENCIES.md` – Specification for DEPENDENCIES
+- `DETERMINISTIC-GUARANTEES.md` – Specification for DETERMINISTIC GUARANTEES
+- `DOCKER-BUILD.md` – Specification for DOCKER BUILD
+- `DOCKER-COMPOSE.md` – Specification for DOCKER COMPOSE
+- `DOCKER-IMAGE.md` – Specification for DOCKER IMAGE
+- `DOCS-ARCHITECTURE.md` – Specification for DOCS ARCHITECTURE
+- `DOCS-AUTHENTICATION.md` – Specification for DOCS AUTHENTICATION
+- `DOCS-CLI-REFERENCE.md` – Specification for DOCS CLI REFERENCE
+- `DOCS-CONFIGURATION.md` – Specification for DOCS CONFIGURATION
+- `DOCS-CONTRIBUTING.md` – Specification for DOCS CONTRIBUTING
+- `DOCS-INSTALLATION.md` – Specification for DOCS INSTALLATION
+- `DOCS-MCP-SETUP.md` – Specification for DOCS MCP SETUP
+- `DOCS-QUICKSTART.md` – Specification for DOCS QUICKSTART
+- `DOCS-README.md` – Specification for DOCS README
+- `DOCS-TROUBLESHOOTING.md` – Specification for DOCS TROUBLESHOOTING
+- `DOCUMENTATION-STRATEGY.md` – Specification for DOCUMENTATION STRATEGY
+- `DOMAIN-CONFIG.md` – Specification for DOMAIN CONFIG
+- `DOMAIN-INVENTORY.md` – Specification for DOMAIN INVENTORY
+- `DOMAIN-MODULE.md` – Specification for DOMAIN MODULE
+- `DOMAIN-OPERATION.md` – Specification for DOMAIN OPERATION
+- `DOMAIN-USER.md` – Specification for DOMAIN USER
+- `DSL-BUILTINS.md` – Specification for DSL BUILTINS
+- `DSL-ENGINE.md` – Specification for DSL ENGINE
+- `DSL-IMPLEMENTATION.md` – Specification for DSL IMPLEMENTATION
+- `DSL-SPECIFICATION.md` – Specification for DSL SPECIFICATION
+- `E2E-TEST-PLAYBOOK.md` – Specification for E2E TEST PLAYBOOK
+- `ERROR-HANDLING.md` – Specification for ERROR HANDLING
+- `EVENTS-AUDIT.md` – Specification for EVENTS AUDIT
+- `EVENTS-DISPATCHER.md` – Specification for EVENTS DISPATCHER
+- `EVENTS-HANDLERS.md` – Specification for EVENTS HANDLERS
+- `EXECUTIVE-SUMMARY.md` – Specification for EXECUTIVE SUMMARY
+- `FINAL-SUMMARY.md` – Specification for FINAL SUMMARY
+- `FINGERPRINT-ALGORITHM.md` – Specification for FINGERPRINT ALGORITHM
+- `FINGERPRINTING.md` – Specification for FINGERPRINTING
+- `FLOATING-POINT-SPEC.md` – Specification for FLOATING POINT SPEC
+- `FULL-SPEC-TRACKING.md` – Specification for FULL SPEC TRACKING
+- `GO-MODULE-SETUP.md` – Specification for GO MODULE SETUP
+- `GO-MODULE.md` – Specification for GO MODULE
+- `GOOSE-MIGRATIONS.md` – Specification for GOOSE MIGRATIONS
+- `HTTP-CANONICALIZATION.md` – Specification for HTTP CANONICALIZATION
+- `HTTP-CLIENT-IMPLEMENTATION.md` – Specification for HTTP CLIENT IMPLEMENTATION
+- `IMPLEMENTATION-MAPPING.md` – Specification for IMPLEMENTATION MAPPING
+- `IMPLEMENTATION-ROADMAP.md` – Specification for IMPLEMENTATION ROADMAP
+- `IMPLEMENTATION-SPECS-INDEX.md` – Specification for IMPLEMENTATION SPECS INDEX
+- `INDEX.md` – Specification for INDEX
+- `INTEGRATION-TEST-SUITE.md` – Specification for INTEGRATION TEST SUITE
+- `INTERACTIVE-PROMPTS.md` – Specification for INTERACTIVE PROMPTS
+- `INVENTORY-MANAGER-IMPLEMENTATION.md` – Specification for INVENTORY MANAGER IMPLEMENTATION
+- `INVENTORY-MANAGER.md` – Specification for INVENTORY MANAGER
+- `JSON-FORMATTER.md` – Specification for JSON FORMATTER
+- `JSON-NUMBER-SPEC.md` – Specification for JSON NUMBER SPEC
+- `KEYCHAIN-INTEGRATION.md` – Specification for KEYCHAIN INTEGRATION
+- `KUBERNETES-MANIFESTS.md` – Specification for KUBERNETES MANIFESTS
+- `LINTING-CONFIGURATION.md` – Specification for LINTING CONFIGURATION
+- `LINUX-IMPLEMENTATION.md` – Specification for LINUX IMPLEMENTATION
+- `MACOS-IMPLEMENTATION.md` – Specification for MACOS IMPLEMENTATION
+- `MANUAL-VALIDATION-GUIDE.md` – Specification for MANUAL VALIDATION GUIDE
+- `MCP-CAPABILITY-NEGOTIATION.md` – Specification for MCP CAPABILITY NEGOTIATION
+- `MCP-ERROR-HANDLING.md` – Specification for MCP ERROR HANDLING
+- `MCP-HANDLERS.md` – Specification for MCP HANDLERS
+- `MCP-IMPLEMENTATION.md` – Specification for MCP IMPLEMENTATION
+- `MCP-MARKET-PROMPTS.md` – Specification for MCP MARKET PROMPTS
+- `MCP-MARKET-RESOURCES.md` – Specification for MCP MARKET RESOURCES
+- `MCP-MARKET-ROOTS.md` – Specification for MCP MARKET ROOTS
+- `MCP-MARKET-SAMPLING.md` – Specification for MCP MARKET SAMPLING
+- `MCP-PROTOCOL.md` – Specification for MCP PROTOCOL
+- `MCP-SERVER-ENTRY.md` – Specification for MCP SERVER ENTRY
+- `MCP-SERVER-IMPLEMENTATION.md` – Specification for MCP SERVER IMPLEMENTATION
+- `MEMORY-CACHE.md` – Specification for MEMORY CACHE
+- `MIDDLEWARE-COMPOSITION.md` – Specification for MIDDLEWARE COMPOSITION
+- `MIDDLEWARE-LOGGING.md` – Specification for MIDDLEWARE LOGGING
+- `MIDDLEWARE-METRICS.md` – Specification for MIDDLEWARE METRICS
+- `MIDDLEWARE-RECOVERY.md` – Specification for MIDDLEWARE RECOVERY
+- `MIDDLEWARE-TRACING.md` – Specification for MIDDLEWARE TRACING
+- `MIGRATION-SYSTEM.md` – Specification for MIGRATION SYSTEM
+- `MONITORING-SETUP.md` – Specification for MONITORING SETUP
+- `MONO-REPO-LAYOUT.md` – Specification for MONO REPO LAYOUT
+- `MTLS-IMPLEMENTATION.md` – Specification for MTLS IMPLEMENTATION
+- `MULTI-TENANCY.md` – Specification for MULTI TENANCY
+- `OAUTH2-IMPLEMENTATION.md` – Specification for OAUTH2 IMPLEMENTATION
+- `OPENAPI-PARSER-IMPLEMENTATION.md` – Specification for OPENAPI PARSER IMPLEMENTATION
+- `OPENAPI-PARSING-SPEC.md` – Specification for OPENAPI PARSING SPEC
+- `OPERATIONS-OBSERVABILITY.md` – Specification for OPERATIONS OBSERVABILITY
+- `OPS-ALERTING.md` – Specification for OPS ALERTING
+- `OPS-BACKUP-RECOVERY.md` – Specification for OPS BACKUP RECOVERY
+- `OPS-DEPLOYMENT.md` – Specification for OPS DEPLOYMENT
+- `OPS-HEALTH-CHECKS.md` – Specification for OPS HEALTH CHECKS
+- `OPS-LOGGING.md` – Specification for OPS LOGGING
+- `OPS-METRICS.md` – Specification for OPS METRICS
+- `OPS-MONITORING.md` – Specification for OPS MONITORING
+- `OPS-TRACING.md` – Specification for OPS TRACING
+- `OS-FILESYSTEM.md` – Specification for OS FILESYSTEM
+- `OS-KEYCHAIN.md` – Specification for OS KEYCHAIN
+- `OS-NETWORK.md` – Specification for OS NETWORK
+- `OS-PROCESS.md` – Specification for OS PROCESS
+- `OS-SIGNALS.md` – Specification for OS SIGNALS
+- `OUTPUT-FORMATTERS.md` – Specification for OUTPUT FORMATTERS
+- `OUTPUT-TEMPLATES.md` – Specification for OUTPUT TEMPLATES
+- `PACKAGE-MANAGERS.md` – Specification for PACKAGE MANAGERS
+- `PACKAGE-NAMING.md` – Specification for PACKAGE NAMING
+- `PACKAGE-ORGANIZATION.md` – Specification for PACKAGE ORGANIZATION
+- `PERFORMANCE-REQUIREMENTS.md` – Specification for PERFORMANCE REQUIREMENTS
+- `PID-FILE-MANAGEMENT.md` – Specification for PID FILE MANAGEMENT
+- `PLATFORM-BEHAVIOR.md` – Specification for PLATFORM BEHAVIOR
+- `PLATFORM-LINUX.md` – Specification for PLATFORM LINUX
+- `PLATFORM-MACOS.md` – Specification for PLATFORM MACOS
+- `PLATFORM-WINDOWS.md` – Specification for PLATFORM WINDOWS
+- `PLUGIN-INTERFACE.md` – Specification for PLUGIN INTERFACE
+- `PLUGIN-LOADER.md` – Specification for PLUGIN LOADER
+- `PRD.md` – Specification for PRD
+- `PROFILE-MANAGER.md` – Specification for PROFILE MANAGER
+- `PROFILES.md` – Specification for PROFILES
+- `PROGRESS-BARS.md` – Specification for PROGRESS BARS
+- `PROJECT-STRUCTURE.md` – Specification for PROJECT STRUCTURE
+- `PROMPT-TYPES.md` – Specification for PROMPT TYPES
+- `PROMPT-UI.md` – Specification for PROMPT UI
+- `QUICK-START.md` – Specification for QUICK START
+- `QUOTA-MANAGEMENT.md` – Specification for QUOTA MANAGEMENT
+- `RATE-LIMITER-IMPLEMENTATION.md` – Specification for RATE LIMITER IMPLEMENTATION
+- `RATE-LIMITING-IMPLEMENTATION.md` – Specification for RATE LIMITING IMPLEMENTATION
+- `RATE-LIMITING.md` – Specification for RATE LIMITING
+- `README.md` – Specification for README
+- `REDIS-CACHE.md` – Specification for REDIS CACHE
+- `REFERENCE-IMPLEMENTATION.md` – Specification for REFERENCE IMPLEMENTATION
+- `RELEASE-PROCESS.md` – Specification for RELEASE PROCESS
+- `RELIABILITY-BACKOFF.md` – Specification for RELIABILITY BACKOFF
+- `RELIABILITY-RETRY.md` – Specification for RELIABILITY RETRY
+- `RELIABILITY-TIMEOUT.md` – Specification for RELIABILITY TIMEOUT
+- `REQUIREMENTS-MAPPING.md` – Specification for REQUIREMENTS MAPPING
+- `REVOCATION.md` – Specification for REVOCATION
+- `RUNTIME-CAPABILITIES.md` – Specification for RUNTIME CAPABILITIES
+- `RUNTIME-SANDBOX.md` – Specification for RUNTIME SANDBOX
+- `SDK-DISTRIBUTION.md` – Specification for SDK DISTRIBUTION
+- `SDK-GENERATION-ARCHITECTURE.md` – Specification for SDK GENERATION ARCHITECTURE
+- `SDK-PACKAGING.md` – Specification for SDK PACKAGING
+- `SDK-REFERENCE-IMPLEMENTATION.md` – Specification for SDK REFERENCE IMPLEMENTATION
+- `SDK-SECURITY.md` – Specification for SDK SECURITY
+- `SDK-TEMPLATES.md` – Specification for SDK TEMPLATES
+- `SECURITY-AUDIT-CHECKLIST.md` – Specification for SECURITY AUDIT CHECKLIST
+- `SECURITY-REVOCATION.md` – Specification for SECURITY REVOCATION
+- `SECURITY-ROTATION.md` – Specification for SECURITY ROTATION
+- `SECURITY-TESTING.md` – Specification for SECURITY TESTING
+- `SOCKET-PROXY.md` – Specification for SOCKET PROXY
+- `SPECIFICATION-ARCHITECTURE.md` – Specification for SPECIFICATION ARCHITECTURE
+- `SPECIFICATION-INDEX.md` – Specification for SPECIFICATION INDEX
+- `SPINNERS.md` – Specification for SPINNERS
+- `STARLARK-DSL.md` – Specification for STARLARK DSL
+- `STARLARK-INTERPRETER.md` – Specification for STARLARK INTERPRETER
+- `TABLE-FORMATTER.md` – Specification for TABLE FORMATTER
+- `TECHNICAL-DECISIONS.md` – Specification for TECHNICAL DECISIONS
+- `TENANT-AUDIT.md` – Specification for TENANT AUDIT
+- `TENANT-AUTH.md` – Specification for TENANT AUTH
+- `TENANT-ISOLATION.md` – Specification for TENANT ISOLATION
+- `TEST-MAPPING.md` – Specification for TEST MAPPING
+- `TEST-SPECIFICATIONS.md` – Specification for TEST SPECIFICATIONS
+- `TEST-VECTORS.md` – Specification for TEST VECTORS
+- `TESTING-STRATEGY.md` – Specification for TESTING STRATEGY
+- `TIME-ZONE-SPEC.md` – Specification for TIME ZONE SPEC
+- `TOKEN-BUCKET-IMPLEMENTATION.md` – Specification for TOKEN BUCKET IMPLEMENTATION
+- `TOKEN-BUCKET.md` – Specification for TOKEN BUCKET
+- `TOOL-REGISTRATION.md` – Specification for TOOL REGISTRATION
+- `UNIFIED-AUTH.md` – Specification for UNIFIED AUTH
+- `UNIFIED-COMMANDS.md` – Specification for UNIFIED COMMANDS
+- `UNIFIED-CONFIG.md` – Specification for UNIFIED CONFIG
+- `UNIFIED-STATE.md` – Specification for UNIFIED STATE
+- `UNIT-TEST-FRAMEWORK.md` – Specification for UNIT TEST FRAMEWORK
+- `UNIX-SOCKET-PROXY.md` – Specification for UNIX SOCKET PROXY
+- `USER-GUIDES.md` – Specification for USER GUIDES
+- `VERIFICATION.md` – Specification for VERIFICATION
+- `VIPER-INTEGRATION.md` – Specification for VIPER INTEGRATION
+- `WASM-CROSS-LANGUAGE-RUNTIME.md` – Specification for WASM CROSS LANGUAGE RUNTIME
+- `WASM-IMPLEMENTATION.md` – Specification for WASM IMPLEMENTATION
+- `WASM-LOADER.md` – Specification for WASM LOADER
+- `WASM-RUNTIME-IMPLEMENTATION.md` – Specification for WASM RUNTIME IMPLEMENTATION
+- `WASM-RUNTIME.md` – Specification for WASM RUNTIME
+- `WASM-SANDBOX-SECURITY.md` – Specification for WASM SANDBOX SECURITY
+- `WASM-SANDBOX.md` – Specification for WASM SANDBOX
+- `WINDOWS-IMPLEMENTATION.md` – Specification for WINDOWS IMPLEMENTATION
+- `ZSH-COMPLETION.md` – Specification for ZSH COMPLETION
+- `api-spec.md` – Specification for api spec
+- `architecture-v2.md` – Specification for architecture v2
+- `architecture.md` – Specification for architecture
+- `db-spec.md` – Specification for db spec
+- `deployment-spec.md` – Specification for deployment spec
+- `epic-01-inventory-system.md` – Specification for epic 01 inventory system
+- `epic-02-dual-interface.md` – Specification for epic 02 dual interface
+- `epic-03-request-execution.md` – Specification for epic 03 request execution
+- `epic-04-module-registry.md` – Specification for epic 04 module registry
+- `epic-05-configuration.md` – Specification for epic 05 configuration
+- `epic-06-workflows.md` – Specification for epic 06 workflows
+- `epic-07-security-layer.md` – Specification for epic 07 security layer
+- `master-specification.md` – Specification for master specification
+- `security-spec.md` – Specification for security spec
+- `story-01-01-https-fetching.md` – Specification for story 01 01 https fetching
+- `story-01-04-version-management.md` – Specification for story 01 04 version management
+- `story-01-05-schema-validation.md` – Specification for story 01 05 schema validation
+- `story-02-01-path-mapping.md` – Specification for story 02 01 path mapping
+- `story-02-08-mcp-setup.md` – Specification for story 02 08 mcp setup
+- `story-03-01-http-client.md` – Specification for story 03 01 http client
+- `story-04-01-registry-client.md` – Specification for story 04 01 registry client
+- `story-07-01-npm-package.md` – Specification for story 07 01 npm package
+- `test-spec.md` – Specification for test spec
+- `ui-spec.md` – Specification for ui spec

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Guide - Documentation</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        h1 { font-size: 2.5rem; border-bottom: 3px solid var(--primary-color); padding-bottom: 0.5rem; }
+        h2 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3rem; }
+        h3 { font-size: 1.5rem; }
+        
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background: var(--code-bg);
+        }
+        
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .nav {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html">← Documentation Home</a>
+    </nav>
+    <main>
+        <h1 id="configuration-guide">Configuration Guide</h1>
+<p>Complete guide to customizing OpenAPI CLI behavior.</p>
+<h2 id="configuration-overview">Configuration Overview</h2>
+<p>OpenAPI CLI uses a hierarchical configuration system:</p>
+<ol>
+<li><strong>Global Config</strong> (<code>~/.config/openapi-cli/config.yaml</code>) - System-wide settings</li>
+<li><strong>Project Config</strong> (<code>./openapi-cli.yaml</code>) - Project-specific settings</li>
+<li><strong>Environment Variables</strong> - Override any config value</li>
+<li><strong>Command-line Flags</strong> - Highest precedence</li>
+</ol>
+<h2 id="configuration-file-format">Configuration File Format</h2>
+<p>By default, OpenAPI CLI looks for <code>openapi-cli.yaml</code> in your project (or current directory):</p>
+<pre><code class="language-yaml">openapi-cli:
+  # API Specification
+  spec:
+    path: ./openapi.json
+    base_url: https://api.example.com/v1
+
+  # Command Generation
+  cli:
+    commands:
+      # Customize command naming
+      naming:
+        verb_first: false
+        include_path: true
+        separator: '-'
+
+  # Request/Response Settings
+  http:
+    timeout: 30s
+    max_retries: 3
+    retry_delay: 1s
+    verify_ssl: true
+
+  # Output Formatting
+  output:
+    format: table
+    colors: true
+    timezone: UTC
+
+  # Authentication
+  auth:
+    type: apikey
+    apikey:
+      header: X-API-Key
+      # Load from environment for security
+      value: ${API_KEY}
+
+  # MCP Server
+  mcp:
+    enabled: true
+    port: 8080
+
+  # Daemon Mode
+  daemon:
+    enabled: false
+    socket: /tmp/openapi-cli.sock
+
+  # WASM Runtime
+  wasm:
+    enabled: true
+    max_memory: 128MB
+    max_cpu: 1
+
+  # Caching
+  cache:
+    enabled: true
+    ttl: 3600s
+    location: ~/.cache/openapi-cli
+
+  # Logging
+  log:
+    level: info
+    format: json
+    output: stderr
+</code></pre>
+<h2 id="configuration-locations">Configuration Locations</h2>
+<h3 id="global-configuration">Global Configuration</h3>
+<pre><code class="language-bash"># Global config location
+mkdir -p ~/.config/openapi-cli
+cat &gt; ~/.config/openapi-cli/config.yaml &lt;&lt; EOF
+openapi-cli:
+  http:
+    timeout: 60s
+  output:
+    format: json
+EOF
+</code></pre>
+<h3 id="project-configuration">Project Configuration</h3>
+<pre><code class="language-bash"># Project config location (in your project directory)
+cat &gt; openapi-cli.yaml &lt;&lt; EOF
+openapi-cli:
+  spec:
+    path: ./api/openapi.yaml
+    base_url: https://api.example.com/v1
+EOF
+</code></pre>
+<h3 id="environment-variables">Environment Variables</h3>
+<p>Override any configuration value with environment variables:</p>
+<pre><code class="language-bash"># Format: MUSTER_&lt;SECTION&gt;_&lt;KEY&gt;
+export MUSTER_SPEC_PATH=/path/to/openapi.json
+export MUSTER_HTTP_TIMEOUT=60s
+export MUSTER_OUTPUT_FORMAT=table
+export MUSTER_LOG_LEVEL=debug
+</code></pre>
+<p>Common environment variables:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MUSTER_SPEC_PATH</code></td>
+<td>Path to OpenAPI spec file</td>
+<td><code>openapi.json</code></td>
+</tr>
+<tr>
+<td><code>MUSTER_BASE_URL</code></td>
+<td>API base URL</td>
+<td>From spec</td>
+</tr>
+<tr>
+<td><code>MUSTER_HTTP_TIMEOUT</code></td>
+<td>Request timeout</td>
+<td><code>30s</code></td>
+</tr>
+<tr>
+<td><code>MUSTER_OUTPUT_FORMAT</code></td>
+<td>Output format (json/table/yaml)</td>
+<td><code>table</code></td>
+</tr>
+<tr>
+<td><code>MUSTER_LOG_LEVEL</code></td>
+<td>Logging level</td>
+<td><code>info</code></td>
+</tr>
+<tr>
+<td><code>MUSTER_AUTH_APIKEY_VALUE</code></td>
+<td>API key value</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>MUSTER_DAEMON_SOCKET</code></td>
+<td>Unix socket path</td>
+<td><code>/tmp/openapi-cli.sock</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="configuration-commands">Configuration Commands</h2>
+<h3 id="view-current-configuration">View Current Configuration</h3>
+<pre><code class="language-bash"># Show all configuration
+openapi-cli config show
+
+# Show specific section
+openapi-cli config show http
+
+# Show resolved configuration (merged from all sources)
+openapi-cli config show --resolved
+</code></pre>
+<h3 id="set-configuration-values">Set Configuration Values</h3>
+<pre><code class="language-bash"># Set a value
+openapi-cli config set http.timeout 60s
+openapi-cli config set output.format json
+openapi-cli config set auth.type oauth2
+
+# Set nested values
+openapi-cli config set spec.base_url https://api.example.com/v1
+openapi-cli config set auth.oauth2.client_id YOUR_CLIENT_ID
+</code></pre>
+<h3 id="unset-configuration-values">Unset Configuration Values</h3>
+<pre><code class="language-bash"># Unset a value (reverts to default)
+openapi-cli config unset http.timeout
+
+# Reset entire configuration
+openapi-cli config reset
+</code></pre>
+<h3 id="configuration-validation">Configuration Validation</h3>
+<pre><code class="language-bash"># Validate configuration file
+openapi-cli config validate
+
+# Check configuration for syntax errors
+openapi-cli config lint
+</code></pre>
+<h2 id="authentication-configuration">Authentication Configuration</h2>
+<h3 id="api-key-authentication">API Key Authentication</h3>
+<pre><code class="language-yaml">auth:
+  type: apikey
+  apikey:
+    header: X-API-Key
+    # From environment (recommended for security)
+    value: ${API_KEY}
+EOF
+
+api_key_from_env_value: ${API_KEY}
+</code></pre>
+<h3 id="oauth2-authentication">OAuth2 Authentication</h3>
+<pre><code class="language-yaml">auth:
+  type: oauth2
+  oauth2:
+    client_id: ${OAUTH_CLIENT_ID}
+    client_secret: ${OAUTH_CLIENT_SECRET}
+    token_url: https://auth.example.com/oauth/token
+    scopes:
+      - read
+      - write
+</code></pre>
+<h3 id="mtls-authentication">mTLS Authentication</h3>
+<pre><code class="language-yaml">auth:
+  type: mtls
+  mtls:
+    cert_path: ${TLS_CERT_PATH}
+    key_path: ${TLS_KEY_PATH}
+    ca_path: ${TLS_CA_PATH}
+</code></pre>
+<h3 id="managing-credentials">Managing Credentials</h3>
+<pre><code class="language-bash"># Login to OAuth2 provider
+openapi-cli auth login --provider google --client-id YOUR_CLIENT_ID
+
+# Store credentials securely
+openapi-cli credentials store myapi --header X-API-Key --value my-secret
+
+# List stored credentials
+openapi-cli credentials list
+
+# Remove credentials
+openapi-cli credentials remove myapi
+</code></pre>
+<h2 id="output-configuration">Output Configuration</h2>
+<h3 id="output-formats">Output Formats</h3>
+<p>Available output formats: <code>json</code>, <code>yaml</code>, <code>table</code>, <code>text</code></p>
+<pre><code class="language-yaml">output:
+  format: table
+  colors: true
+  pretty: true
+</code></pre>
+<h3 id="table-formatting">Table Formatting</h3>
+<pre><code class="language-yaml">output:
+  table:
+    max_width: 120
+    truncate: true
+    alignments:
+      id: right
+      name: left
+      price: right
+</code></pre>
+<h3 id="jsonyaml-formatting">JSON/YAML Formatting</h3>
+<pre><code class="language-yaml">output:
+  json:
+    indent: 2
+    sort_keys: true
+  yaml:
+    indent: 2
+    min_line_width: 80
+</code></pre>
+<h2 id="http-configuration">HTTP Configuration</h2>
+<pre><code class="language-yaml">http:
+  timeout: 30s
+  max_retries: 3
+  retry_delay: 1s
+  verify_ssl: true
+  keep_alive: true
+  max_idle_conns: 100
+  idle_conn_timeout: 90s
+</code></pre>
+<h3 id="proxy-configuration">Proxy Configuration</h3>
+<pre><code class="language-yaml">http:
+  proxy:
+    http: http://proxy.example.com:8080
+    https: http://proxy.example.com:8443
+    no_proxy:
+      - localhost
+      - 127.0.0.1
+</code></pre>
+<h2 id="mcp-server-configuration">MCP Server Configuration</h2>
+<pre><code class="language-yaml">mcp:
+  enabled: true
+  port: 8080
+  host: 0.0.0.0
+  spec_path: ./openapi.json
+  capabilities:
+    tools: true
+    resources: true
+    prompts: true
+</code></pre>
+<p>Starting the MCP server:</p>
+<pre><code class="language-bash">openapi-cli mcp-server --config openapi-cli.yaml
+</code></pre>
+<h2 id="daemon-configuration">Daemon Configuration</h2>
+<pre><code class="language-yaml">daemon:
+  enabled: false
+  socket: /tmp/openapi-cli.sock
+  pid_file: /var/run/openapi-cli.pid
+  log_file: /var/log/openapi-cli.log
+  auto_start: false
+</code></pre>
+<p>Managing the daemon:</p>
+<pre><code class="language-bash"># Start daemon
+openapi-cli daemon start
+
+# Check status
+openapi-cli daemon status
+
+# Stop daemon
+openapi-cli daemon stop
+openapi-cli daemon stop --force  # Force stop with SIGKILL
+</code></pre>
+<h2 id="cache-configuration">Cache Configuration</h2>
+<pre><code class="language-yaml">cache:
+  enabled: true
+  ttl: 3600s
+  location: ~/.cache/openapi-cli
+  max_size: 1GB
+  eviction: lru  # lru or ttl
+</code></pre>
+<p>Cache management:</p>
+<pre><code class="language-bash"># Clear cache
+openapi-cli cache clear
+
+# Show cache stats
+openapi-cli cache stats
+
+# Disable for a command
+openapi-cli pet get --cache=false
+</code></pre>
+<h2 id="logging-configuration">Logging Configuration</h2>
+<pre><code class="language-yaml">log:
+  level: info  # debug, info, warn, error
+  format: json  # json or text
+  output: stderr  # stderr, stdout, or path to file
+  timestamps: true
+  caller: false
+</code></pre>
+<p>Structured logging example (JSON format):</p>
+<pre><code class="language-json">{
+  &quot;level&quot;: &quot;info&quot;,
+  &quot;timestamp&quot;: &quot;2026-03-02T10:00:00Z&quot;,
+  &quot;message&quot;: &quot;Making API request&quot;,
+  &quot;method&quot;: &quot;GET&quot;,
+  &quot;url&quot;: &quot;https://api.example.com/pet/1&quot;
+}
+</code></pre>
+<h2 id="command-aliases">Command Aliases</h2>
+<p>Create custom aliases for common commands:</p>
+<pre><code class="language-yaml">aliases:
+  get-pet: pet find-id --petId 1
+  all-pets: pet find-status --status available
+  create-order: store order
+</code></pre>
+<p>Using aliases:</p>
+<pre><code class="language-bash">openapi-cli get-pet
+openapi-cli all-pets
+</code></pre>
+<h2 id="profiles">Profiles</h2>
+<p>Create profiles for different environments:</p>
+<pre><code class="language-yaml">profiles:
+  development:
+    spec:
+      base_url: https://dev-api.example.com/v1
+    log:
+      level: debug
+
+  staging:
+    spec:
+      base_url: https://staging-api.example.com/v1
+    http:
+      timeout: 60s
+
+  production:
+    spec:
+      base_url: https://api.example.com/v1
+    http:
+      timeout: 30s
+      max_retries: 3
+</code></pre>
+<p>Using profiles:</p>
+<pre><code class="language-bash"># Load specific profile
+openapi-cli --profile production pet get
+
+# Profile from environment
+export MUSTER_PROFILE=production
+openapi-cli pet get
+</code></pre>
+<h2 id="advanced-configuration">Advanced Configuration</h2>
+<h3 id="wasm-runtime-settings">WASM Runtime Settings</h3>
+<pre><code class="language-yaml">wasm:
+  enabled: true
+  max_memory: 128MB
+  max_cpu: 1
+  allowed_domains:
+    - wasm.example.com
+  sandbox:
+    filesystem: false
+    network: true
+  modules:
+    - name: http-client
+      path: ./wasm/http-client.wasm
+</code></pre>
+<h3 id="starlark-dsl-configuration">Starlark DSL Configuration</h3>
+<pre><code class="language-yaml">dsl:
+  enabled: true
+  stdlib: true
+  max_execution_time: 60s
+  allowed_imports:
+    - http
+    - json
+    - time
+    - io
+</code></pre>
+<h3 id="rate-limiting">Rate Limiting</h3>
+<pre><code class="language-yaml">rate_limit:
+  enabled: true
+  requests_per_second: 10
+  burst: 100
+  algorithm: token_bucket
+</code></pre>
+<h2 id="configuration-validation_1">Configuration Validation</h2>
+<pre><code class="language-bash"># Validate configuration
+openapi-cli config validate
+
+# Check for best practices
+openapi-cli config check
+
+# Show configuration merge hierarchy
+openapi-cli config hierarchy
+</code></pre>
+<h2 id="example-configuration-files">Example Configuration Files</h2>
+<h3 id="minimal-configuration">Minimal Configuration</h3>
+<pre><code class="language-yaml">openapi-cli:
+  spec:
+    path: openapi.yaml
+</code></pre>
+<h3 id="complete-production-configuration">Complete Production Configuration</h3>
+<pre><code class="language-yaml">openapi-cli:
+  spec:
+    path: ./api/openapi.yaml
+    base_url: https://api.example.com/v1
+
+  http:
+    timeout: 30s
+    max_retries: 3
+    verify_ssl: true
+
+  auth:
+    type: oauth2
+    oauth2:
+      client_id: ${OAUTH_CLIENT_ID}
+      client_secret: ${OAUTH_CLIENT_SECRET}
+      token_url: https://auth.example.com/oauth/token
+
+  output:
+    format: table
+    colors: true
+
+  mcp:
+    enabled: true
+
+  log:
+    level: info
+    format: json
+
+  cache:
+    enabled: true
+    ttl: 3600s
+</code></pre>
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li><a href="commands.md">Command Reference</a> - All available commands</li>
+<li><a href="../api/authentication.md">Authentication Guide</a> - Complete auth setup</li>
+<li><a href="../api/mcp-protocol.md">MCP Server Guide</a> - MCP protocol details</li>
+</ul>
+    </main>
+</body>
+</html>

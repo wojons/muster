@@ -1,0 +1,17 @@
+apiVersion: v2
+name: openapi-cli
+description: A Helm chart for OpenAPI CLI + MCP Server
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - openapi
+  - cli
+  - mcp
+  - api
+home: https://openapi-cli.io
+sources:
+  - https://github.com/openapi-cli/muster
+maintainers:
+  - name: OpenAPI CLI Team
+    email: team@openapi-cli.io

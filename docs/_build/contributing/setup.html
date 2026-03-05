@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Development Setup - Documentation</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --text-color: #1f2937;
+            --bg-color: #ffffff;
+            --code-bg: #f3f4f6;
+            --border-color: #e5e7eb;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+        
+        h1 { font-size: 2.5rem; border-bottom: 3px solid var(--primary-color); padding-bottom: 0.5rem; }
+        h2 { font-size: 2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3rem; }
+        h3 { font-size: 1.5rem; }
+        
+        pre {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        code {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background: var(--code-bg);
+        }
+        
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .nav {
+            background: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        
+        blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html">← Documentation Home</a>
+    </nav>
+    <main>
+        <h1 id="development-setup">Development Setup</h1>
+<p>Setup guide for contributing to OpenAPI CLI.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<h3 id="required-tools">Required Tools</h3>
+<ul>
+<li><strong>Go</strong>: 1.21 or later</li>
+<li><strong>Git</strong>: 2.30 or later</li>
+<li><strong>Docker</strong>: For containerized development (optional)</li>
+<li><strong>Make</strong>: For build automation</li>
+</ul>
+<h3 id="recommended-tools">Recommended Tools</h3>
+<ul>
+<li><strong>VS Code</strong> or <strong>GoLand</strong> - IDE</li>
+<li><strong>golangci-lint</strong> - Linter</li>
+<li><strong>go test</strong> - Testing</li>
+<li><strong>dlv</strong> - Debugger</li>
+</ul>
+<h2 id="cloning-the-repository">Cloning the Repository</h2>
+<pre><code class="language-bash"># Clone the repository
+git clone https://github.com/openapi-cli/openapi-cli.git
+cd openapi-cli
+
+# Verify Go modules
+go mod verify
+</code></pre>
+<h2 id="local-development">Local Development</h2>
+<h3 id="build-from-source">Build from Source</h3>
+<pre><code class="language-bash"># Build binary
+go build -o openapi-cli ./cmd/openapi-cli
+
+# Run tests
+go test ./...
+
+# Run with debug
+./openapi-cli --debug version
+</code></pre>
+<h3 id="makefile-commands">Makefile Commands</h3>
+<pre><code class="language-bash"># Build all binaries
+make build
+
+# Run tests
+make test
+
+# Run linting
+make lint
+
+# Run race detector
+make race
+
+# Format code
+make fmt
+
+# Run all checks
+make check
+</code></pre>
+<h3 id="running-locally">Running Locally</h3>
+<pre><code class="language-bash"># Start OpenAPI CLI
+go run ./cmd/openapi-cli --help
+
+# Start MCP server
+go run ./cmd/openapi-cli mcp-server --spec openapi.yaml
+
+# Test with example spec
+openapi-cli init github.com/swagger-api/swagger-petstore
+</code></pre>
+<h2 id="ide-setup">IDE Setup</h2>
+<h3 id="vs-code">VS Code</h3>
+<p>Recommended extensions:</p>
+<ol>
+<li><strong>Go</strong> - Google's official Go extension</li>
+<li><strong>GitLens</strong> - Git integration</li>
+<li><strong>Docker</strong> - Container support</li>
+</ol>
+<p><strong>Settings</strong>:</p>
+<pre><code class="language-json">{
+  &quot;go.inferGopath&quot;: false,
+  &quot;go.useLanguageServer&quot;: true,
+  &quot;go.formatTool&quot;: &quot;goimports&quot;,
+  &quot;go.lintTool&quot;: &quot;golangci-lint&quot;,
+  &quot;go.lintOnSave&quot;: &quot;workspace&quot;,
+  &quot;go.testTimeout&quot;: &quot;30s&quot;
+}
+</code></pre>
+<h3 id="goland">GoLand</h3>
+<ol>
+<li>Open project directory</li>
+<li>Go will auto-detect Go module</li>
+<li>Configure Go SDK in Settings</li>
+<li>Enable "Go Modules Integration"</li>
+</ol>
+<h2 id="testing">Testing</h2>
+<h3 id="running-tests">Running Tests</h3>
+<pre><code class="language-bash"># All tests
+go test ./...
+
+# Package-specific tests
+go test ./pkg/...
+
+# With coverage
+go test ./... -coverprofile=coverage.out
+
+# View coverage report
+go tool cover -html=coverage.out
+
+# Verbose output
+go test ./... -v
+</code></pre>
+<h3 id="writing-tests">Writing Tests</h3>
+<pre><code class="language-go">package mypackage
+
+import (
+    &quot;testing&quot;
+    &quot;github.com/stretchr/testify/assert&quot;
+    &quot;github.com/stretchr/testify/require&quot;
+)
+
+func TestMyFunction(t *testing.T) {
+    // Setup
+    input := &quot;test&quot;
+
+    // Execute
+    result, err := MyFunction(input)
+
+    // Assert
+    require.NoError(t, err)
+    assert.Equal(t, &quot;expected&quot;, result)
+}
+
+func TestMyFunction_ErrorCase(t *testing.T) {
+    // Test error handling
+    _, err := MyFunction(&quot;&quot;)
+    assert.Error(t, err)
+}
+</code></pre>
+<h3 id="test-organization">Test Organization</h3>
+<pre><code>pkg/
+  mypackage/
+    mypackage.go
+    mypackage_test.go
+    mypackage_integration_test.go  // Integration tests
+</code></pre>
+<h3 id="mocking-external-dependencies">Mocking External Dependencies</h3>
+<pre><code class="language-go">import &quot;github.com/stretchr/testify/mock&quot;
+
+type MockHTTPClient struct {
+    mock.Mock
+}
+
+func (m *MockHTTPClient) Get(url string) (*Response, error) {
+    args := m.Called(url)
+    return args.Get(0).(*Response), args.Error(1)
+}
+
+// Use in tests
+func TestWithMock(t *testing.T) {
+    mockClient := new(MockHTTPClient)
+    mockClient.On(&quot;Get&quot;, &quot;http://test.com&quot;).Return(&amp;Response{}, nil)
+
+    // Test code...
+}
+</code></pre>
+<h2 id="code-style">Code Style</h2>
+<h3 id="naming-conventions">Naming Conventions</h3>
+<ul>
+<li><strong>Packages</strong>: Lowercase, single word, no underscores</li>
+<li><strong>Exported</strong>: PascalCase (<code>MyFunction</code>)</li>
+<li><strong>Private</strong>: camelCase (<code>myFunction</code>)</li>
+<li><strong>Constants</strong>: PascalCase or all caps (<code>MaxRetries</code> or <code>MAX_RETRIES</code>)</li>
+<li><strong>Interfaces</strong>: <code>-er</code> suffix (<code>Reader</code>, <code>Writer</code>)</li>
+</ul>
+<h3 id="file-organization">File Organization</h3>
+<pre><code class="language-go">// Package comment (one file per package)
+package mypackage
+
+// Order in file:
+// 1. Package imports
+// 2. Constants
+// 3. Variables
+// 4. Types
+// 5. Functions
+</code></pre>
+<h3 id="error-handling">Error Handling</h3>
+<pre><code class="language-go">// Always check errors
+result, err := doSomething()
+if err != nil {
+    return fmt.Errorf(&quot;doSomething: %w&quot;, err)
+}
+
+// Wrap errors with context
+if err != nil {
+    return fmt.Errorf(&quot;initializing %s: %w&quot;, configName, err)
+}
+</code></pre>
+<h3 id="godoc-comments">GoDoc Comments</h3>
+<pre><code class="language-go">// DoSomething performs an operation and returns result.
+// If the operation fails, an error is returned.
+//
+// Parameters:
+//   input - The input to process
+//
+// Returns:
+//   The result and any error encountered
+func DoSomething(input string) (string, error) {
+    // Implementation
+}
+</code></pre>
+<h2 id="debugging">Debugging</h2>
+<h3 id="using-dlv">Using dlv</h3>
+<pre><code class="language-bash"># Debug tests
+dlv test ./pkg/mypackage
+
+# Debug main function
+dlv debug ./cmd/openapi-cli
+
+# Attach to running process
+dlv attach &lt;pid&gt;
+</code></pre>
+<h3 id="logging">Logging</h3>
+<pre><code class="language-go">import &quot;go.uber.org/zap&quot;
+
+logger, _ := zap.NewProduction()
+defer logger.Sync()
+
+logger.Info(&quot;Processing request&quot;,
+    zap.String(&quot;method&quot;, &quot;GET&quot;),
+    zap.String(&quot;path&quot;, &quot;/pet/1&quot;),
+)
+</code></pre>
+<h2 id="performance-profiling">Performance Profiling</h2>
+<h3 id="cpu-profiling">CPU Profiling</h3>
+<pre><code class="language-go">import (
+    &quot;os&quot;
+    &quot;runtime/pprof&quot;
+)
+
+func main() {
+    f, _ := os.Create(&quot;cpu.prof&quot;)
+    pprof.StartCPUProfile(f)
+    defer pprof.StopCPUProfile()
+
+    // Run code to profile
+}
+
+// Analyze with:
+// go tool pprof cpu.prof
+</code></pre>
+<h3 id="memory-profiling">Memory Profiling</h3>
+<pre><code class="language-go">f, _ := os.Create(&quot;mem.prof&quot;)
+defer f.Close()
+
+pprof.WriteHeapProfile(f)
+
+// Analyze with:
+// go tool pprof mem.prof
+</code></pre>
+<h2 id="build-tags">Build Tags</h2>
+<pre><code class="language-go">//go:build !windows
+
+package mypackage
+
+// Windows-specific code would be in:
+//go:build windows
+package mypackage
+</code></pre>
+<h2 id="continuous-integration">Continuous Integration</h2>
+<h3 id="github-actions">GitHub Actions</h3>
+<pre><code class="language-yaml">name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - run: go test ./...
+</code></pre>
+<h3 id="pre-commit-hooks">Pre-commit Hooks</h3>
+<pre><code class="language-bash"># Install pre-commit
+pre-commit install
+
+# Run checks
+pre-commit run --all-files
+</code></pre>
+<h2 id="documentation">Documentation</h2>
+<h3 id="code-comments">Code Comments</h3>
+<ul>
+<li>Exported functions, types, and constants must have comments</li>
+<li>Comments should explain "why" not "what"</li>
+<li>Use complete sentences</li>
+</ul>
+<h3 id="examples-in-godoc">Examples in GoDoc</h3>
+<pre><code class="language-go">// Example usage:
+//
+//   result, err := NewAPI().Get(&quot;/users/1&quot;)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//   fmt.Println(result.Name)
+</code></pre>
+<h2 id="release-process">Release Process</h2>
+<h3 id="version-bumping">Version Bumping</h3>
+<pre><code class="language-bash"># Update version in code
+# Update CHANGELOG.md
+# Tag release
+git tag -a v1.0.0 -m &quot;Release v1.0.0&quot;
+git push origin v1.0.0
+</code></pre>
+<h3 id="publishing">Publishing</h3>
+<p>GoReleaser will automatically:
+- Build binaries for all platforms
+- Create GitHub releases
+- Update Homebrew/Scoop formulas</p>
+<h2 id="contributing">Contributing</h2>
+<h3 id="guidelines">Guidelines</h3>
+<ol>
+<li><strong>Small, focused commits</strong> - One change per commit</li>
+<li><strong>Clear commit messages</strong> - Use imperative mood</li>
+<li><strong>Test coverage</strong> - Maintain &gt;80% coverage</li>
+<li><strong>Documentation</strong> - Update docs for user-facing changes</li>
+<li><strong>Code review</strong> - All PRs require review</li>
+</ol>
+<h3 id="commit-message-format">Commit Message Format</h3>
+<pre><code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
+
+&lt;body&gt;
+
+&lt;footer&gt;
+</code></pre>
+<p>Types:
+- <code>feat</code> - New feature
+- <code>fix</code> - Bug fix
+- <code>docs</code> - Documentation
+- <code>style</code> - Formatting
+- <code>refactor</code> - Code change
+- <code>test</code> - Tests
+- <code>chore</code> - Build process</p>
+<h3 id="pull-request-process">Pull Request Process</h3>
+<ol>
+<li>Fork repository</li>
+<li>Create branch (<code>git checkout -b feature/cool-thing</code>)</li>
+<li>Commit changes (<code>git commit -m 'feat: add cool thing'</code>)</li>
+<li>Push to branch (<code>git push origin feature/cool-thing</code>)</li>
+<li>Create Pull Request</li>
+</ol>
+<p>PR must:
+- Pass all CI checks
+- Include tests
+- Update documentation
+- Be reviewed by a maintainer</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="go-module-issues">Go Module Issues</h3>
+<pre><code class="language-bash"># Update dependencies
+go mod tidy
+
+# Verify integrity
+go mod verify
+
+# Clean module cache
+go clean -modcache
+</code></pre>
+<h3 id="test-failures">Test Failures</h3>
+<pre><code class="language-bash"># Run specific test
+go test -run TestMyFunction ./pkg/mypackage
+
+# Run with race detector
+go test -race ./...
+
+# Run with race and timeout
+go test -race -timeout 5m ./...
+</code></pre>
+<h2 id="resources">Resources</h2>
+<ul>
+<li><a href="https://golang.org/doc/effective_go.html">Effective Go</a></li>
+<li><a href="https://github.com/golang/go/wiki/CodeReviewComments">Go Code Review Comments</a></li>
+<li><a href="https://github.com/golang/go/wiki">Go Wiki</a></li>
+<li><a href="https://github.com/openapi-cli/openapi-cli/issues">Project Issues</a></li>
+<li><a href="https://github.com/openapi-cli/openapi-cli/discussions">Project Discussions</a></li>
+</ul>
+    </main>
+</body>
+</html>

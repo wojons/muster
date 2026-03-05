@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openapi-cli
+  namespace: openapi-cli
+  labels:
+    app.kubernetes.io/name: openapi-cli
+    app.kubernetes.io/component: poddisruptionbudget
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openapi-cli
+      app.kubernetes.io/component: server

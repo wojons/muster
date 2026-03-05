@@ -1,0 +1,25 @@
+Source: openapi-cli
+Section: utils
+Priority: optional
+Maintainer: OpenAPI CLI Contributors <info@openapi-cli.io>
+Build-Depends: debhelper (>= 12), golang-go (>= 1.22), ca-certificates
+Standards-Version: 4.6.0
+Homepage: https://github.com/openapi-cli/muster
+Vcs-Browser: https://github.com/openapi-cli/muster
+Vcs-Git: https://github.com/openapi-cli/muster.git
+
+Package: openapi-cli
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Unified OpenAPI CLI and MCP Server
+ OpenAPI CLI is a powerful tool that generates CLI commands dynamically
+ from OpenAPI specifications and serves them via MCP protocol.
+ .
+ Features:
+  * Dynamic CLI command generation from OpenAPI specs
+  * MCP server integration for tool discovery
+  * WASM runtime for sandboxed operation execution
+  * OAuth2 and mTLS authentication support
+  * Starlark DSL for automation scripts
+  * Daemon mode with Unix socket proxy
+  * Cross-platform support (Linux, macOS, Windows)

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openapi-cli.fullname" . }}-config
+  labels:
+    app.kubernetes.io/name: {{ include "openapi-cli.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  config.yaml: |
+    server:
+      port: {{ .Values.config.server.port }}
+      host: {{ .Values.config.server.host }}
+    
+    log:
+      level: {{ .Values.config.log.level }}
+      format: {{ .Values.config.log.format }}
+      output: {{ .Values.config.log.output }}
+    
+    inventory:
+      cache_ttl: {{ .Values.config.inventory.cache_ttl }}
+      fetch_timeout: {{ .Values.config.inventory.fetch_timeout }}
+      
+    http:
+      timeout: {{ .Values.config.http.timeout }}
+      max_retries: {{ .Values.config.http.max_retries }}
+      retry_backoff: {{ .Values.config.http.retry_backoff }}
+      
+    rate_limit:
+      enabled: {{ .Values.config.rate_limit.enabled }}
+      requests_per_minute: {{ .Values.config.rate_limit.requests_per_minute }}
+      burst: {{ .Values.config.rate_limit.burst }}
+      
+    metrics:
+      enabled: {{ .Values.config.metrics.enabled }}
+      path: {{ .Values.config.metrics.path }}
+      
+    health:
+      enabled: {{ .Values.config.health.enabled }}
+      path: {{ .Values.config.health.path }}
+      
+    tracing:
+      enabled: {{ .Values.config.tracing.enabled }}
+      endpoint: {{ .Values.config.tracing.endpoint }}
+      sample_rate: {{ .Values.config.tracing.sample_rate }}
