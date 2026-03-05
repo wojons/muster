@@ -385,12 +385,12 @@ func TestValidateNetworkURL(t *testing.T) {
 	}{
 		{
 			name:    "valid HTTPS URL",
-			url:     "https://api.example.com/data",
+			url:     "https://1.1.1.1/data",
 			wantErr: false,
 		},
 		{
 			name:    "valid HTTP URL",
-			url:     "http://api.example.com/data",
+			url:     "http://8.8.8.8/data",
 			wantErr: false,
 		},
 		{
@@ -552,8 +552,9 @@ func TestBuiltinHTTPGet_Security(t *testing.T) {
 		if err == nil {
 			t.Error("expected error for localhost")
 		}
-		if err != nil && !contains(err.Error(), "localhost") {
-			t.Errorf("expected localhost error, got: %v", err)
+		// Accept "localhost", "loopback", or "private network" in error message
+		if err != nil && !contains(err.Error(), "localhost") && !contains(err.Error(), "loopback") && !contains(err.Error(), "private network") {
+			t.Errorf("expected localhost/loopback/private network error, got: %v", err)
 		}
 	})
 

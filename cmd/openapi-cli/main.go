@@ -30,6 +30,8 @@ func run() error {
 	cfg, err := config.Load()
 	if err != nil {
 		// Config loading errors are non-fatal - we can run with defaults
+		// NOTE: config.Load() is designed to never fail (it always returns a valid Config),
+		// so this error path is defensive programming and may not be reachable in practice
 		cfg = &config.Config{Version: Version}
 	}
 

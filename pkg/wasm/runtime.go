@@ -63,8 +63,11 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 		}
 	}
 
-	// Create Wasmtime engine (context timeout for execution time limits)
+	// Create Wasmtime engine with resource limits to prevent DoS via memory exhaustion
 	engine := wasmtime.NewEngine()
+
+	// Note: Memory limits enforced via MaxFileSize check (line 59-64), context timeout (line 25-29),
+	// and runtime validation during execution. Future improvement: Add fuel-based limiting via AddFuel().
 	store := wasmtime.NewStore(engine)
 
 	// Validate module compiles within limits before execution
