@@ -195,3 +195,146 @@ func TestRun_HandleConfigLoadError(t *testing.T) {
 
 	require.NoError(t, err, "root command should execute with defaults")
 }
+
+func TestNewRootCommand_VersionCommand(t *testing.T) {
+	cfg := &config.Config{Version: "1.0.0"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "--version"}
+	err := root.ExecuteContext(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_ConfigCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "config"}
+	err := root.ExecuteContext(ctx)
+
+	// Config command should execute (may fail on actual config, but shouldn't crash)
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_AuthCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "auth"}
+	err := root.ExecuteContext(ctx)
+
+	// Auth command should execute
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_GenerateCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "generate", "--help"}
+	err := root.ExecuteContext(ctx)
+
+	// Generate --help should succeed
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_InventoryCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "inventory"}
+	err := root.ExecuteContext(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_ModulesCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "modules"}
+	err := root.ExecuteContext(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_InitCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "init", "--help"}
+	err := root.ExecuteContext(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_RequestCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "request", "--help"}
+	err := root.ExecuteContext(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_DaemonCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "daemon", "--help"}
+	err := root.ExecuteContext(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_CompletionCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "completion", "bash"}
+	err := root.ExecuteContext(ctx)
+
+	require.NoError(t, err)
+}

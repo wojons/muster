@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
 	"github.com/openapi-cli/openapi-cli/pkg/request"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 // ToolRegistry implements handlers.CommandRegistry for OpenAPI tools
@@ -116,11 +118,44 @@ func NewOpenAPIExecutor(configs map[string]ExecutionConfig) *ToolExecutor {
 	}
 }
 
+// validateArgs validates tool arguments against JSON Schema
+func (e *ToolExecutor) validateArgs(schema json.RawMessage, args map[string]interface{}) error {
+	if len(schema) == 0 {
+		// No schema provided, no validation required
+		return nil
+	}
+
+	schemaLoader := gojsonschema.NewBytesLoader(schema)
+	documentLoader := gojsonschema.NewGoLoader(args)
+
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		var errors []string
+		for _, err := range result.Errors() {
+			errors = append(errors, err.String())
+		}
+		return fmt.Errorf("validation failed: %s", strings.Join(errors, ", "))
+	}
+
+	return nil
+}
+
 // Execute executes an OpenAPI operation by name
 func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string]interface{}) (interface{}, error) {
 	config, ok := e.configs[name]
 	if !ok {
 		return nil, nil
+	}
+
+	// CRITICAL SECURITY FIX: Validate inputs against JSON Schema before execution
+	if err := e.validateArgs(config.InputSchema, args); err != nil {
+		return map[string]interface{}{
+			"error": err.Error(),
+		}, nil
 	}
 
 	// Build HTTP request

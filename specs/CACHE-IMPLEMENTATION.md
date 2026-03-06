@@ -11,16 +11,13 @@ Complete specification of **multi-tier caching** system implementation.
 
 ## 1. Cache Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                   Cache Manager                         │
-├─────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │   L1 (Memory) │  │  L2 (Disk)   │  │ L3 (Redis)   │  │
-│  │   Fast        │  │  Persistent  │  │ Distributed  │  │
-│  │   <100MB      │  │  <1GB        │  │ Unlimited    │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "Cache Manager"
+        L1["L1 (Memory)<br/>• Fast<br/>• <100MB"]
+        L2["L2 (Disk)<br/>• Persistent<br/>• <1GB"]
+        L3["L3 (Redis)<br/>• Distributed<br/>• Unlimited"]
+    end
 ```
 
 ## 2. Cache Interface
@@ -45,6 +42,35 @@ type Metadata struct {
     Size        int64
     Tags        []string
 }
+```
+
+**Multi-Tier Cache Flow:**
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant L1 as L1 (Memory)
+    participant L2 as L2 (Disk)
+    participant Source as Data Source
+
+    App->>L1: Get("key")
+    alt L1 Hit
+        L1-->>App: Return Value
+    else L1 Miss
+        L1-->>App: Not Found
+        App->>L2: Get("key")
+        alt L2 Hit
+            L2-->>App: Return Value<br/>Promote to L1
+            App->>L1: Set("key", Value, 1min)
+        else L2 Miss
+            L2-->>App: Not Found
+            App->>Source: Fetch Data
+            Source-->>App: Data
+            App->>L2: Set("key", Value, 1hr)
+            App->>L1: Set("key", Value, 1min)
+            App-->>App: Return Value
+        end
+    end
 ```
 
 ## 3. Multi-Tier Implementation

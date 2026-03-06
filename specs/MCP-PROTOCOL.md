@@ -9,6 +9,69 @@
 
 Complete specification of the **Model Context Protocol (MCP)** implementation for stdio-based communication with AI clients.
 
+## Protocol Flow
+
+```mermaid
+sequenceDiagram
+    participant Client as AI Client (Claude)
+    participant Server as MCP Server
+    participant Tools as Tool Registry
+    participant API as External APIs
+
+    Note over Client,Server: Initialization Phase
+    Client->>Server: initialize (protocolVersion, capabilities)
+    Server-->>Client: initialize_result (serverCapabilities)
+
+    Note over Client,Server: Operational Phase
+    Client->>Server: tools/list
+    Server->>Tools: Get all registered tools
+    Tools-->>Server: Tool definitions
+    Server-->>Client: tools with schemas
+
+    loop Tool Execution
+        Client->>Server: tools/call (toolId, args)
+        Server->>Tools: Lookup tool
+        Tools-->>Server: Tool handler
+        Server->>API: Execute HTTP request
+        API-->>Server: API response
+        Server->>Server: Apply WASM/DSL transforms
+        Server-->>Client: tool_result (response)
+    end
+
+    Note over Client,Server: Shutdown Phase
+    Client->>Server: shutdown
+    Server-->>Client: empty_result
+```
+
+## Architecture Diagram
+
+```mermaid
+graph TB
+    Client[AI Client<br/>Claude/OpenAI] -->|JSON-RPC 2.0<br/>stdio| Server[MCP Server]
+
+    Server -->|tool registration| Registry[Tool Registry]
+    Server -->|load & execute| Runtime[WASM Runtime]
+    Server -->|interpret| DSL[Starlark DSL]
+
+    Registry -->|HTTP requests| APIs[External APIs]
+
+    APIs -->|responses| Transform[Response Transformation]
+
+    Runtime -->|custom logic| Transform
+
+    Transform --> Server
+
+    subgraph "MCP Server"
+        Handler[Request Handler]
+        Router[Tool Router]
+        Executor[Command Executor]
+
+        Handler --> Router
+        Router --> Executor
+        Executor --> Runtime
+    end
+```
+
 ## 1. Protocol Basics
 
 ### 1.1 Transport

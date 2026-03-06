@@ -40,8 +40,8 @@ func NewMemoryCache(maxSize int64, eviction EvictionPolicy) *MemoryCache {
 }
 
 func (mc *MemoryCache) Get(ctx context.Context, key string) (Value, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
 
 	if mc.closed {
 		return Value{}, ErrClosed

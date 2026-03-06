@@ -11,6 +11,59 @@
 
 Complete specification of the **WASM (WebAssembly) runtime** system for executing sandboxed plugins across all 12 language SDKs. This specification ensures **deterministic execution** and **cross-language compatibility** through consistent use of Wasmtime 8.0.0 as the underlying runtime.
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Runtime["WASM Runtime Layer"]
+        Engine["Engine<br/>(Wasmtime 8.0.0)"]
+        Store["Store<br/>(Execution Context)"]
+        ModuleCache["Module Cache<br/>(Compiled WASM)"]
+        
+        Engine --> Store
+        Engine --> ModuleCache
+        Store --> Engine
+        ModuleCache --> Engine
+    end
+    
+    subgraph WASI["WASI Implementation"]
+        Filesystem["Filesystem<br/>(Sandboxed)"]
+        Clocks["Clocks<br/>(Deterministic)"]
+        Random["Random<br/>(Seeded)"]
+        Environment["Environment<br/>(Controlled)"]
+    end
+    
+    Runtime --> WASI
+```
+
+## Execution Flow
+
+```mermaid
+flowchart TD
+    Start([Start]) --> Load[Load Module]
+    Load --> CheckCache{In Cache?}
+    CheckCache -->|Yes| ReturnCached[Return Cached Module]
+    CheckCache -->|No| Validate[Validate Module]
+    Validate --> CheckValid{Valid?}
+    CheckValid -->|No| ErrorLoad[Load Error]
+    CheckValid -->|Yes| Compile[Compile Module]
+    Compile --> Cache[Store in Cache]
+    Cache --> Instantiate[Instantiate with Store]
+    Instantiate --> LinkHost[Link Host Functions]
+    LinkHost --> CreateInstance[Create Instance]
+    CreateInstance --> Execute[Execute Function]
+    Execute --> CheckTimeout{Timeout?}
+    CheckTimeout -->|Yes| ErrorTimeout[Timeout Error]
+    CheckTimeout -->|No| CheckResult{Error?}
+    CheckResult -->|Yes| ErrorExec[Execution Error]
+    CheckResult -->|No| Success[Return Result]
+    ReturnCached --> End([End])
+    ErrorLoad --> End
+    ErrorTimeout --> End
+    ErrorExec --> End
+    Success --> End
+```
+
 ## 1. Runtime Architecture
 
 ### 1.1 Core Components

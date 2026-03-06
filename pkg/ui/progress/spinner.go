@@ -66,10 +66,13 @@ func NewSpinner(opts SpinnerOptions) *Spinner {
 
 // Start begins the spinner animation
 func (s *Spinner) Start(w io.Writer) {
+	s.mu.Lock()
 	if s.running {
+		s.mu.Unlock()
 		return
 	}
 	s.running = true
+	s.mu.Unlock()
 
 	ticker := time.NewTicker(s.Interval)
 	defer ticker.Stop()
@@ -78,9 +81,15 @@ func (s *Spinner) Start(w io.Writer) {
 		select {
 		case <-ticker.C:
 			s.draw(w)
-		case <-s.stopChan:
+		case <-func() chan struct{} {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			return s.stopChan
+		}():
 			s.clear(w)
+			s.mu.Lock()
 			s.running = false
+			s.mu.Unlock()
 			return
 		}
 	}
@@ -112,6 +121,8 @@ func (s *Spinner) draw(w io.Writer) {
 
 // Stop halts the spinner
 func (s *Spinner) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.running {
 		close(s.stopChan)
 		s.stopChan = make(chan struct{})

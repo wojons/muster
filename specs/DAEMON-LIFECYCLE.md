@@ -2,6 +2,142 @@
 
 Complete daemon lifecycle management with signal handling.
 
+## State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Stopped: New Daemon
+    Stopped --> Starting: Startup()
+    Starting --> Running: PID Created
+    Running --> Stopping: SIGINT/SIGTERM
+    Running --> Reloading: SIGHUP
+    Reloading --> Running: Config Reloaded
+    Stopping --> Stopped: Cleanup Complete
+    Stopping --> Killed: Timeout 30s
+    
+    note right of Starting: Creating PID file, starting signal handler
+    note right of Running: Daemon operational, accepting requests
+    note right of Reloading: Reloading configuration temporarily
+    note right of Stopping: Waiting for goroutines, removing PID
+```
+
+## Lifecycle Flow
+
+```mermaid
+flowchart TD
+    A([New Daemon]) --> B[Startup]
+    B --> C{Create PID File}
+    C -->|Error| D[Return Error]
+    C -->|Success| E[Set State to Running]
+    E --> F[Start Signal Handler Goroutine]
+    F --> G([Running])
+    
+    G --> H{Signal Received?}
+    H -->|SIGINT/SIGTERM| I[Shutdown]
+    H -->|SIGHUP| J[Reload Config]
+    H -->|SIGUSR1/2| K[Custom Handler]
+    H -->|None| L{Context Done?}
+    
+    I --> M[Closing Channels]
+    M --> N[Cancel Context]
+    N --> O[Wait for Goroutines]
+    O --> P{Timeout?}
+    P -->|No| Q[Remove PID File]
+    P -->|Yes| R[Force Kill]
+    Q --> S[Set State to Stopped]
+    R --> S
+    S --> T([Stopped])
+    
+    J --> U{State Running?}
+    U -->|No| V[Return Error]
+    U -->|Yes| W[Set State to Reloading]
+    W --> X[Call Reload Handler]
+    X --> Y{Success?}
+    Y -->|No| Z[Set State to Running\nReturn Error]
+    Y -->|Yes| AA[Set State to Running\nReturn Success]
+    AA --> G
+    
+    K --> AB[Call Custom Handler]
+    AB --> G
+    
+    L --> AC[Context Cancelled]
+    AC --> I
+    
+    D --> AD([Startup Failed])
+```
+
+## Signal Handling Flow
+
+```mermaid
+sequenceDiagram
+    participant OS as Operating System
+    participant Daemon as Daemon Lifecycle
+    participant Handlers as Signal Handlers
+    participant PID as PID File
+    participant Config as Configuration
+    
+    Daemon->>OS: Signal Notify
+    Note over Daemon: Registering for SIGINT, SIGTERM,<br/>SIGHUP, SIGUSR1, SIGUSR2
+    
+    par Signal Reception
+        OS->>Daemon: SIGINT (Ctrl+C)
+    or
+        OS->>Daemon: SIGTERM (kill)
+    end
+    
+    Daemon->>Daemon: Shutdown()
+    Daemon->>Daemon: Close shutdown channels
+    Daemon->>Daemon: Cancel context
+    Daemon->>Handlers: Wait for goroutines
+    Handlers-->>Daemon: All goroutines done
+    Daemon->>PID: Remove PID file
+    Daemon->>Config: Save state
+    Daemon-->>OS: Exit 0
+    
+    Note over OS,Daemon: Graceful shutdown complete
+    
+    par Reload Signal
+        OS->>Daemon: SIGHUP
+        Daemon->>Daemon: Reload()
+        Daemon->>Config: Reload configuration
+        Config-->>Daemon: New config loaded
+        Daemon-->>OS: Continue running
+    end
+    
+    par Custom Signals
+        OS->>Daemon: SIGUSR1
+        Daemon->>Handlers: Call handler for SigCustom1
+        OS->>Daemon: SIGUSR2
+        Daemon->>Handlers: Call handler for SigCustom2
+    end
+```
+
+## Startup Sequence Flow
+
+```mermaid
+flowchart TD
+    START([Startup]) --> ACQUIRE[Acquire Mutex]
+    ACQUIRE --> SET_STATE[Set State to Starting]
+    SET_STATE --> RELEASE[Release Mutex]
+    RELEASE --> CREATE_PID[Create PID File]
+    CREATE_PID -->{PID Exists?}
+    {PID Exists?} -->|Yes| ERROR1[Return Error: PID File Exists]
+    ERROR1 --> END1([Startup Failed])
+    {PID Exists?} -->|No| LOCK_PID[Lock PID File]
+    LOCK_PID --> STORE_PID[Store PID Handle]
+    STORE_PID --> ACQUIRE2[Acquire Mutex]
+    ACQUIRE2 --> SET_STATE2[Set State to Running]
+    SET_STATE2 --> RELEASE2[Release Mutex]
+    RELEASE2 --> ADD_GOROUTINE[Add 1 to WaitGroup]
+    ADD_GOROUTINE --> START_HANDLER[Start signalHandler Goroutine]
+    START_HANDLER --> DONE([Startup Complete])
+    
+    style {PID Exists?} fill:#ff9,stroke:#333
+    style ERROR1 fill:#f99,stroke:#333
+    style START fill:#9f9,stroke:#333
+    style DONE fill:#9f9,stroke:#333
+```
+
 ## File: internal/daemon/lifecycle/lifecycle.go
 
 ```go

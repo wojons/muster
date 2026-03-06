@@ -38,9 +38,10 @@ func (t *OpenAPITool) ToHandlersTool() handlers.Tool {
 
 // ExecutionConfig contains execution information for a tool
 type ExecutionConfig struct {
-	Path    string `json:"path"`
-	Method  string `json:"method"`
-	BaseURL string `json:"base_url"`
+	Path        string          `json:"path"`
+	Method      string          `json:"method"`
+	BaseURL     string          `json:"base_url"`
+	InputSchema json.RawMessage `json:"inputSchema"`
 }
 
 // ConvertToTools converts all operations in an OpenAPI spec to MCP tools
@@ -73,9 +74,10 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 
 			tools = append(tools, tool)
 			configs[toolName] = ExecutionConfig{
-				Path:    path,
-				Method:  method,
-				BaseURL: c.baseURL,
+				Path:        path,
+				Method:      method,
+				BaseURL:     c.baseURL,
+				InputSchema: tool.InputSchema,
 			}
 		}
 	}

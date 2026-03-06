@@ -11,6 +11,69 @@
 
 Dynamic commands are generated at runtime from OpenAPI specifications. The CLI parses the OpenAPI spec and creates cobra commands for each operation, enabling automatic API client generation without manual coding.
 
+## Command Generation Flow
+
+```mermaid
+flowchart TD
+    Start[Start] --> LoadSpec[Load OpenAPI Spec]
+    LoadSpec --> ParseSpec[Parse Spec]
+    ParseSpec --> ExtractOps[Extract Operations]
+    ExtractOps --> MapOps{Map Operations?}
+    MapOps -->|Yes| CreateCmds[Create Cobra Commands]
+    MapOps -->|No| Error[Show Error]
+    CreateCmds --> AddFlags[Add Flags]
+    AddFlags --> RegisterCmds[Register Commands]
+    RegisterCmds --> Ready[CLI Ready]
+    Error --> End[End]
+    Ready --> End
+```
+
+## Architecture
+
+```mermaid
+graph TB
+    OpenAPI[OpenAPI Spec] --> Parser[OpenAPI Parser]
+    Parser --> Extractor[Operation Extractor]
+    Extractor --> Mapper[Operation Mapper]
+    Mapper --> Generator[Command Generator]
+    Generator --> Registry[Command Registry]
+    Registry --> CLI[CLI Root Command]
+
+    subgraph "Cobra Components"
+        Root[Root Command]
+        Groups[Command Groups]
+        Sub[Subcommands]
+        Flags[Flags]
+
+        Root --> Groups
+        Groups --> Sub
+        Sub --> Flags
+    end
+
+    Registry --> Root
+    Mapper --> Groups
+```
+
+## Execution Flow
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant CLI as CLI Tool
+    participant Parser as OpenAPI Parser
+    participant Mapper as Operation Mapper
+    participant API as API Server
+
+    User->>CLI: Execute Generated Command
+    CLI->>Parser: Parse Operation Parameters
+    Parser->>CLI: Validated Parameters
+    CLI->>Mapper: Build HTTP Request
+    Mapper->>CLI: Formatted Request
+    CLI->>API: Send HTTP Request
+    API->>CLI: Return Response
+    CLI->>User: Display Result
+```
+
 ---
 
 ## OpenAPI to Cobra Mapping

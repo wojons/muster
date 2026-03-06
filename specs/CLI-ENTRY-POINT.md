@@ -4,6 +4,134 @@
 
 Complete specification for the CLI entry point (`main.go`) for the muster CLI tool. This document provides the complete implementation including all initialization, error handling, signal handling, and command structure.
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Main["main() Function"]
+        Start["Start"]
+        Recover["Panic Recovery"]
+        Signals["Setup Signal Handling"]
+        RunCLI["runCLI()"]
+        HandleError["handleError()"]
+        Exit["os.Exit()"]
+        
+        Start --> Recover
+        Recover --> Signals
+        Signals --> RunCLI
+        RunCLI -->|Error| HandleError
+        HandleError --> Exit
+        RunCLI -->|Success| Exit
+    end
+    
+    subgraph CLI["CLI Execution"]
+        RootCmd["Create Root Command"]
+        PreRun["Persistent Pre Run"]
+        Subcommands["Add Subcommands"]
+        PostRun["Persistent Post Run"]
+        Execute["Execute Command"]
+        
+        RootCmd --> PreRun
+        PreRun --> Subcommands
+        Subcommands --> PostRun
+        PostRun --> Execute
+    end
+    
+    subgraph Signals["Signal Handling"]
+        SIGINT["SIGINT<br/>Ctrl+C"]
+        SIGTERM["SIGTERM"]
+        Context["Context Cancellation"]
+        Cleanup["Cleanup Resources"]
+        
+        SIGINT --> Context
+        SIGTERM --> Context
+        Context --> Cleanup
+    end
+    
+    RunCLI --> CLI
+    Signals --> Signals
+    Signals -.->|Interrupts| RunCLI
+```
+
+## Execution Flow
+
+```mermaid
+flowchart TD
+    A([Start main()]) --> B{Panic Recover}
+    B -->|No Panic| C[Create Root Context]
+    B -->|Panic| D[handlePanic]
+    D --> Z([os.Exit])
+    C --> E[setupSignalHandling]
+    E --> F[Create Signal Channel]
+    F --> G[runCLI ctx sigChan]
+    G --> H{Persistent PreRun}
+    H -->|Error| I[Return Error]
+    H -->|Success| J[Add Subcommands]
+    J --> K[Execute Command]
+    K --> L{Persistent PostRun}
+    L -->|Error| M[Return Error]
+    L -->|Success| N{Signal Received?}
+    N -->|Yes| O[Return Signal Error]
+    N -->|No| P[Context Done?]
+    P -->|Yes| Q[Return Context Error]
+    P -->|No| R[Return Success]
+    I --> S[handleError]
+    O --> S
+    M --> S
+    Q --> S
+    R --> T([Exit with Success])
+    S --> U[Get Exit Code]
+    U --> V([os.Exit code])
+    
+    style B fill:#f9f,stroke:#333
+    style H fill:#bbf,stroke:#333
+    style L fill:#bbf,stroke:#333
+    style N fill:#ff9,stroke:#333
+    style O fill:#f99,stroke:#333
+    style R fill:#9f9,stroke:#333
+```
+
+## Signal Handling Flow
+
+```mermaid
+sequenceDiagram
+    participant OS as Operating System
+    participant Main as main()
+    participant Signal as Signal Channel
+    participant CLI as runCLI()
+    participant Cmd as Command
+    
+    Main->>OS: Register signal handlers
+    OS->>Main: Create signal channel
+    
+    Main->>CLI: Execute with context
+    CLI->>Cmd: Run command
+    
+    opt User presses Ctrl+C
+        OS->>Signal: Send SIGINT
+    end
+    
+    opt Termination signal
+        OS->>Signal: Send SIGTERM
+    end
+    
+    CLI->>Signal: Wait for signal or completion
+    
+    alt Signal received first
+        Signal->>CLI: Return signal error
+        CLI->>Main: Signal error
+        Main->>Main: Cancel context
+        Main->>OS: Exit with signal code
+    else Command completes first
+        Cmd->>CLI: Command result
+        CLI->>Main: Success or error
+        Main->>Main: Cancel context
+        Main->>OS: Exit with success/error code
+    end
+    
+    Note over Main,OS: Clean shutdown initiated
+```
+
 ## File Location
 
 ```

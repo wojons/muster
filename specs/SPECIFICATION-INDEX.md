@@ -95,7 +95,7 @@ Complete index of all 276 specification files for the OpenAPI CLI + MCP Server s
 - `DOCS-CONTRIBUTING.md` – Specification for DOCS CONTRIBUTING
 - `DOCS-INSTALLATION.md` – Specification for DOCS INSTALLATION
 - `DOCS-MCP-SETUP.md` – Specification for DOCS MCP SETUP
-- `DOCS-QUICKSTART.md` – Specification for DOCS QUICKSTART
+- `DOCS-OPENAPI-QUICKSTART.md` – Specification for DOCS OPENAPI QUICKSTART (replaces incorrect DOCS-QUICKSTART.md)
 - `DOCS-README.md` – Specification for DOCS README
 - `DOCS-TROUBLESHOOTING.md` – Specification for DOCS TROUBLESHOOTING
 - `DOCUMENTATION-STRATEGY.md` – Specification for DOCUMENTATION STRATEGY
