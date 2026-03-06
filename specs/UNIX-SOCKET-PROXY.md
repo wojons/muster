@@ -9,6 +9,53 @@
 
 Complete specification of **Unix domain socket proxy** implementation.
 
+## Architecture
+
+```mermaid
+graph TB
+    Client[Unix Socket Client]
+    Socket[Unix Domain Socket<br/>/tmp/muster.sock]
+    Proxy[HTTP Proxy Handler]
+    App[Application Logic]
+    
+    Client --> Socket
+    Socket --> Proxy
+    Proxy --> App
+    App --> Proxy
+    Proxy --> Socket
+    Socket --> Client
+```
+
+## Request Flow
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Proxy as Unix Socket Proxy
+    participant Socket as Unix Socket
+    participant Client as HTTP Client
+    
+    App->>Proxy: Start proxy on socket path
+    Proxy->>Socket: Create Unix socket listener
+    Proxy->>Proxy: Set secure permissions (0600)
+    Proxy-->>App: Proxy ready
+    
+    Client->>Socket: Connect to socket
+    Socket-->>Client: Connection established
+    
+    Client->>Proxy: Send HTTP request
+    Proxy->>Proxy: Parse HTTP request
+    Proxy->>App: Route to application handler
+    App->>Proxy: Process and return response
+    Proxy->>Proxy: Convert to HTTP response
+    Proxy->>Client: Send HTTP response
+    
+    App->>Proxy: Stop proxy
+    Proxy->>Proxy: Shutdown server
+    Proxy->>Socket: Close socket
+    Socket-->>Client: Connection closed
+```
+
 ## 1. Socket Creation
 
 ```go

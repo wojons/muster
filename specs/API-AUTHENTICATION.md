@@ -10,6 +10,69 @@
 
 The API authentication system provides secure, flexible authentication mechanisms for the OpenAPI CLI. It supports multiple authentication methods including OAuth2, API keys, and mutual TLS (mTLS), with comprehensive token lifecycle management and secure storage.
 
+## Authentication Architecture
+
+```mermaid
+graph TB
+    subgraph AuthMethods["Authentication Methods"]
+        OAuth2["OAuth2 Flow<br/>(PKCE + Refresh Tokens)"]
+        APIKey["API Keys<br/>(Generation + Rotation)"]
+        MTLS["mTLS<br/>(Certificates)"]
+    end
+    
+    subgraph Manager["Authentication Manager"]
+        MethodSelect["Method Selection"]
+        Coordination["Method Coordination"]
+        TransportAuth["HTTP Transport Auth"]
+    end
+    
+    subgraph Storage["Secure Token Storage"]
+        Encryption["AES-256-GCM"]
+        Keychain["OS Keychain"]
+        FileStorage["Encrypted File Storage"]
+    end
+    
+    OAuth2 --> Manager
+    APIKey --> Manager
+    MTLS --> Manager
+    
+    Manager --> Storage
+    Storage --> Manager
+    
+    Manager --> Client["HTTP Client<br/>(Authenticated)"]
+```
+
+## Authentication Request Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as CLI Tool
+    participant Auth as Auth Manager
+    participant TokenStore as Token Store
+    participant API as API Server
+    
+    User->>CLI: Execute API command
+    CLI->>Auth: Get authentication token
+    Auth->>TokenStore: Check for stored token
+    alt Token stored and valid
+        TokenStore-->>Auth: Return valid token
+    else No token or expired
+        Auth->>Auth: Refresh or re-authenticate
+        Auth->>User: Prompt for credentials (if needed)
+        User->>Auth: Provide credentials
+        Auth->>API: Exchange credentials for token
+        API-->>Auth: Return new token
+        Auth->>TokenStore: Store encrypted token
+        TokenStore-->>Auth: Confirm storage
+    end
+    Auth-->>CLI: Return token
+    CLI->>API: Request with auth header
+    API->>API: Validate token
+    API-->>CLI: Return response
+    CLI->>User: Display result
+```
+
 ### Authentication Methods
 
 - **OAuth2**: Authorization code flow with PKCE, refresh tokens

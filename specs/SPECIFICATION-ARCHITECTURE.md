@@ -195,7 +195,7 @@ These define documentation and user guides.
 **Files:**
 - `DOCS-README.md` - Project README
 - `DOCS-INSTALLATION.md` - Installation guide
-- `DOCS-QUICKSTART.md` - Quick start guide
+- `DOCS-OPENAPI-QUICKSTART.md` - Quick start guide (CORRECTED - replaces incorrect DOCS-QUICKSTART.md)
 - `DOCS-CLI-REFERENCE.md` - CLI command reference
 - `DOCS-MCP-SETUP.md` - MCP setup instructions
 - `DOCS-AUTHENTICATION.md` - Auth setup guide

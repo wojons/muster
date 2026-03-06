@@ -10,331 +10,278 @@ The Architecture Visual Guide provides comprehensive visual documentation of the
 
 ## System Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           USER / AI AGENT                               │
-└───────────────┬───────────────────────────────────────┬─────────────────┘
-                │                                       │
-                │ CLI                                   │ MCP
-                │                                       │
-                ▼                                       ▼
-┌───────────────────────────┐               ┌───────────────────────────┐
-│     CLI Interface         │               │     MCP Interface         │
-│  ┌─────────────────────┐  │               │  ┌─────────────────────┐  │
-│  │ Argument Parser     │  │               │  │ MCP Protocol        │  │
-│  │ Command Router      │  │               │  │ Tool Registry       │  │
-│  │ Output Formatter    │  │               │  │ Request Handler     │  │
-│  └─────────────────────┘  │               │  └─────────────────────┘  │
-└───────────┬───────────────┘               └───────────┬───────────────┘
-            │                                           │
-            └───────────────────┬───────────────────────┘
-                                │
-                    ┌───────────▼───────────┐
-                    │     SHARED CORE       │
-                    └───────────┬───────────┘
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        │                       │                       │
-        ▼                       ▼                       ▼
-┌───────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Inventory   │     │  Configuration  │     │    Security     │
-│    Manager    │     │      Hub        │     │     Layer       │
-├───────────────┤     ├─────────────────┤     ├─────────────────┤
-│ • Fetch HTTPS │     │ • CLI flags     │     │ • Auth handlers │
-│ • Cache       │     │ • Env vars      │     │ • mTLS          │
-│ • Versions    │     │ • Config files  │     │ • Fingerprint   │
-│ • Offline     │     │ • Inventory     │     │ • Secrets       │
-└───────┬───────┘     └────────┬────────┘     └────────┬────────┘
-        │                      │                       │
-        └──────────────────────┼───────────────────────┘
-                               │
-                   ┌───────────▼───────────┐
-                   │   Execution Engine    │
-                   └───────────┬───────────┘
-                               │
-           ┌───────────────────┼───────────────────┐
-           │                   │                   │
-           ▼                   ▼                   ▼
-    ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-    │ HTTP Client  │   │ WASM Runtime │   │ DSL Interpreter│
-    ├──────────────┤   ├──────────────┤   ├──────────────┤
-    │ • Requests   │   │ • Sandbox    │   │ • Workflows  │
-    │ • Retries    │   │ • Modules    │   │ • Chaining   │
-    │ • Rate limit │   │ • Transform  │   │ • Loops      │
-    └────────┬─────┘   └──────────────┘   └──────────────┘
-             │
-             ▼
-    ┌─────────────────┐
-    │   Target API    │
-    └─────────────────┘
+```mermaid
+graph TB
+    User["USER / AI AGENT"] --> CLI1["CLI Interface"]
+    User --> MCP1["MCP Interface"]
+
+    subgraph "CLI Interface"
+        CLI_ArgParse["Argument Parser"]
+        CLI_CmdRouter["Command Router"]
+        CLI_OutputFmt["Output Formatter"]
+    end
+
+    subgraph "MCP Interface"
+        MCP_Protocol["MCP Protocol"]
+        MCP_Tools["Tool Registry"]
+        MCP_Handler["Request Handler"]
+    end
+
+    subgraph "Shared Core"
+        InventoryMgr["Inventory Manager<br/>• Fetch HTTPS<br/>• Cache<br/>• Versions<br/>• Offline"]
+        ConfigHub["Configuration Hub<br/>• CLI flags<br/>• Env vars<br/>• Config files<br/>• Inventory"]
+        SecurityLayer["Security Layer<br/>• Auth handlers<br/>• mTLS<br/>• Fingerprint<br/>• Secrets"]
+    end
+
+    subgraph "Execution Engine"
+        HTTPClient["HTTP Client<br/>• Requests<br/>• Retries<br/>• Rate limit"]
+        WASMRuntime["WASM Runtime<br/>• Sandbox<br/>• Modules<br/>• Transform"]
+        DSLInterpreter["DSL Interpreter<br/>• Workflows<br/>• Chaining<br/>• Loops"]
+    end
+
+    TargetAPI["Target API"]
+
+    User -->|CLI| CLI1
+    User -->|MCP| MCP1
+    CLI1 -->|Commands| InventoryMgr
+    MCP1 -->|Tools| InventoryMgr
+
+    InventoryMgr -->|Config| ConfigHub
+    InventoryMgr -->|Auth| SecurityLayer
+
+    SecurityLayer -->|Execute| HTTPClient
+    SecurityLayer -->|Execute| WASMRuntime
+    SecurityLayer -->|Execute| DSLInterpreter
+
+    HTTPClient -->|Requests| TargetAPI
 ```
 
 ## Startup Flow
 
-```
-User runs: openapi-cli --host https://api.example.com users list
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Config
+    participant Inventory
+    participant Auth
+    participant Generator
+    participant Executor
 
-    │
-    ▼
-┌────────────────────────────────────────────┐
-│ 1. Parse CLI Arguments                     │
-│    --host, --cert, --header, etc.          │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 2. Load Configuration                      │
-│    - Environment variables                 │
-│    - Config file (~/.config/...)           │
-│    - Merge with CLI args                   │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 3. Fetch Inventory                         │
-│    GET https://api.example.com/_inventory  │
-│    - Check cache first (ETag)              │
-│    - Download if needed                    │
-│    - Validate JSON schema                  │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 4. Check Version Compatibility             │
-│    - min_cli_version                       │
-│    - max_cli_version                       │
-│    - Warn/Error if incompatible            │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 5. Load Auth & Secrets                     │
-│    - OS keychain                           │
-│    - Encrypted files                       │
-│    - Environment (if allowed)              │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 6. Generate Commands/Tools                 │
-│    - Parse OpenAPI spec                    │
-│    - Create command tree (CLI)             │
-│    - Register tools (MCP)                  │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 7. Execute Command                         │
-│    - Route to handler                      │
-│    - Build request                         │
-│    - Apply middleware                      │
-│    - Send HTTP request                     │
-│    - Format output                         │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-        Display Result
+    User->>CLI: Run command<br/>openapi-cli --host https://api.example.com users list
+    CLI->>CLI: 1. Parse CLI Arguments<br/>--host, --cert, --header, etc.
+
+    CLI->>Config: 2. Load Configuration
+    Config-->>CLI: • Environment variables<br/>• Config file (~/.config/...)<br/>• Merge with CLI args
+
+    CLI->>Inventory: 3. Fetch Inventory<br/>GET https://api.example.com/_inventory
+    alt Cache Hit (ETag match)
+        Inventory-->>CLI: Return cached inventory
+    else Cache Miss
+        Inventory->>Inventory: • Check cache first (ETag)<br/>• Download if needed<br/>• Validate JSON schema
+        Inventory-->>CLI: Return fetched inventory
+    end
+
+    CLI->>Inventory: 4. Check Version Compatibility<br/>• min_cli_version<br/>• max_cli_version
+    alt Incompatible
+        Inventory-->>CLI: Warn/Error if incompatible
+    end
+
+    CLI->>Auth: 5. Load Auth & Secrets<br/>• OS keychain<br/>• Encrypted files<br/>• Environment (if allowed)
+    Auth-->>CLI: Load credentials
+
+    CLI->>Generator: 6. Generate Commands/Tools<br/>• Parse OpenAPI spec<br/>• Create command tree (CLI)<br/>• Register tools (MCP)
+    Generator-->>CLI: Command tree ready
+
+    CLI->>Executor: 7. Execute Command<br/>• Route to handler<br/>• Build request<br/>• Apply middleware<br/>• Send HTTP request<br/>• Format output
+    Executor-->>User: Display Result
 ```
 
 ## Request Execution Flow
 
-```
-Command: users list --limit 10
+```mermaid
+sequenceDiagram
+    participant User
+    participant Router as Command Router
+    participant Builder as Request Builder
+    participant Middleware as Middleware Chain
+    participant WASM as WASM Runtime
+    participant API as Target API
 
-    │
-    ▼
-┌────────────────────────────────────────────┐
-│ 1. Match Command to Operation              │
-│    "users list" → GET /users               │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 2. Validate Arguments                      │
-│    --limit 10: number, valid               │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 3. Build Request                           │
-│    URL: https://api.example.com/users      │
-│    Query: ?limit=10                        │
-│    Headers: Authorization, X-Client-Id     │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-┌────────────────────────────────────────────┐
-│ 4. Apply Middleware Chain                  │
-│                                            │
-│    ┌───────────────────────────────────┐   │
-│    │ a. Add Fingerprint                │   │
-│    │    X-Client-Fingerprint: abc123   │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ b. Inject Auth                    │   │
-│    │    Authorization: Bearer token    │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ c. Check Rate Limit               │   │
-│    │    Token bucket: allow/deny       │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ d. Pre-process (WASM)             │   │
-│    │    Transform request if needed    │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ e. Sign Request (Crypto)          │   │
-│    │    Add HMAC/ECDSA signature       │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ f. Send HTTP Request              │   │
-│    │    (with mTLS if configured)      │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ g. Handle Response                │   │
-│    │    - Retry on 5xx                 │   │
-│    │    - Circuit breaker              │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ h. Post-process (WASM)            │   │
-│    │    Transform response if needed   │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ i. Validate Schema                │   │
-│    │    Check against OpenAPI          │   │
-│    └──────────────┬────────────────────┘   │
-│                   │                        │
-│    ┌──────────────▼────────────────────┐   │
-│    │ j. Format Output                  │   │
-│    │    JSON/Table/YAML                │   │
-│    └───────────────────────────────────┘   │
-└──────────────┬─────────────────────────────┘
-               │
-               ▼
-        Display Result
+    User->>Router: users list --limit 10
+    Router->>Router: 1. Match Command to Operation<br/>"users list" → GET /users
+
+    Router->>Builder: 2. Validate Arguments<br/>--limit 10: number, valid
+
+    Builder->>Builder: 3. Build Request<br/>URL: https://api.example.com/users<br/>Query: ?limit=10<br/>Headers: Authorization, X-Client-Id
+
+    Builder->>Middleware: 4. Apply Middleware Chain
+
+    Middleware->>Middleware: a. Add Fingerprint<br/>X-Client-Fingerprint: abc123
+
+    Middleware->>Middleware: b. Inject Auth<br/>Authorization: Bearer token
+
+    Middleware->>Middleware: c. Check Rate Limit<br/>Token bucket: allow/deny
+
+    alt Pre-process needed
+        Middleware->>WASM: d. Pre-process (WASM)<br/>Transform request if needed
+        WASM-->>Middleware: Transformed request
+    end
+
+    Middleware->>Middleware: e. Sign Request (Crypto)<br/>Add HMAC/ECDSA signature
+
+    Middleware->>API: f. Send HTTP Request<br/>(with mTLS if configured)
+
+    API-->>Middleware: HTTP Response<br/>• Retry on 5xx<br/>• Circuit breaker
+
+    alt Post-process needed
+        Middleware->>WASM: h. Post-process (WASM)<br/>Transform response if needed
+        WASM-->>Middleware: Transformed response
+    end
+
+    Middleware->>Middleware: i. Validate Schema<br/>Check against OpenAPI
+
+    Middleware->>Middleware: j. Format Output<br/>JSON/Table/YAML
+
+    Middleware-->>User: Display Result
 ```
 
 ## Cache Structure
 
-```
-~/.cache/oa/
-│
-├── inventory/
-│   └── <sha256-of-url>/
-│       ├── v1.0.0.json           # Version 1.0.0
-│       ├── v1.1.0.json           # Version 1.1.0
-│       ├── v1.2.0.json           # Version 1.2.0
-│       ├── current.json          # Symlink to latest
-│       └── known-good.json       # Symlink to user-marked
-│
-├── modules/
-│   ├── abc123def456.wasm         # WASM module (by hash)
-│   ├── def789abc012.js           # JS module (by hash)
-│   └── manifest.json             # Module metadata
-│
-├── specs/
-│   └── <sha256-of-url>.json      # Cached OpenAPI specs
-│
-├── fingerprints/
-│   └── <host>.json               # Client fingerprints
-│
-└── responses/                    # Optional response cache
-    └── <request-hash>.json
+```mermaid
+graph TB
+    subgraph "Cache Directory (~/.cache/oa/)"
+        Cache["~/.cache/oa/"]
+        InventoryDir["inventory/"]
+        ModulesDir["modules/"]
+        SpecsDir["specs/"]
+        FingerprintsDir["fingerprints/"]
+        ResponsesDir["responses/"]
 
-~/.config/oa/
-│
-├── config.yaml                   # Main config
-├── profiles/
-│   ├── prod.yaml                 # Production profile
-│   └── staging.yaml              # Staging profile
-└── aliases/
-    └── <alias-name>.json         # Alias definitions
+        InventorySHA["<sha256-of-url>/"]
+        InventoryVersions["v1.0.0.json"]
+        InventoryV11["v1.1.0.json"]
+        InventoryV12["v1.2.0.json"]
+        InventoryCurrent["current.json"]
+        InventoryKnown["known-good.json"]
+
+        ModulesWASM["abc123def456.wasm"]
+        ModulesJS["def789abc012.js"]
+        ModulesManifest["manifest.json"]
+
+        SpecsCache["<sha256-of-url>.json"]
+        FingerprintsHost["<host>.json"]
+        ResponsesHash["<request-hash>.json"]
+    end
+
+    subgraph "Config Directory (~/.config/oa/)"
+        ConfigDir["~/.config/oa/"]
+        ConfigFile["config.yaml"]
+        ProfilesDir["profiles/"]
+        AliasesDir["aliases/"]
+
+        ProfileProd["prod.yaml"]
+        ProfileStaging["staging.yaml"]
+        AliasFile["<alias-name>.json"]
+    end
+
+    Cache --> InventoryDir
+    Cache --> ModulesDir
+    Cache --> SpecsDir
+    Cache --> FingerprintsDir
+    Cache --> ResponsesDir
+
+    InventoryDir --> InventorySHA
+    InventorySHA --> InventoryVersions
+    InventorySHA --> InventoryV11
+    InventorySHA --> InventoryV12
+    InventorySHA --> InventoryCurrent
+    InventorySHA --> InventoryKnown
+
+    ModulesDir --> ModulesWASM
+    ModulesDir --> ModulesJS
+    ModulesDir --> ModulesManifest
+
+    SpecsDir --> SpecsCache
+    FingerprintsDir --> FingerprintsHost
+    ResponsesDir --> ResponsesHash
+
+    ConfigDir --> ConfigFile
+    ConfigDir --> ProfilesDir
+    ConfigDir --> AliasesDir
+
+    ProfilesDir --> ProfileProd
+    ProfilesDir --> ProfileStaging
+    AliasesDir --> AliasFile
 ```
 
 ## Component Dependencies
 
-```
-                    ┌──────────────────┐
-                    │   CLI / MCP      │
-                    └────────┬─────────┘
-                             │
-               ┌──────────────┼──────────────┐
-               │              │              │
-               ▼              ▼              ▼
-     ┌──────────────────────────────────────────────────┐
-     │              CORE MODULES                        │
-     │  ┌───────────┐  ┌───────────┐  ┌───────────┐   │
-     │  │ Inventory │  │  Config   │  │  Security │   │
-     │  │  Manager  │  │    Hub    │  │   Layer   │   │
-     │  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘   │
-     │        │              │              │         │
-     │        └──────────────┼──────────────┘         │
-     │                       │                        │
-     │              ┌────────▼────────┐               │
-     │              │Execution Engine │               │
-     │              └────────┬────────┘               │
-     │                       │                        │
-     │        ┌──────────────┼──────────────┐        │
-     │        │              │              │        │
-     │   ┌────▼────┐   ┌────▼────┐   ┌────▼────┐   │
-     │   │  HTTP   │   │  WASM   │   │   DSL   │   │
-     │   │ Client  │   │ Runtime │   │Interp.  │   │
-     │   └────┬────┘   └─────────┘   └─────────┘   │
-     │        │                                      │
-     └────────┼──────────────────────────────────────┘
-              │
-              ▼
-     ┌──────────────────┐
-     │   External APIs  │
-     │   (HTTPS only)   │
-     └──────────────────┘
+```mermaid
+graph TB
+    CLI_MCP["CLI / MCP"]
+
+    subgraph "Core Modules"
+        InventoryMgr["Inventory Manager"]
+        ConfigHub["Config Hub"]
+        SecurityLayer["Security Layer"]
+    end
+
+    ExecutionEngine["Execution Engine"]
+    HTTPClient["HTTP Client"]
+    WASMRuntime["WASM Runtime"]
+    DSLInterpreter["DSL Interpreter"]
+
+    ExternalAPIs["External APIs<br/>(HTTPS only)"]
+
+    CLI_MCP --> InventoryMgr
+    CLI_MCP --> ConfigHub
+    CLI_MCP --> SecurityLayer
+
+    InventoryMgr --> ExecutionEngine
+    ConfigHub --> ExecutionEngine
+    SecurityLayer --> ExecutionEngine
+
+    ExecutionEngine --> HTTPClient
+    ExecutionEngine --> WASMRuntime
+    ExecutionEngine --> DSLInterpreter
+
+    HTTPClient --> ExternalAPIs
 ```
 
 ## Data Flow Summary
 
-```
-┌──────────────┐
-│  User Input  │
-└──────┬───────┘
-       │
-       │ CLI flags / MCP init
-       ▼
-┌──────────────┐
-│    Config    │
-│   (merged)   │
-└──────┬───────┘
-       │
-       │ Fetch inventory
-       ▼
-┌──────────────┐
-│  Inventory   │
-│   (cached)   │
-└──────┬───────┘
-       │
-       │ Parse OpenAPI
-       ▼
-┌──────────────┐
-│  Operations  │
-│  (commands)  │
-└──────┬───────┘
-       │
-       │ Execute with middleware
-       ▼
-┌──────────────┐
-│    Result    │
-└──────────────┘
+```mermaid
+flowchart LR
+    Start([User Input]) --> Config[Config<br/>merged]
+    Config -->|Fetch inventory| Inventory[Inventory<br/>cached]
+    Inventory -->|Parse OpenAPI| Operations[Operations<br/>commands]
+    Operations -->|Execute with middleware| Result[Result]
 ```
 
 ## State Machine: Command Execution
 
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+
+    IDLE --> PARSED: Parse
+    PARSED --> VALIDATED: Validate
+    VALIDATED --> CONFIG_LOADED: Load Config
+    CONFIG_LOADED --> INVENTORY_READY: Fetch Inventory
+    INVENTORY_READY --> AUTHENTICATED: Load Auth
+    AUTHENTICATED --> REQUEST_BUILT: Build Request
+    REQUEST_BUILT --> REQUEST_PROCESSED: Apply Middleware
+
+    REQUEST_PROCESSED --> EXECUTING: Send Request
+    REQUEST_PROCESSED -[right]-> FAILURE: Failure
+
+    EXECUTING --> RESPONSE_RECEIVED: Receive Response
+    RESPONSE_RECEIVED --> RESPONSE_PROCESSED: Process Response
+    RESPONSE_PROCESSED --> COMPLETE: Format Output
+
+    COMPLETE --> [*]
+    FAILURE --> [*]
 ```
                          ┌──────────────┐
                          │    IDLE      │
@@ -402,130 +349,93 @@ Command: users list --limit 10
 
 ## Security Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    SECURITY LAYERS                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Layer 5: Application                                       │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ • Command validation  • Rate limiting              │   │
-│  │ • Input sanitization  • Output encoding            │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           │                                 │
-│  Layer 4: Transport                                       │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ • TLS 1.3             • Certificate pinning          │   │
-│  │ • mTLS                • Cipher suite enforcement     │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           │                                 │
-│  Layer 3: Authentication                                  │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ • OAuth 2.0           • API keys                     │   │
-│  │ • JWT validation      • Basic auth                   │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           │                                 │
-│  Layer 2: Authorization                                   │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ • Role-based access   • Scope validation             │   │
-│  │ • Permission checks   • Resource ownership           │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           │                                 │
-│  Layer 1: Secrets                                         │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ • OS keychain         • Encrypted storage            │   │
-│  │ • Environment vars    • Secure memory                │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "Security Layers"
+        Layer5["Layer 5: Application<br/>• Command validation<br/>• Rate limiting<br/>• Input sanitization<br/>• Output encoding"]
+
+        Layer4["Layer 4: Transport<br/>• TLS 1.3<br/>• Certificate pinning<br/>• mTLS<br/>• Cipher suite enforcement"]
+
+        Layer3["Layer 3: Authentication<br/>• OAuth 2.0<br/>• API keys<br/>• JWT validation<br/>• Basic auth"]
+
+        Layer2["Layer 2: Authorization<br/>• Role-based access<br/>• Scope validation<br/>• Permission checks<br/>• Resource ownership"]
+
+        Layer1["Layer 1: Secrets<br/>• OS keychain<br/>• Encrypted storage<br/>• Environment vars<br/>• Secure memory"]
+    end
+
+    ExternalAPI["External APIs"]
+
+    Layer5 --> ExternalAPI
+    Layer5 --> Layer4
+    Layer4 --> Layer3
+    Layer3 --> Layer2
+    Layer2 --> Layer1
 ```
 
 ## Module Loading Flow
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              MODULE LOADING PROCESS                     │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Start([Module Loading Process]) --> Discovery[1. Discovery<br/>Inventory references module by URL + SHA256]
 
-1. DISCOVERY
-   Inventory references module by URL + SHA256
-   │
-   ▼
-2. CACHE CHECK
-   Check ~/.cache/oa/modules/<sha256>.wasm
-   │
-   ├── Cache Hit ──► 8. LOAD
-   │
-   └── Cache Miss ──► 3. DOWNLOAD
+    Discovery --> CacheCheck{2. Cache Check}
 
-3. DOWNLOAD
-   Fetch from registry/repository
-   │
-   ▼
-4. VERIFY
-   Calculate SHA256, verify against inventory
-   │
-   ├── Match ──► 5. STORE
-   │
-   └── Mismatch ──► ERROR
+    CacheCheck -->|Cache Hit| Load[8. Load<br/>Module ready for execution]
 
-5. STORE
-   Save to cache directory
-   │
-   ▼
-6. INSTANTIATE
-   Create WASM runtime instance
-   │
-   ▼
-7. INITIALIZE
-   Call module _init() function
-   │
-   ▼
-8. LOAD
-   Module ready for execution
+    CacheCheck -->|Cache Miss| Download[3. Download<br/>Fetch from registry/repository]
+
+    Download --> Verify{4. Verify<br/>Calculate SHA256<br/>verify against inventory}
+
+    Verify -->|Match| Store[5. Store<br/>Save to cache directory]
+    Verify -->|Mismatch| Error[ERROR]
+
+    Store --> Instantiate[6. Instantiate<br/>Create WASM runtime instance]
+    Instantiate --> Initialize[7. Initialize<br/>Call module _init function]
+    Initialize --> Load
+
+    Load --> End([End])
+    Error --> End
 ```
 
 ## Deployment Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    DEPLOYMENT PATTERNS                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Pattern 1: Local Binary                                    │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  User Machine                                       │   │
-│  │  ┌─────────────────┐    ┌─────────────────┐        │   │
-│  │  │  oa-cli binary  │───▶│   Target API    │        │   │
-│  │  └─────────────────┘    └─────────────────┘        │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  Pattern 2: Container                                       │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Docker Container                                   │   │
-│  │  ┌─────────────────┐    ┌─────────────────┐        │   │
-│  │  │  oa-cli         │───▶│   Target API    │        │   │
-│  │  │  + config       │    └─────────────────┘        │   │
-│  │  └─────────────────┘                               │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  Pattern 3: CI/CD Integration                               │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  CI/CD Pipeline                                     │   │
-│  │  ┌─────────┐   ┌─────────┐   ┌─────────────────┐   │   │
-│  │  │  Build  │──▶│  Test   │──▶│  Deploy (oa-cli)│   │   │
-│  │  └─────────┘   └─────────┘   └─────────────────┘   │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│  Pattern 4: MCP Server                                      │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  MCP Host (Claude, etc.)                            │   │
-│  │  ┌─────────┐   ┌─────────┐   ┌─────────────────┐   │   │
-│  │  │  Agent  │──▶│  oa-mcp │───▶│   Target API    │   │   │
-│  │  └─────────┘   └─────────┘   └─────────────────┘   │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "Pattern 1: Local Binary"
+        UserMachine1["User Machine"]
+        OACLI1["oa-cli binary"]
+        TargetAPI1["Target API"]
+        UserMachine1 --> OACLI1
+        OACLI1 --> TargetAPI1
+    end
+
+    subgraph "Pattern 2: Container"
+        DockerContainer{"Docker Container"}
+        OACLI2["oa-cli<br/>+ config"]
+        TargetAPI2["Target API"]
+        DockerContainer --> OACLI2
+        OACLI2 --> TargetAPI2
+    end
+
+    subgraph "Pattern 3: CI/CD Integration"
+        CIPipeline["CI/CD Pipeline"]
+        Build["Build"]
+        Test["Test"]
+        Deploy1["Deploy (oa-cli)"]
+        CIPipeline --> Build
+        Build --> Test
+        Test --> Deploy1
+    end
+
+    subgraph "Pattern 4: MCP Server"
+        MCPHost["MCP Host<br/>(Claude, etc.)"]
+        Agent["Agent"]
+        OAMCP["oa-mcp"]
+        TargetAPI3["Target API"]
+        MCPHost --> Agent
+        Agent --> OAMCP
+        OAMCP --> TargetAPI3
+    end
 ```
 
 ## Key Design Decisions

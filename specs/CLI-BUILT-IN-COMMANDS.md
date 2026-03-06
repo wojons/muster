@@ -42,6 +42,115 @@ Built-in commands are fundamental CLI operations that don't depend on external O
 
 ## Command Structure
 
+### Command Hierarchy
+
+```mermaid
+graph TB
+    Root["muster<br/>(Root Command)"]
+    
+    Version["version<br/>Display version<br/>--json, --full, --check"]
+    Config["config<br/>Configuration management<br/>list, get, set, remove"]
+    Auth["auth<br/>Authentication<br/>login, logout, refresh, status"]
+    Inventory["inventory<br/>Cache management<br/>list, get, update, remove, clear"]
+    Daemon["daemon<br/>Background service<br/>start, stop, restart, status"]
+    Completion["completion<br/>Shell integration<br/>bash, zsh, fish, powershell"]
+    
+    Root --> Version
+    Root --> Config
+    Root --> Auth
+    Root --> Inventory
+    Root --> Daemon
+    Root --> Completion
+    
+    Config --> ConfigList["config list<br/>Show all configs"]
+    Config --> ConfigGet["config get<br/>Get single config"]
+    Config --> ConfigSet["config set<br/>Set config value"]
+    Config --> ConfigRemove["config remove<br/>Remove config key"]
+    
+    Auth --> AuthLogin["auth login<br/>Login to service"]
+    Auth --> AuthLogout["auth logout<br/>Logout from service"]
+    Auth --> AuthStatus["auth status<br/>Show auth status"]
+    
+    Inventory --> InvList["cache list<br/>List cached items"]
+    Inventory --> InvGet["cache get<br/>Get cached item"]
+    Inventory --> InvUpdate["cache update<br/>Update cached item"]
+    Inventory --> InvClear["cache clear<br/>Clear all cache"]
+    
+    Daemon --> DaemonStart["daemon start<br/>Start daemon"]
+    Daemon --> DaemonStop["daemon stop<br/>Stop daemon"]
+    Daemon --> DaemonStatus["daemon status<br/>Show daemon status"]
+    
+    Completion --> Bash["bash<br/>Generate bash completion"]
+    Completion --> Zsh["zsh<br/>Generate zsh completion"]
+    Completion --> Fish["fish<br/>Generate fish completion"]
+    Completion --> PS["powershell<br/>Generate PowerShell completion"]
+```
+
+### Command Registration Pattern
+
+```mermaid
+flowchart LR
+    A([Start]) --> B[Define CommandFunc Type]
+    B --> C[Create Registry Array]
+    C --> D[Add NewVersionCommand]
+    D --> E[Add NewConfigCommand]
+    E --> F[Add NewAuthCommand]
+    F --> G[Add NewInventoryCommand]
+    G --> H[Add NewDaemonCommand]
+    H --> I[Add NewCompletionCommand]
+    I --> J[Define RegisterAll Function]
+    J --> K[Iterate Registry]
+    K --> L[Call Each Function]
+    L --> M[Return cobra.Command]
+    M --> N[Add to Root Command]
+    N --> O([Complete])
+    
+    style A fill:#9f9,stroke:#333
+    style O fill:#9f9,stroke:#333
+```
+
+### Command Execution Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant CLI as Root Command
+    participant PreRun as Persistent PreRun
+    participant Cmd as Subcommand
+    participant PostRun as Persistent PostRun
+    participant Hooks as Hooks
+    
+    User->>CLI: Execute command
+    CLI->>PreRun: PersistentPreRunE
+    
+    alt PreRun Error
+        PreRun-->>CLI: Return error
+        CLI-->>User: Error message
+        CLI-->>Hooks: Execute post-run hooks
+    else PreRun Success
+        PreRun-->>CLI: nil
+        CLI->>Cmd: Call RunE handler
+        
+        alt Command Error
+            Cmd-->>CLI: Return error
+            CLI-->>User: Error message
+            CLI->>PostRun: PersistentPostRunE
+            PostRun-->>Hooks: Execute cleanup
+            Hooks-->>User: Exit with error code
+        else Command Success
+            Cmd-->>CLI: nil
+            CLI->>PostRun: PersistentPostRunE
+            PostRun-->>Hooks: Execute cleanup
+            Hooks-->>User: Exit with success
+        end
+    end
+    
+    Note over User,Hooks: Flags parsed, config loaded
+    Note over PreRun: Validation, initialization
+    Note over Cmd: Core command logic
+    Note over PostRun: Cleanup, logging
+```
+
 ### Root Command Setup
 
 ```go

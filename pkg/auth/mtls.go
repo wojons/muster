@@ -12,9 +12,10 @@ import (
 )
 
 type CertificateManager struct {
-	certPath string
-	keyPath  string
-	caPath   string
+	certPath   string
+	keyPath    string
+	caPath     string
+	serverName string // Server name for hostname verification
 }
 
 type Certificate struct {
@@ -23,11 +24,12 @@ type Certificate struct {
 	PEM        []byte
 }
 
-func NewCertificateManager(certPath, keyPath, caPath string) *CertificateManager {
+func NewCertificateManager(certPath, keyPath, caPath, serverName string) *CertificateManager {
 	return &CertificateManager{
-		certPath: certPath,
-		keyPath:  keyPath,
-		caPath:   caPath,
+		certPath:   certPath,
+		keyPath:    keyPath,
+		caPath:     caPath,
+		serverName: serverName,
 	}
 }
 
@@ -62,6 +64,7 @@ func (cm *CertificateManager) Load() (*tls.Config, error) {
 		RootCAs:      caPool,
 		MinVersion:   tls.VersionTLS12,
 		MaxVersion:   tls.VersionTLS13,
+		ServerName:   cm.serverName, // CRITICAL SECURITY: Enable hostname verification
 	}, nil
 }
 

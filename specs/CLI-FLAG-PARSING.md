@@ -11,6 +11,93 @@
 
 Flag parsing system handles command-line argument parsing, type conversion, validation, defaults, and environment variable binding for all CLI commands.
 
+## Architecture
+
+```mermaid
+graph TB
+    subgraph CLI_Command
+        CMD[Cobra Command]
+    end
+
+    subgraph Flag_Parsing_Layer
+        PARSER[Parser]
+        FLAGS[Flag Flags]
+        VALIDATORS[Validators]
+        DEFAULTS[Defaults]
+    end
+
+    subgraph Type_System
+        TYPES[Flag Types]
+        STRING[string]
+        INT[int]
+        BOOL[bool]
+        DURATION[duration]
+        URL[url]
+        EMAIL[email]
+        JSON[json]
+        ENUM[enum]
+    end
+
+    subgraph Validation_Layer
+        VALIDATE_URL[ValidateURL]
+        VALIDATE_HOST[ValidateHostPort]
+        VALIDATE_IP[ValidateIP]
+        VALIDATE_REGEX[ValidateRegex]
+    end
+
+    subgraph Environment_Binding
+        ENV[EnvBinder]
+        BINDENV[BindCommand]
+        TOENVVAR[toEnvVar]
+    end
+
+    CMD --> PARSER
+    PARSER --> FLAGS
+    PARSER --> VALIDATORS
+    PARSER --> DEFAULTS
+
+    PARSER --> TYPES
+    TYPES --> STRING
+    TYPES --> INT
+    TYPES --> BOOL
+    TYPES --> DURATION
+    TYPES --> URL
+    TYPES --> EMAIL
+    TYPES --> JSON
+    TYPES --> ENUM
+
+    PARSER --> Validation_Layer
+    VALIDATORS --> VALIDATE_URL
+    VALIDATORS --> VALIDATE_HOST
+    VALIDATORS --> VALIDATE_IP
+    VALIDATORS --> VALIDATE_REGEX
+
+    PARSER --> ENV
+    ENV --> BINDENV
+    ENV --> TOENVVAR
+```
+
+## Parsing Workflow
+
+```mermaid
+flowchart TD
+    Start[User executes CLI command] --> ParseArgs[Cobra parses command line arguments]
+    ParseArgs --> CheckFlags{Flags present?}
+    CheckFlags -->|No| ApplyDefaults[Apply default values]
+    CheckFlags -->|Yes| ValidateFlags[Run flag validators]
+    ApplyDefaults --> ParseValues[Parse string values to correct types]
+    ValidateFlags --> ParseValues
+    ParseValues --> CheckValid{Valid?}
+    CheckValid -->|No| ShowError[Display validation error]
+    ShowError --> End[Exit with error code]
+    CheckValid -->|Yes| CheckEnv{Environment variables present?}
+    CheckEnv -->|Yes| LoadEnv[Load environment variable values]
+    CheckEnv -->|No| Finalize[Finalize configuration]
+    LoadEnv --> Finalize
+    Finalize --> Execute[Execute command]
+    Execute --> Done[Exit with success]
+```
+
 ---
 
 ## Argument Parsing

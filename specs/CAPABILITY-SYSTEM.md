@@ -19,6 +19,46 @@ A blind person can visualize this system as a **security checkpoint** where each
 - **Capability Enforcement**: Runtime verification that operations stay within granted capabilities
 - **Capability Revocation**: The ability to remove capabilities dynamically
 
+### Capability System Architecture
+
+```mermaid
+graph TB
+    subgraph "WASM Module"
+        Module["WASM Module"]
+        Manifest["Module Manifest"]
+    end
+
+    subgraph "Capability System"
+        CapSet["Capability Set"]
+        CapCheck["Capability Check"]
+        CapGrant["Capability Grant"]
+        CapList["Capability List"]
+    end
+
+    subgraph "Enforced Resources"
+        FS["Enforced<br/>File System"]
+        Net["Enforced<br/>HTTP Client"]
+        Env["Enforced<br/>Environment"]
+        Time["Enforced<br/>Time Operations"]
+        Crypto["Enforced<br/>Crypto Operations"]
+    end
+
+    Module -->|Declare capabilities| Manifest
+    Manifest --> CapGrant
+    
+    CapSet -->|Check| CapCheck
+    CapCheck -->|Verify| CapSet
+    
+    CapGrant -->|Add| CapSet
+    CapList -->|Query| CapSet
+    
+    CapCheck -->|Enforce| FS
+    CapCheck -->|Enforce| Net
+    CapCheck -->|Enforce| Env
+    CapCheck -->|Enforce| Time
+    CapCheck -->|Enforce| Crypto
+```
+
 ---
 
 ## Technical Implementation
@@ -204,6 +244,35 @@ func capabilityCheck(ctx context.Context, module api.Module, capabilityPtr, capa
 
 ### 5. Capability Enforcement Points
 
+**Capability Enforcement Flow:**
+
+```mermaid
+sequenceDiagram
+    participant WASM as WASM Module
+    participant Host as Host Function
+    participant CapCheck as Capability Check
+    participant CapSet as Capability Set
+    participant Sandbox as Sandboxed Resource
+    participant OS as OS/Network
+
+    WASM->>Host: __capability_check("fs.read./data/file.txt")
+    Host->>CapCheck: Check capability
+    CapCheck->>CapSet: Lookup "fs.read./data/file.txt"
+
+    alt Capability Granted
+        CapSet-->>CapCheck: true
+        CapCheck-->>WASM: true (allowed)
+        WASM->>Sandbox: Open file
+        Sandbox->>OS: os.Open()
+        OS-->>Sandbox: File handle
+        Sandbox-->>WASM: Data
+    else Capability Denied
+        CapSet-->>CapCheck: false
+        CapCheck-->>WASM: false (denied)
+        WASM->>WASM: Return CapabilityError
+    end
+```
+
 **File System Operations:**
 
 ```go
@@ -261,6 +330,34 @@ func (ehc *EnforcedHTTPClient) Do(req *http.Request) (*http.Response, error) {
 ```
 
 ### 6. Capability Sandbox
+
+**Sandbox Execution Flow:**
+
+```mermaid
+flowchart TD
+    Start([Start]) --> LoadModule[Load WASM Module]
+    LoadModule --> ParseManifest[Parse Module Manifest]
+    ParseManifest --> BuildCapSet[Build Capability Set]
+    
+    BuildCapSet --> GrantCaps[Grant Capabilities]
+    GrantCaps --> ValidateCaps[Validate Capabilities]
+    
+    ValidateCaps -->|Invalid| Error[Return Error]
+    ValidateCaps -->|Valid| CreateEnv[Create Sandboxed Environment]
+    
+    CreateEnv --> ApplyLimits[Apply Resource Limits]
+    ApplyLimits --> InstallHostFuncs[Install Host Functions]
+    
+    InstallHostFuncs --> Execute[Execute Module]
+    Execute --> Monitor[Monitor Execution]
+    
+    Monitor -->|Capability Violation| LogLog[Log Violation]
+    Monitor -->|Success| Return[Return Result]
+    
+    LogLog --> Error
+    Return --> End([End])
+    Error --> End
+```
 
 ```go
 // SandboxConfig defines the sandbox environment

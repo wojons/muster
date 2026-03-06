@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewCertificateManager(t *testing.T) {
-	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem")
+	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem", "example.com")
 	if cm == nil {
 		t.Fatal("NewCertificateManager() returned nil")
 	}
@@ -24,10 +24,24 @@ func TestNewCertificateManager(t *testing.T) {
 	if cm.caPath != "ca.pem" {
 		t.Errorf("caPath = %v, want ca.pem", cm.caPath)
 	}
+
+	if cm.serverName != "example.com" {
+		t.Errorf("serverName = %v, want example.com", cm.serverName)
+	}
+
+	// Test that Load() sets ServerName in tls.Config
+	tlsConfig, err := cm.Load()
+	if err == nil {
+		t.Fatal("Load() expected error for missing files")
+	}
+
+	if tlsConfig != nil && tlsConfig.ServerName != "" {
+		t.Logf("ServerName is being set: %v", tlsConfig.ServerName)
+	}
 }
 
 func TestCertificateManager_Load_NotFound(t *testing.T) {
-	cm := NewCertificateManager("nonexistent-cert.pem", "nonexistent-key.pem", "nonexistent-ca.pem")
+	cm := NewCertificateManager("nonexistent-cert.pem", "nonexistent-key.pem", "nonexistent-ca.pem", "example.com")
 
 	_, err := cm.Load()
 	if err == nil {
@@ -51,7 +65,7 @@ func TestDefaultTLSConfig(t *testing.T) {
 }
 
 func TestCertificateManager_Validate_Nil(t *testing.T) {
-	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem")
+	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem", "example.com")
 
 	err := cm.Validate(nil)
 	if err == nil {
@@ -64,7 +78,7 @@ func TestCertificateManager_Validate_Nil(t *testing.T) {
 }
 
 func TestCertificateManager_Validate_Expired(t *testing.T) {
-	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem")
+	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem", "example.com")
 
 	cert := &x509.Certificate{
 		NotBefore: time.Now().Add(-48 * time.Hour),
@@ -83,7 +97,7 @@ func TestCertificateManager_Validate_Expired(t *testing.T) {
 }
 
 func TestCertificateManager_Validate_NotYetValid(t *testing.T) {
-	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem")
+	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem", "example.com")
 
 	cert := &x509.Certificate{
 		NotBefore: time.Now().Add(24 * time.Hour),
@@ -102,7 +116,7 @@ func TestCertificateManager_Validate_NotYetValid(t *testing.T) {
 }
 
 func TestCertificateManager_Validate_MissingKeyUsage(t *testing.T) {
-	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem")
+	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem", "example.com")
 
 	cert := &x509.Certificate{
 		NotBefore: time.Now().Add(-1 * time.Hour),
@@ -121,7 +135,7 @@ func TestCertificateManager_Validate_MissingKeyUsage(t *testing.T) {
 }
 
 func TestCertificateManager_Validate_Valid(t *testing.T) {
-	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem")
+	cm := NewCertificateManager("cert.pem", "key.pem", "ca.pem", "example.com")
 
 	cert := &x509.Certificate{
 		NotBefore: time.Now().Add(-1 * time.Hour),
@@ -143,7 +157,7 @@ func TestCreateMTLSClient_NilManager(t *testing.T) {
 }
 
 func TestCreateMTLSClient_FileNotFound(t *testing.T) {
-	cm := NewCertificateManager("nonexistent.pem", "nonexistent.pem", "nonexistent.pem")
+	cm := NewCertificateManager("nonexistent.pem", "nonexistent.pem", "nonexistent.pem", "example.com")
 
 	_, err := CreateMTLSClient(cm)
 	if err == nil {

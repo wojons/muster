@@ -39,6 +39,98 @@ A **single binary** that:
 - Self-updates from inventory servers
 - Provides enterprise-grade security (mTLS, OAuth2, revocation)
 
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph "Deployment Modes"
+        CLI[CLI Mode]
+        MCP[MCP Server Mode]
+        Daemon[Unix Socket Daemon]
+    end
+
+    subgraph "Core Components"
+        Parser[OpenAPI Parser]
+        Generator[Command Generator]
+        Registry[Tool Registry]
+        Runtime[WASM Runtime]
+        DSL[Starlark DSL]
+    end
+
+    subgraph "Data Layer"
+        Cache[Multi-tier Cache]
+        Config[Configuration Manager]
+        Database[SQLite Database]
+        Keychain[OS Keychain]
+    end
+
+    subgraph "Network Layer"
+        Client[HTTP Client]
+        RateLimit[Rate Limiter]
+        Auth[Auth Module]
+    end
+
+    OpenAPI[OpenAPI Spec] --> Parser
+    Parser --> Generator
+    Generator --> Registry
+
+    CLI --> Registry
+    MCP --> Registry
+    Daemon --> Registry
+
+    Registry --> Runtime
+    Registry --> DSL
+    Registry --> Client
+
+    Client --> RateLimit
+    RateLimit --> Auth
+    Auth --> Client
+
+    Cache -->|Cache| Parser
+    Config -->|Settings| Generator
+    Database -->|Storage| Registry
+    Keychain -->|Credentials| Auth
+```
+
+### System Workflow
+
+```mermaid
+sequenceDiagram
+    participant User as User/Claude
+    participant CLI as CLI/MCP/Daemon
+    participant Parser as OpenAPI Parser
+    participant Generator as Command Generator
+    participant Runtime as WASM Runtime
+    participant Cache as Cache Layer
+    participant API as External API
+
+    User->>CLI: Load/Open OpenAPI Spec
+    CLI->>Cache: Check cached spec
+    alt Cache Hit
+        Cache-->>CLI: Return cached spec
+    else Cache Miss
+        CLI->>API: Fetch spec
+        API-->>CLI: Return spec
+        CLI->>Cache: Store in cache
+    end
+
+    CLI->>Parser: Parse OpenAPI spec
+    Parser->>Parser: Extract operations
+    Parser-->>CLI: Parsed operations
+
+    CLI->>Generator: Generate commands
+    Generator->>Generator: Create cobra commands
+    Generator-->>CLI: Command tree
+
+    User->>CLI: Execute command
+    CLI->>Runtime: Load WASM module (if present)
+    Runtime->>Runtime: Execute with capabilities
+    Runtime-->>CLI: Transform result
+    CLI->>API: Make HTTP request
+    API-->>CLI: Return response
+    CLI-->>User: Display formatted result
+```
+
 ### 1.4 Success Metrics
 | Metric | Target | Status |
 |--------|--------|--------|

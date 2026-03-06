@@ -63,6 +63,10 @@ func TestServerHandleInitialize(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 
+	// CRITICAL FIX: Wait for server to complete before reading buffer
+	// This prevents race condition where goroutine writes while test reads
+	_ = server.Shutdown()
+
 	output := stdout.String()
 	if output == "" {
 		t.Fatal("expected output, got empty string")
@@ -103,6 +107,10 @@ func TestServerHandleUnknownMethod(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 
+	// CRITICAL FIX: Wait for server to complete before reading buffer
+	// This prevents race condition where goroutine writes while test reads
+	_ = server.Shutdown()
+
 	output := stdout.String()
 	if output == "" {
 		t.Fatal("expected output, got empty string")
@@ -142,6 +150,10 @@ func TestServerHandleInvalidJSON(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 
+	// CRITICAL FIX: Wait for server to complete before reading buffer
+	// This prevents race condition where goroutine writes while test reads
+	_ = server.Shutdown()
+
 	output := stdout.String()
 	if output == "" {
 		t.Fatal("expected output, got empty string")
@@ -180,6 +192,10 @@ func TestServerHandleNotifications(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	cancel()
+
+	// CRITICAL FIX: Wait for server to complete before reading buffer
+	// This prevents race condition where goroutine writes while test reads
+	_ = server.Shutdown()
 
 	output := stdout.String()
 	if output == "" {

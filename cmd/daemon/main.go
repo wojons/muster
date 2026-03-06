@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,10 +13,16 @@ import (
 
 // Build-time variables
 var (
-	Version    = "dev"
-	Commit     = "unknown"
-	BuildDate  = "unknown"
-	BackendURL string
+	Version   = "dev"
+	Commit    = "unknown"
+	BuildDate = "unknown"
+)
+
+// Command-line flags
+var (
+	backendURL string
+	socketPath string
+	pidFile    string
 )
 
 func main() {
@@ -26,12 +33,24 @@ func main() {
 }
 
 func run() error {
-	// Default paths
-	pidFile := "/tmp/muster-daemon.pid"
-	socketPath := "/tmp/muster-daemon.sock"
+	// Parse command-line flags
+	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	flagSet.StringVar(&backendURL, "backend-url", "", "Backend URL for proxy mode")
+	flagSet.StringVar(&socketPath, "socket-path", "/tmp/muster-daemon.sock", "Path for Unix domain socket")
+	flagSet.StringVar(&pidFile, "pid-file", "", "Path for PID file (default: <socket-path>.pid")
+	err := flagSet.Parse(os.Args[1:])
+	if err != nil {
+		return err
+	}
 
-	// Parse command-line args
-	args := os.Args[1:]
+	// Get command from remaining arguments
+	args := flagSet.Args()
+
+	// Default PID file to socket path + ".pid" if not specified
+	if pidFile == "" {
+		pidFile = socketPath + ".pid"
+	}
+
 	var action string
 	if len(args) > 0 {
 		action = args[0]
@@ -39,9 +58,9 @@ func run() error {
 
 	// Create proxy handler with backend URL
 	var handler http.Handler
-	if BackendURL != "" {
-		handler = daemon.NewProxyHandler(BackendURL)
-		fmt.Printf("Proxying requests to: %s\n", BackendURL)
+	if backendURL != "" {
+		handler = daemon.NewProxyHandler(backendURL)
+		fmt.Printf("Proxying requests to: %s\n", backendURL)
 	}
 
 	// Create controller
@@ -80,21 +99,26 @@ func run() error {
 		fmt.Println("  status   Show daemon status")
 		fmt.Println("")
 		fmt.Println("Options:")
-		fmt.Println("  --backend-url <url>    Backend URL for proxy")
+		fmt.Println("  --backend-url <url>     Backend URL for proxy")
+		fmt.Println("  --socket-path <path>    Path for Unix domain socket (default: /tmp/muster-daemon.sock)")
 		fmt.Println("")
 		return nil
 	}
 }
 
 func handleStart(controller *daemon.Controller) error {
+	if controller == nil {
+		return fmt.Errorf("controller is required")
+	}
+
 	err := controller.Start()
 	if err != nil {
 		return fmt.Errorf("start daemon: %w", err)
 	}
 
 	fmt.Println("Daemon started successfully")
-	fmt.Printf("PID file: %s\n", "/tmp/muster-daemon.pid")
-	fmt.Printf("Socket: %s\n", "/tmp/muster-daemon.sock")
+	fmt.Printf("PID file: %s\n", pidFile)
+	fmt.Printf("Socket: %s\n", socketPath)
 
 	// Setup signal handlers
 	controller.SetupSignalHandlers()
@@ -110,7 +134,14 @@ func handleStart(controller *daemon.Controller) error {
 }
 
 func handleProxyStart(controller *daemon.Controller) error {
-	socketPath := "/tmp/muster-daemon.sock"
+	if controller == nil {
+		return fmt.Errorf("controller is required")
+	}
+
+	// Use the socket path from command-line flags
+	if socketPath == "" {
+		socketPath = "/tmp/muster-daemon.sock"
+	}
 
 	// Create simple proxy handler
 	handler := func(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +173,9 @@ func handleProxyStart(controller *daemon.Controller) error {
 }
 
 func handleStop(controller *daemon.Controller) error {
+	if controller == nil {
+		return fmt.Errorf("controller is required")
+	}
 	status, err := controller.Status()
 	if err != nil {
 		return fmt.Errorf("get status: %w", err)
@@ -161,11 +195,17 @@ func handleStop(controller *daemon.Controller) error {
 }
 
 func handleRestart(controller *daemon.Controller) error {
+	if controller == nil {
+		return fmt.Errorf("controller is required")
+	}
 	fmt.Println("Restarting daemon...")
 	return controller.Restart()
 }
 
 func handleStatus(controller *daemon.Controller) error {
+	if controller == nil {
+		return fmt.Errorf("controller is required")
+	}
 	status, err := controller.Status()
 	if err != nil {
 		return fmt.Errorf("get status: %w", err)

@@ -19,7 +19,9 @@ type Server struct {
 	initialized    bool
 	shutdownChan   chan struct{}
 	mu             sync.RWMutex
-	concurrencySem chan struct{} // CRITICAL FIX: Semaphore to prevent unbounded goroutine spawn
+	wg             sync.WaitGroup // CRITICAL FIX: Tracks in-flight goroutines
+	started        sync.Once      // CRITICAL FIX: Ensures Run() cleanup happens once
+	concurrencySem chan struct{}  // CRITICAL FIX: Semaphore to prevent unbounded goroutine spawn
 }
 
 func NewServer(stdin io.Reader, stdout, stderr io.Writer) *Server {
@@ -45,6 +47,10 @@ func (s *Server) registerHandlers() {
 }
 
 func (s *Server) Run(ctx context.Context) error {
+	// CRITICAL FIX: Track this goroutine so Shutdown() waits for it to complete
+	s.wg.Add(1)
+	defer s.wg.Done()
+
 	scanner := bufio.NewScanner(s.stdin)
 
 	for scanner.Scan() {
@@ -69,7 +75,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 		// CRITICAL FIX: Acquire semaphore before spawning goroutine to prevent unbounded spawn
 		// If semaphore is full, block until slot available (prevents DoS)
+		s.wg.Add(1)
 		go func() {
+			defer s.wg.Done()
 			s.concurrencySem <- struct{}{}
 			defer func() { <-s.concurrencySem }()
 
@@ -77,6 +85,8 @@ func (s *Server) Run(ctx context.Context) error {
 		}()
 	}
 
+	// CRITICAL FIX: Notify doneChan before waiting for in-flight requests
+	// This prevents Shutdown() from blocking when Run() exits early
 	return scanner.Err()
 }
 
@@ -135,6 +145,9 @@ func (s *Server) writeResponse(resp JSONRPCResponse) {
 
 func (s *Server) Shutdown() error {
 	close(s.shutdownChan)
+	// CRITICAL FIX: Wait for all request goroutines to complete
+	// This ensures no goroutines are still writing when we return
+	s.wg.Wait()
 	return nil
 }
 

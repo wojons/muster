@@ -9,6 +9,77 @@
 
 Complete specification for **built-in CLI commands** that provide core functionality independent of API specifications. These commands handle configuration, authentication, and utility operations.
 
+## Architecture
+
+```mermaid
+graph TB
+    Root["Root Command (muster)"]
+    
+    Config["Config Subcommand"]
+    ConfigGet["config get"]
+    ConfigSet["config set"]
+    ConfigProfiles["config profiles"]
+    ConfigUse["config use"]
+    
+    Auth["Auth Subcommand"]
+    AuthLogin["auth login"]
+    AuthLogout["auth logout"]
+    AuthStatus["auth status"]
+    
+    Docs["Docs Subcommand"]
+    DocsGenerate["docs generate"]
+    DocsServe["docs serve"]
+    
+    Root --> Config
+    Root --> Auth
+    Root --> Docs
+    Root --> Version["version"]
+    Root --> Completion["completion"]
+    
+    Config --> ConfigGet
+    Config --> ConfigSet
+    Config --> ConfigProfiles
+    Config --> ConfigUse
+    
+    Auth --> AuthLogin
+    Auth --> AuthLogout
+    Auth --> AuthStatus
+    
+    Docs --> DocsGenerate
+    Docs --> DocsServe
+```
+
+## Command Execution Flow
+
+```mermaid
+ sequenceDiagram
+    participant User
+    participant CLI as CLI
+    participant Config as Config Module
+    participant Auth as Auth Module
+    
+    User->>CLI: Execute command
+    CLI->>CLI: Check if built-in command
+    alt Built-in command
+        CLI->>CLI: Skip config loading
+        CLI->>CLI: Execute command logic
+        CLI-->>User: Return result
+    else API-generated command
+        CLI->>Config: Load configuration
+        Config-->>CLI: Return config
+        CLI->>CLI: Apply profile settings
+        CLI->>Auth: Check authentication
+        alt Authentication required
+            Auth->>Auth: Retrieve stored token
+            Auth-->>CLI: Return credentials
+            CLI->>CLI: Execute API command with auth
+        else Public API
+            CLI->>CLI: Execute API command
+        end
+        CLI-->>User: Return result
+    end
+```
+
 ## 1. Command Architecture
 
 ```

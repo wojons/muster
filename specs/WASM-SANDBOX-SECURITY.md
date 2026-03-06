@@ -16,6 +16,93 @@ Complete security specification for WebAssembly module execution addressing adve
 4. **Aggregate memory limits** across multiple modules
 5. **Deterministic execution guarantees** across platforms
 
+## Security Architecture
+
+```mermaid
+graph TB
+    subgraph "Host System"
+        HostApp[Host Application]
+        OS[Operating System]
+        Registry[System Registry]
+    end
+
+    subgraph "WASM Runtime - Security Layer"
+        Sandbox[WASM Sandbox]
+        Capabilities[Capability Manager]
+        Validator[Validator]
+        Runtime[WASM Runtime]
+        Memory[Memory Isolation]
+        Limits[Resource Limits]
+    end
+
+    subgraph "WASM Module"
+        Module[User Module]
+        WASIMemory[Module Memory]
+    end
+
+    HostApp -->|Load Module| Sandbox
+    Sandbox -->|Validate| Validator
+    Validator -->|Check Capabilities| Capabilities
+    Capabilities -->|Allow/Deny| Runtime
+    Runtime -->|Execute| Memory
+    Memory -->|Enforce Limits| Limits
+    Runtime --> Module
+    Module --> WASIMemory
+
+    Module -x|No Access| Registry
+    Module -x|No Access| OS
+```
+
+## Capability Enforcement Flow
+
+```mermaid
+sequenceDiagram
+    participant Module as WASM Module
+    participant Runtime as WASM Runtime
+    participant CapManager as Capability Manager
+    participant Validator as Validator
+    participant OS as Host OS
+
+    Module->>Runtime: Request System Call (e.g., file_read)
+    Runtime->>Validator: Validate Call
+    Validator->>CapManager: Check Capabilities
+
+    alt Call Allowed
+        CapManager-->>Runtime: Approved
+        Runtime->>OS: Execute (with sanitization)
+        OS-->>Runtime: Result
+        Runtime-->>Module: Result
+    else Call Blocked
+        CapManager-->>Runtime: Denied
+        Runtime-->>Module: Error: Capability Denied
+    end
+```
+
+## Resource Isolation
+
+```mermaid
+graph LR
+    subgraph "Isolated WASM Module"
+        M1[Module 1]
+        M1Mem[Memory: 10MB]
+        M1CPU[CPU: 30s]
+    end
+
+    subgraph "Host System Controls"
+        Process[Process Limits]
+        Time[Execution Timeout]
+        Memory[Total Memory Limit]
+        File[File Descriptor Limits]
+    end
+
+    M1-->|Enforced by| Time
+    M1-->|Enforced by| Memory
+    M1-->|Enforced by| Process
+
+    M1Mem -. Memory
+    M1CPU -. Time
+```
+
 ## 1. Memory Isolation Guarantees
 
 ### 1.1 Linear Memory Boundaries

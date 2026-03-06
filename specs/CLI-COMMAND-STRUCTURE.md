@@ -8,25 +8,111 @@ This document defines the complete command hierarchy for the Muster CLI applicat
 
 ```
 muster
-├── version
-├── config
-│   ├── get <key>
-│   ├── set <key> <value>
-│   └── list
-├── auth
-│   ├── login
-│   ├── logout
-│   └── status
-├── inventory
-│   ├── fetch
-│   ├── list
-│   └── clear
-├── daemon
-│   ├── start
-│   ├── stop
-│   └── status
-└── <dynamic-commands>  # Generated from OpenAPI spec
+  ├── version
+  ├── config
+  │   ├── get <key>
+  │   ├── set <key> <value>
+  │   └── list
+  ├── auth
+  │   ├── login
+  │   ├── logout
+  │   └── status
+  ├── inventory
+  │   ├── fetch
+  │   ├── list
+  │   └── clear
+  ├── daemon
+  │   ├── start
+  │   ├── stop
+  │   └── status
+  └── <dynamic-commands>  # Generated from OpenAPI spec
     └── <subcommands>
+```
+
+## Command Hierarchy
+
+```mermaid
+graph TB
+    Muster[muster]
+
+    subgraph "Built-in Commands"
+        Version[version]
+        Config[config]
+        Auth[auth]
+        Inventory[inventory]
+        Daemon[daemon]
+
+        Config --> ConfigGet[get]
+        Config --> ConfigSet[set]
+        Config --> ConfigList[list]
+
+        Auth --> AuthLogin[login]
+        Auth --> AuthLogout[logout]
+        Auth --> AuthStatus[status]
+
+        Inventory --> InvFetch[fetch]
+        Inventory --> InvList[list]
+        Inventory --> InvClear[clear]
+
+        Daemon --> DaemonStart[start]
+        Daemon --> DaemonStop[stop]
+        Daemon --> DaemonStatus[status]
+    end
+
+    subgraph "Dynamic Commands"
+        Pets[pets]
+        Users[users]
+        Orders[orders]
+
+        Pets --> PetsGet[get]
+        Pets --> PetsList[list]
+        Pets --> PetsCreate[create]
+
+        Users --> UsersGet[get]
+        Users --> UsersList[list]
+        Users --> UsersUpdate[update]
+
+        Orders --> OrdersGet[get]
+        Orders --> OrdersList[list]
+        Orders --> OrdersDelete[delete]
+    end
+
+    Muster --> Version
+    Muster --> Config
+    Muster --> Auth
+    Muster --> Inventory
+    Muster --> Daemon
+    Muster --> Pets
+    Muster --> Users
+    Muster --> Orders
+```
+
+## Command Execution Flow
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant CLI as CLI Application
+    participant Parser as Flag Parser
+    participant Validator as Validator
+    participant Executor as Command Executor
+    participant API as API/Backend
+
+    User->>CLI: Execute Command
+    CLI->>Parser: Parse Flags & Arguments
+    Parser->>Validator: Validate Inputs
+
+    alt Valid
+        Validator-->>CLI: Success
+        CLI->>Executor: Execute Command
+        Executor->>API: Make Request
+        API-->>Executor: Response
+        Executor-->>CLI: Result
+        CLI-->>User: Display Output
+    else Invalid
+        Validator-->>CLI: Error
+        CLI-->>User: Show Help/Usage
+    end
 ```
 
 ## Built-in Commands
