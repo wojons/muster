@@ -2,6 +2,39 @@
 
 Complete HTTP proxy with connection pooling and keep-alive support.
 
+## Proxy Architecture
+
+```mermaid
+graph TB
+    Client[Client] --> Socket[Unix Socket<br/>/tmp/oa-daemon.sock]
+    Socket --> HTTP[HTTP Server]
+    HTTP --> Proxy[Reverse Proxy]
+    Proxy --> Transport[HTTP Transport]
+    Transport --> Pool[Connection Pool]
+    Pool --> Target[Target Server<br/>localhost:8080]
+
+    Proxy --> Client2[HTTP Client]
+    Client2 --> Transport
+
+    Pool --> Stats[Pool Statistics]
+    Transport --> TLS[TLS Timeout<br/>10s]
+    Transport --> Dial[Dial Timeout<br/>30s]
+    Transport --> Idle[Idle Timeout<br/>90s]
+
+    style Client fill:#b5e8ad
+    style Socket fill:#ffe484
+    style HTTP fill:#87cefa
+    style Proxy fill:#98fb98
+    style Transport fill:#e6e6fa
+    style Pool fill:#ffa07a
+    style Target fill:#ff6b6b
+    style Client2 fill:#e6e6fa
+    style Stats fill:#87cefa
+    style TLS fill:#ffe484
+    style Dial fill:#ffe484
+    style Idle fill:#ffe484
+```
+
 ## File: internal/daemon/proxy/proxy.go
 
 ```go
@@ -133,6 +166,50 @@ func (p *Proxy) UpdateTarget(targetURL string) error {
 func (p *Proxy) Stats() PoolStats {
 	return p.pool.Stats()
 }
+```
+
+## Request Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Socket
+    participant H as HTTP Handler
+    participant P as Proxy
+    participant T as Transport
+    participant Pool as Connection Pool
+    participant R as Reverse Proxy
+    participant TG as Target
+
+    C->>S: Unix Socket Request
+    S->>H: HTTP Handler Receive
+    H->>P: Proxy ServeHTTP
+    P->>R: Forward Request
+    R->>T: Get from Pool or Dial
+    Pool-->>T: Existing Connection
+    alt Connection exists
+        T-->>R: Reused Connection
+    else New Connection
+        T->>TG: Establish Connection
+        TG-->>T: Connected
+        T->>Pool: Add to Pool
+        Pool-->>T: Acknowledge
+        T-->>R: New Connection
+    end
+    R->>TG: HTTP Request
+    TG-->>R: HTTP Response
+    R-->>H: Response
+    H-->>S: Write Response
+    S-->>C: Response Content
+
+    style C fill:#b5e8ad
+    style S fill:#ffe484
+    style H fill:#87cefa
+    style P fill:#98fb98
+    style T fill:#e6e6fa
+    style Pool fill:#ffa07a
+    style R fill:#e6e6fa
+    style TG fill:#ff6b6b
 ```
 
 ## File: internal/daemon/proxy/pool.go

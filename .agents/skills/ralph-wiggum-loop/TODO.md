@@ -1,9 +1,130 @@
 # OpenAPI CLI + MCP Server - Complete Implementation TODO
 
-**Project**: Dynamic OpenAPI CLI & MCP Server  
-**Total Specifications**: 276 files  
-**Total Tasks**: ~650+  
-**Last Updated**: 2026-03-03  
+## 🔄 Idle-Time Spec Conformance Sweep (2026-03-06)
+
+### Gap #1: CLI Alias System (NOT IMPLEMENTED) 🔴 LOW PRIORITY
+**Spec**: CLI-MARKET-ALIASES.md
+**Status**: ❌ 0% complete (missing all 13 requirements)
+**Priority**: 🔴 LOW (UX enhancement, not critical blocker)
+
+**Missing Components**:
+- internal/alias/ directory not created
+- Manager type and all methods missing
+- CLI alias commands not registered
+- Default aliases not implemented
+- Expansion logic with recursion detection not implemented
+- YAML persistence not configured
+
+**Location in TODO**: Phase 11.2 (lines 658-662)
+**Estimated Implementation Time**: 2-3 days
+
+### Gap #2: MCP Market Resources (PARTIALLY IMPLEMENTED) 🔴 HIGH PRIORITY
+**Spec**: MCP-MARKET-RESOURCES.md
+**Status**: ⚠️ 30% complete (3/10 requirements met)
+**Priority**: 🔴 HIGH (MCP protocol compliance gap)
+**Conformance**: 30% (basic handlers work, but templates, subscription, blob support missing)
+
+**Missing Components**:
+- ResourceTemplate struct (not implemented)
+- ListTemplatesHandler / templates/list method
+- Resource subscription system (subscribe/unsubscribe/notifications)
+- ResourceManager (centralized resource management)
+- ResourceContent Blob field (no binary support)
+- Resource Size and Annotations fields
+- ResourceSubscriber struct with change notifications
+
+**Evidence**:
+- ✅ ListResourcesHandler implemented (resources/list method)
+- ✅ ReadResourceHandler implemented (resources/read method)
+- ❌ Template system NOT implemented (0% conformance)
+- ❌ Subscription system NOT implemented (0% conformance)
+- ❌ ResourceManager NOT implemented (0% conformance)
+- File: pkg/mcp/handlers/resources.go (137 lines, basic handlers only)
+
+**Location**: Phase 8.4 (MCP features)
+**Estimated Implementation Time**: 23-25 hours for full compliance
+
+### Gap #3: CLI Entry Point (NOT IMPLEMENTED) 🔴 HIGH PRIORITY
+**Spec**: CLI-ENTRY-POINT.md
+**Status**: ❌ 0% complete (missing all 13 major components)
+**Priority**: 🔴 HIGH (critical infrastructure gap)
+**File Location Error**: Spec requires cmd/cli/main.go, actual uses cmd/openapi-cli/main.go
+
+**Missing Components** (13 categories):
+- ✗ Panic recovery with stack traces
+- ✗ Signal handling (SIGINT, SIGTERM, SIGHUP)
+- ✗ Exit code mapping (0, 1, 2, 3, 4, 130, 137)
+- ✗ Pre/post run hooks for lifecycle
+- ✗ Context cancellation propagation
+- ✗ 8 persistent global flags (--config, --host, --verbose, etc.)
+- ✗ 6-step initialization order
+- ✗ Global state management
+- ✗ Error handling framework (handleError, handlePanic)
+- ✗ Signal channel waiting logic
+- ✗ Command requirements checking
+- ✗ Mermaid architecture diagrams
+- ✗ Complete CLI interface (8 command groups)
+
+**Evidence**:
+- Spec requires ~1134 lines of code
+- Actual cmd/openapi-cli/main.go is only 43 lines
+- Minimal wrapper with no signal handling or error handling
+- cmd/mcp-server/main.go has partial signal handling but not comprehensive
+
+**Location in TODO**: Phase 10 (line 655)
+**Estimated Implementation Time**: 3-5 days
+
+### Gap #4: ProfileManager (FULLY IMPLEMENTED) ✅
+**Spec**: PROFILE-MANAGER.md
+**Status**: ✅ 100% complete with design improvements
+
+**Verification**:
+- ✅ ProfileManager struct exists (pkg/config/profiles.go:7-9)
+- ✅ All CRUD methods implemented (Create, Get, Update, Delete)
+- ✅ Listing methods (List, Exists)
+- ✅ Current profile management (SetDefault, GetDefault, Current)
+- ✅ Delegates to ConfigManager (better architecture than spec)
+
+### Gap #5: Database Repository Layer (NOT IMPLEMENTED) 🔴 CRITICAL
+**Spec**: DATABASE-REPOSITORY-IMPLEMENTATIONS.md
+**Status**: ❌ 0% complete (complete database layer missing)
+**Priority**: 🔴 CRITICAL (system has NO persistence capability)
+**File Size**: Spec 1606 lines, actual 115 lines (93% smaller!)
+
+**Missing Components** (3 major areas, 7 repositories):
+- ✗ QuerySet infrastructure (65+ SQL queries for SQLite/PostgreSQL/MySQL)
+- ✗ sqlInventoryRepository - 11 CRUD methods + Search/Count
+- ✗ sqlAliasRepository - 8 methods
+- ✗ sqlModuleRepository - 10 methods
+- ✗ sqlSpecRepository - 14 methods
+- ✗ sqlFingerprintRepository - 10 methods
+- ✗ sqlAuditRepository - 9 methods
+- ✗ sqlRateLimitRepository - 10 methods
+- ✗ Helper functions (buildListQuery, mapError, now)
+
+**Actual Implementation**:
+- pkg/repository/repository.go: 115 lines only
+- Contains: Repository interface, Transaction interface, 7 struct types, ListOptions
+- Lacking: All SQL queries, all CRUD methods, all database operations
+
+**Evidence**:
+```bash
+# Spec expects these repos - NONE exist:
+sqlInventoryRepository - NOT FOUND
+QuerySet - NOT FOUND
+NewInventoryRepository - NOT FOUND
+# 65+ SQL queries - ALL MISSING
+# 70+ repository methods - ALL MISSING
+```
+
+**Impact**: System cannot persist any data - complete database layer absent
+
+---
+
+**Project**: Dynamic OpenAPI CLI & MCP Server
+**Total Specifications**: 276 files
+**Total Tasks**: ~650+
+**Last Updated**: 2026-03-06
 **Status**: Comprehensive scope covering all specifications
 
 ---

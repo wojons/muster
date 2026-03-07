@@ -1,67 +1,36 @@
 # Functional Test Suite
 
-## Overview
+This directory contains functional tests that verify REAL-WORLD SYSTEM BEHAVIOR, not just unit tests in isolation.
 
-Functional tests verify REAL-WORLD SYSTEM BEHAVIOR, not just unit tests in isolation. These tests prove that the system works end-to-end with actual binary execution.
+## Philosophy
 
-## Test Categories
+**Unit Tests**: Individual functions in isolation
+**Integration Tests**: Component connections  
+**Functional Tests**: REAL-WORLD SYSTEM BEHAVIOR
 
-### 1. System State Tests
-Verify the system can start, initialize, and reach ready state:
-- System initialization and startup
-- State transitions (stopped → initializing → ready → executing)
-- Daemon socket creation and binding
-- Cleanup and shutdown
+## Structure
 
-### 2. User Workflow Tests
-Complete user journeys through the system:
-- CLI workflow: Load spec → Generate commands → Execute
-- MCP workflow: Start server → List tools → Execute → Response
-- Auth flow: OAuth2 → Token storage → Authenticated requests
-- Daemon workflow: Start → Socket connect → Proxy → Response
+```
+test/functional/
+├── harness/      # System test harness infrastructure
+├── workflows/    # End-to-end user workflow tests
+├── states/       # System state transition tests
+├── behaviors/    # System behavior under various conditions
+└── README.md     # This file
+```
 
-### 3. System Behavior Tests
-Test system behaves correctly under various conditions:
-- Caching behavior (cache miss → store → cache hit)
-- Rate limiting behavior
-- Authentication behavior
-- Command generation behavior
+## Requirements
 
-### 4. Error Recovery Tests
-Verify system recovers gracefully from errors:
-- Network timeouts and failures
-- Invalid requests handling
-- Authentication failures
-- Resource exhaustion
+Every functional test MUST:
+1. Test REAL system behavior (not mocks)
+2. Verify actual state changes
+3. Assert side effects
+4. Clean up resources
+5. Be reproducible
+6. Run in parallel with other tests
+7. Complete in <5 seconds
 
-### 5. Concurrency Tests
-Test system handles concurrent operations:
-- Multiple concurrent requests
-- Parallel command execution
-- Concurrent state transitions
-- Resource cleanup under load
-
-### 6. State Transition Tests
-Verify system state transitions correctly:
-- State machine correctness
-- Invalid transition prevention
-- State persistence
-- State restoration
-
-## Design Principles
-
-### Every Functional Test MUST:
-
-1. **Test Real System Behavior** - Use actual binary execution, not mocks
-2. **Verify Actual State Changes** - Assert system states, not just return values
-3. **Assert Side Effects** - Verify files created, sockets bound, processes running
-4. **Clean Up Resources** - All tests must clean up after themselves
-5. **Be Reproducible** - Deterministic and idempotent
-6. **Run in Parallel** - No interference between tests
-7. **Complete Rapidly** - Each test <5 seconds
-
-### Every Functional Test MUST NOT:
-
+Every functional test MUST NOT:
 1. Use mocks for system components
 2. Depend on external services
 3. Modify global state
@@ -71,123 +40,36 @@ Verify system state transitions correctly:
 
 ## Usage
 
-### Run All Functional Tests
-
+Run all functional tests:
 ```bash
-go test -v ./test/functional/...
+go test ./test/functional/... -v
 ```
 
-### Run Specific Category
-
+Run specific category:
 ```bash
-# System state tests
-go test -v ./test/functional/states/...
-
-# Workflow tests
-go test -v ./test/functional/workflows/...
-
-# Behavior tests
-go test -v ./test/functional/behaviors/...
+go test ./test/functional/workflows/... -v
+go test ./test/functional/states/... -v
+go test ./test/functional/behaviors/... -v
 ```
 
-### Run with Coverage
+## Test Categories
 
-```bash
-go test -v -cover ./test/functional/...
-```
+### Workflow Tests
+Test complete user journeys through the system.
 
-## Harness API
+### State Tests
+Test system state transitions and initialization.
 
-The `test/functional/harness` package provides utilities:
+### Behavior Tests
+Test system behavior under various conditions (caching, error recovery, concurrency, etc.).
 
-```go
-// Create a new test system
-system := harness.NewSystem(t)
-system.Build()
-system.Start()
-defer system.Stop()
+## Coverage Goals
 
-// Assert system is ready
-assertions := harness.NewSystemAssertions(t, system)
-assertions.Ready()
+- System initialization: 100%
+- User workflows: 80%+
+- State transitions: 90%+
+- Error scenarios: 70%+
 
-// Execute CLI command
-output, err := system.ExecuteCLI("list", "users")
+## Writing Tests
 
-// Make HTTP request
-result := system.MakeRequest("/api/v1/users")
-
-// Verify response
-assertions.CacheHit(response)
-```
-
-## Test Structure
-
-### System State Example
-
-```go
-func TestSystemInitialization(t *testing.T) {
-    system := harness.NewSystem(t)
-    system.Build()
-
-    // System starts in stopped state
-    require.Equal(t, harness.StateStopped, system.State())
-
-    // Initialize transitions to initializing
-    system.Start()
-    require.Equal(t, harness.StateInitializing, system.State())
-
-    // Wait for ready state
-    require.Eventually(t, func() bool {
-        return system.Ready()
-    }, 5*time.Second)
-
-    // Verify daemon is running
-    require.True(t, system.IsRunning())
-
-    // Cleanup
-    system.Stop()
-}
-```
-
-### User Workflow Example
-
-```go
-func TestCLIWorkflow(t *testing.T) {
-    env := harness.NewTestEnvironment(t)
-    system := env.Setup()
-    defer env.Cleanup()
-
-    // Step 1: Load OpenAPI spec
-    output, err := system.ExecuteCLI("load", "petstore.yaml")
-    require.NoError(t, err)
-    require.Contains(t, output, "Loaded spec")
-
-    // Step 2: Generate commands
-    output, err = system.ExecuteCLI("generate")
-    require.NoError(t, err)
-    require.Contains(t, output, "Generated 15 commands")
-
-    // Step 3: Execute command
-    output, err = system.ExecuteCLI("pets", "list")
-    require.NoError(t, err)
-    require.NotEmpty(t, output)
-}
-```
-
-## Current Coverage
-
-- ✅ Harness infrastructure complete (system, state, assertions, fixtures)
-- ⏳ System state tests (in progress)
-- ⏳ User workflow tests (pending)
-- ⏳ System behavior tests (pending)
-- ⏳ Error recovery tests (pending)
-- ⏳ Concurrency tests (pending)
-
-## Goals
-
-1. **Real System Testing**: All tests execute actual binaries
-2. **Complete Coverage**: 100% of critical user workflows tested
-3. **Fast Execution**: Full suite runs in <2 minutes
-4. **Reliable**: No flaky tests, all reproducible
-5. **Maintainable**: Clear, documented, easy to understand
+See individual category README.md files for detailed guidance.

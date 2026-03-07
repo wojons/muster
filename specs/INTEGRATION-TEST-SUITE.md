@@ -52,7 +52,7 @@ import (
     
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
-    "github.com/muster/muster/internal/cache"
+    "github.com/openapi-cli/openapi-cli/pkg/cache"
 )
 
 func TestMain(m *testing.M) {
@@ -92,18 +92,18 @@ func NewTestDB(t *testing.T) *TestDB {
     t.Helper()
     
     // Connect to template database
-    connStr := "postgres://muster:muster_dev@localhost:5432/postgres?sslmode=disable"
+    connStr := "postgres://openapi:openapi_test@localhost:5432/postgres?sslmode=disable"
     adminDB, err := sql.Open("postgres", connStr)
     require.NoError(t, err)
     defer adminDB.Close()
     
     // Create unique test database
-    dbName := fmt.Sprintf("muster_test_%d", time.Now().UnixNano())
+    dbName := fmt.Sprintf("openapi_test_%d", time.Now().UnixNano())
     _, err = adminDB.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName))
     require.NoError(t, err)
     
     // Connect to test database
-    testConnStr := fmt.Sprintf("postgres://muster:muster_dev@localhost:5432/%s?sslmode=disable", dbName)
+    testConnStr := fmt.Sprintf("postgres://openapi:openapi_test@localhost:5432/%s?sslmode=disable", dbName)
     db, err := sql.Open("postgres", testConnStr)
     require.NoError(t, err)
     

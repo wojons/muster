@@ -1,3 +1,22 @@
+# ⚠️ DEPRECATED - This spec is OBSOLETE
+
+**WARNING**: This specification describes an outdated architecture that does NOT match the current implementation.  
+
+**Status**: OBSOLETE - Do not use for reference  
+**Last Valid Update**: Unknown  
+**Superseded By**: [master-specification.md](./master-specification.md)  
+**Verification Date**: 2026-03-06 (Idle-Time Spec Conformance Sweep SWEEP-001)
+
+**Critical Issues**:
+- ❌ Command Layer structure completely wrong (cmd/muster/ doesn't exist - actual: cmd/openapi-cli/, cmd/mcp-server/, cmd/daemon/)
+- ❌ Service Layer doesn't exist (pkg/service/ - actual: distributed across pkg/request/, pkg/response/, etc.)
+- ❌ Output Layer doesn't exist (pkg/output/ - actual: pkg/ui/)
+- ❌ Testing architecture directories are wrong (not tests/integration/, tests/e2e/)
+
+**Recommendation**: Refer to [master-specification.md](./master-specification.md) for authoritative architecture documentation.
+
+---
+
 # Architecture Overview
 
 This document describes the architecture of Muster CLI.

@@ -230,6 +230,38 @@ Each requirement includes a comprehensive description enabling blind‑person vi
 #### Reliability (18 items)
 1. **Retry Logic**: Exponential backoff with jitter
 2. **Circuit Breaker**: State machine (CLOSED, OPEN, HALF_OPEN)
+
+```mermaid
+stateDiagram-v2
+    [*] --> CLOSED: Circuit closed, requests flow
+    CLOSED --> OPEN: Failure threshold exceeded (5 consecutive failures)
+    OPEN --> HALF_OPEN: Timeout expires (30s cooldown)
+    HALF_OPEN --> CLOSED: Success from test request
+    HALF_OPEN --> OPEN: Failure on test request
+    CLOSED --> [*]: System shutdown
+    HALF_OPEN --> [*]: System shutdown
+    OPEN --> [*]: System shutdown
+    
+    note right of CLOSED
+        Normal operation
+        Requests flow normally
+        Failure counter = 0
+    end note
+    
+    note right of OPEN
+        Circuit tripped
+        All requests fail fast
+        Blocking API calls
+        Automatic retry after timeout
+    end note
+    
+    note right of HALF_OPEN
+        Testing recovery
+        Allow single test request
+        On success → CLOSED
+        On failure → OPEN
+    end note
+```
 3. **Timeout Handling**: Context-based timeouts
 4. **Fallback**: Cache fallback on network failure
 5. **Health Checks**: Liveness/readiness probes

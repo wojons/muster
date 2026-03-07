@@ -1,44 +1,44 @@
 # Configuration Guide
 
-Learn how to configure Muster CLI for your environment.
+Learn how to configure OpenAPI CLI for your environment.
 
 ## Config File Location
 
-Muster looks for configuration in the following order:
+OpenAPI CLI looks for configuration in the following order:
 
 1. `--config` flag value
-2. `MUSTER_CONFIG` environment variable
-3. `~/.config/muster/config.yaml` (default)
-4. `~/.muster/config.yaml` (legacy)
+2. `OPENAPI_CONFIG` environment variable
+3. `~/.config/openapi-cli/config.yaml` (default)
+4. `~/.openapi-cli/config.yaml` (legacy)
 
 ## Config File Format
 
-Muster uses YAML format:
+OpenAPI CLI uses YAML format:
 
 ```yaml
-# ~/.config/muster/config.yaml
+# ~/.config/openapi-cli/config.yaml
 api:
-  url: https://api.muster.example.com
+  url: https://api.example.com
   timeout: 30
 
 auth:
   method: oauth2  # oauth2, apikey, mtls
-  
+
 defaults:
   output: table
   namespace: default
-  
+
 profiles:
   production:
     api:
-      url: https://api.prod.muster.example.com
+      url: https://api.prod.example.com
     auth:
       method: apikey
-      api_key: ${MUSTER_PROD_API_KEY}
-      
+      api_key: ${OPENAPI_PROD_API_KEY}
+
   staging:
     api:
-      url: https://api.staging.muster.example.com
+      url: https://api.staging.example.com
 ```
 
 ## Environment Variables
@@ -47,15 +47,15 @@ All config options can be set via environment variables:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `MUSTER_CONFIG` | Config file path | `/path/to/config.yaml` |
-| `MUSTER_PROFILE` | Default profile | `production` |
-| `MUSTER_API_URL` | API endpoint URL | `https://api.example.com` |
-| `MUSTER_API_TIMEOUT` | Request timeout (seconds) | `30` |
-| `MUSTER_OUTPUT` | Default output format | `json` |
-| `MUSTER_API_KEY` | API key for auth | `key-12345` |
-| `MUSTER_MTLS_CERT` | mTLS certificate path | `/path/to/cert.pem` |
-| `MUSTER_MTLS_KEY` | mTLS key path | `/path/to/key.pem` |
-| `MUSTER_DEBUG` | Enable debug logging | `true` |
+| `OPENAPI_CONFIG` | Config file path | `/path/to/config.yaml` |
+| `OPENAPI_PROFILE` | Default profile | `production` |
+| `OPENAPI_API_URL` | API endpoint URL | `https://api.example.com` |
+| `OPENAPI_API_TIMEOUT` | Request timeout (seconds) | `30` |
+| `OPENAPI_OUTPUT` | Default output format | `json` |
+| `OPENAPI_API_KEY` | API key for auth | `key-12345` |
+| `OPENAPI_MTLS_CERT` | mTLS certificate path | `/path/to/cert.pem` |
+| `OPENAPI_MTLS_KEY` | mTLS key path | `/path/to/key.pem` |
+| `OPENAPI_DEBUG` | Enable debug logging | `true` |
 
 ## Profiles
 
@@ -76,18 +76,18 @@ profiles:
 
 Via CLI:
 ```bash
-muster config set api.url https://api.prod.com --profile production
+openapi-cli config set api.url https://api.prod.com --profile production
 ```
 
 ### Using Profiles
 
 ```bash
 # One-time use
-muster list --profile production
+openapi-cli list --profile production
 
 # Set default
-export MUSTER_PROFILE=production
-muster list
+export OPENAPI_PROFILE=production
+openapi-cli list
 ```
 
 ## Configuration Commands
@@ -96,23 +96,23 @@ muster list
 
 ```bash
 # View all config
-muster config get
+openapi-cli config get
 
 # View specific key
-muster config get api.url
+openapi-cli config get api.url
 
 # View profile config
-muster config get --profile production
+openapi-cli config get --profile production
 ```
 
 ### Set Configuration
 
 ```bash
 # Set value
-muster config set api.timeout 60
+openapi-cli config set api.timeout 60
 
 # Set for specific profile
-muster config set defaults.output json --profile production
+openapi-cli config set defaults.output json --profile production
 ```
 
 ## Advanced Configuration

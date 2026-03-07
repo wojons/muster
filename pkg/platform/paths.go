@@ -8,6 +8,7 @@ type PlatformDirs struct {
 	Config string
 	Data   string
 	Cache  string
+	State  string
 }
 
 func Directories() *PlatformDirs {
