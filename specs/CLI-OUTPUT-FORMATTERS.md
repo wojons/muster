@@ -4,6 +4,44 @@
 
 Complete output formatting system for the Muster CLI supporting multiple output formats, color management, pagination, and progress indicators. Provides consistent, flexible formatting across all CLI commands.
 
+## Formatter Architecture Overview
+
+```mermaid
+graph TB
+    CLI[CLI Command] --> Registry[Formatter Registry]
+    Registry --> JSON[JSON Formatter]
+    Registry --> YAML[YAML Formatter]
+    Registry --> Table[Table Formatter]
+    Registry --> Raw[Raw Formatter]
+    Registry --> Template[Template Formatter]
+
+    JSON --> Features[Common Features]
+    YAML --> Features
+    Table --> Features
+    Raw --> Features
+    Template --> Features
+
+    Features --> Colors[Color Support]
+    Features --> Pager[Pagination]
+    Features --> Indent[Indentation]
+    Features --> Time[Time Format]
+
+    Colors --> CM[Color Manager]
+    Pager --> Auto[Auto Detection]
+    Pager --> External[External Pager]
+
+    style CLI fill:#b5e8ad
+    style Registry fill:#ffe484
+    style JSON fill:#87cefa
+    style YAML fill:#87cefa
+    style Table fill:#87cefa
+    style Raw fill:#87cefa
+    style Template fill:#87cefa
+    style Features fill:#e6e6fa
+    style Colors fill:#ffa07a
+    style Pager fill:#ffa07a
+```
+
 ---
 
 ## Core Architecture
@@ -1304,6 +1342,43 @@ Created: {{.CreatedAt}}
 
 ### Color Implementation
 
+```mermaid
+flowchart TD
+    CLI[CLI Command Output] --> Config[Check Config<br/>Colors/NoColor]
+    Config --> CM[Color Manager]
+    CM --> CheckEnv{Check Environment}
+
+    CheckEnv -->|FORCE_COLOR| Force[Force Color]
+    CheckEnv -->|NO_COLOR| NoColor[Disable Color]
+    CheckEnv -->|TERM| Terminal{Terminal?}
+
+    Terminal -->|Dumb Pipe| NoColor
+    Terminal -->|TTY| Enable[Enable Color]
+
+    Force --> Scheme[Color Scheme]
+    NoColor --> Text[Plain Text]
+    Enable --> Scheme
+
+    Scheme --> Success[Success Green]
+    Scheme --> Error[Error Red]
+    Scheme --> Warning[Warning Yellow]
+    Scheme --> Info[Info Blue]
+    Scheme --> Debug[Debug Cyan]
+    Scheme --> Header[Header Bold]
+    Scheme --> KeyValue[Key/Val Cyan/white]
+
+    style CLI fill:#b5e8ad
+    style Config fill:#ffe484
+    style CM fill:#87cefa
+    style CheckEnv fill:#ffa07a
+    style Force fill:#98fb98
+    style NoColor fill:#ff6b6b
+    style Terminal fill:#ffa07a
+    style Enable fill:#98fb98
+    style Text fill:#e6e6fa
+    style Scheme fill:#e6e6fa
+```
+
 ```go
 // Package output provides output formatting capabilities for the CLI.
 package output
@@ -1575,6 +1650,34 @@ func (cm *ColorManager) Bold(text string) string {
 ## Pagination
 
 ### Pagination Implementation
+
+```mermaid
+flowchart TD
+    Start[Output Generated] --> Enabled{Pagination Enabled?}
+    Enabled -->|No| Direct[Write Direct to Stdout]
+    Enabled -->|Yes| IsTTY{Output is TTY?}
+
+    IsTTY -->|No| Direct
+    IsTTY -->|Yes> Length{Length > Term Height?}
+
+    Length -->|No| Direct
+    Length -->|Yes> CheckCommand{Pager Command Set?}
+
+    CheckCommand -->|No| Direct
+    CheckCommand -->|Yes> Execute[Execute Pager<br/>less -R -F -X]
+
+    Execute --> Display[Display Content]
+    Direct --> Display
+
+    style Start fill:#b5e8ad
+    style Enabled fill:#ffe484
+    style IsTTY fill:#ffa07a
+    style Length fill:#ffa07a
+    style Direct fill:#e6e6fa
+    style CheckCommand fill:#ffa07a
+    style Execute fill:#98fb98
+    style Display fill:#87cefa
+```
 
 ```go
 // Package output provides output formatting capabilities for the CLI.

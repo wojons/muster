@@ -6,11 +6,30 @@ Shell completion provides intelligent command-line suggestions for bash, zsh, fi
 
 ## Architecture
 
-```
-internal/completion/
-├── generator.go       # Completion script generation
-├── dynamic.go         # Dynamic completion providers
-└── cache.go          # Completion caching
+```mermaid
+graph TB
+    CLI[CLI User Input] --> Gen[Generator]
+    Gen --> Bash[Bash Completion]
+    Gen --> Zsh[Zsh Completion]
+    Gen --> Fish[Fish Completion]
+    Gen --> PS[PowerShell Completion]
+
+    Gen --> Cache[Completion Cache]
+    Cache --> Prov[Provider]
+
+    Prov --> Dynamic1[Resource Names]
+    Prov --> Dynamic2[Namespaces]
+    Prov --> Dynamic3[Output Formats]
+    Prov --> Dynamic4[Config Keys]
+
+    Gen --> Comp[__complete Endpoint]
+    Comp --> Cache
+    Comp --> Prov
+
+    style CLI fill:#b5e8ad
+    style Gen fill:#ffe484
+    style Cache fill:#87cefa
+    style Prov fill:#87cefa
 ```
 
 ## Completion Script Generation
@@ -242,6 +261,38 @@ func fetchResourceNames(ctx context.Context, resourceType string) ([]string, err
 
 ## Completion Command
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant Shell
+    participant CLI
+    participant Gen as Generator
+    participant Prov as Provider
+    participant Cache
+
+    User->>Shell: openapi-cli <TAB>
+    Shell->>CLI: __complete command
+    CLI->>Gen: GenerateCompletion()
+    Gen->>Cache: Check Cache
+    alt Cache Hit
+        Cache-->>Gen: Cached Value
+    else Cache Miss
+        Gen->>Prov: Request Completion
+        Prov-->>Gen: Completion Results
+        Gen->>Cache: Store in Cache
+    end
+    Gen-->>CLI: Completion List
+    CLI-->>Shell: Completions
+    Shell-->>User: Display Suggestions
+
+    style User fill:#ffebcd
+    style Shell fill:#98fb98
+    style CLI fill:#ffe484
+    style Gen fill:#87cefa
+    style Prov fill:#ffa07a
+    style Cache fill:#e6e6fa
+```
+
 ```go
 package cmd
 
@@ -303,6 +354,32 @@ PowerShell:
 ```
 
 ## Completion Cache
+
+```mermaid
+flowchart TD
+    Start[User Type Tab] --> Check{Check Cache}
+    Check -->|Hit| Return[Cached Results]
+    Check -->|Miss| Fetch[Fetch from API]
+    Fetch --> Store[Store in Cache<br/>5 minute TTL]
+    Store --> Filter[Filter Matches]
+    Filter --> Return
+
+    Start2[Cache Cleanup] --> Timer[5 min Timer]
+    Timer --> Cleanup{Expired?}
+    Cleanup -->|Yes| Remove[Remove Item]
+    Cleanup -->|No| Wait
+    Remove --> Wait
+    Wait --> Timer
+
+    style Start fill:#b5e8ad
+    style Check fill:#ffe484
+    style Return fill:#98fb98
+    style Fetch fill:#87cefa
+    style Store fill:#ffa07a
+    style Filter fill:#e6e6fa
+    style Timer fill:#ffb6c1
+    style Remove fill:#ff6b6b
+```
 
 ```go
 package completion

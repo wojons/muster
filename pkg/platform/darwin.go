@@ -12,6 +12,7 @@ func macOSDirs() *PlatformDirs {
 		Config: filepath.Join(home, "Library", "Application Support", "openapi-cli"),
 		Data:   filepath.Join(home, "Library", "Application Support", "openapi-cli"),
 		Cache:  filepath.Join(home, "Library", "Caches", "openapi-cli"),
+		State:  filepath.Join(home, "Library", "Application Support", "openapi-cli"),
 	}
 }
 

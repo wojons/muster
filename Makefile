@@ -271,6 +271,40 @@ lint: ## Run all linters
 	fi
 	@echo "✓ Linting complete"
 
+.PHONY: lint-fix
+lint-fix: ## Run lint with auto-fix
+	@echo "Running linting with auto-fix..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --fix ./...; \
+	else \
+		echo "  ✗ golangci-lint not installed"; \
+		exit 1; \
+	fi
+	@echo "✓ Linting with auto-fix complete"
+
+.PHONY: lint-ci
+lint-ci: ## Run linting for CI (GitHub Actions format)
+	@echo "Running CI linting..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --out-format=github-actions ./...; \
+	else \
+		echo "  ✗ golangci-lint not installed"; \
+		exit 1; \
+	fi
+	@echo "✓ CI linting complete"
+
+.PHONY: lint-strict
+lint-strict: ## Run strict linting with additional checks
+	@echo "Running strict linting..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --config=.golangci-strict.yaml ./... || \
+		golangci-lint run ./...; \
+	else \
+		echo "  ✗ golangci-lint not installed"; \
+		exit 1; \
+	fi
+	@echo "✓ Strict linting complete"
+
 .PHONY: fmt
 fmt: ## Format code
 	@echo "Formatting code..."

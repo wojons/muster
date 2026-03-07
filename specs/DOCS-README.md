@@ -1,13 +1,11 @@
-# Muster
+# OpenAPI CLI
 
-> Dynamic API Client & MCP Server - Auto-configuring, versioned, always up-to-date
+> OpenAPI CLI + MCP Server - Dynamic command generation from OpenAPI specifications
 
-[![Build Status](https://github.com/anomalyco/muster/workflows/CI/badge.svg)](https://github.com/anomalyco/muster/actions)
-[![Coverage](https://codecov.io/gh/anomalyco/muster/branch/main/graph/badge.svg)](https://codecov.io/gh/anomalyco/muster)
-[![Version](https://img.shields.io/github/v/release/anomalyco/muster)](https://github.com/anomalyco/muster/releases)
-[![License](https://img.shields.io/github/license/anomalyco/muster)](LICENSE)
+[![Build Status](https://github.com/openapi-cli/openapi-cli/workflows/CI/badge.svg)](https://github.com/openapi-cli/openapi-cli/actions)
+[![Coverage](https://codecov.io/gh/openapi-cli/openapi-cli/branch/main/graph/badge.svg)](https://codecov.io/gh/openapi-cli/openapi-cli)
 
-Muster is a dynamic API client that configures itself from remote inventory. Instead of installing stale SDKs or manually updating MCP packages, Muster downloads configuration from your API's `_inventory.json`, caches it locally, and generates commands automatically from your OpenAPI spec. Works offline, respects versioning, and integrates seamlessly with AI assistants via the Model Context Protocol (MCP).
+OpenAPI CLI is a dynamic CLI tool that generates commands from OpenAPI specifications and serves them via MCP protocol. Instead of installing SDKs or manually writing API clients, OpenAPI CLI automatically generates CLI commands from any OpenAPI specification. Works offline, integrates with Claude Desktop via MCP, and provides secure authentication with OS keychain integration.
 
 ---
 
@@ -17,9 +15,8 @@ Muster is a dynamic API client that configures itself from remote inventory. Ins
 - **Dynamic Command Generation** - Commands auto-generated from your API's OpenAPI spec
 - **Offline Caching** - Inventory and specs cached locally with HTTP cache header support
 - **Version Management** - Pin versions, use latest, or fallback to "last known good"
-- **Alias System** - Create shortcuts for frequently used hosts and versions
 - **Multiple Output Formats** - JSON, YAML, table, and custom formatters
-- **Built-in Auth** - mTLS, OAuth2, Bearer tokens, with OS keychain integration
+- **Built-in Auth** - OAuth2, mTLS, API keys, with OS keychain integration
 
 ### MCP Server Features
 - **Zero-Config AI Integration** - AI assistants get instant API access with no manual setup
@@ -29,10 +26,9 @@ Muster is a dynamic API client that configures itself from remote inventory. Ins
 
 ### Key Capabilities
 - **WebAssembly Modules** - Sandboxed execution for custom data transformations
-- **DSL Workflows** - Multi-step operations with loops and conditionals
-- **Rate Limiting** - Client-side controls with exponential backoff
-- **SOCKS5 Proxy** - Built-in proxy support for enterprise environments
-- **Client Fingerprinting** - Optional device identification (backend-controlled)
+- **Starlark DSL** - Multi-step operations with loops and conditionals
+- **Rate Limiting** - Client-side controls with token bucket algorithm
+- **Unix Socket Daemon** - Background daemon with socket proxy support
 
 ---
 
@@ -42,42 +38,32 @@ Muster is a dynamic API client that configures itself from remote inventory. Ins
 
 ```bash
 # Add tap
-brew tap anomalyco/muster
+brew tap openapi-cli/openapi-cli
 
 # Install CLI
-brew install muster-cli
-
-# Install MCP server
-brew install muster-mcp
-
-# Or install both
-brew install muster-cli muster-mcp
-```
-
-### Direct Download
-
-Download pre-built binaries from [GitHub Releases](https://github.com/anomalyco/muster/releases):
-
-```bash
-# macOS (Apple Silicon)
-curl -L https://github.com/anomalyco/muster/releases/latest/download/muster-cli-darwin-arm64 -o muster
-chmod +x muster
-sudo mv muster /usr/local/bin/
-
-# Linux (x86_64)
-curl -L https://github.com/anomalyco/muster/releases/latest/download/muster-cli-linux-amd64 -o muster
-chmod +x muster
-sudo mv muster /usr/local/bin/
-
-# Windows (PowerShell)
-# Download muster-cli-windows-amd64.exe from releases
+brew install openapi-cli
 ```
 
 ### Go Install
 
 ```bash
-go install github.com/anomalyco/muster/cmd/muster-cli@latest
-go install github.com/anomalyco/muster/cmd/muster-mcp@latest
+go install github.com/openapi-cli/openapi-cli/cmd/openapi-cli@latest
+```
+
+### Direct Download
+
+Download pre-built binaries from [GitHub Releases](https://github.com/openapi-cli/openapi-cli/releases):
+
+```bash
+# macOS (Apple Silicon)
+curl -L https://github.com/openapi-cli/openapi-cli/releases/latest/download/openapi-cli-darwin-arm64 -o openapi-cli
+chmod +x openapi-cli
+sudo mv openapi-cli /usr/local/bin/
+
+# Linux (x86_64)
+curl -L https://github.com/openapi-cli/openapi-cli/releases/latest/download/openapi-cli-linux-amd64 -o openapi-cli
+chmod +x openapi-cli
+sudo mv openapi-cli /usr/local/bin/
 ```
 
 ### Docker
@@ -85,15 +71,9 @@ go install github.com/anomalyco/muster/cmd/muster-mcp@latest
 ```bash
 # Run CLI
 docker run --rm -it \
-  -v ~/.config/muster:/root/.config/muster \
-  ghcr.io/anomalyco/muster-cli:latest \
-  --host https://api.example.com
-
-# Run MCP server
-docker run --rm -it \
-  -v ~/.config/muster:/root/.config/muster \
-  ghcr.io/anomalyco/muster-mcp:latest \
-  --host https://api.example.com
+  -v ~/.config/openapi-cli:/root/.config/openapi-cli \
+  ghcr.io/openapi-cli/openapi-cli:latest \
+  --spec https://api.example.com/openapi.yaml
 ```
 
 ---
@@ -103,46 +83,38 @@ docker run --rm -it \
 ### Basic Usage
 
 ```bash
-# Configure for an API
-muster --host https://api.example.com
+# Initialize OpenAPI CLI
+openapi-cli init
 
-# List available commands (auto-generated from OpenAPI spec)
-muster --help
+# Authenticate with OAuth2
+openapi-cli auth login --oauth2
 
-# Call an API endpoint
-muster users list --limit 10
-muster users get --id 123
-muster posts create --title "Hello" --body "World"
+# Fetch an OpenAPI specification
+openapi-cli inventory fetch https://api.example.com/openapi.yaml
+
+# Generate commands
+openapi-cli generate https://api.example.com/openapi.yaml
+
+# Use generated commands
+openapi-cli pets list
+openapi-cli pets get --id 42
+openapi-cli pets create --name "Fluffy" --type "cat"
 ```
 
-### First Command
+### Direct Request Mode
 
 ```bash
-# The tool downloads configuration from https://api.example.com/_inventory.json
-# and generates commands based on the OpenAPI spec
+# GET request
+openapi-cli request https://api.example.com/pets
 
-# View generated commands
-muster --host https://api.example.com commands list
+# POST request
+openapi-cli request https://api.example.com/pets POST '{"name":"Fluffy","type":"cat"}'
 
-# Get help for a specific command
-muster users create --help
-```
+# PUT request
+openapi-cli request https://api.example.com/pets/42 PUT '{"name":"Fluffy Jr"}'
 
-### Authentication
-
-```bash
-# Using client certificates (mTLS)
-muster --host https://api.example.com \
-  --cert ./client.crt \
-  --key ./client.key \
-  users list
-
-# Using Bearer token from environment
-export MUSTER_API_TOKEN="your-token"
-muster --host https://api.example.com users list
-
-# Store credentials in OS keychain
-muster config set-auth --host https://api.example.com --token
+# DELETE request
+openapi-cli request https://api.example.com/pets/42 DELETE
 ```
 
 ### MCP Integration
@@ -152,12 +124,11 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 ```json
 {
   "mcpServers": {
-    "my-api": {
-      "command": "muster-mcp",
-      "args": ["--host", "https://api.example.com"],
+    "openapi": {
+      "command": "/usr/local/bin/openapi-cli",
+      "args": ["mcp-server"],
       "env": {
-        "MUSTER_CERT_FILE": "./client.crt",
-        "MUSTER_KEY_FILE": "./client.key"
+        "OPENAPI_CONFIG": "/path/to/config.yaml"
       }
     }
   }
@@ -168,31 +139,10 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## Documentation
 
-- **[Full Documentation](https://docs.muster.dev)** - Complete guides and API reference
-- **[Installation Guide](https://docs.muster.dev/install)** - Detailed installation instructions
-- **[Configuration Reference](https://docs.muster.dev/config)** - All configuration options
-- **[MCP Integration](https://docs.muster.dev/mcp)** - AI assistant setup
-- **[Examples](https://docs.muster.dev/examples)** - Common use cases and patterns
-
-### Quick Examples
-
-```bash
-# Version management
-muster --host https://api.example.com --version 1.2.3 users list
-muster --host https://api.example.com --use-known-good users list
-muster alias create prod https://api.example.com --version 1.2.3
-muster use prod
-
-# Working offline
-muster --offline users list
-
-# Custom output format
-muster users list --output json | jq '.[].name'
-muster users list --format "{{.id}}: {{.name}}"
-
-# Multi-step workflow
-muster workflow run deployment.yaml
-```
+- **[Quick Start Guide](DOCS-OPENAPI-QUICKSTART.md)** - Getting started with OpenAPI CLI
+- **[Configuration](DOCS-CONFIGURATION.md)** - Detailed configuration options
+- **[MCP Protocol](MCP-PROTOCOL.md)** - MCP server integration
+- **[Authentication](API-AUTHENTICATION.md)** - OAuth2, mTLS, and API keys
 
 ---
 
@@ -202,34 +152,27 @@ muster workflow run deployment.yaml
 
 Configuration is stored in YAML format:
 
-- **macOS**: `~/Library/Application Support/muster/config.yaml`
-- **Linux**: `~/.config/muster/config.yaml`
-- **Windows**: `%AppData%\muster\config.yaml`
-
-Override with `--config /path/to/config.yaml`
+- **macOS**: `~/Library/Application Support/openapi-cli/config.yaml`
+- **Linux**: `~/.config/openapi-cli/config.yaml`
+- **Windows**: `%AppData%\openapi-cli\config.yaml`
 
 ### Environment Variables
 
-All settings can be configured via environment variables:
-
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `MUSTER_HOST` | Default API host | `https://api.example.com` |
-| `MUSTER_CERT_FILE` | Client certificate path | `/path/to/cert.pem` |
-| `MUSTER_KEY_FILE` | Client key path | `/path/to/key.pem` |
-| `MUSTER_API_TOKEN` | API bearer token | `secret-token` |
-| `MUSTER_INVENTORY_TOKEN` | Inventory auth token | `inv-token` |
-| `MUSTER_OFFLINE` | Force offline mode | `true` |
-| `MUSTER_PROXY` | SOCKS5 proxy URL | `socks5://localhost:1080` |
-| `MUSTER_CONFIG_DIR` | Config directory path | `~/.muster` |
-| `MUSTER_CACHE_DIR` | Cache directory path | `~/.cache/muster` |
+| `OPENAPI_CONFIG` | Config file path | `/path/to/config.yaml` |
+| `OPENAPI_PROFILE` | Default profile | `default` |
+| `OPENAPI_DEBUG` | Enable debug logging | `true` |
 
-Priority order:
-1. CLI flags
-2. Environment variables (`MUSTER_*`)
-3. Config file
-4. Inventory-provided defaults
-5. Built-in defaults
+### Default Directory Structure
+
+OpenAPI CLI uses standard XDG Base Directory paths:
+
+| Directory | Location (Linux) | Location (macOS) | Location (Windows) |
+|-----------|------------------|------------------|---------------------|
+| Config | `~/.config/openapi-cli/` | `~/Library/Application Support/openapi-cli/` | `%APPDATA%\openapi-cli\` |
+| Cache | `~/.cache/openapi-cli/` | `~/Library/Caches/openapi-cli/` | `%LOCALAPPDATA%\openapi-cli\` |
+| Data | `~/.local/share/openapi-cli/` | `~/Library/Application Support/openapi-cli/` | `%LOCALAPPDATA%\openapi-cli\` |
 
 ---
 
@@ -239,11 +182,11 @@ Priority order:
 
 ```bash
 # Clone repository
-git clone https://github.com/anomalyco/muster.git
-cd muster
+git clone https://github.com/openapi-cli/openapi-cli.git
+cd openapi-cli
 
 # Install dependencies
-make deps
+go mod download
 
 # Build all binaries
 make build
@@ -251,18 +194,17 @@ make build
 # Build specific binary
 make build-cli
 make build-mcp
-make build-daemon
 
 # Run tests
 make test
 
-# Run with race detector
-make test-race
+# Build for all platforms
+make build-all
 ```
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.25 or later
 - Make
 - Git
 
@@ -271,21 +213,26 @@ make test-race
 ```
 .
 ├── cmd/
-│   ├── muster-cli/      # CLI entry point
-│   ├── muster-mcp/      # MCP server entry point
-│   └── muster-daemon/   # Daemon entry point
-├── internal/
-│   ├── cli/             # CLI commands and formatters
-│   ├── mcp/             # MCP server implementation
-│   ├── daemon/          # Background service
-│   ├── inventory/       # Inventory fetching & caching
-│   ├── openapi/         # OpenAPI spec parsing
-│   ├── wasm/            # WebAssembly runtime
-│   ├── config/          # Configuration management
-│   └── version/         # Version info
+│   ├── openapi-cli/       # CLI entry point
+│   ├── mcp-server/        # MCP server entry point
+│   └── daemon/            # Daemon entry point
 ├── pkg/
-│   └── ...              # Public APIs
-└── specs/               # Design specifications
+│   ├── auth/              # Authentication (OAuth2, mTLS, keychain)
+│   ├── cache/             # Multi-tier caching
+│   ├── cli/               # CLI framework integration
+│   ├── client/            # HTTP client
+│   ├── config/            # Configuration management
+│   ├── dsl/               # Starlark DSL interpreter
+│   ├── mcp/               # MCP protocol implementation
+│   ├── openapi/           # OpenAPI parsing
+│   └── wasm/              # WASM runtime (Wasmtime)
+├── internal/
+│   ├── builtin/           # Built-in commands
+│   ├── commands/          # Command implementations
+│   └── ...
+├── demo/                  # Demo application
+├── specs/                 # 276 specification files
+└── .memory-bank/          # Project documentation
 ```
 
 ### Contributing
@@ -300,46 +247,67 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 6. Push to the branch (`git push origin feature/amazing`)
 7. Open a Pull Request
 
-### Development Commands
+---
+
+## Commands
+
+### Built-in Commands
 
 ```bash
-# Format code
-make fmt
+# Authentication
+openapi-cli auth login [--oauth2] [--username <user>] [--password <pass>] [--token <token>]
+openapi-cli auth logout
+openapi-cli auth status
 
-# Run linters
-make lint
+# Configuration
+openapi-cli config show
 
-# Generate mocks
-make generate
+# Inventory management
+openapi-cli inventory fetch <url>
+openapi-cli inventory list
+openapi-cli inventory validate <spec-path>
 
-# Build for all platforms
-make build-all
+# Command generation
+openapi-cli generate <spec-path>
 
-# Create release
-make release VERSION=v1.0.0
+# Daemon control
+openapi-cli daemon start
+openapi-cli daemon stop
+openapi-cli daemon status
 
-# Clean build artifacts
-make clean
+# Shell completion
+openapi-cli completion [bash|zsh|fish|powershell]
+
+# Help and version
+openapi-cli help [command]
+openapi-cli version
+```
+
+### Generated Commands
+
+After loading an OpenAPI specification, commands are dynamically generated:
+
+```bash
+# Example generated commands
+openapi-cli pets list
+openapi-cli pets get --id 42
+openapi-cli pets create --name "Fluffy" --type "cat"
+openapi-cli pets update --id 42 --name "Fluffy Jr"
+openapi-cli pets delete --id 42
 ```
 
 ---
 
 ## License
 
-This project is dual-licensed under:
-
-- **[MIT License](LICENSE-MIT)** - See [LICENSE-MIT](LICENSE-MIT) for details
-- **[Apache License 2.0](LICENSE-APACHE)** - See [LICENSE-APACHE](LICENSE-APACHE) for details
-
-You may choose either license at your option.
+This project is distributed under the MIT License.
 
 ---
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/anomalyco/muster/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/anomalyco/muster/discussions)
-- **Security**: Please report security vulnerabilities to security@muster.dev
+- **Issues**: [GitHub Issues](https://github.com/openapi-cli/openapi-cli/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/openapi-cli/openapi-cli/discussions)
 
 ---
 
@@ -348,5 +316,6 @@ You may choose either license at your option.
 Built with:
 - [Cobra](https://github.com/spf13/cobra) - CLI framework
 - [Viper](https://github.com/spf13/viper) - Configuration management
-- [Kin-OpenAPI](https://github.com/getkin/kin-openapi) - OpenAPI validation
-- [Wasmtime](https://github.com/bytecodealliance/wasmtime-go) - WebAssembly runtime
+- [Kin-OpenAPI](https://github.com/getkin/kin-openapi) - OpenAPI parsing
+- [Wasmtime](https://github.com/bytecodealliance/wasmtime-go) - WASM runtime
+- [Starlark](https://go.starlark.net) - DSL interpreter

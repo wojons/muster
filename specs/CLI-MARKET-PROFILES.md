@@ -4,6 +4,144 @@
 
 Profiles manage different environment configurations for development, staging, and production contexts.
 
+## System Architecture
+
+```mermaid
+graph TB
+    subgraph "CLI Commands"
+        CMD["profile Command Group"]
+        LIST["profile list"]
+        CREATE["profile create"]
+        SWITCH["profile switch"]
+        DELETE["profile delete"]
+        SHOW["profile show"]
+    end
+
+    subgraph "Profile Manager"
+        MGR["Manager"]
+        CREATE_OP["Create()"]
+        UPDATE_OP["Update()"]
+        DELETE_OP["Delete()"]
+        SWITCH_OP["Switch()"]
+        GET["Get()"]
+        GET_ACTIVE["GetActive()"]
+        LIST["List()"]
+        GET_MERGED["GetMergedSettings()"]
+        MERGE["mergeSettings()"]
+    end
+
+    subgraph "Storage"
+        PROFILES["profiles.yaml"]
+        ACTIVE["active_profile"]
+    end
+
+    CMD --> MGR
+    LIST --> LIST_OP
+    CREATE --> CREATE_OP
+    SWITCH --> SWITCH_OP
+    DELETE --> DELETE_OP
+    SHOW --> GET_ACTIVE
+
+    CREATE_OP --> PROFILES
+    UPDATE_OP --> PROFILES
+    DELETE_OP --> ACTIVE
+    SWITCH_OP --> ACTIVE
+    GET --> PROFILES
+    LIST --> PROFILES
+    GET_MERGED --> MERGE
+```
+
+## Profile Management Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as CLI Commands
+    participant MGR as Profile Manager
+    participant STOR as Storage (profiles.yaml, active_profile)
+
+    User->>CLI: profile create dev --inherit default --description "Development"
+    CLI->>MGR: Create("dev", settings)
+    MGR->>STOR: Write profiles.yaml
+    STOR-->>MGR: Success
+    MGR-->>CLI: Success
+    CLI-->>User: Profile 'dev' created
+
+    User->>CLI: profile list
+    CLI->>MGR: List()
+    MGR->>STOR: Read profiles.yaml
+    STOR-->>MGR: Profiles data
+    MGR-->>CLI: Profile list
+    CLI-->>User: Display profiles (with * for active)
+
+    User->>CLI: profile switch dev
+    CLI->>MGR: Switch("dev")
+    MGR->>STOR: Write active_profile
+    STOR-->>MGR: Success
+    MGR-->>CLI: Success
+    CLI-->>User: Switched to profile 'dev'
+
+    User->>CLI: profile show
+    CLI->>MGR: GetActive()
+    MGR->>STOR: Read active_profile
+    STOR-->>MGR: Active profile name
+    MGR->>MGR: GetMergedSettings(active_name)
+    MGR->>MGR: mergeSettings() [Handle inheritance]
+    MGR-->>CLI: Profile details
+    CLI-->>User: Display profile settings
+
+    User->>CLI: profile delete dev
+    CLI->>MGR: Delete("dev")
+    MGR->>MGR: Set active = "default" [If dev was active]
+    MGR->>STOR: Write profiles.yaml
+    MGR->>STOR: Write active_profile
+    STOR-->>MGR: Success
+    MGR-->>CLI: Success
+    CLI-->>User: Profile 'dev' deleted
+```
+
+## Profile Inheritance Model
+
+```mermaid
+graph TB
+    subgraph "Default Profile"
+        DEFAULT["default"]
+        DEFAULT_SETTINGS["api.url: https://api.example.com<br/>api.timeout: 30s<br/>log.level: info"]
+    end
+
+    subgraph "Development"
+        DEV["development"]
+        DEV_INHERITS["inherits: default"]
+        DEV_SETTINGS["api.url: https://dev-api.example.com<br/>log.level: debug"]
+    end
+
+    subgraph "Staging"
+        STAGING["staging"]
+        STAGING_INHERITS["inherits: default"]
+        STAGING_SETTINGS["api.url: https://staging-api.example.com"]
+    end
+
+    subgraph "Production"
+        PROD["production"]
+        PROD_INHERITS["inherits: default"]
+        PROD_SETTINGS["api.timeout: 60s<br/>log.level: warn"]
+    end
+
+    DEV_INHERITS --> DEFAULT
+    DEV_SETTINGS -.->|overrides| DEFAULT_SETTINGS
+
+    STAGING_INHERITS --> DEFAULT
+    STAGING_SETTINGS -.->|overrides| DEFAULT_SETTINGS
+
+    PROD_INHERITS --> DEFAULT
+    PROD_SETTINGS -.->|overrides| DEFAULT_SETTINGS
+
+    style DEFAULT fill:#e1f5ff
+    style DEV fill:#ffe1e1
+    style STAGING fill:#fff4e1
+    style PROD fill:#e1ffe1
+```
+
 ## Architecture
 
 ```

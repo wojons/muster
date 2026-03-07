@@ -20,6 +20,7 @@ func windowsDirs() *PlatformDirs {
 		Config: filepath.Join(appData, "openapi-cli"),
 		Data:   filepath.Join(appData, "openapi-cli"),
 		Cache:  filepath.Join(localAppData, "openapi-cli", "Cache"),
+		State:  filepath.Join(localAppData, "openapi-cli", "State"),
 	}
 }
 

@@ -9,6 +9,38 @@
 
 Complete specification of **cache policies** for different data types.
 
+## Policy Architecture
+
+```mermaid
+graph TB
+    subgraph TimeBased[Time-Based Policies]
+        T1[OpenAPI Spec<br/>1h - 7d]
+        T2[WASM Module<br/>1d - 30d]
+        T3[Inventory<br/>5m - 24h]
+        T4[Auth Token<br/>5m - 1h]
+    end
+
+    subgraph SizeBased[Size-Based Policies]
+        S1[Memory<br/>100MB LRU]
+        S2[Disk<br/>1GB LRU]
+    end
+
+    subgraph Validation[Validation Strategies]
+        V1[ETag]
+        V2[Last-Modified]
+        V3[Checksum]
+    end
+
+    Policy[Cache Policy System] --> TimeBased
+    Policy --> SizeBased
+    Policy --> Validation
+
+    style Policy fill:#87cefa
+    style TimeBased fill:#ffebcd
+    style SizeBased fill:#ffe484
+    style Validation fill:#ffa07a
+```
+
 ## 1. Policy Types
 
 ### 1.1 Time-Based Policies
@@ -101,6 +133,37 @@ func ParseCacheControl(header string) CacheControl {
 
 ## 3. Validation Strategies
 
+```mermaid
+flowchart TD
+    Start[Validating Cache Entry] --> GetMeta[Get Entry Metadata]
+    GetMeta --> CheckStrategy{Strategy?}
+    CheckStrategy -->|ETag| ValidateETag[Validate ETag]
+    CheckStrategy -->|Last-Mod| ValidateLM[Validate Last-Modified]
+    CheckStrategy -->|Checksum| ValidateCS[Validate Checksum]
+
+    ValidateETag --> CheckETag{ETag Match?}
+    ValidateLM --> CheckLM{Modified?}
+    ValidateCS --> CheckCS{Checksum Match?}
+
+    CheckETag -->|Yes| Valid[Valid Cache]
+    CheckETag -->|No| Invalid[Invalid Cache]
+    CheckLM -->|No| Valid
+    CheckLM -->|Yes| Invalid
+    CheckCS -->|Yes| Valid
+    CheckCS -->|No| Invalid
+
+    Valid --> Success[Return true]
+    Invalid --> Fail[Return false]
+    Fail --> Error[Return error]
+
+    style Start fill:#b5e8ad
+    style Valid fill:#98fb98
+    style Invalid fill:#ff6b6b
+    style Success fill:#87cefa
+    style Fail fill:#ffb6c1
+    style Error fill:#808080
+```
+
 ```go
 type ValidationStrategy string
 
@@ -130,6 +193,43 @@ func (c *Cache) Validate(ctx context.Context, key string, strategy ValidationStr
 ```
 
 ## 4. Policy Enforcement
+
+```mermaid
+flowchart TD
+    Start[Set Cache Entry] --> CheckPolicy{Policy Exists?}
+    CheckPolicy -->|No| Error[Unknown Policy]
+    CheckPolicy -->|Yes| GetTTL[Get TTL Policy]
+
+    GetTTL --> CheckSize{Entry Size OK?}
+    CheckSize -->|Too Large| ErrorSize[Entry Too Large]
+    CheckSize -->|OK| Apply[Apply Size Limits]
+
+    Apply --> CheckTTL{TTL in Range?}
+    CheckTTL -->|No| Clamp[Clamp to Min/Max]
+    CheckTTL -->|Yes| Set[Set with Policy]
+
+    Clamp --> Set
+    Set --> Store[Store in Cache]
+
+    Error --> Fail[Return Error]
+    ErrorSize --> Fail
+    Fail --> End[End]
+    Store --> End
+
+    style Start fill:#b5e8ad
+    style CheckPolicy fill:#ffe484
+    style GetTTL fill:#ffe484
+    style CheckSize fill:#ffa07a
+    style CheckTTL fill:#ffa07a
+    style Error fill:#ff6b6b
+    style ErrorSize fill:#ff6b6b
+    style Apply fill:#87cefa
+    style Clamp fill:#87cefa
+    style Set fill:#87cefa
+    style Store fill:#98fb98
+    style Fail fill:#ffb6c1
+    style End fill:#e6e6fa
+```
 
 ```go
 func (c *Cache) SetWithPolicy(ctx context.Context, key string, value Value, policy string) error {

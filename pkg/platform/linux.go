@@ -22,8 +22,9 @@ func linuxDirs() *PlatformDirs {
 	}
 
 	return &PlatformDirs{
-		Config: xdgConfig,
-		Data:   xdgData,
-		Cache:  xdgCache,
+		Config: filepath.Join(xdgConfig, "openapi-cli"),
+		Data:   filepath.Join(xdgData, "openapi-cli"),
+		Cache:  filepath.Join(xdgCache, "openapi-cli"),
+		State:  filepath.Join(home, ".local/state", "openapi-cli"),
 	}
 }

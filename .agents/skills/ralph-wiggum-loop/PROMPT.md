@@ -21,37 +21,43 @@
 
 ## 🚀 Autonomous Execution Checklist (START HERE)
 
-**IF YOU JUST STARTED**: Immediately begin Task 1 below
-**IF YOU RESUMED**: Check which tasks are complete, continue from next task
-**IF UNCLEAR**: Read Current Blockers section, then start with Task 1
+**CRITICAL INSTRUCTION**: When tasks complete, MARK THEM WITH `[x]` NOT `→`. The checkbox format makes progress visible!
+
+**IF YOU JUST STARTED**: Immediately begin Task 1 below  
+**IF YOU RESUMED**: Check which tasks are `[x]` (done), continue from first `[ ]` (pending)  
+**IF UNCLEAR**: Read Current Blockers section, then start with Task 1  
 **IF NO TASKS PENDING**: Start Idle-Time Spec Conformance Sweep (see below)
 
-**✅ COMPLETED - Phase 32 Independent Verification (2026-03-05)**
-→ 13 security claims verified via line-by-line code inspection
-→ 12/13 claims are FALSEALARMS (security features already implemented)
-→ 1/1 MEDIUM vulnerability (WASM memory limits - mitigated via 10MB cap + 30s timeout)
-→ cmd/mcp-server coverage verified at 72.0% (EXCEEDS 70% target)
-→ System verified 96% production-ready (LOW RISK)
+### ✅ Completed Tasks
 
-**Optional Quality Enhancements (NOT REQUIRED for production)**:
-→ Improve cmd/openapi-cli coverage from 55.6% to 70% (quality enhancement)
-→ Add WASM memory monitoring (document API limitation)
+- [x] **Phase 32 Independent Verification (2026-03-05)**
+  - [x] 13 security claims verified via line-by-line code inspection
+  - [x] 12/13 claims are FALSEALARMS (security features already implemented)
+  - [x] 1/1 MEDIUM vulnerability (WASM memory limits - mitigated via 10MB cap + 30s timeout)
+  - [x] cmd/mcp-server coverage verified at 72.0% (EXCEEDS 70% target)
+  - [x] System verified 96% production-ready (LOW RISK)
 
-**Task 4 Priority**: 📊 MEDIUM (Ongoing)
-→ Build functional test suite & harness (test/functional/)
-→ Create system state tests, workflow tests, behavior tests
-→ Ensure tests verify REAL system behavior, not just unit tests
+### 📋 Pending Tasks (NOT Required for Production)
 
-**Task 5 Priority**: 🎨 LOW (Idle Time)
-→ Add mermaid diagrams to specs/ for UX improvement
-→ Focus on critical specs first (master-specification.md, MCP-PROTOCOL.md, etc.)
-→ Include architecture, workflow, and state diagrams
+- [ ] **Optional Quality Enhancement: Coverage Improvement**
+  - [ ] Improve cmd/openapi-cli coverage from 55.6% to 70%
+  - [ ] Document WASM memory monitoring (API limitation)
 
-**Task 6 Priority**: 🔄 CONTINUOUS (When No Tasks)
-→ Run Idle-Time Spec Conformance Sweep
-→ Select random spec, verify implementation alignment
-→ Add gaps to TODO.md, continue sweeping
-→ Improve system incrementally even when "complete"
+- [ ] **Task 4: Functional Test Suite** (Priority: 📊 MEDIUM)
+  - [ ] Build functional test suite & harness (test/functional/)
+  - [ ] Create system state tests, workflow tests, behavior tests
+  - [ ] Ensure tests verify REAL system behavior, not just unit tests
+
+- [ ] **Task 5: Mermaid Diagrams** (Priority: 🎨 LOW)
+  - [ ] Add mermaid diagrams to specs/ for UX improvement
+  - [ ] Focus on critical specs first (master-specification.md, MCP-PROTOCOL.md, etc.)
+  - [ ] Include architecture, workflow, and state diagrams
+
+- [ ] **Task 6: Spec Conformance Sweep** (Priority: 🔄 CONTINUOUS)
+  - [ ] Run Idle-Time Spec Conformance Sweep
+  - [ ] Select random spec, verify implementation alignment
+  - [ ] Add gaps to TODO.md, continue sweeping
+  - [ ] Improve system incrementally even when "complete"
 
 ---
 
