@@ -38,8 +38,8 @@ completed_tasks:
 - Add release process per `specs/RELEASE-PROCESS.md`
 - Set up GoReleaser configuration
 current_task: null
-failed_attempts: 0
-iteration: 1241
+failed_attempts: 2
+iteration: 1334
 last_failure: null
 last_task: Set up GoReleaser configuration
 phase: build
