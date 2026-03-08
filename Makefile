@@ -3,10 +3,10 @@
 # =============================================================================
 
 # Binary names
-BINARY_NAME := muster
-CLI_BINARY := muster-cli
-MCP_BINARY := muster-mcp
-DAEMON_BINARY := muster-daemon
+BINARY_NAME := openapi-cli
+CLI_BINARY := openapi-cli
+MCP_BINARY := openapi-mcp
+DAEMON_BINARY := openapi-daemon
 
 # Build directories
 BUILD_DIR := bin

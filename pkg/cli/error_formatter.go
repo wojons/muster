@@ -57,15 +57,15 @@ func (f *ErrorFormatter) SetNoPadding(enabled bool) {
 // Format writes formatted error to writer.
 func (f *ErrorFormatter) Format(w io.Writer, err error) error {
 	if err == nil {
-		fmt.Fprintln(w, "No error")
+		_, _ = fmt.Fprintln(w, "No error")
 		return nil
 	}
 
 	appErr, ok := err.(*errors.AppError)
 	if !ok {
-		fmt.Fprintf(w, "%s\n", f.colorize(err.Error(), colorRed))
+		_, _ = fmt.Fprintf(w, "%s\n", f.colorize(err.Error(), colorRed))
 		if f.verbose {
-			fmt.Fprintf(w, "Type: %T\n", err)
+			_, _ = fmt.Fprintf(w, "Type: %T\n", err)
 		}
 		return nil
 	}
@@ -93,7 +93,7 @@ func (f *ErrorFormatter) Format(w io.Writer, err error) error {
 		f.writeVerbose(&sb, appErr)
 	}
 
-	fmt.Fprint(w, sb.String())
+	_, _ = fmt.Fprint(w, sb.String())
 	return nil
 }
 
@@ -156,7 +156,7 @@ func (f *ErrorFormatter) writeVerbose(sb *strings.Builder, err *errors.AppError)
 			sb.WriteString("  ")
 			sb.WriteString(key)
 			sb.WriteString(": ")
-			sb.WriteString(fmt.Sprintf("%v", value))
+			fmt.Fprintf(sb, "%v", value)
 			sb.WriteString("\n")
 		}
 	}

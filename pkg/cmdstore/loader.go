@@ -106,7 +106,7 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 		}
 
 		if flagMeta.Required {
-			cmd.MarkFlagRequired(flagMeta.Name)
+			_ = cmd.MarkFlagRequired(flagMeta.Name)
 		}
 	}
 
@@ -153,7 +153,7 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 		if err != nil {
 			return fmt.Errorf("execute request: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("HTTP error: %s", resp.Status)
@@ -171,7 +171,7 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			if err := decoder.Decode(&result); err == nil {
 				if output == "json" {
 					encoder := json.NewEncoder(cmd.OutOrStdout())
-					encoder.Encode(result)
+					_ = encoder.Encode(result)
 				} else {
 					// YAML output (simplified)
 					fmt.Printf("%#v\n", result)

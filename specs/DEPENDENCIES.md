@@ -8,7 +8,7 @@
 
 ## Overview
 
-This specification defines the dependencies management strategy for the Muster OpenAPI CLI + MCP Server. Dependencies are managed through Go modules with strict version pinning to ensure deterministic builds, reproducible deployments, and maintainable security updates. The system categorizes dependencies by function and maintains compatibility across all supported platforms (Linux, macOS, Windows) and architectures (amd64, arm64).
+This specification defines the dependencies management strategy for the OpenAPI CLI + MCP Server. Dependencies are managed through Go modules with strict version pinning to ensure deterministic builds, reproducible deployments, and maintainable security updates. The system categorizes dependencies by function and maintains compatibility across all supported platforms (Linux, macOS, Windows) and architectures (amd64, arm64).
 
 A blind person can visualize this as a meticulously organized library with each book (dependency) catalogued by category, edition (version), and shelf location (module path), with a complete index showing which books are essential for each feature of the system.
 
@@ -46,9 +46,9 @@ A blind person can visualize this as a meticulously organized library with each 
 
 ```go
 // go.mod
-module github.com/anomalyco/muster
+module github.com/openapi-cli/openapi-cli
 
-go 1.22
+go 1.25
 
 require (
     // CLI Framework
@@ -180,7 +180,7 @@ build:
 
 ```bash
 # Linux to Linux (same architecture)
-CGO_ENABLED=1 go build -o muster-linux-amd64 ./cmd
+CGO_ENABLED=1 go build -o openapi-cli-linux-amd64 ./cmd
 
 # Linux to macOS (requires osxcross)
 CC=o64-clang CXX=o64-clang++ CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build
@@ -319,7 +319,7 @@ MVS Resolution:
 
 ```go
 // go.mod - Use local development version
-replace github.com/anomalyco/muster/pkg/inventory => ./pkg/inventory
+replace github.com/openapi-cli/openapi-cli/pkg/inventory => ./pkg/inventory
 
 // Use fork with bugfix
 replace github.com/example/pkg => github.com/anomalyco/pkg-fork v1.2.3-fix

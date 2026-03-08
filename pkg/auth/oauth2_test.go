@@ -111,7 +111,7 @@ func TestDeviceCodeFlow_Start(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"device_code": "test-device-code",
 			"user_code": "ABCD-EFGH",
 			"verification_uri": "https://example.com/verify",

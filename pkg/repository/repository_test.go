@@ -13,7 +13,7 @@ func TestGetDB(t *testing.T) {
 	cfg := DefaultSQLiteConfig(":memory:")
 	sm, err := NewSQLiteManager(cfg, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	db := sm.GetDB()
 	require.NotNil(t, db)
@@ -23,7 +23,7 @@ func TestTransaction_Rollback(t *testing.T) {
 	cfg := DefaultSQLiteConfig(":memory:")
 	sm, err := NewSQLiteManager(cfg, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	ctx := context.Background()
 	tx, err := sm.BeginTx(ctx, nil)
@@ -37,7 +37,7 @@ func TestTransaction_GetTx(t *testing.T) {
 	cfg := DefaultSQLiteConfig(":memory:")
 	sm, err := NewSQLiteManager(cfg, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	ctx := context.Background()
 	tx, err := sm.BeginTx(ctx, nil)
@@ -58,7 +58,7 @@ func TestSQLiteManager_ConnConfig(t *testing.T) {
 
 	sm, err := NewSQLiteManager(cfg, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	stats := sm.Stats()
 	require.GreaterOrEqual(t, stats.MaxOpenConnections-stats.OpenConnections, 0)
@@ -68,7 +68,7 @@ func TestBeginTx_withContext(t *testing.T) {
 	cfg := DefaultSQLiteConfig(":memory:")
 	sm, err := NewSQLiteManager(cfg, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -81,7 +81,7 @@ func TestBeginTx_withContext(t *testing.T) {
 func TestSQLiteManager_NilConfig(t *testing.T) {
 	sm, err := NewSQLiteManager(nil, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	db := sm.GetDB()
 	require.NotNil(t, db)

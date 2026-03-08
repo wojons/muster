@@ -67,7 +67,7 @@ func TestCommandCache(t *testing.T) {
 	t.Run("cache hit", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		testSpec := filepath.Join(tmpDir, "test.json")
-		os.WriteFile(testSpec, []byte(`{"openapi":"3.0.0"}`), 0644)
+		_ = os.WriteFile(testSpec, []byte(`{"openapi":"3.0.0"}`), 0644)
 
 		cache := NewCommandCache(cachePath)
 
@@ -84,7 +84,7 @@ func TestCommandCache(t *testing.T) {
 	t.Run("cache expiration", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		testSpec := filepath.Join(tmpDir, "test-expired.json")
-		os.WriteFile(testSpec, []byte(`{"openapi":"3.0.0"}`), 0644)
+		_ = os.WriteFile(testSpec, []byte(`{"openapi":"3.0.0"}`), 0644)
 
 		cache := &CommandCache{
 			path: cachePath,
@@ -106,14 +106,14 @@ func TestCommandCache(t *testing.T) {
 	t.Run("cache hash mismatch", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		testSpec := filepath.Join(tmpDir, "test-hash.json")
-		os.WriteFile(testSpec, []byte(`{"openapi":"3.0.0"}`), 0644)
+		_ = os.WriteFile(testSpec, []byte(`{"openapi":"3.0.0"}`), 0644)
 
 		cache := NewCommandCache(cachePath)
 		testCommands := []*cobra.Command{&cobra.Command{Use: "test"}}
 		cache.Save(testSpec, testCommands)
 
 		newContent := `{"openapi":"3.0.1"}`
-		os.WriteFile(testSpec, []byte(newContent), 0644)
+		_ = os.WriteFile(testSpec, []byte(newContent), 0644)
 
 		metadata, ok := cache.Load(testSpec)
 		require.False(t, ok)
@@ -136,7 +136,7 @@ func TestComputeHash(t *testing.T) {
 	require.Equal(t, hash1, hash2)
 
 	newContent := `{"test": "different"}`
-	os.WriteFile(testFile, []byte(newContent), 0644)
+	_ = os.WriteFile(testFile, []byte(newContent), 0644)
 
 	hash3 := computeHash(testFile)
 	require.NotEqual(t, hash1, hash3)

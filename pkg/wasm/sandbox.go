@@ -47,7 +47,7 @@ func (fs *SandboxedFS) AllowSubdirectory(baseDir string) {
 	defer fs.mu.Unlock()
 	fs.allowedDirs[absBase] = true
 
-	filepath.Walk(absBase, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(absBase, func(path string, info os.FileInfo, err error) error {
 		if info != nil && info.IsDir() {
 			fs.allowedDirs[path] = true
 		}
@@ -109,11 +109,11 @@ func (fs *SandboxedFS) Open(path string) (*os.File, error) {
 			return nil, err
 		}
 		if _, err := tmpFile.Write(data); err != nil {
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return nil, err
 		}
-		tmpFile.Seek(0, 0)
+		_, _ = tmpFile.Seek(0, 0)
 		return tmpFile, nil
 	}
 

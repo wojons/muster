@@ -259,10 +259,10 @@ func TestMCPEndToEndFlow(t *testing.T) {
 		// Call the tool
 		params := fmt.Sprintf(`{"name": "%s", "arguments": {}}`, toolName)
 		result, err := handlerRegistry.Handle(ctx, "tools/call", json.RawMessage(params))
+		require.NoError(t, err, "Tool call should succeed")
 
 		// The result should exist (even if the call fails due to mock server limitations)
-		assert.NotNil(t, result, "Should return a result from tool call")
-		t.Logf("Tool call completed: %+v", result)
+		t.Logf("Tool call completed: %v", result)
 
 		// If result is valid, check if it's a CallToolResult
 		if callResult, ok := result.(*handlers.CallToolResult); ok {

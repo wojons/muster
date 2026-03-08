@@ -14,7 +14,7 @@ func TestMigrationManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteManager failed: %v", err)
 	}
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	dir := t.TempDir()
 	mm, err := NewMigrationManager(sm.GetDB(), dir, nil)
@@ -61,7 +61,7 @@ func TestMigrationManagerWithMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteManager failed: %v", err)
 	}
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	dir := t.TempDir()
 
@@ -111,7 +111,7 @@ func TestCreateMigrationFilename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteManager failed: %v", err)
 	}
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	dir := t.TempDir()
 	mm, err := NewMigrationManager(sm.GetDB(), dir, nil)

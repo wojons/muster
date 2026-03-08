@@ -222,8 +222,8 @@ func TestModuleCache(t *testing.T) {
 		cacheDir := t.TempDir()
 		c := NewModuleCache(cacheDir, 1*time.Hour)
 
-		c.Set("key1", []byte("data1"))
-		c.Set("key2", []byte("data2"))
+		_ = c.Set("key1", []byte("data1"))
+		_ = c.Set("key2", []byte("data2"))
 
 		if err := c.Clear(); err != nil {
 			t.Fatalf("cache.Clear failed: %v", err)
@@ -244,7 +244,7 @@ func TestModuleCache(t *testing.T) {
 		key := "ttl-test"
 		data := []byte("ttl-data")
 
-		c.Set(key, data)
+		_ = c.Set(key, data)
 
 		retrieved, found := c.Get(key)
 		if !found {

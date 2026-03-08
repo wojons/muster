@@ -130,16 +130,16 @@ func (s *Server) writeResponse(resp JSONRPCResponse) {
 
 	data, err := json.Marshal(resp)
 	if err != nil {
-		fmt.Fprintf(s.stderr, "Failed to marshal response: %v\n", err)
+		_, _ = fmt.Fprintf(s.stderr, "Failed to marshal response: %v\n", err)
 		return
 	}
 
-	fmt.Fprintln(s.stdout, string(data))
+	_, _ = fmt.Fprintln(s.stdout, string(data))
 
 	// CRITICAL FIX: Flush stdout buffer to ensure JSON-RPC responses are sent immediately
 	// Without flush, buffered stdout causes EOF errors in tests
 	if bw, ok := s.stdout.(interface{ Flush() error }); ok {
-		bw.Flush()
+		_ = bw.Flush()
 	}
 }
 

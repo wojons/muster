@@ -79,9 +79,9 @@ func TestLinuxDirs(t *testing.T) {
 			t.Skip("HOME not set")
 		}
 
-		os.Unsetenv("XDG_CONFIG_HOME")
-		os.Unsetenv("XDG_DATA_HOME")
-		os.Unsetenv("XDG_CACHE_HOME")
+		_ = os.Unsetenv("XDG_CONFIG_HOME")
+		_ = os.Unsetenv("XDG_DATA_HOME")
+		_ = os.Unsetenv("XDG_CACHE_HOME")
 
 		dirs := linuxDirs()
 
@@ -102,14 +102,14 @@ func TestLinuxDirs(t *testing.T) {
 
 	t.Run("WithCustomXDG", func(t *testing.T) {
 		defer func() {
-			os.Setenv("XDG_CONFIG_HOME", "")
-			os.Setenv("XDG_DATA_HOME", "")
-			os.Setenv("XDG_CACHE_HOME", "")
+			_ = os.Setenv("XDG_CONFIG_HOME", "")
+			_ = os.Setenv("XDG_DATA_HOME", "")
+			_ = os.Setenv("XDG_CACHE_HOME", "")
 		}()
 
-		os.Setenv("XDG_CONFIG_HOME", "/custom/config")
-		os.Setenv("XDG_DATA_HOME", "/custom/data")
-		os.Setenv("XDG_CACHE_HOME", "/custom/cache")
+		_ = os.Setenv("XDG_CONFIG_HOME", "/custom/config")
+		_ = os.Setenv("XDG_DATA_HOME", "/custom/data")
+		_ = os.Setenv("XDG_CACHE_HOME", "/custom/cache")
 
 		dirs := linuxDirs()
 
@@ -131,9 +131,9 @@ func TestWindowsDirs(t *testing.T) {
 	}
 
 	t.Run("WithDefaults", func(t *testing.T) {
-		os.Unsetenv("APPDATA")
-		os.Setenv("LOCALAPPDATA", "")
-		os.Setenv("USERPROFILE", "C:\\Users\\Test")
+		_ = os.Unsetenv("APPDATA")
+		_ = os.Setenv("LOCALAPPDATA", "")
+		_ = os.Setenv("USERPROFILE", "C:\\Users\\Test")
 
 		dirs := windowsDirs()
 
@@ -153,12 +153,12 @@ func TestWindowsDirs(t *testing.T) {
 
 	t.Run("WithCustomPaths", func(t *testing.T) {
 		defer func() {
-			os.Setenv("APPDATA", "")
-			os.Setenv("LOCALAPPDATA", "")
+			_ = os.Setenv("APPDATA", "")
+			_ = os.Setenv("LOCALAPPDATA", "")
 		}()
 
-		os.Setenv("APPDATA", "C:\\Custom\\Roaming")
-		os.Setenv("LOCALAPPDATA", "C:\\Custom\\Local")
+		_ = os.Setenv("APPDATA", "C:\\Custom\\Roaming")
+		_ = os.Setenv("LOCALAPPDATA", "C:\\Custom\\Local")
 
 		dirs := windowsDirs()
 

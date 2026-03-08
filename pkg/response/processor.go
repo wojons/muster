@@ -54,7 +54,7 @@ func (h *Handler) ProcessResponse(resp *http.Response, options ProcessingOptions
 	if err != nil {
 		return fmt.Errorf("read response body: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	response := &Response{
 		StatusCode:  resp.StatusCode,
@@ -70,7 +70,7 @@ func (h *Handler) ProcessResponse(resp *http.Response, options ProcessingOptions
 
 		if h.config.Writer != nil {
 			errMsg := errHandler.FormatError(response.Error)
-			fmt.Fprintln(h.config.Writer, errMsg)
+			_, _ = fmt.Fprintln(h.config.Writer, errMsg)
 		}
 		return response.Error
 	}
@@ -117,14 +117,14 @@ func (h *Handler) HandleError(resp *http.Response) error {
 	if err != nil {
 		return fmt.Errorf("read error response: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	errHandler := NewErrorHandler(h.config.VerboseErrors)
 	errorInfo := errHandler.ExtractError(resp, body)
 
 	if h.config.Writer != nil {
 		errMsg := errHandler.FormatError(errorInfo)
-		fmt.Fprintln(h.config.Writer, errMsg)
+		_, _ = fmt.Fprintln(h.config.Writer, errMsg)
 	}
 
 	return errorInfo

@@ -63,7 +63,7 @@ var DefaultBuiltins = map[string]interface{}{
 func builtinHTTPGet(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var urlStr string
 	var headers, params *starlark.Dict
-	var timeout int = 30
+	var timeout = 30
 
 	if err := starlark.UnpackArgs(b.Name(), args, kwargs,
 		"url", &urlStr,
@@ -105,15 +105,15 @@ func builtinHTTPGet(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
 	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
 	body, _ := io.ReadAll(limitedReader)
 
 	responseDict := starlark.NewDict(3)
-	responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
-	responseDict.SetKey(starlark.String("body"), starlark.String(body))
+	_ = responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
+	_ = responseDict.SetKey(starlark.String("body"), starlark.String(body))
 
 	return responseDict, nil
 }
@@ -162,15 +162,15 @@ func builtinHTTPPost(thread *starlark.Thread, b *starlark.Builtin, args starlark
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
 	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
 	resBody, _ := io.ReadAll(limitedReader)
 
 	responseDict := starlark.NewDict(2)
-	responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
-	responseDict.SetKey(starlark.String("body"), starlark.String(resBody))
+	_ = responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
+	_ = responseDict.SetKey(starlark.String("body"), starlark.String(resBody))
 
 	return responseDict, nil
 }
@@ -219,15 +219,15 @@ func builtinHTTPPut(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
 	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
 	resBody, _ := io.ReadAll(limitedReader)
 
 	responseDict := starlark.NewDict(2)
-	responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
-	responseDict.SetKey(starlark.String("body"), starlark.String(resBody))
+	_ = responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
+	_ = responseDict.SetKey(starlark.String("body"), starlark.String(resBody))
 
 	return responseDict, nil
 }
@@ -275,22 +275,22 @@ func builtinHTTPDelete(thread *starlark.Thread, b *starlark.Builtin, args starla
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
 	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
 	resBody, _ := io.ReadAll(limitedReader)
 
 	responseDict := starlark.NewDict(2)
-	responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
-	responseDict.SetKey(starlark.String("body"), starlark.String(resBody))
+	_ = responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
+	_ = responseDict.SetKey(starlark.String("body"), starlark.String(resBody))
 
 	return responseDict, nil
 }
 
 func builtinJSONEncode(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var value starlark.Value
-	var indent int = -1
+	var indent = -1
 
 	if err := starlark.UnpackArgs(b.Name(), args, kwargs,
 		"value", &value,

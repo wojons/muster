@@ -113,9 +113,9 @@ func (s *Spinner) draw(w io.Writer) {
 	s.current++
 
 	if s.Message != "" {
-		fmt.Fprintf(w, "\r%s %s", frame, s.Message)
+		_, _ = fmt.Fprintf(w, "\r%s %s", frame, s.Message)
 	} else {
-		fmt.Fprintf(w, "\r%s", frame)
+		_, _ = fmt.Fprintf(w, "\r%s", frame)
 	}
 }
 
@@ -131,7 +131,7 @@ func (s *Spinner) Stop() {
 
 // clear clears the spinner line
 func (s *Spinner) clear(w io.Writer) {
-	fmt.Fprint(w, "\r\033[K")
+	_, _ = fmt.Fprint(w, "\r\033[K")
 }
 
 // SetMessage updates the spinner message

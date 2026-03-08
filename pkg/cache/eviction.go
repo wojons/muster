@@ -42,7 +42,7 @@ func NewLFUPolicy() EvictionPolicy {
 
 func (lfu *LFUPolicy) SelectForEviction(data map[string]*CacheEntry) (string, error) {
 	var leastUsed string
-	var minCount uint64 = ^uint64(0)
+	var minCount = ^uint64(0)
 
 	for key, e := range data {
 		if e.AccessCount < minCount {

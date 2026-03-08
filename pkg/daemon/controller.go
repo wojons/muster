@@ -13,11 +13,12 @@ import (
 
 // Controller manages daemon lifecycle
 type Controller struct {
-	pidManager *Manager
-	logger     Logger
-	socketPath string
-	httpServer *http.Server
-	mux        *http.ServeMux
+	pidManager      *Manager
+	logger          Logger
+	socketPath      string
+	httpServer      *http.Server
+	mux             *http.ServeMux
+	shutdownHandler func()
 }
 
 // Logger interface for daemon logging
@@ -29,11 +30,12 @@ type Logger interface {
 
 // Config for controller initialization
 type ControllerConfig struct {
-	PidFilePath string
-	SocketPath  string
-	Version     string
-	Logger      Logger
-	Handler     http.Handler
+	PidFilePath     string
+	SocketPath      string
+	Version         string
+	Logger          Logger
+	Handler         http.Handler
+	ShutdownHandler func() // Function to call on shutdown (exits in production)
 }
 
 // NewController creates a new daemon controller
@@ -56,11 +58,19 @@ func NewController(cfg ControllerConfig) (*Controller, error) {
 		mux.Handle("/", cfg.Handler)
 	}
 
+	shutdown := cfg.ShutdownHandler
+	if shutdown == nil {
+		shutdown = func() {
+			os.Exit(0)
+		}
+	}
+
 	return &Controller{
-		pidManager: pidManager,
-		logger:     cfg.Logger,
-		socketPath: cfg.SocketPath,
-		mux:        mux,
+		pidManager:      pidManager,
+		logger:          cfg.Logger,
+		socketPath:      cfg.SocketPath,
+		shutdownHandler: shutdown,
+		mux:             mux,
 		httpServer: &http.Server{
 			Handler: mux,
 		},
@@ -78,7 +88,7 @@ func (c *Controller) StartWithSocket(handler http.HandlerFunc) error {
 	}
 
 	// Remove existing socket file if present
-	os.Remove(c.socketPath)
+	_ = os.Remove(c.socketPath)
 
 	// Create Unix socket listener
 	listener, err := net.Listen("unix", c.socketPath)
@@ -212,7 +222,8 @@ func (c *Controller) SetupSignalHandlers() {
 			c.logger.Error("failed to release PID file", "error", err)
 		}
 
-		os.Exit(0)
+		// Call shutdown handler (exits in production, no-op in tests)
+		c.shutdownHandler()
 	}()
 }
 

@@ -70,7 +70,7 @@ func TestSandboxedFS_Open(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Open failed: %v", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		data, err := os.ReadFile(file.Name())
 		if err != nil {
@@ -101,7 +101,7 @@ func TestSandboxedFS_Create(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		if _, err := file.Write([]byte("test")); err != nil {
 			t.Fatalf("failed to write: %v", err)
@@ -191,9 +191,9 @@ func TestSandboxedFS_ReadDir(t *testing.T) {
 	fs.AllowDirectory(tmpDir)
 
 	t.Run("read directory", func(t *testing.T) {
-		os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("test1"), 0600)
-		os.WriteFile(filepath.Join(tmpDir, "file2.txt"), []byte("test2"), 0600)
-		os.WriteFile(filepath.Join(tmpDir, "file3.txt"), []byte("test3"), 0600)
+		_ = os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("test1"), 0600)
+		_ = os.WriteFile(filepath.Join(tmpDir, "file2.txt"), []byte("test2"), 0600)
+		_ = os.WriteFile(filepath.Join(tmpDir, "file3.txt"), []byte("test3"), 0600)
 
 		infos, err := fs.ReadDir(".")
 		if err != nil {
@@ -237,7 +237,7 @@ func TestSandboxedFS_VirtualFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Open virtual file failed: %v", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		data, err := os.ReadFile(file.Name())
 		if err != nil {
@@ -291,13 +291,13 @@ func TestSandboxedFS_NoAllowedDirs(t *testing.T) {
 	fs := NewSandboxedFS(tmpDir)
 
 	testPath := filepath.Join(tmpDir, "test.txt")
-	os.WriteFile(testPath, []byte("test"), 0600)
+	_ = os.WriteFile(testPath, []byte("test"), 0600)
 
 	file, err := fs.Open("test.txt")
 	if err != nil {
 		t.Errorf("Open should allow all paths when no restrictions set: %v", err)
 	}
 	if file != nil {
-		file.Close()
+		_ = file.Close()
 	}
 }

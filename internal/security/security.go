@@ -544,15 +544,15 @@ func ConstantTimeCompare(a, b string) bool {
 // String represents AuditResult as string
 func (r *AuditResult) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Security Audit Score: %.1f%% (%d/%d)\n",
-		r.Score*100, r.PassedItems, r.TotalItems))
-	sb.WriteString(fmt.Sprintf("Status: %s\n", map[bool]string{true: "PASSED", false: "FAILED"}[r.Passed]))
+	fmt.Fprintf(&sb, "Security Audit Score: %.1f%% (%d/%d)\n",
+		r.Score*100, r.PassedItems, r.TotalItems)
+	fmt.Fprintf(&sb, "Status: %s\n", map[bool]string{true: "PASSED", false: "FAILED"}[r.Passed])
 
 	if len(r.Issues) > 0 {
-		sb.WriteString(fmt.Sprintf("\n%d Issues Found:\n", len(r.Issues)))
+		fmt.Fprintf(&sb, "\n%d Issues Found:\n", len(r.Issues))
 		for _, issue := range r.Issues {
-			sb.WriteString(fmt.Sprintf("  [%s] %s: %s (%s)\n",
-				issue.Severity, issue.Category, issue.Item, issue.Details))
+			fmt.Fprintf(&sb, "  [%s] %s: %s (%s)\n",
+				issue.Severity, issue.Category, issue.Item, issue.Details)
 		}
 	}
 

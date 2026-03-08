@@ -12,7 +12,7 @@ func newHelpCommand() *cobra.Command {
 		Long: `Help provides help for any command in the application.
 Simply type openapi-cli help [path to command] for full details.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Root().Help()
+			_ = cmd.Root().Help()
 		},
 	}
 }

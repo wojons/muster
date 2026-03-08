@@ -83,7 +83,7 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 	if err != nil {
 		return fmt.Errorf("execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Request: %s %s\n", method, targetURL)

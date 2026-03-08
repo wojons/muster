@@ -59,7 +59,7 @@ func newInventoryFetchCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&host, "host", "", "Host URL to fetch from (required)")
-	cmd.MarkFlagRequired("host")
+	_ = cmd.MarkFlagRequired("host")
 	cmd.Flags().StringVarP(&output, "output", "o", "json", "Output format (json|yaml)")
 
 	return cmd

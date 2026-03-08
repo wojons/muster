@@ -3,7 +3,6 @@ package builtin
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -47,7 +46,7 @@ PowerShell:
 `,
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-		Args:                  cobra.ExactValidArgs(1),
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch args[0] {
 			case "bash":
@@ -65,16 +64,4 @@ PowerShell:
 	}
 
 	return cmd
-}
-
-// getCompletionDescription returns a description for shell completion
-func getCompletionDescription(cmd *cobra.Command) string {
-	if cmd.Short != "" {
-		return cmd.Short
-	}
-
-	name := cmd.Name()
-	name = strings.Replace(name, "-", " ", -1)
-	name = strings.Title(name)
-	return name
 }

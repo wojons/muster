@@ -24,7 +24,7 @@ Edit the configuration file and add the OpenAPI CLI MCP server:
 {
   "mcpServers": {
     "openapi-cli": {
-      "command": "muster-mcp",
+      "command": "openapi-mcp",
       "args": ["--spec", "/path/to/your/openapi-spec.yaml", "--base-url", "https://api.example.com"]
     }
   }
@@ -32,7 +32,7 @@ Edit the configuration file and add the OpenAPI CLI MCP server:
 ```
 
 **Important Fields**:
-- **command**: The OpenAPI CLI MCP server binary (built as `muster-mcp`)
+- **command**: The OpenAPI CLI MCP server binary (built as `openapi-mcp` from `make build-mcp`)
 - **--spec**: Path to your OpenAPI 3.0 specification file
 - **--base-url**: Base URL for API operations (overrides spec's server URL)
 
@@ -54,7 +54,7 @@ In Claude Desktop, you should see OpenAPI CLI tools available in your OpenAPI sp
 {
   "mcpServers": {
     "petstore": {
-      "command": "muster-mcp",
+      "command": "openapi-mcp",
       "args": [
         "--spec", "/Users/yourname/petstore-openapi.yaml",
         "--base-url", "https://petstore.swagger.io/v2"
@@ -70,7 +70,7 @@ In Claude Desktop, you should see OpenAPI CLI tools available in your OpenAPI sp
 {
   "mcpServers": {
     "github": {
-      "command": "muster-mcp",
+      "command": "openapi-mcp",
       "args": [
         "--spec", "/Users/yourname/github-openapi.yaml",
         "--base-url", "https://api.github.com",
@@ -89,11 +89,11 @@ You can run multiple MCP servers for different APIs:
 {
   "mcpServers": {
     "petstore-api": {
-      "command": "muster-mcp",
+      "command": "openapi-mcp",
       "args": ["--spec", "/path/to/petstore.yaml"]
     },
     "banking-api": {
-      "command": "muster-mcp",
+      "command": "openapi-mcp",
       "args": ["--spec", "/path/to/banking.yaml", "--base-url", "https://api.bank.com"]
     }
   }
@@ -187,7 +187,7 @@ paths:
 **Symptom**: Claude doesn't show OpenAPI CLI tools
 
 **Solutions**:
-1. Verify MCP server binary exists: `which muster-mcp`
+1. Verify MCP server binary exists: `which openapi-mcp`
    - If not found, build from source: `make build-mcp`
 2. Check config file syntax with `jq` or JSON validator
 3. Check Claude Desktop logs for errors
@@ -202,7 +202,7 @@ paths:
 **Solutions**:
 1. Verify OpenAPI spec file exists and is valid
 2. Check spec has `operationId` defined for all operations
-3. Verify MCP server logs: Run `muster-mcp --spec ./spec.yaml` in terminal to test
+3. Verify MCP server logs: Run `openapi-mcp --spec ./spec.yaml` in terminal to test
 4. Check spec parses correctly: Try running `openapi-cli spec validate ./spec.yaml`
 
 ### Authentication Errors
@@ -217,10 +217,10 @@ paths:
 
 ### Permission Denied
 
-**Symptom**: Cannot execute muster-mcp binary
+**Symptom**: Cannot execute openapi-mcp binary
 
 **Solutions**:
-1. Verify binary has execute permissions: `chmod +x muster-mcp`
+1. Verify binary has execute permissions: `chmod +x openapi-mcp`
 2. Ensure binary is in a directory accessible to Claude Desktop
 3. Try using full path to binary in Claude config
 
@@ -246,7 +246,7 @@ cd openapi-cli
 # Build MCP server binary
 make build-mcp
 
-# Binary will be at: ./bin/muster-mcp
+# Binary will be at: ./bin/openapi-mcp
 ```
 
 ## Advanced Configuration
@@ -273,7 +273,7 @@ Enable debug logging:
 {
   "mcpServers": {
     "openapi-cli": {
-      "command": "muster-mcp",
+      "command": "openapi-mcp",
       "args": [
         "--spec", "/path/to/spec.yaml",
         "--base-url", "https://api.example.com",

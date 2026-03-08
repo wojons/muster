@@ -61,7 +61,7 @@ func TestCheckNotGranted(t *testing.T) {
 func TestRevoke(t *testing.T) {
 	cs := NewCapabilitySet()
 
-	cs.Grant("fs.read")
+	_ = cs.Grant("fs.read")
 
 	err := cs.Revoke("fs.read")
 	if err != nil {
@@ -76,8 +76,8 @@ func TestRevoke(t *testing.T) {
 func TestRevokeWildcard(t *testing.T) {
 	cs := NewCapabilitySet()
 
-	cs.Grant("fs.write.*")
-	cs.Revoke("fs.write.*")
+	_ = cs.Grant("fs.write.*")
+	_ = cs.Revoke("fs.write.*")
 
 	if cs.Check("fs.write./tmp/file") {
 		t.Error("expected wildcard capability to be revoked")
@@ -96,9 +96,9 @@ func TestRevokeNotFound(t *testing.T) {
 func TestList(t *testing.T) {
 	cs := NewCapabilitySet()
 
-	cs.Grant("fs.read")
-	cs.Grant("fs.write")
-	cs.Grant("net.http")
+	_ = cs.Grant("fs.read")
+	_ = cs.Grant("fs.write")
+	_ = cs.Grant("net.http")
 
 	caps := cs.List()
 	if len(caps) != 3 {
@@ -192,7 +192,7 @@ func TestMultipleCapabilities(t *testing.T) {
 func TestWildcardPatterns(t *testing.T) {
 	cs := NewCapabilitySet()
 
-	cs.Grant("fs.**")
+	_ = cs.Grant("fs.**")
 
 	tests := []struct {
 		capability string
