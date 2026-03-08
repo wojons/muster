@@ -136,7 +136,7 @@ func TestFromStarlark(t *testing.T) {
 
 	t.Run("dict", func(t *testing.T) {
 		dict := starlark.NewDict(1)
-		dict.SetKey(starlark.String("key"), starlark.String("value"))
+		_ = dict.SetKey(starlark.String("key"), starlark.String("value"))
 
 		result, err := FromStarlark(dict)
 		if err != nil {

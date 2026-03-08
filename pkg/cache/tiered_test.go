@@ -185,8 +185,8 @@ func TestCacheManager_HitRate(t *testing.T) {
 
 	_ = cm.Set(ctx, "key1", value, "default")
 
-	cm.Get(ctx, "key1")
-	cm.Get(ctx, "key2")
+	_, _ = cm.Get(ctx, "key1")
+	_, _ = cm.Get(ctx, "key2")
 
 	hitRate := cm.GetHitRate()
 	if hitRate < 49 || hitRate > 51 {

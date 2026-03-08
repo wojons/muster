@@ -209,8 +209,8 @@ func TestModuleCache(t *testing.T) {
 		key := "delete-test"
 		data := []byte("delete-data")
 
-		cache.Set(key, data)
-		cache.Delete(key)
+		_ = cache.Set(key, data)
+		_ = cache.Delete(key)
 
 		_, found := cache.Get(key)
 		if found {

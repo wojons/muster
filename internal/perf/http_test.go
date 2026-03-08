@@ -14,7 +14,7 @@ func BenchmarkHTTPRequest(b *testing.B) {
 	server := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"ok"}`))
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 		},
 	))
 	defer server.Close()
@@ -32,7 +32,7 @@ func BenchmarkHTTPRequest(b *testing.B) {
 		if err != nil {
 			b.Fatalf("Request failed: %v", err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		cancel()
 
 		if elapsed > 100*time.Millisecond {
@@ -45,7 +45,7 @@ func TestHTTPRequestLatency(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"ok"}`))
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 		},
 	))
 	defer server.Close()
@@ -60,7 +60,7 @@ func TestHTTPRequestLatency(t *testing.T) {
 		resp, err := http.DefaultClient.Do(req)
 		latencies[i] = time.Since(start)
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		cancel()
 		if err != nil {
@@ -179,7 +179,7 @@ func BenchmarkCommandGeneration(b *testing.B) {
 		start := time.Now()
 
 		var parsedSpec TestSpec
-		json.Unmarshal(spec, &parsedSpec)
+		_ = json.Unmarshal(spec, &parsedSpec)
 
 		elapsed := time.Since(start)
 

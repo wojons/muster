@@ -63,7 +63,7 @@ func TestDaemonLogger_Info(t *testing.T) {
 
 	logger.Info("test message", "arg1", "arg2")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	buf, err := io.ReadAll(r)
@@ -80,7 +80,7 @@ func TestDaemonLogger_Warn(t *testing.T) {
 
 	logger.Warn("test warning", "arg1")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	buf, err := io.ReadAll(r)
@@ -97,7 +97,7 @@ func TestDaemonLogger_Error(t *testing.T) {
 
 	logger.Error("test error", "arg1")
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	buf, err := io.ReadAll(r)
@@ -117,7 +117,7 @@ func TestRun_WithBackendURL(t *testing.T) {
 	// Just verify the test compiles and can create handler
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}
 
 	req := httptest.NewRequest("GET", "/test", nil)
@@ -154,7 +154,7 @@ func TestInfoLogger_OutputFormat(t *testing.T) {
 
 	logger.Info("operation completed", "status", "success")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	buf, _ := io.ReadAll(r)
@@ -171,7 +171,7 @@ func TestWarnLogger_OutputFormat(t *testing.T) {
 
 	logger.Warn("operation completed", "status", "warning")
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
 
 	buf, _ := io.ReadAll(r)
@@ -188,7 +188,7 @@ func TestErrorLogger_OutputFormat(t *testing.T) {
 
 	logger.Error("operation failed", "error", "timeout")
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	buf, _ := io.ReadAll(r)
@@ -237,7 +237,7 @@ func TestHandleStart_Success(t *testing.T) {
 	// (handleStart is tested via integration/e2e tests with actual subprocess)
 	err = controller.Start()
 	require.NoError(t, err, "controller should start")
-	defer controller.Stop()
+	defer func() { _ = controller.Stop() }()
 
 	// Verify controller is running
 	status, err := controller.Status()
@@ -287,7 +287,7 @@ func TestHandleProxyStart_Success(t *testing.T) {
 	require.NoError(t, err, "proxy start should succeed")
 
 	// Clean up
-	controller.Stop()
+	_ = controller.Stop()
 }
 
 func TestRun_StartAction(t *testing.T) {
@@ -334,7 +334,7 @@ func TestDaemonLogger_ErrorMessage(t *testing.T) {
 
 	logger.Error("critical error occurred", "code", "500")
 
-	w.Close()
+	_ = w.Close()
 	os.Stderr = oldStderr
 
 	buf, err := io.ReadAll(r)

@@ -39,7 +39,7 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 		b, _ := json.Marshal(response)
 
 		w.Header().Set("X-Backend-Timestamp", "test-timestamp-12345")
-		w.Write(b)
+_, _ = w.Write(b)
 	}))
 	defer backendAPI.Close()
 
@@ -76,10 +76,10 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 		bufStdout := &bytes.Buffer{}
 
 		go func() {
-			io.Copy(bufStderr, stderr)
+_, _ = io.Copy(bufStderr, stderr)
 		}()
 		go func() {
-			io.Copy(bufStdout, stdout)
+_, _ = io.Copy(bufStdout, stdout)
 		}()
 
 		// Start the daemon
@@ -93,7 +93,7 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 		defer func() {
 			if cmd.Process != nil {
 				t.Logf("Killing daemon process")
-				cmd.Process.Kill()
+				_ = cmd.Process.Kill()
 			}
 
 			// Log all output after test completes
@@ -143,7 +143,7 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to make request through socket: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
@@ -169,7 +169,7 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Proxy request failed: %v", err)
 				}
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 
 				if resp.StatusCode != http.StatusOK {
 					body, _ := io.ReadAll(resp.Body)

@@ -18,10 +18,10 @@ func TestMemoryUsage(t *testing.T) {
 	baselineMB := float64(m1.Alloc) / 1024 / 1024
 
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	for i := 0; i < 10000; i++ {
-		db.Exec("INSERT INTO inventories (url, name) VALUES (?, ?)",
+_, _ = db.Exec("INSERT INTO inventories (url, name) VALUES (?, ?)",
 			fmt.Sprintf("https://example%d.com", i),
 			fmt.Sprintf("inventory%d", i))
 	}

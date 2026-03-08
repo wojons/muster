@@ -112,8 +112,8 @@ func TestDynamicCompleter(t *testing.T) {
 		cachedClient := &cachedMockClient{&mockAPIClient{}, &callCount}
 		cachedCompleter := NewDynamicCompleter(cachedClient)
 
-		cachedCompleter.CompleteResources(context.Background(), "")
-		cachedCompleter.CompleteResources(context.Background(), "")
+		_, _ = cachedCompleter.CompleteResources(context.Background(), "")
+		_, _ = cachedCompleter.CompleteResources(context.Background(), "")
 
 		if callCount != 1 {
 			t.Errorf("Expected 1 API call (cached), got %d", callCount)

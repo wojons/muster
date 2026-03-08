@@ -176,7 +176,7 @@ func (f *DeviceCodeFlow) Poll(ctx context.Context, deviceCode string, interval i
 
 			var result TokenResponse
 			_ = json.NewDecoder(resp.Body).Decode(&result)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			if result.Error == "" {
 				return &result, nil
@@ -328,7 +328,7 @@ func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) 
 	}
 
 	s.codeChan <- code
-	fmt.Fprintln(w, "Authorization successful. You can close this window.")
+	_, _ = fmt.Fprintln(w, "Authorization successful. You can close this window.")
 }
 
 func (s *CallbackServer) WaitCode(ctx context.Context) (string, error) {

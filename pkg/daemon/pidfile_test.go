@@ -72,7 +72,7 @@ func TestManager_Acquire(t *testing.T) {
 	}
 
 	// Clean up
-	manager.Release()
+	_ = manager.Release()
 }
 
 func TestManager_Acquire_StaleFile(t *testing.T) {
@@ -97,7 +97,7 @@ func TestManager_Acquire_StaleFile(t *testing.T) {
 		t.Fatalf("Acquire should succeed with stale file: %v", err)
 	}
 
-	manager.Release()
+	_ = manager.Release()
 }
 
 func TestManager_Release(t *testing.T) {
@@ -170,7 +170,7 @@ func TestManager_GetStatus(t *testing.T) {
 	}
 
 	// Acquire
-	manager.Acquire()
+	_ = manager.Acquire()
 
 	// Status after acquire
 	status, err = manager.GetStatus()
@@ -191,7 +191,7 @@ func TestManager_GetStatus(t *testing.T) {
 	}
 
 	// Clean up
-	manager.Release()
+	_ = manager.Release()
 }
 
 func TestManager_ConcurrentAcquire(t *testing.T) {
@@ -227,7 +227,7 @@ func TestManager_ConcurrentAcquire(t *testing.T) {
 		t.Error("Expected error for concurrent acquire")
 	}
 
-	manager.Release()
+	_ = manager.Release()
 }
 
 func TestController_Start(t *testing.T) {
@@ -258,7 +258,7 @@ func TestController_Start(t *testing.T) {
 	}
 
 	// Clean up
-	controller.pidManager.Release()
+	_ = controller.pidManager.Release()
 }
 
 func TestController_Start_AlreadyRunning(t *testing.T) {
@@ -271,7 +271,7 @@ func TestController_Start_AlreadyRunning(t *testing.T) {
 	})
 
 	// First start
-	controller.Start()
+	_ = controller.Start()
 
 	// Second start should fail
 	err := controller.Start()
@@ -280,7 +280,7 @@ func TestController_Start_AlreadyRunning(t *testing.T) {
 	}
 
 	// Clean up
-	controller.pidManager.Release()
+	_ = controller.pidManager.Release()
 }
 
 func TestController_IsRunning(t *testing.T) {
@@ -296,13 +296,13 @@ func TestController_IsRunning(t *testing.T) {
 		t.Error("Expected not running initially")
 	}
 
-	controller.Start()
+	_ = controller.Start()
 
 	if !controller.IsRunning() {
 		t.Error("Expected running after start")
 	}
 
-	controller.pidManager.Release()
+	_ = controller.pidManager.Release()
 }
 
 func TestController_Status(t *testing.T) {
@@ -340,7 +340,7 @@ func TestController_Kill(t *testing.T) {
 
 	// Kill should attempt to kill the process
 	// It might fail since process doesn't exist, but we just verify it doesn't panic
-	controller.Kill()
+	_ = controller.Kill()
 
 	// Clean up
 	_ = os.Remove(pidFile)
@@ -355,7 +355,7 @@ func TestPIDFileFormat(t *testing.T) {
 		Version:     "1.0.0",
 	})
 
-	manager.Acquire()
+	_ = manager.Acquire()
 
 	// Read PID file
 	data, err := os.ReadFile(pidFile)
@@ -369,7 +369,7 @@ func TestPIDFileFormat(t *testing.T) {
 	}
 
 	// Clean up
-	manager.Release()
+	_ = manager.Release()
 }
 
 func TestCleanDirectoryCreation(t *testing.T) {
@@ -391,5 +391,5 @@ func TestCleanDirectoryCreation(t *testing.T) {
 		t.Error("Expected directory to be created")
 	}
 
-	manager.Release()
+	_ = manager.Release()
 }

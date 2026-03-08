@@ -171,9 +171,9 @@ func TestWASM_RuntimeIntegration(t *testing.T) {
 		runtime := wasm.NewRuntime(nil, nil)
 
 		// Grant several capabilities
-		runtime.GrantCapability("fs.read./tmp")
-		runtime.GrantCapability("net.http.*")
-		runtime.GrantCapability("fs.write./var/log")
+		_ = runtime.GrantCapability("fs.read./tmp")
+		_ = runtime.GrantCapability("net.http.*")
+		_ = runtime.GrantCapability("fs.write./var/log")
 
 		caps := runtime.ListCapabilities()
 

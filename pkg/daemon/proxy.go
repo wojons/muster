@@ -171,7 +171,7 @@ func createDefaultHandler() http.Handler {
 type ProxyHandler struct {
 	backendURL    string
 	forwardedFor  bool
-	rewritePrefix string // TODO: implement path rewriting
+	_rewritePrefix string // TODO: implement path rewriting
 	httpClient    *http.Client
 }
 

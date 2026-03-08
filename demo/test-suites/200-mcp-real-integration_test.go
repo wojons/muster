@@ -31,7 +31,7 @@ func TestMCPIntegration(t *testing.T) {
 		if strings.Contains(r.URL.Path, "/pets") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`[{"id": "1", "name": "Fluffy", "species": "cat"}]`))
+	_, _ = w.Write([]byte(`[{"id": "1", "name": "Fluffy", "species": "cat"}]`))
 			return
 		}
 
@@ -108,7 +108,7 @@ paths:
 	// Stop the subprocess at the end
 	defer func() {
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill()
 		}
 	}()
 

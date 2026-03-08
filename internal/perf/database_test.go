@@ -33,10 +33,10 @@ func setupTestDB(tb testing.TB) *sql.DB {
 
 func BenchmarkDBQuery(b *testing.B) {
 	db := setupTestDB(b)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	for i := 0; i < 10000; i++ {
-		db.Exec("INSERT INTO inventories (url, name) VALUES (?, ?)",
+		_, _ = db.Exec("INSERT INTO inventories (url, name) VALUES (?, ?)",
 			fmt.Sprintf("https://example%d.com", i),
 			fmt.Sprintf("inventory%d", i))
 	}
@@ -65,7 +65,7 @@ func BenchmarkDBQuery(b *testing.B) {
 
 func BenchmarkDBWrite(b *testing.B) {
 	db := setupTestDB(b)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -82,10 +82,10 @@ func BenchmarkDBWrite(b *testing.B) {
 			fmt.Sprintf("inventory%d", i),
 		)
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			b.Fatalf("Insert failed: %v", err)
 		}
-		tx.Commit()
+		_ = tx.Commit()
 
 		elapsed := time.Since(start)
 
@@ -99,10 +99,10 @@ func TestDBQueryPerformance(t *testing.T) {
 	const targetLatency = 1 * time.Millisecond
 
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	for i := 0; i < 10000; i++ {
-		db.Exec("INSERT INTO inventories (url, name) VALUES (?, ?)",
+		_, _ = db.Exec("INSERT INTO inventories (url, name) VALUES (?, ?)",
 			fmt.Sprintf("https://example%d.com", i),
 			fmt.Sprintf("inventory%d", i))
 	}

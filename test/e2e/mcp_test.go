@@ -35,10 +35,10 @@ func TestMCP_Initialize(t *testing.T) {
 		t.Logf("MCP server may not be implemented: %v", err)
 		return
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-		io.Copy(io.Discard, stderr)
+_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -94,10 +94,10 @@ func TestMCP_ListTools(t *testing.T) {
 		t.Logf("MCP server may not be implemented: %v", err)
 		return
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-		io.Copy(io.Discard, stderr)
+_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -111,7 +111,7 @@ func TestMCP_ListTools(t *testing.T) {
 		},
 	}
 	reqJSON, _ := json.Marshal(initializeReq)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -123,7 +123,7 @@ func TestMCP_ListTools(t *testing.T) {
 	}
 	reqJSON, err = json.Marshal(listToolsReq)
 	require.NoError(t, err)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	outputBuf := make([]byte, 8192)
 	n, _ := stdout.Read(outputBuf)
@@ -159,10 +159,10 @@ func TestMCP_CallTool(t *testing.T) {
 		t.Logf("MCP server may not be implemented: %v", err)
 		return
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-		io.Copy(io.Discard, stderr)
+_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -176,7 +176,7 @@ func TestMCP_CallTool(t *testing.T) {
 		},
 	}
 	reqJSON, _ := json.Marshal(initializeReq)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -191,7 +191,7 @@ func TestMCP_CallTool(t *testing.T) {
 	}
 	reqJSON, err = json.Marshal(callToolReq)
 	require.NoError(t, err, "JSON marshal should succeed")
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	outputBuf := make([]byte, 8192)
 	n, _ := stdout.Read(outputBuf)
@@ -220,10 +220,10 @@ func TestMCP_ListResources(t *testing.T) {
 		t.Logf("MCP server may not be implemented: %v", err)
 		return
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-		io.Copy(io.Discard, stderr)
+_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -237,7 +237,7 @@ func TestMCP_ListResources(t *testing.T) {
 		},
 	}
 	reqJSON, _ := json.Marshal(initializeReq)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -248,7 +248,7 @@ func TestMCP_ListResources(t *testing.T) {
 		"params":  map[string]interface{}{},
 	}
 	reqJSON, _ = json.Marshal(listResourcesReq)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	outputBuf := make([]byte, 8192)
 	n, _ := stdout.Read(outputBuf)
@@ -277,10 +277,10 @@ func TestMCP_ReadResource(t *testing.T) {
 		t.Logf("MCP server may not be implemented: %v", err)
 		return
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-		io.Copy(io.Discard, stderr)
+_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -294,7 +294,7 @@ func TestMCP_ReadResource(t *testing.T) {
 		},
 	}
 	reqJSON, _ := json.Marshal(initializeReq)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -307,7 +307,7 @@ func TestMCP_ReadResource(t *testing.T) {
 		"params":  map[string]interface{}{},
 	}
 	reqJSON, _ = json.Marshal(listResourcesReq)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	listResourcesResp := readJSONRPCResponse(stdout)
 
@@ -333,7 +333,7 @@ func TestMCP_ReadResource(t *testing.T) {
 		}
 		reqJSON, err := json.Marshal(readReq)
 		require.NoError(t, err, "JSON marshal should succeed")
-		stdin.Write(append(reqJSON, '\n'))
+		_, _ = stdin.Write(append(reqJSON, '\n'))
 
 		readResp := readJSONRPCResponse(stdout)
 		t.Logf("Read resource response: %s", readResp)
@@ -363,10 +363,10 @@ func TestMCP_MultipleRequests(t *testing.T) {
 		t.Logf("MCP server may not be implemented: %v", err)
 		return
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-		io.Copy(io.Discard, stderr)
+_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -380,7 +380,7 @@ func TestMCP_MultipleRequests(t *testing.T) {
 		},
 	}
 	reqJSON, _ := json.Marshal(InitializeReq)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -393,7 +393,7 @@ func TestMCP_MultipleRequests(t *testing.T) {
 		}
 		reqJSON, err := json.Marshal(req)
 		require.NoError(t, err, "JSON marshal should succeed")
-		stdin.Write(append(reqJSON, '\n'))
+		_, _ = stdin.Write(append(reqJSON, '\n'))
 
 		output := readJSONRPCResponse(stdout)
 		t.Logf("Request %d response: %s", i, output)
@@ -420,10 +420,10 @@ func TestMCP_ErrorHandling(t *testing.T) {
 		t.Logf("MCP server may not be implemented: %v", err)
 		return
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-		io.Copy(io.Discard, stderr)
+_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -434,7 +434,7 @@ func TestMCP_ErrorHandling(t *testing.T) {
 		"method":  "invalid_method",
 	}
 	reqJSON, _ := json.Marshal(invalidReq)
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	output := readJSONRPCResponse(stdout)
 	t.Logf("Error response: %s", output)
@@ -451,7 +451,7 @@ func TestMCP_ErrorHandling(t *testing.T) {
 	}
 	reqJSON, err = json.Marshal(initializeReq)
 	require.NoError(t, err, "JSON marshal should succeed")
-	stdin.Write(append(reqJSON, '\n'))
+	_, _ = stdin.Write(append(reqJSON, '\n'))
 
 	output = readJSONRPCResponse(stdout)
 	t.Logf("Initialize after error: %s", output)

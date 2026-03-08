@@ -33,7 +33,7 @@ func TestUserWorkflow_CLI_CommandExecution(t *testing.T) {
 	// Setup mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"pets":[{"id":1,"name":"Fluffy"}]}`))
+_, _ = w.Write([]byte(`{"pets":[{"id":1,"name":"Fluffy"}]}`))
 	}))
 	defer server.Close()
 
@@ -46,7 +46,7 @@ func TestUserWorkflow_CLI_CommandExecution(t *testing.T) {
 	// User executes command
 	resp, err := http.Get(server.URL + "/api/pets")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
@@ -83,7 +83,7 @@ func TestSystem_ConcurrentRequests(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(10 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}))
 	defer server.Close()
 
@@ -100,7 +100,7 @@ func TestSystem_ConcurrentRequests(t *testing.T) {
 				errors <- err
 				return
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			errors <- nil
 		}()
 	}

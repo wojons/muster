@@ -52,7 +52,7 @@ func TestRealAuthIntegration(t *testing.T) {
 				rt := r.FormValue("refresh_token")
 				if rt == "" {
 					w.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(w).Encode(map[string]string{
+					_ = json.NewEncoder(w).Encode(map[string]string{
 						"error": "refresh_token_required",
 					})
 					return
@@ -61,7 +61,7 @@ func TestRealAuthIntegration(t *testing.T) {
 				// Check for revoked/invalid refresh tokens
 				if rt == "revoked_token" {
 					w.WriteHeader(http.StatusUnauthorized)
-					json.NewEncoder(w).Encode(map[string]string{
+					_ = json.NewEncoder(w).Encode(map[string]string{
 						"error": "invalid_grant",
 					})
 					return
@@ -70,7 +70,7 @@ func TestRealAuthIntegration(t *testing.T) {
 				code := r.FormValue("code")
 				if code != authorizationCode {
 					w.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(w).Encode(map[string]string{
+					_ = json.NewEncoder(w).Encode(map[string]string{
 						"error": "invalid_code",
 					})
 					return
@@ -84,7 +84,7 @@ func TestRealAuthIntegration(t *testing.T) {
 				"expires_in":    3600,
 				"refresh_token": refreshToken,
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
@@ -197,7 +197,7 @@ func TestRealAuthIntegration(t *testing.T) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"error": "missing authorization",
 				})
 				return
@@ -205,7 +205,7 @@ func TestRealAuthIntegration(t *testing.T) {
 
 			if !assertPrefix(authHeader, "Bearer ") {
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"error": "invalid authorization header format",
 				})
 				return
@@ -213,7 +213,7 @@ func TestRealAuthIntegration(t *testing.T) {
 
 			// Valid authorization
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"message":  "access granted",
 				"resource": r.URL.Path,
 			})
@@ -228,7 +228,7 @@ func TestRealAuthIntegration(t *testing.T) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		require.NoError(t, err, "Should make authenticated request")
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "Should get 200 OK with valid token")
 
@@ -310,7 +310,7 @@ func TestOAuth2ErrorHandling(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/token" {
 				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"error": "invalid_grant",
 				})
 				return
@@ -336,7 +336,7 @@ func TestOAuth2ErrorHandling(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/token" && r.FormValue("grant_type") == "refresh_token" {
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"error": "invalid_grant",
 				})
 				return

@@ -62,7 +62,7 @@ func TestCLI_RequestCommand(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "ok",
 			"path":   r.URL.Path,
 		})
@@ -95,7 +95,7 @@ func TestCLI_VersionWithJSONOutput(t *testing.T) {
 func TestCLI_RequestWithError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"error": "internal server error",
 		})
 	}))
@@ -117,7 +117,7 @@ func TestCLI_RequestWithHeaders(t *testing.T) {
 			headerReceived = true
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "ok",
 		})
 	}))
@@ -136,11 +136,11 @@ func TestCLI_RequestWithQueryParams(t *testing.T) {
 		params := r.URL.Query()
 		if params.Get("key") == "value" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		} else {
 			// Return OK anyway to be lenient with CLI implementation
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 		}
 	}))
 	defer server.Close()
@@ -256,14 +256,14 @@ func TestMCP_Procure(t *testing.T) {
 		t.Logf("MCP server may not be implemented: %v", err)
 		return
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	time.AfterFunc(2*time.Second, func() {
-		cmd.Process.Kill()
+		_ = cmd.Process.Kill()
 	})
 
 	go func() {
-		io.Copy(io.Discard, stderr)
+_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	req := map[string]interface{}{
@@ -342,11 +342,11 @@ func TestCLI_FullWorkflow(t *testing.T) {
 			switch r.URL.Path {
 			case "/api/status":
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 			case "/api/users":
 				if r.Method == "GET" {
 					w.WriteHeader(http.StatusOK)
-					json.NewEncoder(w).Encode([]map[string]string{
+					_ = json.NewEncoder(w).Encode([]map[string]string{
 						{"id": "1", "name": "Alice"},
 						{"id": "2", "name": "Bob"},
 					})
@@ -396,7 +396,7 @@ func TestCLI_ProgressIndicator(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -434,7 +434,7 @@ func TestCLI_OutputFormatting(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 			}))
 			defer server.Close()
 
@@ -461,7 +461,7 @@ func TestCLI_MultipleRequests(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestCount++
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"request_id": fmt.Sprintf("%d", requestCount),
 		})
 	}))
@@ -479,7 +479,7 @@ func TestCLI_MultipleRequests(t *testing.T) {
 func TestCLI_WithVerboseOutput(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 

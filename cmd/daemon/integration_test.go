@@ -17,7 +17,7 @@ import (
 func TestBinaryExecution_StatusCommand(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err, "Failed to build daemon binary")
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -42,7 +42,7 @@ func TestBinaryExecution_StatusCommand(t *testing.T) {
 func TestBinaryExecution_HelpCommand(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -65,7 +65,7 @@ func TestBinaryExecution_HelpCommand(t *testing.T) {
 func TestBinaryExecution_StartStopCommand(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test-daemon.sock")
@@ -104,7 +104,7 @@ func TestBinaryExecution_StartStopCommand(t *testing.T) {
 func TestBinaryExecution_ProxyCommand(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test-proxy.sock")
@@ -130,7 +130,7 @@ func TestBinaryExecution_ProxyCommand(t *testing.T) {
 func TestBinaryExecution_InvalidCommand(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -148,7 +148,7 @@ func TestBinaryExecution_InvalidCommand(t *testing.T) {
 func TestBinaryExecution_BackendURLFlag(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -166,7 +166,7 @@ func TestBinaryExecution_BackendURLFlag(t *testing.T) {
 func TestBinaryExecution_SocketPathFlag(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "custom-socket.sock")
@@ -186,7 +186,7 @@ func TestBinaryExecution_SocketPathFlag(t *testing.T) {
 func TestBinaryExecution_RestartCommand(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test-restart.sock")
@@ -221,14 +221,14 @@ func TestBinaryExecution_BuildingBinary(t *testing.T) {
 	require.NotNil(t, info)
 
 	// Clean up
-	os.Remove(binaryPath)
+	_ = os.Remove(binaryPath)
 }
 
 // TestBinaryExecution_VersionOutput tests version info
 func TestBinaryExecution_VersionOutput(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

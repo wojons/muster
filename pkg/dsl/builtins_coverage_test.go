@@ -40,7 +40,7 @@ func TestBuiltinHTTPGet_WithHeaders(t *testing.T) {
 	builtin := starlark.NewBuiltin("http_get", builtinHTTPGet)
 
 	headers := starlark.NewDict(1)
-	headers.SetKey(starlark.String("X-Custom"), starlark.String("test-value"))
+	_ = headers.SetKey(starlark.String("X-Custom"), starlark.String("test-value"))
 
 	result, err := builtin.CallInternal(thread, starlark.Tuple{starlark.String(server.URL)},
 		[]starlark.Tuple{{starlark.String("headers"), headers}})
@@ -128,8 +128,8 @@ func TestBuiltinJSONEncode_Nested(t *testing.T) {
 
 	dict := starlark.NewDict(1)
 	innerDict := starlark.NewDict(1)
-	innerDict.SetKey(starlark.String("nested"), starlark.String("value"))
-	dict.SetKey(starlark.String("outer"), innerDict)
+	_ = innerDict.SetKey(starlark.String("nested"), starlark.String("value"))
+	_ = dict.SetKey(starlark.String("outer"), innerDict)
 
 	result, err := builtin.CallInternal(thread, starlark.Tuple{dict}, nil)
 	if err != nil {
@@ -216,7 +216,7 @@ func TestBuiltinSecret_FallbackLookup(t *testing.T) {
 	builtin := starlark.NewBuiltin("secret", builtinSecret)
 
 	_ = os.Setenv("SECRET_FALLBACK", "fallback_value")
-	defer os.Unsetenv("SECRET_FALLBACK")
+	defer func() { _ = os.Unsetenv("SECRET_FALLBACK") }()
 
 	result, err := builtin.CallInternal(thread, starlark.Tuple{starlark.String("FALLBACK")}, nil)
 	if err != nil {
