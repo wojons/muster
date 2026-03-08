@@ -42,7 +42,7 @@ func (p *ProxyServer) Start() error {
 
 	// Remove socket if it exists
 	if _, err := os.Stat(p.socketPath); err == nil {
-		os.Remove(p.socketPath)
+		_ = os.Remove(p.socketPath)
 	}
 
 	// Ensure parent directory exists
@@ -98,7 +98,7 @@ func (p *ProxyServer) Stop() error {
 	}
 
 	if p.listener != nil {
-		p.listener.Close()
+		_ = p.listener.Close()
 	}
 
 	if err := os.Remove(p.socketPath); err != nil && !os.IsNotExist(err) {
@@ -137,31 +137,31 @@ func createDefaultHandler() http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"ok","message":"Muster daemon is running"}`)
+		_, _ = fmt.Fprintf(w, `{"status":"ok","message":"Muster daemon is running"}`)
 	})
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"healthy"}`)
+		_, _ = fmt.Fprintf(w, `{"status":"healthy"}`)
 	})
 
 	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"alive","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
+		_, _ = fmt.Fprintf(w, `{"status":"alive","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
 	})
 
 	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"ready","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
+		_, _ = fmt.Fprintf(w, `{"status":"ready","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
 	})
 
 	mux.HandleFunc("/health/startup", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"started","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
+		_, _ = fmt.Fprintf(w, `{"status":"started","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
 	})
 
 	return mux
@@ -171,7 +171,7 @@ func createDefaultHandler() http.Handler {
 type ProxyHandler struct {
 	backendURL    string
 	forwardedFor  bool
-	rewritePrefix string
+	rewritePrefix string // TODO: implement path rewriting
 	httpClient    *http.Client
 }
 
@@ -224,7 +224,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to execute proxy request", http.StatusBadGateway)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Copy response headers
 	for key, values := range resp.Header {
@@ -241,7 +241,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 
 	// Copy response body
-	io.Copy(w, resp.Body)
+	_, _ = io.Copy(w, resp.Body)
 }
 
 // isHopHeader checks if a header is hop-by-hop

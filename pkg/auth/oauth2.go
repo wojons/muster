@@ -49,13 +49,13 @@ type TokenResponse struct {
 
 func generateSecureState() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
 }
 
 func generateCodeVerifier() string {
 	b := make([]byte, 32)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
@@ -108,7 +108,7 @@ func (f *AuthorizationCodeFlow) Exchange(code string) (*TokenResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -144,7 +144,7 @@ func (f *DeviceCodeFlow) Start() (*DeviceAuthResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result DeviceAuthResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -175,7 +175,7 @@ func (f *DeviceCodeFlow) Poll(ctx context.Context, deviceCode string, interval i
 			}
 
 			var result TokenResponse
-			json.NewDecoder(resp.Body).Decode(&result)
+			_ = json.NewDecoder(resp.Body).Decode(&result)
 			resp.Body.Close()
 
 			if result.Error == "" {
@@ -233,7 +233,7 @@ func (tm *TokenManager) Get(service string) (*Token, error) {
 		if err != nil {
 			return nil, err
 		}
-		tm.Store(service, newToken)
+		_ = tm.Store(service, newToken)
 		return newToken, nil
 	}
 
@@ -262,7 +262,7 @@ func (tm *TokenManager) Refresh(token *Token) (*Token, error) {
 	if err != nil {
 		return nil, fmt.Errorf("token refresh request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -312,7 +312,7 @@ func (s *CallbackServer) Start() string {
 	mux.HandleFunc("/callback", s.handleCallback)
 
 	addr := fmt.Sprintf("localhost:%d", s.port)
-	go http.ListenAndServe(addr, mux)
+	go func() { _ = http.ListenAndServe(addr, mux) }()
 
 	return fmt.Sprintf("http://%s/callback", addr)
 }

@@ -131,8 +131,8 @@ func TestInputPrompt_AskValid(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("test input\n")
-		w.Close()
+		_, _ = w.WriteString("test input\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewInputPrompt("Enter name:")
@@ -156,8 +156,8 @@ func TestInputPrompt_AskWithDefault(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("\n")
-		w.Close()
+		_, _ = w.WriteString("\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewInputPrompt("Enter name:")
@@ -188,8 +188,8 @@ func TestConfirmPrompt_AskYes(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("y\n")
-		w.Close()
+		_, _ = w.WriteString("y\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewConfirmPrompt("Continue?")
@@ -219,8 +219,8 @@ func TestConfirmPrompt_AskNo(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("n\n")
-		w.Close()
+		_, _ = w.WriteString("n\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewConfirmPrompt("Continue?")
@@ -250,8 +250,8 @@ func TestConfirmPrompt_AskYesFull(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("yes\n")
-		w.Close()
+		_, _ = w.WriteString("yes\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewConfirmPrompt("Continue?")
@@ -281,8 +281,8 @@ func TestSelectPrompt_AskValid(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("2\n")
-		w.Close()
+		_, _ = w.WriteString("2\n")
+		_ = w.Close()
 	}()
 
 	choices := []string{"Option A", "Option B", "Option C"}
@@ -313,8 +313,8 @@ func TestTextPrompt_AskValidInput(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("test value\n")
-		w.Close()
+		_, _ = w.WriteString("test value\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewTextPrompt("Name")
@@ -344,8 +344,8 @@ func TestNumberPrompt_AskValid(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("42\n")
-		w.Close()
+		_, _ = w.WriteString("42\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewNumberPrompt("Age")
@@ -375,8 +375,8 @@ func TestMultiSelectPrompt_AskValid(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("1, 3\n")
-		w.Close()
+		_, _ = w.WriteString("1, 3\n")
+		_ = w.Close()
 	}()
 
 	options := []string{"Option A", "Option B", "Option C"}
@@ -407,8 +407,8 @@ func TestTextPrompt_AskWithDefault(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("\n")
-		w.Close()
+		_, _ = w.WriteString("\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewTextPrompt("Name")
@@ -439,8 +439,8 @@ func TestNumberPrompt_AskWithDefault(t *testing.T) {
 	defer func() { os.Stdin = stdin }()
 
 	go func() {
-		w.WriteString("\n")
-		w.Close()
+		_, _ = w.WriteString("\n")
+		_ = w.Close()
 	}()
 
 	prompt := NewNumberPrompt("Age")

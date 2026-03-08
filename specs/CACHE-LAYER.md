@@ -46,6 +46,57 @@ The cache layer provides a flexible, high-performance caching infrastructure for
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## Visual Workflows
+
+### Cache Read Workflow
+
+```mermaid
+flowchart TD
+    Start[Request: Get key] --> Check{Key Exists?}
+    Check -->|Yes| CheckExp{Expired?}
+    Check -->|No| Fetch[Fetch from upstream]
+    CheckExp -->|Yes| Remove[Remove from cache]
+    CheckExp -->|No| UpdateAccess[Update last accessed]
+    Remove --> Fetch[Fetch from upstream]
+    UpdateAccess --> Return[Return cached value]
+    Fetch --> Store[Store in cache]
+    Store --> Return[Return value to client]
+```
+
+### Cache Write Sequence
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Cache
+    participant Eviction
+    participant Storage
+
+    Client->>Cache: Set(key, value, ttl)
+    Cache->>Cache: Check capacity
+    alt Cache Full
+        Cache->>Eviction: Trigger eviction policy
+        Eviction->>Storage: Remove least recently used
+        Eviction-->>Cache: Removed
+    end
+    Cache->>Storage: Store(key, value, ttl)
+    Cache-->>Client: Success
+```
+
+### Tiered Cache Flow
+
+```mermaid
+flowchart LR
+    A[Request] --> B[L1: Memory Cache]
+    B -->|Hit| C[Return Result]
+    B -->|Miss| D[L2: Redis Cache]
+    D -->|Hit| E[Store in L1]
+    D -->|Miss| F[L3: Upstream]
+    E --> C
+    F --> G[Store in L2]
+    G --> E
+```
+
 ---
 
 ## Core Interface

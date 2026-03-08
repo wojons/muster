@@ -200,7 +200,7 @@ func (m *Manager) FetchOpenAPISpec(ctx context.Context, inv *Inventory) (*OpenAP
 		return nil, fmt.Errorf("failed to parse OpenAPI spec: %w", err)
 	}
 
-	m.cache.StoreSpec(inv.OpenAPISpec.SHA256, doc)
+	_ = m.cache.StoreSpec(inv.OpenAPISpec.SHA256, doc)
 
 	return doc, nil
 }

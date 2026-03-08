@@ -194,7 +194,7 @@ func TestBuiltinEnv_EmptyValue(t *testing.T) {
 	thread := &starlark.Thread{}
 	builtin := starlark.NewBuiltin("env", builtinEnv)
 
-	os.Unsetenv("NONEXISTENT_VAR")
+	_ = os.Unsetenv("NONEXISTENT_VAR")
 
 	result, err := builtin.CallInternal(thread, starlark.Tuple{starlark.String("NONEXISTENT_VAR")}, nil)
 	if err != nil {
@@ -215,7 +215,7 @@ func TestBuiltinSecret_FallbackLookup(t *testing.T) {
 	thread := &starlark.Thread{}
 	builtin := starlark.NewBuiltin("secret", builtinSecret)
 
-	os.Setenv("SECRET_FALLBACK", "fallback_value")
+	_ = os.Setenv("SECRET_FALLBACK", "fallback_value")
 	defer os.Unsetenv("SECRET_FALLBACK")
 
 	result, err := builtin.CallInternal(thread, starlark.Tuple{starlark.String("FALLBACK")}, nil)

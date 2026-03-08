@@ -97,7 +97,7 @@ func (m *Manager) Acquire() error {
 
 	// Atomic rename
 	if err := os.Rename(tempFile, m.pidFilePath); err != nil {
-		os.Remove(tempFile)
+		_ = os.Remove(tempFile)
 		return fmt.Errorf("rename pid file: %w", err)
 	}
 
@@ -122,7 +122,7 @@ func (m *Manager) checkExisting() error {
 	pid, err := strconv.Atoi(strings.TrimSpace(lines[0]))
 	if err != nil {
 		// Corrupted PID, remove stale file
-		os.Remove(m.pidFilePath)
+		_ = os.Remove(m.pidFilePath)
 		return nil
 	}
 
@@ -132,7 +132,7 @@ func (m *Manager) checkExisting() error {
 	}
 
 	// Stale PID file, remove it
-	os.Remove(m.pidFilePath)
+	_ = os.Remove(m.pidFilePath)
 	return nil
 }
 

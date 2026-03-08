@@ -94,7 +94,7 @@ func TestBinaryExecution_StartStopCommand(t *testing.T) {
 	stopCmd.Stdout = stdout
 	stopCmd.Stderr = stderr
 
-	err = stopCmd.Run()
+	_ = stopCmd.Run() // Ignore error - just testing that binary was built
 
 	t.Logf("Stop command stdout: %s", stdout.String())
 	t.Logf("Stop command stderr: %s", stderr.String())
@@ -120,7 +120,7 @@ func TestBinaryExecution_ProxyCommand(t *testing.T) {
 	proxyCmd.Stderr = stderr
 
 	// Run proxy (may timeout waiting for connections)
-	err = proxyCmd.Run()
+	_ = proxyCmd.Run() // Ignore error - just testing that binary was built
 
 	t.Logf("Proxy command stdout: %s", stdout.String())
 	t.Logf("Proxy command stderr: %s", stderr.String())
@@ -140,7 +140,7 @@ func TestBinaryExecution_InvalidCommand(t *testing.T) {
 	cmd.Stdout = stdout
 
 	// Should fail or show help (not crash)
-	err = cmd.Run()
+	_ = cmd.Run() // Ignore error - just testing that binary was built
 	t.Logf("Invalid command output: %s", stdout.String())
 }
 
@@ -200,7 +200,7 @@ func TestBinaryExecution_RestartCommand(t *testing.T) {
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
-	err = cmd.Run()
+	_ = cmd.Run() // Ignore error - just testing that binary was built
 
 	t.Logf("Restart command stdout: %s", stdout.String())
 	t.Logf("Restart command stderr: %s", stderr.String())
@@ -238,7 +238,7 @@ func TestBinaryExecution_VersionOutput(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	cmd.Stdout = stdout
 
-	err = cmd.Run()
+	_ = cmd.Run() // Ignore error - just testing that binary was built
 
 	output := stdout.String()
 	t.Logf("Version/help output: %s", output)

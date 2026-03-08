@@ -15,7 +15,6 @@ import (
 type ToolRegistry struct {
 	tools   map[string]handlers.Tool
 	configs map[string]ExecutionConfig
-	baseURL string
 }
 
 // NewOpenAPIRegistry creates a new registry from OpenAPI tools

@@ -63,7 +63,9 @@ func (tc *TieredCache) Set(ctx context.Context, key string, value Value, opts ..
 	}
 
 	if tc.l2 != nil {
+		//nolint:staticcheck // L2 cache failures are non-critical
 		if err := tc.l2.Set(ctx, key, value, opts...); err != nil {
+			// L2 cache set failed - non-critical, continue
 		}
 	}
 
@@ -73,7 +75,9 @@ func (tc *TieredCache) Set(ctx context.Context, key string, value Value, opts ..
 				_ = tc.l3.Set(context.Background(), key, value, opts...)
 			}()
 		} else {
+			//nolint:staticcheck // L3 cache failures are non-critical
 			if err := tc.l3.Set(ctx, key, value, opts...); err != nil {
+				// L3 cache set failed - non-critical, continue
 			}
 		}
 	}

@@ -59,8 +59,8 @@ func BuildUniversalBinary(output, path string) error {
 		return fmt.Errorf("failed to create universal binary: %w", err)
 	}
 
-	os.Remove(amd64Binary)
-	os.Remove(arm64Binary)
+	_ = os.Remove(amd64Binary)
+	_ = os.Remove(arm64Binary)
 
 	return nil
 }

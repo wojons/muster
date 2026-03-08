@@ -112,7 +112,7 @@ func TestSetupStdio(t *testing.T) {
 
 	os.Stdin = r
 	os.Stdout = w
-	os.Stderr = os.Stderr
+	// os.Stderr remains unchanged
 
 	stdin, stdout, stderr := setupStdio()
 
@@ -298,6 +298,7 @@ func TestLoadAndRegisterTools_EmptySpec(t *testing.T) {
 
 func TestSignalHandling_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure cancel is called
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -864,18 +865,15 @@ paths:
 
 func TestMain_FunctionPanicRecovery(t *testing.T) {
 	// Verify main function has panic recovery
-	recovered := false
+	// This test demonstrates panic recovery - the defer catches the panic
+	_ = false // recovered flag (would be set in defer)
 
 	defer func() {
-		if r := recover(); r != nil {
-			recovered = true
-		}
+		_ = recover() // Catch the intentional panic
 	}()
 
-	// Simulate panic
+	// Simulate panic - this will cause test to panic, demonstrating recovery works
 	panic("test panic")
-
-	require.True(t, recovered)
 }
 
 func TestHandleFatal_WritesToStderr(t *testing.T) {
@@ -883,7 +881,7 @@ func TestHandleFatal_WritesToStderr(t *testing.T) {
 	// Since handleFatal calls os.Exit, we can't call it directly
 	// but we can verify the message format matches
 	expectedFormat := "Fatal error: test error"
-	actual := fmt.Sprintf("Fatal error: test error")
+	actual := "Fatal error: test error"
 	require.Equal(t, expectedFormat, actual)
 }
 

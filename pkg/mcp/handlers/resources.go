@@ -54,12 +54,7 @@ func (h *ListResourcesHandler) Handle(ctx context.Context, params json.RawMessag
 
 	resourceList := make([]Resource, 0, len(resources))
 	for _, res := range resources {
-		resourceList = append(resourceList, Resource{
-			URI:         res.URI,
-			Name:        res.Name,
-			Description: res.Description,
-			MimeType:    res.MimeType,
-		})
+		resourceList = append(resourceList, Resource(res))
 	}
 
 	return &ListResourcesResult{

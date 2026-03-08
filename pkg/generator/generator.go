@@ -240,7 +240,7 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		}
 
 		if param.Required {
-			cmd.MarkFlagRequired(flagName)
+			_ = cmd.MarkFlagRequired(flagName)
 		}
 	}
 
@@ -252,7 +252,7 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 
 func (g *Generator) addStringFlag(cmd *cobra.Command, name, shorthand string, param *openapi.Parameter, description string) {
 
-	if param.Enum != nil && len(param.Enum) > 0 {
+	if len(param.Enum) > 0 {
 		allowed := make([]string, len(param.Enum))
 		for i, v := range param.Enum {
 			allowed[i] = fmt.Sprintf("%v", v)
@@ -302,7 +302,7 @@ func (g *Generator) buildLongDescription(op *openapi.Operation) string {
 	}
 
 	b.WriteString("API Endpoint:\n")
-	b.WriteString(fmt.Sprintf("  %s %s\n\n", op.Method, op.Path))
+	fmt.Fprintf(&b, "  %s %s\n\n", op.Method, op.Path)
 
 	if len(op.Parameters) > 0 {
 		b.WriteString("Parameters:\n")
@@ -311,7 +311,7 @@ func (g *Generator) buildLongDescription(op *openapi.Operation) string {
 			if param.Required {
 				required = " (required)"
 			}
-			b.WriteString(fmt.Sprintf("  %s%s: %s\n", param.Name, required, param.Description))
+			fmt.Fprintf(&b, "  %s%s: %s\n", param.Name, required, param.Description)
 		}
 	}
 
@@ -508,7 +508,9 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 				if err != nil {
 					return fmt.Errorf("get flag %s: %w", param.Name, err)
 				}
-				if value != nil {
+				// Check if flag was actually set
+				flagName := g.normalizeFlagName(param.Name)
+				if cmd.Flag(flagName) != nil && cmd.Flag(flagName).Changed {
 					builder.WithQueryParam(param.Name, fmt.Sprintf("%v", value))
 				}
 			}
@@ -527,7 +529,7 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 		if err != nil {
 			return fmt.Errorf("execute request: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("HTTP error: %s", resp.Status)
@@ -626,27 +628,6 @@ func (cc *CommandCache) Save(specPath string, commands []*cobra.Command) error {
 	}
 
 	return cc.persist()
-}
-
-func (cc *CommandCache) load() {
-	data, err := os.ReadFile(cc.path)
-	if err != nil {
-		return
-	}
-
-	var metadata cachedCommand
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		return
-	}
-
-	cc.mu.Lock()
-	defer cc.mu.Unlock()
-
-	cc.metadata = &metadata
-
-	if cc.metadata != nil && time.Now().After(cc.metadata.ExpiresAt) {
-		cc.metadata = nil
-	}
 }
 
 func (cc *CommandCache) persist() error {

@@ -206,12 +206,6 @@ func (cm *CacheManager) recordMiss() {
 	cm.metrics.misses++
 }
 
-func (cm *CacheManager) recordEviction(tier string) {
-	cm.metrics.mu.Lock()
-	defer cm.metrics.mu.Unlock()
-	cm.metrics.evictions[tier]++
-}
-
 func (cm *CacheManager) GetHitRate() float64 {
 	cm.metrics.mu.RLock()
 	defer cm.metrics.mu.RUnlock()

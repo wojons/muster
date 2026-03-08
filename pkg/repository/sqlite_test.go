@@ -21,7 +21,7 @@ func TestSQLiteManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteManager failed: %v", err)
 	}
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	if sm.db == nil {
 		t.Fatal("db is nil")

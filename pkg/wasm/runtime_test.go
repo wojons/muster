@@ -138,7 +138,7 @@ func TestCheckCapability(t *testing.T) {
 		t.Error("expected capability check to return false for ungranted capability")
 	}
 
-	runtime.GrantCapability("fs.read")
+	_ = runtime.GrantCapability("fs.read")
 
 	if !runtime.CheckCapability("fs.read") {
 		t.Error("expected capability check to return true after granting")
@@ -178,8 +178,8 @@ func TestCapabilitiesReturns(t *testing.T) {
 func TestRuntimeWithCaps(t *testing.T) {
 	runtime := NewRuntime(nil, nil)
 
-	runtime.GrantCapability("fs.read")
-	runtime.GrantCapability("fs.write")
+	_ = runtime.GrantCapability("fs.read")
+	_ = runtime.GrantCapability("fs.write")
 
 	if !runtime.CheckCapability("fs.read") {
 		t.Error("expected fs.read capability")

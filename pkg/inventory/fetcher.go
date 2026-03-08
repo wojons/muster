@@ -40,13 +40,13 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) ([]byte, string, error)
 	}
 
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", fmt.Sprintf("openapi-cli/0.1.0"))
+	req.Header.Set("User-Agent", "openapi-cli/0.1.0")
 
 	resp, err := f.client.Do(req)
 	if err != nil {
 		return nil, "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
@@ -76,7 +76,7 @@ func (f *Fetcher) FetchRaw(ctx context.Context, url string, headers map[string]s
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)

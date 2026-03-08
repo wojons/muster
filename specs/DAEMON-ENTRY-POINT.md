@@ -30,10 +30,10 @@ import (
 )
 
 const (
-	defaultConfigPath = "/etc/muster/daemon.json"
-	defaultSocketPath = "/var/run/muster/daemon.sock"
-	defaultPIDFile    = "/var/run/muster/daemon.pid"
-	defaultLogFile    = "/var/log/muster/daemon.log"
+	defaultConfigPath = "/etc/openapi-cli/daemon.json"
+	defaultSocketPath = "/var/run/openapi-cli/daemon.sock"
+	defaultPIDFile    = "/var/run/openapi-cli/daemon.pid"
+	defaultLogFile    = "/var/log/openapi-cli/daemon.log"
 )
 
 // Config holds daemon configuration
@@ -149,7 +149,7 @@ func (d *Daemon) setupLogging() error {
 	}
 
 	d.logFile = logFile
-	d.logger = log.New(logFile, "[muster-daemon] ", log.LstdFlags|log.Lmicroseconds)
+	d.logger = log.New(logFile, "[openapi-daemon] ", log.LstdFlags|log.Lmicroseconds)
 
 	return nil
 }
@@ -619,9 +619,9 @@ func main() {
 
 ```json
 {
-  "socket_path": "/var/run/muster/daemon.sock",
-  "pid_file": "/var/run/muster/daemon.pid",
-  "log_file": "/var/log/muster/daemon.log",
+  "socket_path": "/var/run/openapi-cli/daemon.sock",
+  "pid_file": "/var/run/openapi-cli/daemon.pid",
+  "log_file": "/var/log/openapi-cli/daemon.log",
   "target_url": "http://localhost:8080",
   "socket_mode": 416,
   "max_connections": 100,
@@ -638,11 +638,11 @@ func main() {
 ```makefile
 .PHONY: build install start stop restart status clean
 
-BINARY=muster-daemon
+BINARY=openapi-daemon
 INSTALL_DIR=/usr/local/bin
-CONFIG_DIR=/etc/muster
-LOG_DIR=/var/log/muster
-RUN_DIR=/var/run/muster
+CONFIG_DIR=/etc/openapi-cli
+LOG_DIR=/var/log/openapi-cli
+RUN_DIR=/var/run/openapi-cli
 
 build:
 	go build -o bin/$(BINARY) cmd/daemon/main.go
@@ -680,9 +680,9 @@ clean:
 ```bash
 #!/bin/bash
 
-DAEMON_NAME="muster-daemon"
+DAEMON_NAME="openapi-daemon"
 DAEMON_BIN="/usr/local/bin/${DAEMON_NAME}"
-PID_FILE="/var/run/muster/daemon.pid"
+PID_FILE="/var/run/openapi-cli/daemon.pid"
 
 start() {
     if [ -f "$PID_FILE" ]; then
@@ -739,13 +739,13 @@ make build
 sudo make install
 
 # Commands
-sudo muster-daemon -command=start      # Start daemon
-sudo muster-daemon -command=stop       # Stop daemon
-sudo muster-daemon -command=restart    # Restart daemon
-sudo muster-daemon -command=status     # Check status
+sudo openapi-daemon -command=start      # Start daemon
+sudo openapi-daemon -command=stop       # Stop daemon
+sudo openapi-daemon -command=restart    # Restart daemon
+sudo openapi-daemon -command=status     # Check status
 
 # Foreground mode (for debugging)
-sudo muster-daemon -foreground
+sudo openapi-daemon -foreground
 ```
 
 ## Architecture

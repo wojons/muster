@@ -109,12 +109,12 @@ func (pb *ProgressBar) Finish() {
 
 // Draw renders the progress bar to writer
 func (pb *ProgressBar) Draw(w io.Writer) {
-	fmt.Fprint(w, "\r"+pb.Render())
+	_, _ = fmt.Fprint(w, "\r"+pb.Render())
 }
 
 // Clear clears the progress bar line
 func (pb *ProgressBar) Clear(w io.Writer) {
-	fmt.Fprint(w, "\r\033[K")
+	_, _ = fmt.Fprint(w, "\r\033[K")
 }
 
 // Incr increments progress by 1

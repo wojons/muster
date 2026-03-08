@@ -185,7 +185,7 @@ func (f *TableFormatter) formatSlice(items []interface{}) ([]byte, error) {
 
 	var buf bytes.Buffer
 	for _, item := range items {
-		buf.WriteString(fmt.Sprintf("- %v\n", item))
+		fmt.Fprintf(&buf, "- %v\n", item)
 	}
 	return buf.Bytes(), nil
 }
@@ -200,20 +200,20 @@ func (f *TableFormatter) formatMapSlice(items []map[string]interface{}) ([]byte,
 	var buf bytes.Buffer
 	tw := tabwriter.NewWriter(&buf, 0, 0, 3, ' ', 0)
 
-	fmt.Fprintln(tw, strings.Join(headers, "\t"))
+	_, _ = fmt.Fprintln(tw, strings.Join(headers, "\t"))
 
 	sep := make([]string, len(headers))
 	for i := range sep {
 		sep[i] = strings.Repeat("-", len(headers[i]))
 	}
-	fmt.Fprintln(tw, strings.Join(sep, "\t"))
+	_, _ = fmt.Fprintln(tw, strings.Join(sep, "\t"))
 
 	for _, item := range items {
 		row := f.extractRow(item, headers)
-		fmt.Fprintln(tw, strings.Join(row, "\t"))
+		_, _ = fmt.Fprintln(tw, strings.Join(row, "\t"))
 	}
 
-	tw.Flush()
+	_ = tw.Flush()
 	return buf.Bytes(), nil
 }
 
@@ -228,10 +228,10 @@ func (f *TableFormatter) formatMap(data map[string]interface{}) ([]byte, error) 
 
 	for _, key := range keys {
 		value := data[key]
-		fmt.Fprintf(tw, "%s:\t%v\n", key, value)
+		_, _ = fmt.Fprintf(tw, "%s:\t%v\n", key, value)
 	}
 
-	tw.Flush()
+	_ = tw.Flush()
 	return buf.Bytes(), nil
 }
 

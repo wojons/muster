@@ -74,7 +74,7 @@ This sets up the configuration for interacting with the API.`,
 	}
 
 	cmd.Flags().StringVar(&host, "host", "", "API host URL (required)")
-	cmd.MarkFlagRequired("host")
+	_ = cmd.MarkFlagRequired("host")
 
 	cmd.Flags().IntVar(&timeout, "timeout", 30, "Request timeout in seconds")
 	cmd.Flags().IntVar(&retry, "retry", 3, "Number of retry attempts")

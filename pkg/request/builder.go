@@ -139,15 +139,15 @@ func (b *Builder) MultipartBody(fields map[string]string, files map[string]strin
 
 		part, err := writer.CreateFormFile(key, filepath.Base(path))
 		if err != nil {
-			file.Close()
+			_ = file.Close()
 			return nil, fmt.Errorf("create form file: %w", err)
 		}
 
 		if _, err := io.Copy(part, file); err != nil {
-			file.Close()
+			_ = file.Close()
 			return nil, fmt.Errorf("copy file: %w", err)
 		}
-		file.Close()
+		_ = file.Close()
 	}
 
 	if err := writer.Close(); err != nil {
@@ -274,7 +274,7 @@ func (b *Builder) ExecuteWithResult(ctx context.Context) (*ExecutionResult, erro
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

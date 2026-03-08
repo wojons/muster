@@ -278,7 +278,7 @@ func TestBuiltinFileExists(t *testing.T) {
 	existingFile := filepath.Join(tempDir, "existing.txt")
 	nonExistingFile := filepath.Join(tempDir, "nonexistent.txt")
 
-	os.WriteFile(existingFile, []byte("test"), 0644)
+	_ = os.WriteFile(existingFile, []byte("test"), 0644)
 
 	t.Run("existing file", func(t *testing.T) {
 		result, err := builtin.CallInternal(thread, starlark.Tuple{starlark.String(existingFile)}, nil)
@@ -318,8 +318,8 @@ func TestValidateFilePath(t *testing.T) {
 	tempDir := t.TempDir()
 	workspaceDir = tempDir
 
-	os.WriteFile(filepath.Join(tempDir, "test.txt"), []byte("content"), 0644)
-	os.MkdirAll(filepath.Join(tempDir, "subdir"), 0755)
+	_ = os.WriteFile(filepath.Join(tempDir, "test.txt"), []byte("content"), 0644)
+	_ = os.MkdirAll(filepath.Join(tempDir, "subdir"), 0755)
 
 	tests := []struct {
 		name    string
@@ -465,7 +465,7 @@ func TestBuiltinFileRead_Security(t *testing.T) {
 
 	testContent := "test content"
 	testFile := filepath.Join(tempDir, "test.txt")
-	os.WriteFile(testFile, []byte(testContent), 0644)
+	_ = os.WriteFile(testFile, []byte(testContent), 0644)
 
 	t.Run("file in workspace", func(t *testing.T) {
 		result, err := builtin.CallInternal(thread, starlark.Tuple{starlark.String(testFile)}, nil)

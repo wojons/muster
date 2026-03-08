@@ -105,7 +105,7 @@ func (l *Loader) LoadFromURL(ctx context.Context, url string, opts RemoteLoadOpt
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
@@ -159,7 +159,7 @@ func (l *Loader) LoadWithCache(source ModuleSource) (*Module, error) {
 
 	if cached, found := l.cache.Get(key); found {
 		if err := l.validateWASM(cached); err != nil {
-			l.cache.Delete(key)
+			_ = l.cache.Delete(key)
 		} else {
 			return &Module{
 				Source: source,
@@ -183,9 +183,13 @@ func (l *Loader) LoadWithCache(source ModuleSource) (*Module, error) {
 			return nil, errors.New("url required for remote url source")
 		}
 		resp, err := http.Get(source.URL)
-		if err == nil {
-			defer resp.Body.Close()
-			data, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("fetch wasm: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		data, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read response body: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", source.Type)
@@ -199,7 +203,7 @@ func (l *Loader) LoadWithCache(source ModuleSource) (*Module, error) {
 		return nil, fmt.Errorf("WASM validation failed: %w", err)
 	}
 
-	l.cache.Set(key, data)
+	_ = l.cache.Set(key, data)
 
 	return &Module{
 		Source: source,
@@ -283,7 +287,7 @@ func (c *ModuleCache) Get(key string) ([]byte, bool) {
 	}
 
 	if time.Since(info.ModTime()) > c.ttl {
-		os.Remove(path)
+		_ = os.Remove(path)
 		return nil, false
 	}
 
@@ -345,7 +349,7 @@ func (c *ModuleCache) Clear() error {
 
 	for _, entry := range entries {
 		path := filepath.Join(c.dir, entry.Name())
-		os.Remove(path)
+		_ = os.Remove(path)
 	}
 
 	return nil

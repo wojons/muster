@@ -99,7 +99,7 @@ func (e *OpenAPIExecutor) Execute(ctx context.Context, name string, args map[str
 	if err != nil {
 		return nil, fmt.Errorf("execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
@@ -162,7 +162,7 @@ func ExecuteHTTP(baseURL, method, path string, args map[string]interface{}) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("execute request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
@@ -186,11 +186,8 @@ func generateCommandName(op *openapi.Operation) string {
 	path := op.Path
 	method := op.Method
 
-	// Simple naming: method_path
-	name := fmt.Sprintf("%s_%s", method, path)
-
-	// Clean up the name
-	name = fmt.Sprintf("%s%s", method, path)
+	// Simple naming: method + path (cleaned up)
+	name := fmt.Sprintf("%s%s", method, path)
 
 	// Replace path parameters with underscores
 	for i := 0; i < len(name); i++ {

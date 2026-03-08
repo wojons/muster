@@ -81,7 +81,7 @@ func TestManager_Acquire_StaleFile(t *testing.T) {
 
 	// Create PID file with non-existent PID
 	content := "99999\n1709251200000000000\n/tmp/test.sock\n1.0.0\n"
-	os.WriteFile(pidFile, []byte(content), 0644)
+	_ = os.WriteFile(pidFile, []byte(content), 0644)
 
 	manager, err := NewManager(Config{
 		PidFilePath: pidFile,
@@ -141,7 +141,7 @@ func TestManager_Release_NotOwner(t *testing.T) {
 
 	// Create PID file with different PID
 	content := "99999\n1709251200000000000\n/tmp/test.sock\n1.0.0\n"
-	os.WriteFile(pidFile, []byte(content), 0644)
+	_ = os.WriteFile(pidFile, []byte(content), 0644)
 
 	// Should fail to release
 	err = manager.Release()
@@ -331,7 +331,7 @@ func TestController_Kill(t *testing.T) {
 
 	// Create PID file manually with a fake PID
 	content := "99999\n1709251200000000000\n/tmp/test.sock\n1.0.0\n"
-	os.WriteFile(pidFile, []byte(content), 0644)
+	_ = os.WriteFile(pidFile, []byte(content), 0644)
 
 	controller, _ := NewController(ControllerConfig{
 		PidFilePath: pidFile,
@@ -343,7 +343,7 @@ func TestController_Kill(t *testing.T) {
 	controller.Kill()
 
 	// Clean up
-	os.Remove(pidFile)
+	_ = os.Remove(pidFile)
 }
 
 func TestPIDFileFormat(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 func TestMigrationManager_CreateMigration_EmptyName(t *testing.T) {
 	sm, err := NewSQLiteManager(&SQLiteConfig{Path: ":memory:"}, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	dir := t.TempDir()
 	mm, err := NewMigrationManager(sm.GetDB(), dir, nil)
@@ -32,7 +32,7 @@ func TestMigrationManager_New_NilDB(t *testing.T) {
 func TestMigrationManager_WithLogger(t *testing.T) {
 	sm, err := NewSQLiteManager(&SQLiteConfig{Path: ":memory:"}, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	logger := zap.NewNop()
 	dir := t.TempDir()
@@ -51,7 +51,7 @@ func TestMigrationManager_WithLogger(t *testing.T) {
 func TestMigrationManager_Status_Detailed(t *testing.T) {
 	sm, err := NewSQLiteManager(&SQLiteConfig{Path: ":memory:"}, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	dir := t.TempDir()
 
@@ -71,7 +71,7 @@ func TestMigrationManager_Status_Detailed(t *testing.T) {
 func TestMigrationManager_Validate_Detailed(t *testing.T) {
 	sm, err := NewSQLiteManager(&SQLiteConfig{Path: ":memory:"}, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	dir := t.TempDir()
 
@@ -89,7 +89,7 @@ func TestMigrationManager_Validate_Detailed(t *testing.T) {
 func TestMigrationManager_MigrationFileCreation(t *testing.T) {
 	sm, err := NewSQLiteManager(&SQLiteConfig{Path: ":memory:"}, nil)
 	require.NoError(t, err)
-	defer sm.Close()
+	defer func() { _ = sm.Close() }()
 
 	dir := t.TempDir()
 

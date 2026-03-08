@@ -9,16 +9,16 @@
 
 ```go
 // Root module
-import "github.com/muster/muster"
+import "github.com/openapi-cli/openapi-cli"
 
 // Internal packages (implementation detail)
-import "github.com/muster/muster/internal/cache"
+import "github.com/openapi-cli/openapi-cli/internal/cache"
 
 // Public packages (reusable libraries)
-import "github.com/muster/muster/pkg/config"
+import "github.com/openapi-cli/openapi-cli/pkg/config"
 
 // Command entry points
-import "github.com/muster/muster/cmd/cli"
+import "github.com/openapi-cli/openapi-cli/cmd/cli"
 ```
 
 ---
@@ -92,7 +92,7 @@ import (
     "github.com/spf13/viper"
 
     // Internal packages
-    "github.com/muster/muster/internal/cache"
-    "github.com/muster/muster/pkg/config"
+    "github.com/openapi-cli/openapi-cli/internal/cache"
+    "github.com/openapi-cli/openapi-cli/pkg/config"
 )
 ```
