@@ -51,7 +51,7 @@ func TestFullStackIntegration(t *testing.T) {
 		switch {
 		case r.URL.Path == "/api/users" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"users": []map[string]interface{}{
 					{"id": 1, "name": "Alice", "email": "alice@example.com"},
 					{"id": 2, "name": "Bob", "email": "bob@example.com"},
@@ -60,9 +60,9 @@ func TestFullStackIntegration(t *testing.T) {
 
 		case r.URL.Path == "/api/users" && r.Method == "POST":
 			var user map[string]interface{}
-			json.NewDecoder(r.Body).Decode(&user)
+			_ = json.NewDecoder(r.Body).Decode(&user)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"id":     3,
 				"name":   user["name"],
 				"email":  user["email"],
@@ -71,7 +71,7 @@ func TestFullStackIntegration(t *testing.T) {
 
 		case r.URL.Path == "/api/users/1" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"id":    1,
 				"name":  "Alice",
 				"email": "alice@example.com",
@@ -80,7 +80,7 @@ func TestFullStackIntegration(t *testing.T) {
 
 		default:
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error": "endpoint not found",
 			})
 		}
@@ -184,7 +184,7 @@ func TestFullStackIntegration(t *testing.T) {
 	builder := request.NewBuilder(server.URL, "/api/users", "GET")
 	httpResp, err := builder.Execute(ctx)
 	require.NoError(t, err, "Failed to execute HTTP request")
-	defer httpResp.Body.Close()
+	defer func() { _ = httpResp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode, "Status should be 200")
 

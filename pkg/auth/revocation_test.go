@@ -59,7 +59,7 @@ func TestMemoryRevocationStore_IsRevoked_Expired(t *testing.T) {
 	token := "expired-token"
 	expiresAt := time.Now().Add(-1 * time.Hour)
 
-	store.Revoke(token, expiresAt)
+	_ = store.Revoke(token, expiresAt)
 
 	revoked, err := store.IsRevoked(token)
 	if err != nil {
@@ -76,9 +76,9 @@ func TestMemoryRevocationStore_Cleanup(t *testing.T) {
 
 	now := time.Now()
 
-	store.Revoke("token1", now.Add(-2*time.Hour))
-	store.Revoke("token2", now.Add(30*time.Minute))
-	store.Revoke("token3", now.Add(-1*time.Hour))
+	_ = store.Revoke("token1", now.Add(-2*time.Hour))
+	_ = store.Revoke("token2", now.Add(30*time.Minute))
+	_ = store.Revoke("token3", now.Add(-1*time.Hour))
 
 	err := store.Cleanup(now)
 	if err != nil {
@@ -149,7 +149,7 @@ func TestRevocationManager_ValidateToken_Revoked(t *testing.T) {
 	rm := NewRevocationManager(store)
 
 	token := "revoked-token"
-	store.Revoke(token, time.Now().Add(24*time.Hour))
+	_ = store.Revoke(token, time.Now().Add(24*time.Hour))
 
 	err := rm.ValidateToken(token)
 	if err == nil {

@@ -104,7 +104,7 @@ func TestDaemon_SocketProxy(t *testing.T) {
 		t.Logf("Failed to connect to daemon socket: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	go func() {
 		buf := make([]byte, 1024)
@@ -161,10 +161,10 @@ func TestDaemon_RequestProxy(t *testing.T) {
 		t.Logf("Failed to connect to daemon: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	go func() {
-		io.Copy(io.Discard, conn)
+_, _ = io.Copy(io.Discard, conn)
 	}()
 
 	_, err = conn.Write([]byte(`{"method":"GET","path":"/api/test"}`))
@@ -211,7 +211,7 @@ func TestDaemon_MultipleConnections(t *testing.T) {
 
 	defer func() {
 		for _, conn := range connections {
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 

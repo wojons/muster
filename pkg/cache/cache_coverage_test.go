@@ -52,7 +52,7 @@ func TestMemoryCache_ClosedErrorHandling(t *testing.T) {
 
 func TestMemoryCache_InvalidKey(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	err := mc.Set(ctx, "", Value{Data: []byte("data")})
@@ -65,7 +65,7 @@ func TestMemoryCache_MaxSize(t *testing.T) {
 	ctx := context.Background()
 
 	mc := NewMemoryCache(1000, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	bigValue := Value{Data: make([]byte, 800)}
 
@@ -84,7 +84,7 @@ func TestMemoryCache_MaxSize(t *testing.T) {
 
 func TestMemoryCache_Tags(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	tags := []string{"tag1", "tag2"}
@@ -105,7 +105,7 @@ func TestMemoryCache_Tags(t *testing.T) {
 
 func TestMemoryCache_ContextCancel(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -118,7 +118,7 @@ func TestMemoryCache_ContextCancel(t *testing.T) {
 
 func TestTieredCache_NilLayers(t *testing.T) {
 	l1 := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer l1.Close()
+	defer func() { _ = l1.Close() }()
 
 	cfg := TieredCacheConfig{
 		L1: l1,
@@ -140,10 +140,10 @@ func TestTieredCache_NilLayers(t *testing.T) {
 
 func TestTieredCache_WarmAsync(t *testing.T) {
 	l1 := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer l1.Close()
+	defer func() { _ = l1.Close() }()
 
 	l3 := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer l3.Close()
+	defer func() { _ = l3.Close() }()
 
 	cfg := TieredCacheConfig{
 		L1:        l1,
@@ -169,10 +169,10 @@ func TestTieredCache_WarmAsync(t *testing.T) {
 
 func TestTieredCache_GetFromL2(t *testing.T) {
 	l1 := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer l1.Close()
+	defer func() { _ = l1.Close() }()
 
 	l2 := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer l2.Close()
+	defer func() { _ = l2.Close() }()
 
 	cfg := TieredCacheConfig{
 		L1: l1,
@@ -203,7 +203,7 @@ func TestTieredCache_DeleteErrors(t *testing.T) {
 	_ = l1.Close() // Close to force errors
 
 	l2 := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer l2.Close()
+	defer func() { _ = l2.Close() }()
 
 	cfg := TieredCacheConfig{
 		L1: l1,
@@ -251,7 +251,7 @@ func TestTieredCache_CloseErrors(t *testing.T) {
 
 func TestMemoryCache_KeysPattern(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 
@@ -271,7 +271,7 @@ func TestMemoryCache_KeysPattern(t *testing.T) {
 
 func TestMemoryCache_KeysAll(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 
@@ -288,7 +288,7 @@ func TestMemoryCache_KeysAll(t *testing.T) {
 
 func TestMemoryCache_ExpiredEntry(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 
@@ -313,7 +313,7 @@ func TestMemoryCache_ExpiredEntry(t *testing.T) {
 
 func TestSetOptions(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 
@@ -340,7 +340,7 @@ func TestSetOptions(t *testing.T) {
 
 func TestMemoryCache_ZeroValue(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 
@@ -376,7 +376,7 @@ func TestMatchPattern(t *testing.T) {
 
 func TestMemoryCache_ConcurrentAccess(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	done := make(chan bool)

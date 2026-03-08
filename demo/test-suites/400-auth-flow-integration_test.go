@@ -40,7 +40,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 				tokenExchangeCount++
 				// First token exchange
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"access_token":  "original-access-token",
 					"refresh_token": "test-refresh-token",
 					"token_type":    "Bearer",
@@ -55,13 +55,13 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 				refreshToken := r.FormValue("refresh_token")
 				if refreshToken != "test-refresh-token" {
 					w.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(w).Encode(map[string]string{
+					_ = json.NewEncoder(w).Encode(map[string]string{
 						"error": "invalid_grant",
 					})
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"access_token":  "refreshed-access-token",
 					"refresh_token": "new-refresh-token",
 					"token_type":    "Bearer",
@@ -81,7 +81,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error": "missing authorization",
 			})
 			return
@@ -98,7 +98,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 		if token != expectedToken {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error": "invalid_token",
 			})
 			return
@@ -106,7 +106,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 
 		// Success response
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "success",
 			"data":   []string{"item1", "item2", "item3"},
 		})
@@ -137,7 +137,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Authorization request failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Verify redirect received auth code
 		if resp.StatusCode != http.StatusFound {
@@ -164,7 +164,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Token exchange failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected 200, got %d", resp.StatusCode)
@@ -197,7 +197,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("API request failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -234,7 +234,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Token refresh failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -266,7 +266,7 @@ func TestAuthFlow_EndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("API request after refresh failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -326,7 +326,7 @@ func TestAuthFlow_Errors(t *testing.T) {
 		if strings.Contains(r.URL.Path, "/token-error") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error": "invalid_request",
 			})
 			return
@@ -345,7 +345,7 @@ func TestAuthFlow_Errors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Request failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("Expected 400, got %d", resp.StatusCode)

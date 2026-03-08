@@ -283,7 +283,7 @@ func TestController_Errors(t *testing.T) {
 	})
 
 	require.Panics(t, func() {
-		controller.Status()
+		_, _ = controller.Status()
 	})
 
 	_ = socketPath // avoid unused variable warning

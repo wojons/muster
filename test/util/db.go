@@ -31,7 +31,7 @@ func NewTestDB(t *testing.T) *TestDB {
 	require.NoError(t, db.PingContext(ctx))
 
 	t.Cleanup(func() {
-		db.Close()
+		_ = db.Close()
 	})
 
 	return &TestDB{DB: db, Database: dbPath}

@@ -25,7 +25,7 @@ func ToStarlark(v interface{}) (starlark.Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			list.Append(sv)
+			_ = list.Append(sv)
 		}
 		return list, nil
 	case map[string]interface{}:
@@ -36,7 +36,7 @@ func ToStarlark(v interface{}) (starlark.Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			dict.SetKey(sk, sv)
+			_ = dict.SetKey(sk, sv)
 		}
 		return dict, nil
 	default:
@@ -86,7 +86,7 @@ func ToStarlarkDict(m map[string]interface{}) (*starlark.Dict, error) {
 		if err != nil {
 			return nil, err
 		}
-		dict.SetKey(sk, sv)
+		_ = dict.SetKey(sk, sv)
 	}
 	return dict, nil
 }

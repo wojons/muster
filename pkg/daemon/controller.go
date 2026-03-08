@@ -176,10 +176,10 @@ func (c *Controller) Stop() error {
 		case <-ctx.Done():
 			// Force kill if still running
 			c.logger.Warn("daemon did not shut down gracefully, force killing", "pid", pid)
-			process.Kill()
+			_ = process.Kill()
 
 			// Clean up PID file
-			c.pidManager.Release()
+			_ = c.pidManager.Release()
 
 			return nil
 		case <-ticker.C:
@@ -187,7 +187,7 @@ func (c *Controller) Stop() error {
 			if !isProcessRunning(pid) {
 				c.logger.Info("daemon stopped", "pid", pid)
 				// Clean up PID file
-				c.pidManager.Release()
+				_ = c.pidManager.Release()
 				return nil
 			}
 		}
@@ -265,7 +265,7 @@ func (c *Controller) Kill() error {
 	}
 
 	// Clean up PID file
-	c.pidManager.Release()
+	_ = c.pidManager.Release()
 	return nil
 }
 

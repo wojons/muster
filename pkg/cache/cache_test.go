@@ -8,7 +8,7 @@ import (
 
 func TestMemoryCache_Get(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{
@@ -34,7 +34,7 @@ func TestMemoryCache_Get(t *testing.T) {
 
 func TestMemoryCache_GetNotFound(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 
@@ -46,7 +46,7 @@ func TestMemoryCache_GetNotFound(t *testing.T) {
 
 func TestMemoryCache_Set(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{
@@ -72,7 +72,7 @@ func TestMemoryCache_Set(t *testing.T) {
 
 func TestMemoryCache_Delete(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{
@@ -96,7 +96,7 @@ func TestMemoryCache_Delete(t *testing.T) {
 
 func TestMemoryCache_Clear(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{
@@ -121,7 +121,7 @@ func TestMemoryCache_Clear(t *testing.T) {
 
 func TestMemoryCache_Expiration(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{
@@ -142,7 +142,7 @@ func TestMemoryCache_Expiration(t *testing.T) {
 
 func TestMemoryCache_Eviction(t *testing.T) {
 	mc := NewMemoryCache(1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 
@@ -167,7 +167,7 @@ func TestMemoryCache_Eviction(t *testing.T) {
 
 func TestMemoryCache_Stats(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{
@@ -178,9 +178,9 @@ func TestMemoryCache_Stats(t *testing.T) {
 
 	_ = mc.Set(ctx, "key1", value)
 
-	mc.Get(ctx, "key1")
-	mc.Get(ctx, "key2")
-	mc.Get(ctx, "key1")
+	_, _ = mc.Get(ctx, "key1")
+	_, _ = mc.Get(ctx, "key2")
+	_, _ = mc.Get(ctx, "key1")
 
 	stats, err := mc.Stats(ctx)
 	if err != nil {
@@ -307,7 +307,7 @@ func TestClose(t *testing.T) {
 
 func TestWithTTL(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{
@@ -329,7 +329,7 @@ func TestWithTTL(t *testing.T) {
 
 func TestWithTags(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{
@@ -351,7 +351,7 @@ func TestWithTags(t *testing.T) {
 
 func TestKeysPattern(t *testing.T) {
 	mc := NewMemoryCache(10*1024*1024, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx := context.Background()
 	value := Value{

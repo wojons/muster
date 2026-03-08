@@ -20,7 +20,7 @@ import (
 func TestBinaryExecution_SpecPath(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err, "Failed to build MCP server binary")
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	// Build temporary spec file
 	tmpDir := t.TempDir()
@@ -82,7 +82,7 @@ paths:
 func TestBinaryExecution_InvalidSpec(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	// Test with nonexistent spec
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -107,7 +107,7 @@ func TestBinaryExecution_InvalidSpec(t *testing.T) {
 func TestBinaryExecution_NoSpec(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -142,14 +142,14 @@ func TestBinaryExecution_BuildingBinary(t *testing.T) {
 	require.NotNil(t, info)
 
 	// Clean up
-	os.Remove(binaryPath)
+	_ = os.Remove(binaryPath)
 }
 
 // TestBinaryExecution_LogLevelAndOutput tests logging flags
 func TestBinaryExecution_LogLevelAndOutput(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -191,7 +191,7 @@ func buildMCPServer() (string, error) {
 func TestBinaryExecution_BaseURL(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	ctx := context.Background()
 
@@ -211,7 +211,7 @@ func TestBinaryExecution_BaseURL(t *testing.T) {
 func TestBinaryExecution_ContextTimeout(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err)
-	defer os.Remove(binaryPath)
+	defer func() { _ = os.Remove(binaryPath) }()
 
 	// Very short timeout - binary should exit quickly
 	ctx := context.Background()

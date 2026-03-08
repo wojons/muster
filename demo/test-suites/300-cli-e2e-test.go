@@ -25,7 +25,7 @@ func TestFullCLIWorkflow(t *testing.T) {
 			response := []map[string]interface{}{
 				{"id": "1", "name": "Fluffy", "species": "cat"},
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 			requestReceived <- true
 			return
 		}

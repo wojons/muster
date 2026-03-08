@@ -55,7 +55,7 @@ func TestConfigValidate(t *testing.T) {
 
 func TestCommandCache(t *testing.T) {
 	cachePath := filepath.Join(os.TempDir(), "muster-test-cache.json")
-	defer os.Remove(cachePath)
+	defer func() { _ = os.Remove(cachePath) }()
 
 	t.Run("cache miss", func(t *testing.T) {
 		cache := NewCommandCache(cachePath)
@@ -110,7 +110,7 @@ func TestCommandCache(t *testing.T) {
 
 		cache := NewCommandCache(cachePath)
 		testCommands := []*cobra.Command{&cobra.Command{Use: "test"}}
-		cache.Save(testSpec, testCommands)
+		_ = cache.Save(testSpec, testCommands)
 
 		newContent := `{"openapi":"3.0.1"}`
 		_ = os.WriteFile(testSpec, []byte(newContent), 0644)

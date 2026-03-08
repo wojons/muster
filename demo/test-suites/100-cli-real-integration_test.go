@@ -35,7 +35,7 @@ func TestRealCLIIntegration(t *testing.T) {
 				{"id": "1", "name": "Fluffy", "species": "cat"},
 				{"id": "2", "name": "Barky", "species": "dog"},
 			}
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 			return
 		}
 
@@ -113,7 +113,7 @@ paths:
 		if err != nil {
 			t.Fatalf("Failed to execute request: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {

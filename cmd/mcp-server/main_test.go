@@ -121,8 +121,8 @@ func TestSetupStdio(t *testing.T) {
 	require.NotNil(t, stderr, "stderr should not be nil")
 	require.Same(t, stderr, os.Stderr, "stderr should be os.Stderr")
 
-	r.Close()
-	w.Close()
+	_ = r.Close()
+	_ = w.Close()
 
 	// Restore original streams
 	os.Stdin = originalStdin
@@ -689,7 +689,7 @@ paths:
 
 	specPath := "test-relative-spec.yaml"
 	defer func() {
-		os.Remove(specPath)
+		_ = os.Remove(specPath)
 	}()
 
 	err := os.WriteFile(specPath, []byte(specContent), 0644)

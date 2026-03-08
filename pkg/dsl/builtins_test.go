@@ -179,7 +179,7 @@ func TestBuiltinJSONEncode(t *testing.T) {
 	builtin := starlark.NewBuiltin("json_encode", builtinJSONEncode)
 
 	dict := starlark.NewDict(1)
-	dict.SetKey(starlark.String("key"), starlark.String("value"))
+	_ = dict.SetKey(starlark.String("key"), starlark.String("value"))
 
 	result, err := builtin.CallInternal(thread, starlark.Tuple{dict}, nil)
 	if err != nil {

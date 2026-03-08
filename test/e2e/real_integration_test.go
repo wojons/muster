@@ -113,7 +113,7 @@ func TestRealCLIIntegration(t *testing.T) {
 						// List pets endpoint
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusOK)
-						json.NewEncoder(w).Encode([]map[string]interface{}{
+						_ = json.NewEncoder(w).Encode([]map[string]interface{}{
 							{"id": 1, "name": "Fluffy", "tag": "cat"},
 							{"id": 2, "name": "Rex", "tag": "dog"},
 						})
@@ -122,7 +122,7 @@ func TestRealCLIIntegration(t *testing.T) {
 						// Create pet endpoint
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusCreated)
-						json.NewEncoder(w).Encode(map[string]interface{}{
+						_ = json.NewEncoder(w).Encode(map[string]interface{}{
 							"id":     3,
 							"name":   "Spike",
 							"tag":    "dog",
@@ -133,7 +133,7 @@ func TestRealCLIIntegration(t *testing.T) {
 						// Get pet by ID endpoint
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusOK)
-						json.NewEncoder(w).Encode(map[string]interface{}{
+						_ = json.NewEncoder(w).Encode(map[string]interface{}{
 							"id":   1,
 							"name": "Fluffy",
 							"tag":  "cat",
@@ -143,7 +143,7 @@ func TestRealCLIIntegration(t *testing.T) {
 						// Pet not found
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusNotFound)
-						json.NewEncoder(w).Encode(map[string]string{
+						_ = json.NewEncoder(w).Encode(map[string]string{
 							"error": "Pet not found",
 						})
 
@@ -158,7 +158,7 @@ func TestRealCLIIntegration(t *testing.T) {
 					builder := request.NewBuilder(server.URL, "/pets", "GET")
 					resp, err := builder.Execute(ctx)
 					require.NoError(t, err, "Failed to execute request")
-					defer resp.Body.Close()
+					defer func() { _ = resp.Body.Close() }()
 
 					assert.Equal(t, http.StatusOK, resp.StatusCode, "Status code should be 200")
 
@@ -185,7 +185,7 @@ func TestRealCLIIntegration(t *testing.T) {
 
 					resp, err := builder.Execute(ctx)
 					require.NoError(t, err, "Failed to execute request")
-					defer resp.Body.Close()
+					defer func() { _ = resp.Body.Close() }()
 
 					assert.Equal(t, http.StatusCreated, resp.StatusCode, "Status code should be 201")
 
@@ -205,7 +205,7 @@ func TestRealCLIIntegration(t *testing.T) {
 					builder := request.NewBuilder(server.URL, "/pets/1", "GET")
 					resp, err := builder.Execute(ctx)
 					require.NoError(t, err, "Failed to execute request")
-					defer resp.Body.Close()
+					defer func() { _ = resp.Body.Close() }()
 
 					assert.Equal(t, http.StatusOK, resp.StatusCode, "Status code should be 200")
 
@@ -225,7 +225,7 @@ func TestRealCLIIntegration(t *testing.T) {
 					builder := request.NewBuilder(server.URL, "/pets/999", "GET")
 					resp, err := builder.Execute(ctx)
 					require.NoError(t, err, "Failed to execute request")
-					defer resp.Body.Close()
+					defer func() { _ = resp.Body.Close() }()
 
 					assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Status code should be 404")
 				})
@@ -289,7 +289,7 @@ func TestRealEndToEndFlow(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"message": "success",
 			"path":    r.URL.Path,
 			"method":  r.Method,
@@ -300,7 +300,7 @@ func TestRealEndToEndFlow(t *testing.T) {
 	builder := request.NewBuilder(server.URL, "/test", "GET")
 	resp, err := builder.Execute(ctx)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Request should succeed")
 

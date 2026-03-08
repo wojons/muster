@@ -20,7 +20,7 @@ func TestRedisCache_Get(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis not available:", err)
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	value := Value{
 		Data:      []byte("test-data"),
@@ -57,7 +57,7 @@ func TestRedisCache_Get_NotFound(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis not available:", err)
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	_, err = cache.Get(ctx, "non-existent-key")
 	if err != ErrNotFound {
@@ -79,7 +79,7 @@ func TestRedisCache_Set(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis not available:", err)
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	value := Value{
 		Data:      []byte("test-data"),
@@ -116,7 +116,7 @@ func TestRedisCache_Set_WithTTL(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis not available:", err)
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	value := Value{
 		Data:      []byte("test-data"),
@@ -150,7 +150,7 @@ func TestRedisCache_Delete(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis not available:", err)
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	value := Value{
 		Data:      []byte("test-data"),
@@ -185,7 +185,7 @@ func TestRedisCache_Has(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis not available:", err)
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	value := Value{
 		Data:      []byte("test-data"),
@@ -226,7 +226,7 @@ func TestRedisCache_Keys(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis not available:", err)
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	value := Value{
 		Data:      []byte("test-data"),
@@ -261,7 +261,7 @@ func TestRedisCache_Stats(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis not available:", err)
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	stats, err := cache.Stats(ctx)
 	if err != nil {
