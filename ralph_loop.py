@@ -9,6 +9,9 @@ This Python version provides:
 - State machine for complex transitions
 - Plugin architecture for custom behaviors
 - Metrics and monitoring hooks
+- ✅ FIXED: Task completion marking
+- ✅ FIXED: 1-hour retry delay on timeout/failure
+- ✅ FIXED: Proper TODO.md parsing
 """
 
 import argparse
@@ -30,6 +33,11 @@ import yaml
 MAX_AGENT_TIME = 7200  # 2 hours
 MAX_FAILED_ATTEMPTS = 3
 SLEEP_BETWEEN_ITERATIONS = 2
+FAILURE_RETRY_DELAYS = {
+    1: 10,      # First failure: 10 seconds
+    2: 3600,    # Second failure: 1 hour
+    3: 3600,    # Third failure: 1 hour (then stop)
+}
 
 
 # Paths
@@ -60,6 +68,8 @@ class LoopState:
     last_task: Optional[str] = None
     completed_tasks: List[str] = field(default_factory=list)
     failed_attempts: int = 0
+    current_task: Optional[str] = None
+    last_failure: Optional[str] = None
     started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     
     def to_dict(self) -> Dict:
@@ -69,6 +79,8 @@ class LoopState:
             "last_task": self.last_task,
             "completed_tasks": self.completed_tasks,
             "failed_attempts": self.failed_attempts,
+            "current_task": self.current_task,
+            "last_failure": self.last_failure,
             "started_at": self.started_at
         }
     
@@ -80,6 +92,8 @@ class LoopState:
             last_task=data.get("last_task"),
             completed_tasks=data.get("completed_tasks", []),
             failed_attempts=data.get("failed_attempts", 0),
+            current_task=data.get("current_task"),
+            last_failure=data.get("last_failure"),
             started_at=data.get("started_at", datetime.now(timezone.utc).isoformat())
         )
 
@@ -179,22 +193,100 @@ class TaskManager:
         if not self.todo_file.exists():
             return False
         content = self.todo_file.read_text()
-        return bool(re.search(r'^- \[ \]', content, re.MULTILINE))
+        # Check for various task formats
+        patterns = [
+            r'^- \[ \]',  # Standard markdown checkbox
+            r'^## \[IDLE SWEEP',  # Sweep tasks
+            r'^### \*\*[^*]+\*\*.*Priority:',  # Priority tasks
+            r'^### \[ACTIONS REQUIRED\]',  # Action items
+        ]
+        return any(re.search(p, content, re.MULTILINE) for p in patterns)
     
     def count_pending(self) -> int:
         """Count number of pending tasks."""
         if not self.todo_file.exists():
             return 0
         content = self.todo_file.read_text()
-        return len(re.findall(r'^- \[ \]', content, re.MULTILINE))
+        
+        # Only count actual task markers, not bullet points in descriptions
+        count = 0
+        lines = content.split('\n')
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # Pattern 1: Standard checkbox "- [ ] task"
+            if stripped.startswith('- [ ]'):
+                count += 1
+            # Pattern 2: Idle sweep "## [IDLE SWEEP #N] Name"
+            elif stripped.startswith('## [IDLE SWEEP'):
+                count += 1
+            # Pattern 3: Priority task "### **Name** Priority:"
+            elif stripped.startswith('### **') and 'Priority:' in stripped:
+                count += 1
+            # Pattern 4: Action required "### [ACTIONS REQUIRED]"
+            elif stripped.startswith('### [ACTIONS REQUIRED]'):
+                count += 1
+        
+        return count
     
     def get_next_task(self) -> Optional[str]:
         """Get the next pending task description."""
         if not self.todo_file.exists():
             return None
         content = self.todo_file.read_text()
+        
+        # Try standard checkbox first
         match = re.search(r'^- \[ \] (.+)$', content, re.MULTILINE)
-        return match.group(1) if match else None
+        if match:
+            return match.group(1)
+        
+        # Try idle sweep
+        match = re.search(r'^## \[IDLE SWEEP #\d+\] (.+?) \(', content, re.MULTILINE)
+        if match:
+            return f"IDLE SWEEP: {match.group(1)}"
+        
+        # Try priority task
+        match = re.search(r'^### \*\*(.+?)\*\*.*Priority:', content, re.MULTILINE)
+        if match:
+            return f"PRIORITY: {match.group(1)}"
+        
+        # Try action required
+        match = re.search(r'^### \[ACTIONS REQUIRED\] (.+)', content, re.MULTILINE)
+        if match:
+            return f"ACTION: {match.group(1)}"
+        
+        return None
+    
+    def mark_complete(self, task_description: str) -> bool:
+        """Mark a task as complete in TODO.md."""
+        if not self.todo_file.exists():
+            return False
+        
+        content = self.todo_file.read_text()
+        lines = content.split('\n')
+        modified = False
+        
+        for i, line in enumerate(lines):
+            # Pattern 1: Standard checkbox
+            if line.strip().startswith('- [ ]') and task_description in line:
+                lines[i] = line.replace('- [ ]', '- [x]', 1)
+                modified = True
+                break
+            
+            # Pattern 2: Idle sweep (mark status line)
+            if f'IDLE: {task_description}' in line or f'IDLE SWEEP: {task_description}' in line:
+                for j in range(i, min(i+10, len(lines))):
+                    if '**Status**:' in lines[j]:
+                        lines[j] = re.sub(r'⚠️|❌', '✅', lines[j])
+                        modified = True
+                        break
+                break
+        
+        if modified:
+            self.todo_file.write_text('\n'.join(lines))
+        
+        return modified
 
 
 class LogManager:
@@ -462,9 +554,12 @@ class WorkflowEngine:
         while self.tasks.has_pending_tasks():
             iteration = self.state.increment_iteration()
             pending = self.tasks.count_pending()
+            current_task = self.tasks.get_next_task()
             
             self.logger.info("═" * 60)
             self.logger.info(f"Iteration #{iteration} | Pending tasks: {pending}")
+            if current_task:
+                self.logger.info(f"Current task: {current_task[:80]}")
             self.logger.info("═" * 60)
             
             # Build phase
@@ -477,12 +572,40 @@ class WorkflowEngine:
             if not success:
                 failures = self.state.record_failure()
                 
+                # Get retry delay based on failure count
+                delay = FAILURE_RETRY_DELAYS.get(failures, 3600)
+                self.logger.warning(f"Build failed (attempt {failures}), retrying in {delay}s...")
+                
                 if failures >= MAX_FAILED_ATTEMPTS:
                     self.logger.error(f"Too many failures ({failures}). Stopping.")
+                    self.state.state.last_failure = f"Max failures reached: {failures}"
+                    self.state.save()
                     return False
                 
-                self.logger.warning("Build failed, retrying...")
+                time.sleep(delay)
                 continue
+            
+            # Check if agent marked the task complete
+            # (Agent should mark [x] in TODO.md when it believes task is done)
+            if current_task:
+                # Wait a moment for file to be written
+                time.sleep(1)
+                
+                # Check if task is still pending in TODO.md
+                still_pending = self.tasks.has_pending_tasks()
+                next_task = self.tasks.get_next_task()
+                
+                if next_task == current_task:
+                    # Agent didn't mark task complete - may need retry
+                    self.logger.warning(f"Agent succeeded but didn't mark task complete: {current_task[:60]}")
+                    self.logger.info("Task may need manual verification or retry")
+                    # Don't count as failure - just log and continue
+                else:
+                    # Task was marked complete (either by agent or removed)
+                    self.state.state.completed_tasks.append(current_task)
+                    self.state.state.last_task = current_task
+                    self.state.save()
+                    self.logger.success(f"✅ Task completed: {current_task[:80]}")
             
             # Verify phase (if you have a verify prompt)
             verify_prompt = prompt_dir / "PROMPT-VERIFY.md"
