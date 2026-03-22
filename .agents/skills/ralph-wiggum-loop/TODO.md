@@ -1,6 +1,6 @@
 # Ralph Wiggum Loop - Task Queue (Baby Steps)
 
-## Status: 78% Complete | Target: Production Ready
+## Status: 11% Complete (26/223) | Target: Production Ready
 
 ---
 
@@ -91,19 +91,23 @@
 - Effort: 30 min
 - Dependencies: Step 1
 
-#### Step 3: [ ] Generate token on daemon start
+#### Step 3: [x] Generate token on daemon start
 - File: pkg/daemon/controller.go, cmd/daemon/main.go
 - Spec: specs/DAEMON-LIFECYCLE.md lines 45-67
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 2
+- **Completed**: Integrated TokenManager into Controller to generate token on daemon start
+- **Changes**: Added tokenManager field to Controller, generate token in Start() and StartWithSocket(), cleanup on Stop/Kill/Shutdown
 
-#### Step 4: [ ] Create token file with restricted permissions (0600)
+#### Step 4: [x] Create token file with restricted permissions (0600)
 - File: pkg/daemon/token.go
 - Spec: specs/UNIX-SOCKET-PROXY.md lines 56-78
 - Skill: @security-scan
 - Effort: 20 min
 - Dependencies: Step 3
+- **Completed**: TokenManager.Save() already writes files with 0600 permissions
+- **Implementation**: Token file created with os.WriteFile(path, []byte(token), 0600)
 
 #### Step 5: [ ] Add token validation middleware in proxy
 - File: pkg/daemon/proxy.go

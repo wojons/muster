@@ -227,6 +227,9 @@ class TaskManager:
             # Pattern 4: Action required "### [ACTIONS REQUIRED]"
             elif stripped.startswith('### [ACTIONS REQUIRED]'):
                 count += 1
+            # Pattern 5: Baby step format "#### Step X: [ ]"
+            elif re.match(r'^#{2,4}\s+Step\s+\d+:\s*\[\s*\]', stripped):
+                count += 1
         
         return count
     
@@ -256,6 +259,11 @@ class TaskManager:
         if match:
             return f"ACTION: {match.group(1)}"
         
+        # Try baby step format
+        match = re.search(r'^#{2,4}\s+Step\s+(\d+):\s*\[\s*\]\s*(.+)$', content, re.MULTILINE)
+        if match:
+            return f"STEP {match.group(1)}: {match.group(2)}"
+        
         return None
     
     def mark_complete(self, task_description: str) -> bool:
@@ -281,6 +289,13 @@ class TaskManager:
                         lines[j] = re.sub(r'⚠️|❌', '✅', lines[j])
                         modified = True
                         break
+                break
+            
+            # Pattern 3: Baby step format "#### Step X: [ ]"
+            step_match = re.match(r'^(\s*#{2,4}\s+Step\s+\d+:\s*)\[\s*\](.*)$', line)
+            if step_match and task_description in line:
+                lines[i] = f"{step_match.group(1)}[x]{step_match.group(2)}"
+                modified = True
                 break
         
         if modified:

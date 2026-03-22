@@ -119,6 +119,7 @@ func handleStart(controller *daemon.Controller) error {
 	fmt.Println("Daemon started successfully")
 	fmt.Printf("PID file: %s\n", pidFile)
 	fmt.Printf("Socket: %s\n", socketPath)
+	fmt.Printf("Token file: %s\n", controller.GetTokenPath())
 
 	// Setup signal handlers
 	controller.SetupSignalHandlers()
@@ -156,6 +157,7 @@ func handleProxyStart(controller *daemon.Controller) error {
 
 	fmt.Println("Proxy daemon started successfully")
 	fmt.Printf("Socket: %s\n", socketPath)
+	fmt.Printf("Token file: %s\n", controller.GetTokenPath())
 	fmt.Println("\nTest with:")
 	fmt.Printf("  curl --unix-socket %s http://localhost/\n", socketPath)
 
@@ -216,6 +218,7 @@ func handleStatus(controller *daemon.Controller) error {
 	fmt.Printf("  PID:         %d\n", status.PID)
 	fmt.Printf("  Start time:  %v\n", status.StartTime)
 	fmt.Printf("  Socket:      %s\n", "/tmp/muster-daemon.sock")
+	fmt.Printf("  Token file:  %s\n", controller.GetTokenPath())
 	fmt.Printf("  Version:     %s\n", status.Version)
 	return nil
 }
