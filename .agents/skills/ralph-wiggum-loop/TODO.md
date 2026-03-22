@@ -967,12 +967,23 @@
 - **Added**: GetViper() for accessing internal viper instance
 - **Tests**: 12 comprehensive test functions covering flag binding, env vars, and integration
 
-#### Step 2: [ ] Implement WatchConfig() for hot reload
+#### Step 2: [x] Implement WatchConfig() for hot reload
 - File: pkg/config/watcher.go
 - Spec: specs/VIPER-INTEGRATION.md lines 56-85
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: Step 1
+- **Completed**: Implemented Watcher struct with fsnotify-based configuration hot reload
+- **Features**: 
+  - NewWatcher constructor with viper instance and callback
+  - WatchConfig() method using Viper's built-in fsnotify integration
+  - Stop() method for graceful shutdown
+  - IsWatching() for status checking
+  - GetConfig() to retrieve typed Config struct
+  - Thread-safe with sync.RWMutex
+  - Comprehensive error handling
+- **Tests**: 8 test functions covering WatchConfig, Stop, GetConfig, concurrent access, and multiple file changes
+- **All tests passing**: 8/8 ✅
 
 #### Step 3: [ ] Implement SetProfile() for profile switching
 - File: pkg/config/profiles.go
