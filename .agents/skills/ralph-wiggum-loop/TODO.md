@@ -298,39 +298,54 @@
 - **Tests**: 25 test functions, all passing ✅
 - **Coverage**: All flag types (String, Int, Bool, URL, IP, Email, Path), validation scenarios, error cases
 
-#### Step 5: [ ] Implement URLValidator
+#### Step 5: [x] Implement URLValidator
 - File: internal/cli/flags/validators.go
 - Spec: specs/COBRA-INTEGRATION.md lines 121-145
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: Step 4
+- **Completed**: Implemented URLValidator with AllowedSchemes, RequireHost, and AllowRelative options
+- **Features**: Scheme validation, host requirement, relative URL support
+- **Tests**: 6 test functions covering valid/invalid URLs, scheme restrictions, and relative paths
 
-#### Step 6: [ ] Implement IPValidator (IPv4, IPv6)
+#### Step 6: [x] Implement IPValidator (IPv4, IPv6)
 - File: internal/cli/flags/validators.go
 - Spec: specs/COBRA-INTEGRATION.md lines 146-170
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 5
+- **Completed**: Implemented IPValidator with IPv4/IPv6 support and private network filtering
+- **Features**: IPv4-only, IPv6-only modes, loopback blocking, private range blocking
+- **Tests**: 9 test functions covering valid/invalid IPs, version restrictions, and network policies
 
-#### Step 7: [ ] Implement EmailValidator
+#### Step 7: [x] Implement EmailValidator
 - File: internal/cli/flags/validators.go
 - Spec: specs/COBRA-INTEGRATION.md lines 171-190
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 6
+- **Completed**: Implemented EmailValidator using mail.ParseAddress for RFC compliance
+- **Features**: Domain restriction, case-insensitive domain matching
+- **Tests**: 4 test functions covering valid/invalid emails and domain restrictions
 
-#### Step 8: [ ] Implement PathValidator (exists, readable, writable)
+#### Step 8: [x] Implement PathValidator (exists, readable, writable)
 - File: internal/cli/flags/validators.go
 - Spec: specs/COBRA-INTEGRATION.md lines 191-220
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 7
+- **Completed**: Implemented PathValidator with comprehensive file system validation
+- **Features**: Existence check, file/directory type validation, read/write permissions, symlink resolution, absolute path requirement
+- **Tests**: 11 test functions covering all validation scenarios
 
-#### Step 9: [ ] Add unit tests for all validators
+#### Step 9: [x] Add unit tests for all validators
 - File: internal/cli/flags/validators_test.go
 - Skill: @testing-unit
 - Effort: 45 min
 - Dependencies: Step 8
+- **Completed**: Comprehensive test suite with 50+ test cases across all validators
+- **Coverage**: URL (22 tests), IP (28 tests), Email (15 tests), Path (35 tests)
+- **Total**: 456 lines of test code, all tests passing
 
 #### Step 10: [ ] Add integration tests with Cobra commands
 - File: internal/cli/flags/integration_test.go
