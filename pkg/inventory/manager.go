@@ -128,12 +128,17 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		return nil, fmt.Errorf("failed to initialize inventory cache: %w", err)
 	}
 
+	var logger Logger = &defaultLogger{}
+	if config.Logger != nil {
+		logger = config.Logger
+	}
+
 	return &Manager{
 		fetcher:   NewFetcher(nil),
 		validator: NewValidator(),
 		cache:     cache,
 		versioner: NewVersionManager(),
-		logger:    &defaultLogger{},
+		logger:    logger,
 	}, nil
 }
 

@@ -1619,11 +1619,26 @@
 - **All tests passing**: 37/37 ✅
 - **Coverage**: Constructor, Start, Stop, Kill, Restart, Status, Shutdown, Signal handling, HTTP serving, Token management, Permission validation, Concurrent access, Error handling
 
-#### Step 5: [ ] Create pkg/inventory/manager_test.go
+#### Step 5: [x] Create pkg/inventory/manager_test.go
 - File: pkg/inventory/manager_test.go
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: None
+- **Completed**: Created comprehensive unit tests for the Manager struct
+- **Tests Added**: 33 test functions covering:
+  - Constructor tests (ValidConfig, DefaultCacheDir, NilLogger)
+  - Fetch tests (FetchFromNetworkSuccess, FetchFromCache, ForceRefreshIgnoresCache, NetworkErrorFallsBackToStaleCache, NetworkErrorNoCache, InvalidJSON, ValidationError, ContextCancellation)
+  - FetchOpenAPISpec tests (FetchSpecSuccess, FetchSpecFromCache, NoOpenAPISpecReference, SHA256Mismatch, FetchSpecNetworkError, InvalidSpecJSON)
+  - ListCached tests (EmptyCache, WithCachedInventories)
+  - PurgeCache tests (PurgeExistingHost, PurgeNonExistentHost)
+  - GetVersionHistory tests (NoHistory, WithHistory)
+  - buildInventoryURL tests (WithHTTPSPrefix, WithHTTPPrefix, WithoutPrefix, WithTrailingSlash)
+  - parseInventory tests (ValidInventory, InvalidJSON, PartialInventory)
+  - ConcurrentAccess tests
+  - FullLifecycle integration test
+- **Bug Fixed**: NewManager now correctly uses config.Logger instead of always using defaultLogger
+- **Lines**: ~859 lines of test code
+- **All tests passing**: 33/33 ✅
 
 ---
 
