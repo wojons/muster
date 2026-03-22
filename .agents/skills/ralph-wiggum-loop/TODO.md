@@ -400,12 +400,25 @@
 - **Features**: JSON/YAML tags, String() and IsValid() methods, constructor functions
 - **Tests**: 8 test functions covering all scenarios, all passing ✅
 
-#### Step 3: [ ] Create Manager struct with mutex-protected aliases map
+#### Step 3: [x] Create Manager struct with mutex-protected aliases map
 - File: internal/alias/manager.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 46-75
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 2
+- **Completed**: Implemented Manager struct with sync.RWMutex, map[string]*Alias, and file persistence
+- **Features**:
+  - NewManager constructor with automatic loading
+  - Define/DefineWithDescription for creating/updating aliases
+  - Remove for deleting aliases
+  - Get for retrieving single alias
+  - List for getting all aliases (returns copy)
+  - Expand for expanding aliases in command args
+  - Thread-safe operations with RWMutex
+  - YAML persistence with automatic directory creation
+  - Validation for reserved names and whitespace
+- **Tests**: 22 test functions with 100% coverage of Manager methods
+- **Linting**: All checks passing
 
 #### Step 4: [ ] Implement Define(name, command string) error
 - File: internal/alias/manager.go
