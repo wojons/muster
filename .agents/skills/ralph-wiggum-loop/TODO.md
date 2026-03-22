@@ -492,25 +492,45 @@
 - **Tests**: 3 test cases covering basic expansion, chained aliases, and depth limit errors
 - **All tests passing**: ✅
 
-#### Step 10: [ ] Create storage.go with YAML persistence
+#### Step 10: [x] Create storage.go with YAML persistence
 - File: internal/alias/storage.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 211-245
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: Step 9
+- **Completed**: Created Storage interface and YAMLStorage implementation
+- **Features**:
+  - `Storage` interface with `Load()`, `Save()`, `Path()` methods
+  - `YAMLStorage` struct with thread-safe operations (sync.RWMutex)
+  - Automatic parent directory creation on Save
+  - Proper error handling for file operations
+  - File permissions 0644 for YAML files
+- **Tests**: 7 test functions with 18 test cases, all passing ✅
 
-#### Step 11: [ ] Implement Load/Save methods
+#### Step 11: [x] Implement Load/Save methods
 - File: internal/alias/storage.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 246-275
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 10
+- **Completed**: Load and Save methods implemented in YAMLStorage
+- **Load()**: Reads YAML file, returns empty map if file doesn't exist
+- **Save()**: Marshals aliases to YAML, creates directories, writes file
+- **Thread Safety**: Both methods use mutex locks for concurrent access
+- **Tests**: Round-trip and concurrency tests verify correctness ✅
 
-#### Step 12: [ ] Add unit tests for Manager and Expander
-- File: internal/alias/manager_test.go, expander_test.go
+#### Step 12: [x] Add unit tests for Manager and Expander
+- File: internal/alias/manager_test.go, expander_test.go, storage_test.go
 - Skill: @testing-unit
 - Effort: 45 min
 - Dependencies: Step 11
+- **Completed**: Comprehensive test coverage for all components
+- **Manager Tests**: 10 test functions covering NewManager, Define, Remove, Get, List, Expand, Count, Clear, concurrency
+- **Expander Tests**: 11 test functions covering ExpandCommand, ExpandOnce, circular detection, depth limits, concurrency
+- **Storage Tests**: 7 test functions covering Load, Save, round-trip, concurrency
+- **Bug Fixes**: Fixed deadlock in Manager.Remove(), fixed shallow copy in Manager.List()
+- **Total**: 28 test functions, 100+ test cases, all passing ✅
+- **Lint**: 0 issues ✅
 
 ---
 
