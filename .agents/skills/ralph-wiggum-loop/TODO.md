@@ -1067,12 +1067,35 @@
 - **All tests passing**: ✅
 - **Lint**: 0 issues ✅
 
-#### Step 2: [ ] Define RedactionRule struct
+#### Step 2: [x] Define RedactionRule struct
 - File: internal/audit/redaction.go
 - Spec: specs/EVENTS-AUDIT.md lines 44-82
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 1
+- **Completed**: Implemented RedactionRule struct and Redactor with comprehensive redaction capabilities
+- **Implementation**:
+  - Created `RedactionRule` struct with Pattern, Replacement, FieldPaths, and Mandatory fields
+  - Defined `MandatoryRedactionRules` covering passwords, tokens, secrets, credit cards, SSNs
+  - Implemented `Redactor` struct with pre-compiled regex patterns for performance
+  - Added `NewRedactor()` constructor with mandatory rules
+  - Implemented `RedactEvent()` method for applying redactions to audit events
+  - Created placeholder `AuditEvent` type in types.go for compilation
+- **Features**:
+  - Case-insensitive field matching (e.g., "password", "PASSWORD", "Password")
+  - Recursive descent path support (e.g., "$..password" finds field anywhere in structure)
+  - Direct path support (e.g., "$.metadata.password")
+  - Thread-safe operations
+- **Tests**: 18 test functions covering:
+  - RedactionRule struct validation
+  - MandatoryRedactionRules coverage
+  - NewRedactor initialization
+  - Basic redaction scenarios (password, token, api_key)
+  - Case-insensitive field matching
+  - Nested data redaction
+  - Concurrent access safety
+- **All tests passing**: 18/18 ✅
+- **Lint**: 0 issues ✅
 
 #### Step 3: [ ] Create Redactor with MandatoryRedactionRules
 - File: internal/audit/redaction.go
