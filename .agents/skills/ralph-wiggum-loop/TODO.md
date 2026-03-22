@@ -1644,11 +1644,29 @@
 
 ### TEST-002: MCP Package Tests
 
-#### Step 1: [ ] Create pkg/mcp/converter_test.go
+#### Step 1: [x] Create pkg/mcp/converter_test.go
 - File: pkg/mcp/converter_test.go
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: None
+- **Completed**: Created comprehensive unit tests for the Converter
+- **Test Coverage**:
+  - `TestNewConverter`: Constructor validation with various base URLs
+  - `TestOpenAPITool_ToHandlersTool`: Conversion from OpenAPITool to handlers.Tool
+  - `TestConverter_ConvertToTools_EmptySpec`: Empty spec handling
+  - `TestConverter_ConvertToTools_SingleOperation`: Single operation conversion
+  - `TestConverter_ConvertToTools_MultipleOperations`: Multiple operations conversion
+  - `TestConverter_ConvertToTools_WithParameters`: Path and query parameter handling
+  - `TestConverter_ConvertToTools_WithRequestBody`: Request body handling
+  - `TestConverter_getToolName`: Tool name generation (operationID and path-based)
+  - `TestConverter_getToolDescription`: Description extraction (summary/description fallback)
+  - `TestConverter_getParameterType`: Parameter type determination
+  - `TestConverter_extractResource`: Resource extraction from paths
+  - `TestConverter_getAction`: HTTP method to action name conversion
+  - `TestToKebabCase`: CamelCase to kebab-case conversion
+  - `TestConverter_ConvertToTools_RefsIgnored`: Reference parameter filtering
+- **Lines**: 541 lines of comprehensive test code
+- **All tests passing**: 14 test functions, 40+ sub-tests ✅
 
 #### Step 2: [ ] Create pkg/mcp/handlers/prompts_test.go
 - File: pkg/mcp/handlers/prompts_test.go
