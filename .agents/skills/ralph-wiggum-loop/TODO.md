@@ -347,11 +347,28 @@
 - **Coverage**: URL (22 tests), IP (28 tests), Email (15 tests), Path (35 tests)
 - **Total**: 456 lines of test code, all tests passing
 
-#### Step 10: [ ] Add integration tests with Cobra commands
+#### Step 10: [x] Add integration tests with Cobra commands
 - File: internal/cli/flags/integration_test.go
 - Skill: @testing-integration
 - Effort: 40 min
 - Dependencies: Step 9
+- **Completed**: Created comprehensive integration tests covering 15 test scenarios
+- **Tests Added**:
+  - FullCommandLifecycle: Complete bind → parse → validate flow
+  - AllFlagTypes: String, Int, Bool, URL, IP, Email, Path types
+  - URLValidatorWithCobra: Scheme validation integration
+  - IPValidatorWithCobra: Private/loopback network blocking
+  - EmailValidatorWithCobra: Domain restriction validation
+  - PathValidatorWithCobra: File existence validation
+  - RequiredFlagsWithCobra: Required flag enforcement
+  - EnvironmentVariableWithCobra: EnvVar configuration storage
+  - SubcommandsWithFlags: Parent/subcommand flag sets
+  - FlagShorthands: Shorthand flag support
+  - HiddenAndDeprecatedFlags: Flag visibility attributes
+  - MultipleValidationErrors: Error aggregation
+  - ComplexScenario: Real-world CLI tool simulation
+  - ParserReusability: Parser reuse across commands
+- **Total**: 572 lines of integration test code, all tests passing ✅
 
 ---
 
