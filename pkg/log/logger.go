@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +23,60 @@ const (
 	LevelFatal = zerolog.FatalLevel
 	LevelPanic = zerolog.PanicLevel
 )
+
+var (
+	sensitivePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)password`),
+		regexp.MustCompile(`(?i)passwd`),
+		regexp.MustCompile(`(?i)secret`),
+		regexp.MustCompile(`(?i)token`),
+		regexp.MustCompile(`(?i)api[_-]?key`),
+		regexp.MustCompile(`(?i)apikey`),
+		regexp.MustCompile(`(?i)auth[_-]?key`),
+		regexp.MustCompile(`(?i)private[_-]?key`),
+		regexp.MustCompile(`(?i)access[_-]?token`),
+		regexp.MustCompile(`(?i)refresh[_-]?token`),
+		regexp.MustCompile(`(?i)bearer`),
+		regexp.MustCompile(`(?i)credential`),
+		regexp.MustCompile(`(?i)client[_-]?secret`),
+		regexp.MustCompile(`(?i)master[_-]?key`),
+		regexp.MustCompile(`(?i)encryption[_-]?key`),
+		regexp.MustCompile(`(?i)signing[_-]?key`),
+		regexp.MustCompile(`(?i)certificate[_-]?key`),
+	}
+	redactedValue = "***REDACTED***"
+)
+
+func isSensitiveField(field string) bool {
+	fieldLower := strings.ToLower(field)
+	for _, pattern := range sensitivePatterns {
+		if pattern.MatchString(fieldLower) {
+			return true
+		}
+	}
+	return false
+}
+
+func redactIfSensitive(field, value string) string {
+	if isSensitiveField(field) {
+		return redactedValue
+	}
+	return value
+}
+
+type SensitiveString string
+
+func (s SensitiveString) MarshalJSON() ([]byte, error) {
+	return json.Marshal(redactedValue)
+}
+
+func (s SensitiveString) String() string {
+	return redactedValue
+}
+
+func (s SensitiveString) Value() string {
+	return string(s)
+}
 
 type Logger struct {
 	logger zerolog.Logger
@@ -335,6 +391,8 @@ func (al *AuditLogger) Log(event AuditEvent) error {
 	event.ID = generateEventID()
 	event.Timestamp = time.Now().UTC()
 
+	event.Details = redactMapValues(event.Details)
+
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("marshal audit event: %w", err)
@@ -346,6 +404,38 @@ func (al *AuditLogger) Log(event AuditEvent) error {
 	}
 
 	return nil
+}
+
+func redactMapValues(m map[string]interface{}) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		result[k] = redactValue(k, v)
+	}
+	return result
+}
+
+func redactValue(key string, value interface{}) interface{} {
+	if isSensitiveField(key) {
+		return redactedValue
+	}
+
+	switch v := value.(type) {
+	case string:
+		return v
+	case map[string]interface{}:
+		return redactMapValues(v)
+	case []interface{}:
+		result := make([]interface{}, len(v))
+		for i, item := range v {
+			result[i] = redactValue(key, item)
+		}
+		return result
+	default:
+		return value
+	}
 }
 
 func (al *AuditLogger) LogAuth(user, action, result string) error {
@@ -382,8 +472,8 @@ func (al *AuditLogger) LogConfigChange(user, field, oldValue, newValue string) e
 		Action: fmt.Sprintf("update.%s", field),
 		Details: map[string]interface{}{
 			"field":     field,
-			"old_value": oldValue,
-			"new_value": newValue,
+			"old_value": redactIfSensitive(field, oldValue),
+			"new_value": redactIfSensitive(field, newValue),
 		},
 	})
 }

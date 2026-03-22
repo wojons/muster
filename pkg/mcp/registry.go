@@ -147,7 +147,7 @@ func (e *ToolExecutor) validateArgs(schema json.RawMessage, args map[string]inte
 func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string]interface{}) (interface{}, error) {
 	config, ok := e.configs[name]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("tool %q not found in registry", name)
 	}
 
 	// CRITICAL SECURITY FIX: Validate inputs against JSON Schema before execution

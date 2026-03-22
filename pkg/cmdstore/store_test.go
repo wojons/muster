@@ -582,10 +582,7 @@ func TestCommandStore_Commands(t *testing.T) {
 }
 
 // TestCommandStore_UpdateBaseURL verifies updating base URL
-// NOTE: This test is skipped due to a deadlock bug in the implementation.
-// UpdateBaseURL acquires a lock and then calls Save() which also tries to acquire the lock.
 func TestCommandStore_UpdateBaseURL(t *testing.T) {
-	t.Skip("Skipping due to deadlock bug in UpdateBaseURL implementation")
 	tmpDir := t.TempDir()
 
 	tests := []struct {

@@ -35,40 +35,6 @@ type Keychain interface {
 	List(service string) ([]Account, error)
 }
 
-// SecretServiceKeychain provides Linux Secret Service integration via D-Bus
-// REQUIRES: github.com/godbus/dbus/v5 dependency to be added to go.mod
-// Implementation includes org.freedesktop.secrets interface
-type SecretServiceKeychain struct {
-	// Placeholder for future D-Bus Secret Service integration
-	// TODO: Implement complete Secret Service protocol support with dbus library
-}
-
-func NewSecretServiceKeychain() (*SecretServiceKeychain, error) {
-	// Placeholder: return actual Secret Service keychain when dbus is integrated
-	// Currently returns error to trigger fallback to file keychain
-	return nil, ErrNotFound
-}
-
-func (s *SecretServiceKeychain) Set(service, account string, data []byte) error {
-	// TODO: Implement Secret Service D-Bus call
-	return nil
-}
-
-func (s *SecretServiceKeychain) Get(service, account string) ([]byte, error) {
-	// TODO: Implement Secret Service D-Bus call
-	return nil, ErrNotFound
-}
-
-func (s *SecretServiceKeychain) Delete(service, account string) error {
-	// TODO: Implement Secret Service D-Bus call
-	return nil
-}
-
-func (s *SecretServiceKeychain) List(service string) ([]Account, error) {
-	// TODO: Implement Secret Service D-Bus call
-	return nil, nil
-}
-
 type MacOSKeychain struct{}
 
 func (k *MacOSKeychain) Set(service, account, password string) error {
