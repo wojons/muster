@@ -898,12 +898,19 @@
 
 ### FEAT-002: HTTP Canonicalization
 
-#### Step 1: [ ] Create pkg/httputil/canonical.go
+#### Step 1: [x] Create pkg/httputil/canonical.go
 - File: pkg/httputil/canonical.go
 - Spec: specs/HTTP-CANONICALIZATION.md
 - Skill: @testing-unit
 - Effort: 10 min
 - Dependencies: None
+- **Completed**: Created comprehensive package with URL and header canonicalization
+- **Features**:
+  - `CanonicalizeURL()` - Lowercases scheme/host, removes default ports, sorts query params
+  - `CanonicalizeHeaders()` - Lowercases header names, sorts header values
+  - `CanonicalizeRequest()` - Applies both URL and header canonicalization
+- **Tests**: 6 test functions with 63 test cases, all passing ✅
+- **Lines**: 169 lines of code + 470 lines of tests
 
 #### Step 2: [ ] Define URL normalization rules
 - File: pkg/httputil/canonical.go
