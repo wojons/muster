@@ -609,7 +609,7 @@ func (ds *DatabaseStorage) Query(filter Filter) ([]*Event, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query audit events: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []*Event
 	for rows.Next() {
@@ -630,7 +630,7 @@ func (ds *DatabaseStorage) Query(filter Filter) ([]*Event, error) {
 		}
 
 		if len(data) > 0 {
-			json.Unmarshal(data, &event.Context)
+			_ = json.Unmarshal(data, &event.Context)
 		}
 
 		events = append(events, &event)

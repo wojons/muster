@@ -1,121 +1,304 @@
-# Spec Conformance Sweep Session 62
+# Spec Conformance Sweep - Session 62
 
-## Analyzed Specs (3 random samples)
+**Date**: 2026-03-12
+**Session**: 62
+**Purpose**: Idle-time spec conformance analysis - 3 random specs
 
-### 1. QUOTA-MANAGEMENT.md (comprehensive enterprise spec)
-- **Category**: Enterprise SaaS Multi-Tenant Quota Management
-- **Status**: ❌ CORRECTLY OMITTED (Enterprise SaaS feature beyond Go CLI scope)
-- **Spec describes**: Complete quota management system for multi-tenant SaaS platform
-  - Quota Architecture with Quota Engine, Usage Tracker, Enforcement Engine (lines 11-37)
-  - Quota Store (PostgreSQL) and Usage Store (Redis) for multi-tenant tracking (lines 40-52)
-  - Multiple Quota Types:
-    * API Rate Limits: api_requests, api_calls (lines 70-73)
-    * Compute Limits: execution_time, cpu_time, memory (lines 75-78)
-    * Storage Limits: storage_bytes, storage_files, cache_size (lines 80-83)
-    * Network Limits: bandwidth_in, bandwidth_out (lines 85-87)
-    * Tenant Limits (lines 89+)
-  - Quota Enforcement Flow: Check Quota → Consume Quota → Execute Release on Error (lines 54-85)
-  - Action Handler for blocking/throttling (lines 87-92)
-- **Evidence**: NO quota management system exists in codebase
-  - NO internal/quota/ directory exists
-  - NO QuotaEngine, UsageTracker, EnforcementEngine
-  - NO PostgreSQL quota store implementation
-  - NO Redis usage store implementation
-  - NO CheckQuota(), ConsumeQuota(), ActionHandler functions
-- **Implementation context**: Go CLI is single-user local tool, NOT multi-tenant SaaS platform with quota allocation
-- **Note**: Spec describes enterprise multi-tenant quota management (similar to MULTI-TENANCY.md Session 57), actual is Go CLI without resource quotas
+---
 
-### 2. MCP-PROTOCOL.md (MCP protocol specification)
-- **Category**: MCP Protocol (stdio-based AI client communication)
-- **Status**: ✅ IMPLEMENTED (3488 lines of implementation in pkg/mcp/)
-- **Spec describes**: Complete Model Context Protocol specification for stdio communication
-  - Protocol Flow: initialize → tools/list → tools/call with JSON-RPC 2.0 over stdio (lines 8-30)
-  - Client/Server initialization with protocolVersion and capabilities (lines 32-42)
-  - Architecture diagrams showing Client → Server → Tools → API communication (lines 44-52)
-  - Methods: initialize, shutdown, tools/list, tools/call (lines 54+)
-- **Evidence**: pkg/mcp/ directory exists with 3488 lines of implementation
-  - ✅ pkg/mcp/protocol.go (5616 bytes) - protocol definitions
-  - ✅ pkg/mcp/server.go (4134 bytes) - server implementation
-  - ✅ pkg/mcp/registry.go (5128 bytes) - tool registry
-  - ✅ pkg/mcp/handlers/ directory (10 handler files) - protocol handlers
-  - ✅ pkg/mcp/openapi_integration.go (5656 bytes) - OpenAPI integration
-  - ✅ Tests: pkg/mcp/*_test.go files
-  - ✅ Total: 3488 lines of MCP protocol implementation code
-- **Implementation context**: MCP protocol fully implemented with stdio-based JSON-RPC 2.0 communication to AI clients
-- **Note**: Spec is protocol specification (not implementation guide), actual implementation matches protocol flow
+## Analyzed Specs
 
-### 3. UNIX-SOCKET-PROXY.md (daemonsocket proxy)
-- **Category**: Go CLI MVP (daemon proxy infrastructure)
-- **Status**: ‼️ DUPLICATE - Previously analyzed as DAEMON-PROXY.md (Session 22)
-- **Status**: ⚠️ PARTIAL (60% - 261-line actual vs 428-line spec, basic proxy present, missing advanced features)
-- **Previous verification** (Session 22):
-  - Evidence: pkg/daemon/proxy.go (261 lines)
-  - ✅ ProxyServer, ProxyHandler, httputil.ReverseProxy present
-  - ❌ MISSING: ConnectionPool (spec lines 228-301)
-  - ❌ MISSING: KeepAliveManager (lines 342-414)
-  - Status: PARTIAL (60%)
-- **Spec describes**: Unix socket proxy for daemon communication
-  - Architecture: Client → Unix Socket → Proxy → Application (diagram lines 8-18)
-  - Request Flow: Start proxy → Create socket → Connect → Parse HTTP → Route → Process → Return response (lines 20-30)
-  - Set secure permissions (0600) on Unix socket (lines 28-30)
-- **Evidence**: pkg/daemon/proxy.go exists (261 lines)
-  - ✅ Basic HTTP proxy with httputil.ReverseProxy
-  - ❌ NO ConnectionPool implementation
-  - ❌ NO KeepAliveManager implementation
-  - ❌ NO socket permission validation (spec requires 0600)
-- **Note**: This appears to be same specification as DAEMON-PROXY.md from Session 22 (proxy functionality already analyzed)
+1. **TEST-MAPPING.md** (754 lines)
+2. **DOMAIN-MODULE.md** (245 lines)
+3. **OPS-ALERTING.md** (187 lines)
 
-## Summary
-Session 62 analyzed 3 specs:
-1. ❌ Omitted: Enterprise quota management (multi-tenant SaaS, not Go CLI)
-2. ✅ Implemented: MCP protocol (3488 lines of stdio-based JSON-RPC implementation)
-3. ⚠️ Partial: Unix socket proxy (60% - basic proxy, missing connection pooling)
+---
 
-**Sample size**: 178/227 specs (78.4%, up from 77.1%)
+## 1. TEST-MAPPING.md (❌ NOT IMPLEMENTED - 0% CONFORMANCE)
 
-**Key findings**:
-- 1/3 specs are enterprise SaaS features correctly omitted (QUOTA-MANAGEMENT)
-- 1/3 specs are fully implemented (MCP-PROTOCOL with 3488 lines)
-- 1/3 specs are duplicates of already-analyzed features (UNIX-SOCKET-PROXY = DAEMON-PROXY Session 22)
+**Spec Summary**: Comprehensive test mapping strategy linking requirements, specifications, implementation, and test cases.
 
-**Pattern continued**: 
-- Enterprise SaaS multi-tenant features (quotas, multi-tenancy) correctly omitted
-- Core communication protocols (MCP) fully implemented with significant code
-- Duplicate specifications detected across sessions (proxy specs re-encounter)
+### Implementation Status
 
-**Cumulative stats** (178/227 = 78.4% analyzed with high confidence):
+**Conformance**: 0% (spec describes Python+Rust implementation, project is Go)
 
-Breakdown by category:
-- Go CLI MVP core features: 45 specs (25%)
-- Implemented: 27/45 (60%)
-- Partial: 10/45 (22%)
-- Not found: 8/45 (18%)
+**Key Issues**:
 
-- Enterprise SaaS (SDK/multi-tenancy): 48 specs (27%)  
-- Correctly omitted: 48/48 (100%)
+1. **Language Mismatch**
+   - Spec: Python scripts for test mapping (`tests/mapping/generate-map.py`)
+   - Spec: Rust code examples (`src/auth/mod.rs`, `tests/test_auth.rs`)
+   - Project: Go-based implementation
+   - Build system: Go with Makefile, not Python or Rust
 
-- Meta-documentation: 38 specs (21%)
-- Properly omitted: 38/38 (100%)
+2. **Technology Mismatch**
+   - Spec: `cargo-tarpaulin` for Rust coverage
+   - Actual: `go test -cover` for Go coverage
+   - Spec: `.github/workflows/coverage.yml` with cargo setup
+   - Actual: GitHub Actions use Go toolchain
 
-- Testing/Quality: 18 specs (10%)
-- Implemented: 5/18 (28%)
-- Partial: 7/18 (39%)
-- Not found: 6/18 (33%)
+3. **Project Structure Mismatch**
+   - Spec: `src/auth/mod.rs`, `src/cli/mod.rs` (Rust structure)
+   - Actual: `pkg/auth/`, `pkg/cli/` (Go structure)
+   - Spec: `tests/test_auth.rs`, `tests/test_cli.rs`
+   - Actual: `pkg/auth/..._test.go`, internal testing patterns
 
-- Operational: 19 specs (11%)
-- Implemented: 2/19 (11%)
-- Partial: 3/19 (16%)
-- Not found: 14/19 (74%)
+### Evidence
 
-Implementation quality assessment:
-- 27/178 (15%) fully implemented match spec
-- 52/178 (29%) partially implemented
-- 48/178 (27%) correctly omitted (not in scope)
-- 18/178 (10%) duplicates of already-analyzed
-- 33/178 (19%) not implemented
+```
+$ grep -n "tests/mapping/generate-map.py" specs/TEST-MAPPING.md
+103:**File**: `tests/mapping/generate-map.py`
 
-Key insights:
-- Go CLI core features (60%+ implemented/partial): Command generation (✅), Auth (✅), Inventory (✅), MCP (✅), CLI framework (✅)
-- Enterprise features (100% correctly omitted): SDK templates, quota management, multi-tenancy
-- Meta-docs (100% correctly omitted): Architecture guides, reference implementations, quick-start guides
-- Testing infrastructure (28% implemented): Unit tests present, integration tests partial, advanced test frameworks missing
+$ grep -n "cargo-tarpaulin" specs/TEST-MAPPING.md
+495:          run: cargo install cargo-tarpaulin
+
+$ find . -name "generate-map.py"
+[Not found]
+
+$ find . -path "*/tests/mapping"
+[Not found]
+```
+
+### Impact Assessment
+
+**Functional Impact**: NONE (0% conformance = wrong technology)
+
+- Go has its own testing patterns
+- Test mapping not a requirement for MVP
+- Go's testing ecosystem different from Rust/Python
+
+### Recommendation
+
+**Mark Spec as Outdated** (5 minutes):
+1. Add note: "This spec describes a Rust+Python testing framework not applicable to Go codebase"
+2. Document that Go uses standard testing patterns
+3. Deactivate from conformance tracking
+
+---
+
+## 2. DOMAIN-MODULE.md (❌ NOT IMPLEMENTED - 5% CONFORMANCE)
+
+**Spec Summary**: 245-line WASM module entity specification with complete type definitions.
+
+### Implementation Status
+
+**Conformance**: 5% (partial, actual Module structs serve different purposes)
+
+**Spec Requirements**:
+
+```go
+// Spec: DOMAIN-MODULE.md
+type Module struct {
+    ID            string           // UUID4
+    InventoryID   string           // UUID4
+    Name          string           // min=3,max=100
+    Version       string           // semver
+    Runtime       ModuleRuntime    // {wasmer|wasmtime|wazero}
+    Binary        ModuleBinary     // {url,size,format,checksum}
+    Signature     ModuleSignature  // {algorithm,publicKey,signature}
+    Capabilities  []Capability     // HTTP, File, Network, etc.
+    Interfaces    []Interface      // Functions, Imports, Exports
+    Metadata      ModuleMetadata   // Language, Compiler, Build-Time
+    Status        ModuleStatus     // pending, compiled, validated, etc.
+}
+
+type ModuleRuntime struct {
+    Engine      RuntimeEngine  // wasmer|wasmtime|wazero
+    Version     string
+    Memory      MemoryConfig   // minPages, maxPages
+    WASI        bool
+    Threads     bool
+    SIMD        bool
+}
+
+type ModuleBinary struct {
+    URL         string
+    Size        int64
+    Format      BinaryFormat   // wasm|wat
+    Checksum    BinaryChecksum // sha256/sha384/sha512
+    Compression CompressionType // gzip/brotli/zstd
+}
+```
+
+**Actual Implementation**:
+
+1. **Database Module** (pkg/repository/repository.go:58):
+```go
+// Actual: Database entity, not WASM module
+type Module struct {
+    ID          int64      // Database ID, not UUID
+    Name        string
+    Path        string      // File path, not remote URL
+    Language    string      // Source language
+    InventoryID int64      // Repository ID
+    CreatedAt   time.Time
+    UpdatedAt   time.Time
+}
+```
+
+2. **WASM Loader Module** (pkg/wasm/loader.go:38):
+```go
+// Actual: Runtime loaded module (minimal struct)
+type Module struct {
+    Source ModuleSource // {type, path, url, hash}
+    Bytes  []byte      // Raw WASM bytes
+    Hash   string      // SHA256 hash
+}
+```
+
+### Missing Components (95%):
+
+❌ **ModuleStatus enum** - Code uses simple status fields
+❌ **ModuleRuntime struct** - No runtime configuration types
+❌ **ModuleBinary struct** - Use `[]byte` directly
+❌ **ModuleSignature struct** - No signature verification types
+❌ **Capability/Interface types** - Not defined
+❌ **ValidateSignature() method** - No signature verification
+❌ **WASM runtime types** - No wasmer/wasmtime/wazero configuration
+
+### Evidence
+
+```
+$ grep -n "type Module struct" pkg/repository/repository.go
+58:type Module struct {
+59type Module struct {
+
+$ grep -n "type Module struct" pkg/wasm/loader.go
+38:type Module struct {
+
+$ grep -rn "ModuleStatus\|ModuleRuntime\|ModuleBinary" pkg/ --include="*.go"
+[Not found]
+
+$ grep -rn "type.*Runtime struct" pkg/wasm/runtime.go
+[Not found - runtime uses internal implementation directly]
+```
+
+### Impact Assessment
+
+**Functional Impact**: MEDIUM (5% conformance)
+
+- ❌ No signature verification for modules
+- ❌ No capability/iface declarations
+- ❌ No explicit runtime configuration
+- ✅ Module loading works (minimal implementation)
+- ✅ Hash validation exists
+- ⚠️ Actual Module structs serve different purposes (database vs runtime loaded)
+
+### Recommendation
+
+**Update Spec OR Implementation**:
+
+**Option 1** (Implement Spec - 2-3 days):
+- Add ModuleRuntime types for wasmer/wasmtime/wazero
+- Add ModuleBinary/ModuleSignature for verification
+- Add Capability/Interface types
+- Implement ValidateSignature()
+- Better module lifecycle management
+
+**Option 2** (Update Spec - 30 minutes):
+- Rewrite to describe actual minimal Module struct
+- Remove capability/interface system
+- Document that signature verification is future enhancement
+- Mark as "Simple Module Model" spec
+
+**Recommendation**: Option 2 (Update Spec)
+- Current minimal implementation is sufficient for MVP
+- Complexity of ModuleRuntime/Capability not needed yet
+- Spec describes enterprise-grade features out of scope
+
+---
+
+## 3. OPS-ALERTING.md (❌ NOT IMPLEMENTED - 10% CONFORMANCE)
+
+**Spec Summary**: 187-line Prometheus Alertmanager specification with alerts.yml, Slack/PagerDuty integration.
+
+### Implementation Status
+
+**Conformance**: 10% (metrics collection exists, alert rules/alertmanager completely missing)
+
+**What Exists** (10%):
+- ✅ Prometheus metrics collection (internal/monitoring/metrics.go:296 lines)
+- ✅ Command execution metrics
+- ✅ HTTP request metrics
+- ✅ Cache hit/miss metrics
+- ✅ Health check endpoints (/health, /health/ready, etc.)
+
+**What's Missing** (90%):
+- ❌ Prometheus Alertmanager configuration (alertmanager.yml)
+- ❌ Alert rules (alerts.yml)
+- ❌ Slack webhook integration
+- ❌ PagerDuty service key integration
+- ❌ Email/SMTP notifications
+- ❌ Alert routing rules
+- ❌ Severity-based notification
+- ❌ Alert silencing API
+- ❌ Runbook URL annotations
+- ❌ Maintenance window support
+
+### Evidence
+
+```
+$ grep -rn "alerts.yml\|alertmanager.yml" /Users/lexykwaii/Code/muster --include="*.yml" --include="*.yaml"
+[Not found]
+
+$ grep -rn "slack\|pagerduty" internal/monitoring/
+[Not found]
+
+$ grep -n "Metrics" internal/monitoring/metrics.go | head -5
+17:// Metrics provides Prometheus metrics collection
+23:var CommandExecutions *prometheus.CounterVec
+[...]
+```
+
+### Previous Analysis
+
+From TODO.md (lines 644-827, 2026-03-06):
+- **Status**: ❌ GAP IDENTIFIED - Spec describes complete alerting system not implemented
+- **Conformance**: 10% (metrics present, alert rules/alertmanager completely missing)
+- **Severity**: MEDIUM - System has metrics collection but no alerting/notification system
+
+### Impact Assessment
+
+**Functional Impact**: MEDIUM (10% conformance)
+
+- ❌ No automatic notifications for critical issues
+- ❌ No alert escalation to PagerDuty for 24/7 on-call
+- ❌ No Slack notifications for team awareness
+- ✅ Metrics exposed for manual monitoring
+- ✅ Health checks available for uptime monitoring
+
+### Recommendation
+
+**Implementation Required** (3-4 days):
+1. Create alerts.yml with Prometheus alert rules
+2. Configure Alertmanager (alertmanager.yml) for Slack/PagerDuty
+3. Add alert templates for Slack/PagerDuty formatting
+4. Set up alert routing based on severity
+5. Add runbooks for common alert scenarios
+6. Test alerting end-to-end
+7. Document alerting procedures
+
+**Note**: This is an operations requirement for production deployment. Non-production deployments can use metrics-only approach.
+
+---
+
+## Session Summary
+
+**Overall Conformance**: 5% (0.15/3 specs partially implemented)
+
+| Spec | Conformance | Status | Action Required |
+|------|-------------|--------|-----------------|
+| TEST-MAPPING.md | 0% | NOT IMPLEMENTED | Mark as outdated (Python/Rust spec in Go project) |
+| DOMAIN-MODULE.md | 5% | PARTIAL | Update spec to match simple Module model OR implement full spec |
+| OPS-ALERTING.md | 10% | PARTIAL | Implement alert rules and Alertmanager for production |
+
+**Key Findings**:
+
+1. **TEST-MAPPING.md** (0%): Python+Rust spec in Go project - completely wrong technology stack. Should be deactivated.
+
+2. **DOMAIN-MODULE.md** (5%): Spec describes complex WASM module model with ModuleRuntime/Capability. Actual implementation uses minimal Module struct (database entity or runtime loaded module).
+
+3. **OPS-ALERTING.md** (10%): Only metrics collection exists. No alert rules, no Alertmanager, no Slack/PagerDuty integration. Requires implementation for production.
+
+**Total Analysis Time**: ~20 minutes (3 specs × ~7 min each)
+
+**Next Session**: Session 63 (auto-continue)

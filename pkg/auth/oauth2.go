@@ -67,6 +67,7 @@ func generateCodeChallenge(verifier string) string {
 
 func (f *AuthorizationCodeFlow) Start() (*AuthRequest, error) {
 	state := generateSecureState()
+	f.State = state
 
 	params := url.Values{
 		"client_id":     {f.ClientID},
@@ -91,7 +92,15 @@ func (f *AuthorizationCodeFlow) Start() (*AuthRequest, error) {
 	}, nil
 }
 
-func (f *AuthorizationCodeFlow) Exchange(code string) (*TokenResponse, error) {
+// Exchange exchanges the authorization code for tokens and validates the state parameter.
+// The state parameter must match the state returned from the authorization server
+// to prevent CSRF attacks.
+func (f *AuthorizationCodeFlow) Exchange(code, state string) (*TokenResponse, error) {
+	// Validate state parameter to prevent CSRF attacks
+	if state != f.State {
+		return nil, fmt.Errorf("oauth2: state mismatch - possible CSRF attack")
+	}
+
 	data := url.Values{
 		"client_id":     {f.ClientID},
 		"client_secret": {f.ClientSecret},

@@ -11,6 +11,11 @@
       "sourceType": "github",
       "computedHash": "402dd95a146ba64d9f40d18d8518f7bd0712f09934eb4419ed0e6f8411466774"
     },
+    "ai-collab-dev": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "c458b56f6cbcb0c1723e9146e6d81e058d77be79e97885169f2c572aff9a9b02"
+    },
     "api-documentation": {
       "source": "wojons/skills",
       "sourceType": "github",
@@ -26,6 +31,11 @@
       "sourceType": "github",
       "computedHash": "d2c2aaf0511f3c9ef113d38e3cd43e6d6d9f01ca35610ab938aab755593d7b71"
     },
+    "baby-steps": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "21c3c2825e369b3a3bbe1fd548de2a612d1ead36ef4817b9e93354e641a2a8ad"
+    },
     "best-practice-guide": {
       "source": "wojons/skills",
       "sourceType": "github",
@@ -40,6 +50,21 @@
       "source": "wojons/skills",
       "sourceType": "github",
       "computedHash": "51e1d3bceeb236cbe214c6c7766d0b3ef27b4613ca9ddeec4b45f32dd939852e"
+    },
+    "completeness-validator": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "72e97cfb9367a174187057618fe63a882cd05ac31ad5d103cb295451e6c01d99"
+    },
+    "context-pack": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "d7a7a498435b48010f70be4b4ce205ae24a93395752bf5d9477934030171af99"
+    },
+    "data-flow-architect": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "e079aaefbacb9d7263a2050c4d116b182a3c50327b704c09ad4a5a1da8e3717a"
     },
     "data-validation": {
       "source": "wojons/skills",
@@ -139,7 +164,7 @@
     "ralph-wiggum-loop": {
       "source": "wojons/skills",
       "sourceType": "github",
-      "computedHash": "eeb977c1c87c49a8c828010bc6f300c391a77007ee5932138f3c3ec4c9335304"
+      "computedHash": "6b0419d63572de1251aecd276cb025ce570580a84178e546f265b92beb9f402f"
     },
     "react-review": {
       "source": "wojons/skills",
@@ -161,6 +186,11 @@
       "sourceType": "github",
       "computedHash": "bf73381f1782301db0c3a8a9cdc5f6ec6b8e53a2a610876ce1d9e1dd48f5f55c"
     },
+    "sherlock-debugging": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "a36793933021f05c27cb563c3b483b19833ec19acc21f0c32fdb29159bfb620c"
+    },
     "skill-builder": {
       "source": "wojons/skills",
       "sourceType": "github",
@@ -170,6 +200,11 @@
       "source": "wojons/skills",
       "sourceType": "github",
       "computedHash": "89db77c1479d24f738a4ea75303e9b073df19da0d1415d5050ed621dbe7d4bdb"
+    },
+    "stepwise-testing": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "bc40bc735ee1d499194f0561bba744e1cd83f54f98b894dd62ab46a75dfa38a3"
     },
     "test-coverage": {
       "source": "wojons/skills",
@@ -230,6 +265,11 @@
       "source": "wojons/skills",
       "sourceType": "github",
       "computedHash": "61a650dedd2a849fbfa0fd4d07c28f31de052d491b43f06a923edc61e86eae35"
+    },
+    "testing-expected-results": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "a9076548a33ea901df7a53f50a1e79ab5bd2899bd5dbe9ea9ed39dc732070763"
     },
     "testing-functional-suite": {
       "source": "wojons/skills",

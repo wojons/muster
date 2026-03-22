@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenAPI CLI Service
+Documentation=https://docs.openapi-cli.io
+After=network.target openapi-cli-daemon.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+ExecStart=/usr/bin/openapi-cli init --config /etc/openapi-cli/config.yaml
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

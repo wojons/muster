@@ -37,10 +37,19 @@ completed_tasks:
 - Configure version scripts per `specs/CI-CD-GITHUB-ACTIONS.md`
 - Add release process per `specs/RELEASE-PROCESS.md`
 - Set up GoReleaser configuration
+- Configure golangci-lint per `specs/LINTING-CONFIGURATION.md`
+- '**IMPL-001: Credential Redaction** - Create pkg/log/redactor.go with mandatory
+  credential redaction (password, token, api_key, secret, credit_card). Spec: specs/EVENTS-AUDIT.md.
+  Impact: CRITICAL security compliance.'
+- '**IMPL-002: HTTP Retry with Backoff** - Create pkg/retry/ package with Retrier,
+  exponential backoff, jitter. Spec: specs/RELIABILITY-RETRY.md. Impact: HIGH production
+  reliability.'
 current_task: null
-failed_attempts: 2
-iteration: 1334
-last_failure: null
-last_task: Set up GoReleaser configuration
+failed_attempts: 0
+iteration: 1706
+last_failure: 'Max failures reached: 3'
+last_task: '**IMPL-002: HTTP Retry with Backoff** - Create pkg/retry/ package with
+  Retrier, exponential backoff, jitter. Spec: specs/RELIABILITY-RETRY.md. Impact:
+  HIGH production reliability.'
 phase: build
 started_at: '2026-03-03T00:57:40.107499+00:00'

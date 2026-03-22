@@ -1,0 +1,49 @@
+[Unit]
+Description=Muster API CLI Daemon
+Documentation=https://muster.sh/docs/daemon
+After=network.target
+Wants=network.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/muster daemon --config /etc/muster/daemon.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/muster /var/run/muster
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# User and group
+User=muster
+Group=muster
+
+# Environment
+Environment="MUSTER_HOME=/var/lib/muster"
+Environment="MUSTER_LOG_LEVEL=info"
+EnvironmentFile=-/etc/default/muster
+
+# Notify systemd when ready
+NotifyAccess=main
+
+[Install]
+WantedBy=multi-user.target

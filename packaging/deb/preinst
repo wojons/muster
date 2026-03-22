@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  install|upgrade)
+    # Create muster user if it doesn't exist
+    if ! id -u muster >/dev/null 2>&1; then
+      useradd --system --no-create-home --shell /bin/false muster
+    fi
+    ;;
+esac
+
+exit 0

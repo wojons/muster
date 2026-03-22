@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Muster CLI
+Comment=API Client and Development Tool
+Exec=muster %F
+Icon=muster
+Terminal=true
+Categories=Development;Network;
+MimeType=application/x-yaml;application/json;
+Keywords=api;http;rest;openapi;cli;
+StartupNotify=true
+X-GNOME-SingleWindow=true

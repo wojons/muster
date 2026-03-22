@@ -1,0 +1,26 @@
+pkgname=muster
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Modern API Client and Development Tool"
+arch=('x86_64' 'aarch64')
+url="https://muster.sh"
+license=('MIT')
+depends=('glibc' 'ca-certificates')
+optdepends=('gnome-keyring: GNOME keyring support'
+            'kwallet: KDE wallet support')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/anomalyco/muster/releases/download/v$pkgver/muster-linux-amd64.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+    install -Dm755 muster "$pkgdir/usr/bin/muster"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+    install -Dm644 systemd/muster-daemon.service "$pkgdir/usr/lib/systemd/system/muster-daemon.service"
+    install -Dm644 systemd/muster-daemon.socket "$pkgdir/usr/lib/systemd/system/muster-daemon.socket"
+    install -Dm644 desktop/muster.desktop "$pkgdir/usr/share/applications/muster.desktop"
+
+    # Create user and directories
+    install -d -m755 -o 65534 -g 65534 "$pkgdir/var/lib/muster"
+    install -d -m755 -o 65534 -g 65534 "$pkgdir/var/log/muster"
+    install -d -m755 -o 65534 -g 65534 "$pkgdir/run/muster"
+}
