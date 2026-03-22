@@ -1252,11 +1252,28 @@
   - Non-sensitive data preservation
 - **All tests passing**: 10/10 test functions, 30+ sub-tests ✅
 
-#### Step 12: [ ] Add integration tests for audit logging
-- File: internal/audit/logger_test.go
+#### Step 12: [x] Add integration tests for audit logging
+- File: internal/audit/logger_integration_test.go
 - Skill: @testing-integration
 - Effort: 45 min
 - Dependencies: Step 10
+- **Completed**: Created comprehensive integration tests for audit logging system
+- **Tests Added**:
+  - `TestIntegration_AuditLogger_MemoryStorage`: Full workflow with MemoryStorage (9 test scenarios)
+  - `TestIntegration_AuditLogger_FileStorage`: Full workflow with FileStorage (9 test scenarios)
+  - `TestIntegration_AuditLogger_BufferManagement`: Buffer flush behavior verification
+  - `TestIntegration_AuditLogger_ConcurrentLogging`: Concurrent access patterns (10 goroutines x 20 events)
+  - `TestIntegration_AuditLogger_HashChainVerification`: Hash chain integrity verification
+  - `TestIntegration_AuditLogger_GracefulShutdown`: Shutdown behavior with pending events
+  - `TestIntegration_AuditLogger_QueryFiltering`: Comprehensive query filtering (10 filter types)
+  - `TestIntegration_AuditLogger_FileRotation`: Log rotation with FileStorage
+  - `TestIntegration_AuditLogger_AsyncLogging`: Async logging functionality
+  - `TestIntegration_AuditLogger_StorageTransition`: Switching between storage backends
+  - `TestIntegration_AuditLogger_DisabledLogging`: Behavior when logging disabled
+  - `TestIntegration_AuditLogger_RealWorldScenario`: Realistic audit scenario with 5 test cases
+- **Coverage**: 12 integration test functions, 913 lines of test code
+- **All tests passing**: 12/12 ✅
+- **Total lines**: 913 lines of comprehensive integration test code
 
 ---
 
