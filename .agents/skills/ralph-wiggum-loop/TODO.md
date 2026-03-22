@@ -1581,11 +1581,21 @@
 - **Total**: 21 test functions, all passing ✅
 - **Lines**: ~580 lines of test code
 
-#### Step 3: [ ] Create pkg/config/loader_test.go
+#### Step 3: [x] Create pkg/config/loader_test.go
 - File: pkg/config/loader_test.go
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: None
+- **Completed**: Created comprehensive unit tests for config Loader
+- **Tests Added**:
+  - `TestNewLoader`: Tests loader construction with default configuration
+  - `TestLoader_Load`: Tests loading with defaults, directory setup, and missing file handling
+  - `TestLoad`: Tests convenience function
+  - `TestLoader_Load_WithConfigFile`: Tests loading from valid and invalid config files
+  - `TestLoader_SetDefaultPaths`: Tests platform-specific default path generation
+  - `TestLoader_EnvironmentVariableExpansion`: Tests environment variable handling
+- **Coverage**: 14 test functions covering all Loader methods
+- **All tests passing**: ✅
 
 #### Step 4: [ ] Create pkg/daemon/controller_test.go
 - File: pkg/daemon/controller_test.go
