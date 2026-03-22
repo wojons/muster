@@ -14,8 +14,10 @@ import (
 // Controller manages daemon lifecycle
 type Controller struct {
 	pidManager      *Manager
+	tokenManager    *TokenManager
 	logger          Logger
 	socketPath      string
+	tokenPath       string
 	httpServer      *http.Server
 	mux             *http.ServeMux
 	shutdownHandler func()
@@ -32,6 +34,7 @@ type Logger interface {
 type ControllerConfig struct {
 	PidFilePath     string
 	SocketPath      string
+	TokenPath       string // Path for authentication token file (default: <socket-path>.token)
 	Version         string
 	Logger          Logger
 	Handler         http.Handler
@@ -53,6 +56,14 @@ func NewController(cfg ControllerConfig) (*Controller, error) {
 		cfg.Logger = &defaultLogger{}
 	}
 
+	// Determine token path (default to socket path + ".token")
+	tokenPath := cfg.TokenPath
+	if tokenPath == "" {
+		tokenPath = cfg.SocketPath + ".token"
+	}
+
+	tokenManager := NewTokenManager(tokenPath)
+
 	mux := http.NewServeMux()
 	if cfg.Handler != nil {
 		mux.Handle("/", cfg.Handler)
@@ -67,8 +78,10 @@ func NewController(cfg ControllerConfig) (*Controller, error) {
 
 	return &Controller{
 		pidManager:      pidManager,
+		tokenManager:    tokenManager,
 		logger:          cfg.Logger,
 		socketPath:      cfg.SocketPath,
+		tokenPath:       tokenPath,
 		shutdownHandler: shutdown,
 		mux:             mux,
 		httpServer: &http.Server{
@@ -79,7 +92,20 @@ func NewController(cfg ControllerConfig) (*Controller, error) {
 
 // StartWithSocket starts the daemon with Unix socket listener
 func (c *Controller) StartWithSocket(handler http.HandlerFunc) error {
+	// Generate and save authentication token before acquiring PID
+	if err := c.tokenManager.Generate(); err != nil {
+		return fmt.Errorf("failed to generate auth token: %w", err)
+	}
+
+	if err := c.tokenManager.Save(); err != nil {
+		return fmt.Errorf("failed to save auth token: %w", err)
+	}
+
+	c.logger.Info("auth token generated", "path", c.tokenPath)
+
 	if err := c.pidManager.Acquire(); err != nil {
+		// Clean up token on failure
+		_ = c.tokenManager.Cleanup()
 		return err
 	}
 
@@ -133,10 +159,23 @@ func (c *Controller) Start() error {
 		}
 	}
 
+	// Generate and save authentication token
+	if err := c.tokenManager.Generate(); err != nil {
+		return fmt.Errorf("failed to generate auth token: %w", err)
+	}
+
+	if err := c.tokenManager.Save(); err != nil {
+		return fmt.Errorf("failed to save auth token: %w", err)
+	}
+
+	c.logger.Info("auth token generated", "path", c.tokenPath)
+
 	// For macOS/Linux, we would fork the process
 	// For this implementation, we'll assume the caller will handle forking
 	// and just acquire the PID lock
 	if err := c.pidManager.Acquire(); err != nil {
+		// Clean up token on failure
+		_ = c.tokenManager.Cleanup()
 		return err
 	}
 
@@ -146,6 +185,11 @@ func (c *Controller) Start() error {
 
 // Stop attempts to stop the daemon process
 func (c *Controller) Stop() error {
+	// Clean up auth token
+	if err := c.tokenManager.Cleanup(); err != nil {
+		c.logger.Error("failed to clean up auth token", "error", err)
+	}
+
 	status, err := c.pidManager.GetStatus()
 	if err != nil {
 		return fmt.Errorf("get daemon status: %w", err)
@@ -217,6 +261,11 @@ func (c *Controller) SetupSignalHandlers() {
 		sig := <-sigCh
 		c.logger.Info("received signal, shutting down", "signal", sig)
 
+		// Clean up auth token
+		if err := c.tokenManager.Cleanup(); err != nil {
+			c.logger.Error("failed to clean up auth token", "error", err)
+		}
+
 		// Release PID file
 		if err := c.pidManager.Release(); err != nil {
 			c.logger.Error("failed to release PID file", "error", err)
@@ -245,6 +294,11 @@ func (c *Controller) Restart() error {
 
 // Kill forcefully terminates the daemon
 func (c *Controller) Kill() error {
+	// Clean up auth token
+	if err := c.tokenManager.Cleanup(); err != nil {
+		c.logger.Error("failed to clean up auth token", "error", err)
+	}
+
 	status, err := c.Status()
 	if err != nil {
 		return err
@@ -267,6 +321,16 @@ func (c *Controller) Kill() error {
 	// Clean up PID file
 	_ = c.pidManager.Release()
 	return nil
+}
+
+// GetTokenManager returns the token manager for authentication
+func (c *Controller) GetTokenManager() *TokenManager {
+	return c.tokenManager
+}
+
+// GetTokenPath returns the path to the authentication token file
+func (c *Controller) GetTokenPath() string {
+	return c.tokenPath
 }
 
 type defaultLogger struct{}
