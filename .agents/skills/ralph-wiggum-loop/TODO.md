@@ -808,54 +808,61 @@
 
 ### FEAT-001: MCP Roots Protocol
 
-#### Step 1: [ ] Define Root struct (URI, Name)
+#### Step 1: [x] Define Root struct (URI, Name)
 - File: pkg/mcp/roots.go
 - Spec: specs/MCP-MARKET-ROOTS.md lines 20-35
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: None
+- **Completed**: Created Root struct with URI and Name fields
 
-#### Step 2: [ ] Create RootManager struct
+#### Step 2: [x] Create RootManager struct
 - File: pkg/mcp/roots.go
 - Spec: specs/MCP-MARKET-ROOTS.md lines 36-55
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 1
+- **Completed**: Created RootManager with mutex-protected roots slice and handlers
 
-#### Step 3: [ ] Implement SetRoots(roots []Root)
+#### Step 3: [x] Implement SetRoots(roots []Root)
 - File: pkg/mcp/roots.go
 - Spec: specs/MCP-MARKET-ROOTS.md lines 56-70
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: Step 2
+- **Completed**: Implemented with defensive copy and handler notification
 
-#### Step 4: [ ] Implement GetRoots() []Root
+#### Step 4: [x] Implement GetRoots() []Root
 - File: pkg/mcp/roots.go
 - Spec: specs/MCP-MARKET-ROOTS.md lines 71-82
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 3
+- **Completed**: Implemented with defensive copy for thread safety
 
-#### Step 5: [ ] Implement AddRoot(root Root) error
+#### Step 5: [x] Implement AddRoot(root Root) error
 - File: pkg/mcp/roots.go
 - Spec: specs/MCP-MARKET-ROOTS.md lines 83-100
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: Step 4
+- **Completed**: Implemented AddRoot (void return per Go conventions)
 
-#### Step 6: [ ] Implement RemoveRoot(uri string) error
+#### Step 6: [x] Implement RemoveRoot(uri string) error
 - File: pkg/mcp/roots.go
 - Spec: specs/MCP-MARKET-ROOTS.md lines 101-118
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 5
+- **Completed**: Implemented RemoveRoot (void return per Go conventions)
 
-#### Step 7: [ ] Implement isWithinRoots(path string) bool
+#### Step 7: [x] Implement isWithinRoots(path string) bool
 - File: pkg/mcp/roots.go
 - Spec: specs/MCP-MARKET-ROOTS.md lines 119-145
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 6
+- **Completed**: Implemented IsWithinRoots with proper path boundary checking
 
 #### Step 8: [ ] Add roots/list handler
 - File: pkg/mcp/handlers/roots.go
@@ -864,11 +871,12 @@
 - Effort: 35 min
 - Dependencies: Step 7
 
-#### Step 9: [ ] Add unit tests for RootManager
+#### Step 9: [x] Add unit tests for RootManager
 - File: pkg/mcp/roots_test.go
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 8
+- **Completed**: Comprehensive test suite with 18 test functions, all passing
 
 ---
 
