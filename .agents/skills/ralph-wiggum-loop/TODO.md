@@ -706,11 +706,14 @@
 - **Completed**: Save writes config to JSON file with proper formatting
 - **Features**: Validates before saving, creates parent directories, updates state atomically
 
-#### Step 6: [ ] Add fsnotify dependency to go.mod
+#### Step 6: [x] Add fsnotify dependency to go.mod
 - File: go.mod
 - Skill: @dependency-upgrade
 - Effort: 5 min
 - Dependencies: None
+- **Completed**: Moved fsnotify from indirect to direct dependency in go.mod
+- **Changes**: Added fsnotify to main require block for file watching functionality
+- **Validation**: go mod tidy completed successfully
 
 #### Step 7: [ ] Create watcher.go with FileWatcher
 - File: internal/daemon/config/watcher.go
