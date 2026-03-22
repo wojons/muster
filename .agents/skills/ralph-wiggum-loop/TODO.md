@@ -864,12 +864,28 @@
 - Dependencies: Step 6
 - **Completed**: Implemented IsWithinRoots with proper path boundary checking
 
-#### Step 8: [ ] Add roots/list handler
+#### Step 8: [x] Add roots/list handler
 - File: pkg/mcp/handlers/roots.go
 - Spec: specs/MCP-MARKET-ROOTS.md lines 146-175
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: Step 7
+- **Completed**: Created comprehensive roots handler with notification handling and client request capabilities
+- **Implementation**:
+  - `RootsListChangedHandler`: Handles notifications/roots/list_changed from client
+  - `RootsClient`: Sends roots/list requests to client and manages responses
+  - `InitializeRoots`: Sets up root management during server initialization
+  - Thread-safe with mutex protection and atomic ID generation
+  - Async response handling with context cancellation support
+- **Tests**: 16 comprehensive test functions covering:
+  - Handler method validation
+  - Notification handling with callbacks
+  - Client request/response lifecycle
+  - Error handling (send errors, timeouts, response errors)
+  - Concurrent access safety
+  - Initialization flow
+- **All tests passing**: 16/16 ✅
+- **Lint**: 0 issues ✅
 
 #### Step 9: [x] Add unit tests for RootManager
 - File: pkg/mcp/roots_test.go
