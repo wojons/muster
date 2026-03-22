@@ -1,8 +1,10 @@
 package dsl
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"go.starlark.net/starlark"
@@ -584,4 +586,129 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// TestSafeReadAll tests the safeReadAll helper function with size limits
+func TestSafeReadAll(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		limit     int64
+		wantData  string
+		wantError bool
+		errMsg    string
+	}{
+		{
+			name:      "valid small response",
+			input:     "hello world",
+			limit:     100,
+			wantData:  "hello world",
+			wantError: false,
+		},
+		{
+			name:      "exactly at limit",
+			input:     "hello",
+			limit:     5,
+			wantData:  "hello",
+			wantError: false,
+		},
+		{
+			name:      "exceeds limit",
+			input:     "hello world",
+			limit:     5,
+			wantData:  "",
+			wantError: true,
+			errMsg:    "exceeds maximum size",
+		},
+		{
+			name:      "empty response",
+			input:     "",
+			limit:     100,
+			wantData:  "",
+			wantError: false,
+		},
+		{
+			name:      "large response within limit",
+			input:     strings.Repeat("a", 1000),
+			limit:     10000,
+			wantData:  strings.Repeat("a", 1000),
+			wantError: false,
+		},
+		{
+			name:      "response at MaxResponseBodySize",
+			input:     strings.Repeat("x", MaxResponseBodySize),
+			limit:     int64(MaxResponseBodySize),
+			wantData:  strings.Repeat("x", MaxResponseBodySize),
+			wantError: false,
+		},
+		{
+			name:      "response exceeds MaxResponseBodySize",
+			input:     strings.Repeat("x", MaxResponseBodySize+1),
+			limit:     int64(MaxResponseBodySize),
+			wantData:  "",
+			wantError: true,
+			errMsg:    "exceeds maximum size",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.input)
+			data, err := safeReadAll(reader, tt.limit)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("safeReadAll() expected error containing %q, got nil", tt.errMsg)
+					return
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("safeReadAll() error = %v, want error containing %q", err, tt.errMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("safeReadAll() unexpected error = %v", err)
+				return
+			}
+
+			if string(data) != tt.wantData {
+				t.Errorf("safeReadAll() = %q, want %q", string(data), tt.wantData)
+			}
+		})
+	}
+}
+
+// TestSafeReadAll_ReadError tests error handling when read fails
+func TestSafeReadAll_ReadError(t *testing.T) {
+	// Create a reader that returns an error
+	errReader := &errorReader{err: errors.New("simulated read error")}
+
+	_, err := safeReadAll(errReader, 100)
+	if err == nil {
+		t.Error("expected error for failed read, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to read response body") {
+		t.Errorf("expected error containing 'failed to read response body', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "simulated read error") {
+		t.Errorf("expected error to wrap original error, got: %v", err)
+	}
+}
+
+// errorReader is a test helper that always returns an error
+type errorReader struct {
+	err error
+}
+
+func (r *errorReader) Read(p []byte) (n int, err error) {
+	return 0, r.err
+}
+
+// TestMaxResponseBodySizeConstant verifies the constant value
+func TestMaxResponseBodySizeConstant(t *testing.T) {
+	expected := 10 * 1024 * 1024 // 10MB
+	if MaxResponseBodySize != expected {
+		t.Errorf("MaxResponseBodySize = %d, want %d", MaxResponseBodySize, expected)
+	}
 }
