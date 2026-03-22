@@ -25,6 +25,37 @@
 
 ---
 
+## 🔄 CRITICAL WORKFLOW INSTRUCTIONS
+
+### After Completing Tasks:
+1. **COMMIT CODE**: Run `git add -A && git commit -m "descriptive message"`
+2. **UPDATE MEMORY BANK**: Edit `.memory-bank/activeContext.md` and `.memory-bank/progress.md`
+3. **MARK TASK COMPLETE**: Change `[ ]` to `[x]` in TODO.md
+
+### Memory Bank Files (MUST READ at start of each session):
+- `.memory-bank/projectbrief.md` - Project overview
+- `.memory-bank/productContext.md` - Why this exists
+- `.memory-bank/activeContext.md` - Current work focus
+- `.memory-bank/systemPatterns.md` - Architecture patterns
+- `.memory-bank/techContext.md` - Technical decisions
+- `.memory-bank/progress.md` - What's done/remaining
+
+### When Stuck:
+1. **USE SEARXNG**: Search for solutions with `searxng_searxng_web_search`
+   - Query format: "golang [problem description] best practice"
+   - Query format: "go [library] [feature] example"
+2. **READ DOCS**: Use `webfetch` to read documentation URLs from search results
+3. **CHECK SPECS**: Read relevant specs in `specs/` directory
+4. **ASK USER**: If still stuck, use `question` tool to clarify
+
+### Example Searxng Usage:
+```
+searxng_searxng_web_search(query="golang sqlite transaction best practice")
+searxng_web_url_read(url="https://...")
+```
+
+---
+
 ## 🚀 VERIFICATION RESULTS (2026-03-08)
 
 ### ✅ Binary Builds (FRESH from make build + ls -lh bin/)

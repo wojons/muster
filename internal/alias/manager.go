@@ -64,13 +64,15 @@ func (m *Manager) DefineWithDescription(name, command, description string) error
 // Returns an error if the alias does not exist or if saving fails.
 func (m *Manager) Remove(name string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	if _, exists := m.aliases[name]; !exists {
+		m.mu.Unlock()
 		return fmt.Errorf("alias '%s' not found", name)
 	}
 
 	delete(m.aliases, name)
+	m.mu.Unlock()
+
 	return m.save()
 }
 
@@ -92,7 +94,13 @@ func (m *Manager) List() []*Alias {
 
 	result := make([]*Alias, 0, len(m.aliases))
 	for _, alias := range m.aliases {
-		result = append(result, alias)
+		// Create a deep copy to prevent external modifications
+		aliasCopy := &Alias{
+			Name:        alias.Name,
+			Command:     alias.Command,
+			Description: alias.Description,
+		}
+		result = append(result, aliasCopy)
 	}
 	return result
 }
