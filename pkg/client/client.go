@@ -18,6 +18,14 @@
 //	client := client.NewClientWithTracer(tracer)
 //	resp, err := client.Get(ctx, "https://api.example.com/data")
 //	// Automatically creates spans for the request
+//
+// With Retry:
+//
+//	config := retry.DefaultRetryConfig()
+//	config.MaxAttempts = 5
+//	client := client.NewClient(client.WithRetryConfig(config))
+//	resp, err := client.Get(ctx, "https://api.example.com/data")
+//	// Automatically retries on transient failures
 package client
 
 import (
@@ -28,13 +36,15 @@ import (
 	"time"
 
 	"github.com/openapi-cli/openapi-cli/internal/telemetry"
+	"github.com/openapi-cli/openapi-cli/pkg/retry"
 	"go.opentelemetry.io/otel/trace"
 )
 
-// Client is an HTTP client with tracing support.
+// Client is an HTTP client with tracing and retry support.
 type Client struct {
 	httpClient *http.Client
 	tracer     *telemetry.Tracer
+	retrier    *retry.Retrier
 	baseURL    string
 	headers    map[string]string
 }
@@ -63,6 +73,20 @@ func WithHeader(key, value string) ClientOption {
 func WithTimeout(timeout time.Duration) ClientOption {
 	return func(c *Client) {
 		c.httpClient.Timeout = timeout
+	}
+}
+
+// WithRetryConfig sets the retry configuration for the client.
+// When configured, HTTP requests will be automatically retried on transient failures.
+//
+// Example:
+//
+//	config := retry.DefaultRetryConfig()
+//	config.MaxAttempts = 5
+//	client := client.NewClient(client.WithRetryConfig(config))
+func WithRetryConfig(config retry.RetryConfig) ClientOption {
+	return func(c *Client) {
+		c.retrier = retry.NewRetrier(config)
 	}
 }
 
@@ -104,8 +128,17 @@ func (c *Client) SetTracer(tracer *telemetry.Tracer) {
 	c.tracer = tracer
 }
 
-// Do executes an HTTP request with tracing.
+// Do executes an HTTP request with tracing and optional retry logic.
 func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
+	// If retrier is configured, use retry logic
+	if c.retrier != nil {
+		return c.doWithRetry(ctx, req)
+	}
+	return c.doOnce(ctx, req)
+}
+
+// doOnce executes a single HTTP request with tracing.
+func (c *Client) doOnce(ctx context.Context, req *http.Request) (*http.Response, error) {
 	// Create span if tracer is configured
 	var span *telemetry.Span
 	if c.tracer != nil {
@@ -158,6 +191,58 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	}
 
 	return resp, nil
+}
+
+// doWithRetry executes an HTTP request with retry logic.
+func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+	result, err := c.retrier.Execute(ctx, func(ctx context.Context) (interface{}, error) {
+		resp, err := c.doOnce(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		// Check for retryable status codes (5xx and certain 4xx)
+		if shouldRetryStatusCode(resp.StatusCode) {
+			// Close the body to prevent resource leaks during retries
+			_ = resp.Body.Close()
+			return nil, &retryableError{statusCode: resp.StatusCode}
+		}
+
+		return resp, nil
+	})
+
+	if err != nil {
+		// Check if it's a retry exhausted error and preserve the last response info
+		if retryErr, ok := err.(*retry.RetryExhaustedError); ok {
+			return nil, fmt.Errorf("request failed after %d attempts: %w", retryErr.Attempts, retryErr.LastErr)
+		}
+		return nil, err
+	}
+
+	return result.(*http.Response), nil
+}
+
+// shouldRetryStatusCode determines if an HTTP status code should trigger a retry.
+func shouldRetryStatusCode(statusCode int) bool {
+	switch statusCode {
+	case http.StatusTooManyRequests, // 429
+		http.StatusInternalServerError, // 500
+		http.StatusBadGateway,          // 502
+		http.StatusServiceUnavailable,  // 503
+		http.StatusGatewayTimeout:      // 504
+		return true
+	default:
+		return false
+	}
+}
+
+// retryableError represents an HTTP error that can be retried.
+type retryableError struct {
+	statusCode int
+}
+
+func (e *retryableError) Error() string {
+	return fmt.Sprintf("retryable HTTP error: status code %d", e.statusCode)
 }
 
 // Get performs an HTTP GET request with tracing.
@@ -230,4 +315,27 @@ func (c *Client) HTTPClient() *http.Client {
 // SetHTTPClient sets the underlying HTTP client.
 func (c *Client) SetHTTPClient(httpClient *http.Client) {
 	c.httpClient = httpClient
+}
+
+// SetRetrier sets the retry configuration for the client.
+// This allows dynamic configuration of retry behavior after client creation.
+//
+// Example:
+//
+//	client := client.NewClient()
+//	config := retry.DefaultRetryConfig()
+//	config.MaxAttempts = 5
+//	client.SetRetrier(retry.NewRetrier(config))
+func (c *Client) SetRetrier(retrier *retry.Retrier) {
+	c.retrier = retrier
+}
+
+// GetRetrier returns the current retrier configuration, or nil if not configured.
+func (c *Client) GetRetrier() *retry.Retrier {
+	return c.retrier
+}
+
+// IsRetryEnabled returns true if retry is configured for this client.
+func (c *Client) IsRetryEnabled() bool {
+	return c.retrier != nil
 }
