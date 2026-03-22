@@ -84,7 +84,7 @@
 - **Location**: docs/design-daemon-token.md
 - **Summary**: Designed cryptographically secure token scheme using crypto/rand with 32-byte tokens, base64 encoding, 0600 file permissions, and constant-time validation
 
-#### Step 2: [ ] Create TokenManager struct
+#### Step 2: [x] Create TokenManager struct
 - File: pkg/daemon/token.go
 - Spec: specs/UNIX-SOCKET-PROXY.md lines 30-55
 - Skill: @testing-unit
@@ -1022,35 +1022,572 @@
 
 ---
 
-## 📊 SUMMARY
+## ⚫ P-1: ADDITIONAL CRITICAL (From Completeness Validation)
 
-| Priority | Tasks | Baby Steps | Effort |
-|----------|-------|------------|--------|
-| P0 CRITICAL | 3 | 23 | 6-8 hrs |
-| P1 HIGH | 5 | 54 | 18-24 hrs |
-| P2 MEDIUM | 5 | 54 | 16-22 hrs |
-| P3 TESTS | 3 | 13 | 7-9 hrs |
-| P4 PLATFORM | 2 | 12 | 8-12 hrs |
-| **TOTAL** | **18** | **156** | **55-75 hrs** |
+### SEC-005: DNS Rebinding SSRF Fix (CRITICAL - From Security Audit)
+
+#### Step 1: [ ] Add DNS resolution with timeout in validateNetworkURL()
+- File: pkg/dsl/builtins.go
+- Spec: specs/SECURITY-TESTING.md
+- Skill: @security-scan
+- Effort: 20 min
+- Dependencies: None
+
+#### Step 2: [ ] Validate resolved IPs against private CIDRs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+- File: pkg/dsl/builtins.go
+- Skill: @security-scan
+- Effort: 30 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add IPv6 private network blocking (::1, fd00::/8, fe80::/10)
+- File: pkg/dsl/builtins.go
+- Skill: @security-scan
+- Effort: 25 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Add unit tests for SSRF prevention
+- File: pkg/dsl/builtins_test.go
+- Skill: @testing-security
+- Effort: 35 min
+- Dependencies: Step 3
 
 ---
 
-## Execution Order
+### SEC-006: WASM Sandbox Hardening (CRITICAL - From Security Audit)
 
-1. SEC-002 → SEC-003 → SEC-004 (Security Critical - 23 steps)
-2. AUDIT-001 → AUDIT-002 (Audit/Tracing - 23 steps)
-3. IMPL-003 → IMPL-004 → IMPL-005 → IMPL-006 (Features - 46 steps)
-4. FEAT-001 → FEAT-002 → FEAT-003 (Medium - 21 steps)
-5. TEST-001 → TEST-002 → TEST-003 (Coverage - 13 steps)
-6. PLAT-001 → PLAT-002 (Platform - 12 steps)
+#### Step 1: [ ] Add wasmtime.WithMaxMemory(256 * 1024 * 1024) limit
+- File: pkg/wasm/runtime.go
+- Spec: specs/WASM-SANDBOX.md lines 45-60
+- Skill: @security-scan
+- Effort: 15 min
+- Dependencies: None
+
+#### Step 2: [ ] Add wasmtime.WithFuel for CPU time limits
+- File: pkg/wasm/runtime.go
+- Skill: @security-scan
+- Effort: 20 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add wasmtime.WithEpochInterruption for timeout enforcement
+- File: pkg/wasm/runtime.go
+- Skill: @security-scan
+- Effort: 25 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Integrate NetworkPolicy enforcement in WASM sandbox
+- File: pkg/wasm/sandbox.go
+- Spec: specs/WASM-SANDBOX.md lines 80-120
+- Skill: @security-scan
+- Effort: 40 min
+- Dependencies: Step 3
+
+#### Step 5: [ ] Add unit tests for memory/CPU limits
+- File: pkg/wasm/runtime_test.go
+- Skill: @testing-security
+- Effort: 35 min
+- Dependencies: Step 4
+
+---
+
+### SEC-007: Keychain Key Derivation Fix (CRITICAL - From Security Audit)
+
+#### Step 1: [ ] Implement master key retrieval from system keychain
+- File: pkg/auth/keychain.go
+- Spec: specs/KEYCHAIN-INTEGRATION.md lines 80-120
+- Skill: @security-scan
+- Effort: 30 min
+- Dependencies: None
+
+#### Step 2: [ ] Add PBKDF2 key derivation with random salt
+- File: pkg/auth/keychain.go
+- Skill: @security-scan
+- Effort: 35 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Remove weak SHA256(service:account) derivation
+- File: pkg/auth/keychain.go:288
+- Skill: @security-scan
+- Effort: 15 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Add unit tests for key derivation
+- File: pkg/auth/keychain_test.go
+- Skill: @testing-security
+- Effort: 30 min
+- Dependencies: Step 3
+
+---
+
+### SEC-008: Symlink Protection (HIGH - From Security Audit)
+
+#### Step 1: [ ] Add filepath.EvalSymlinks to validateFilePath()
+- File: pkg/dsl/builtins.go
+- Spec: specs/WASM-SANDBOX-SECURITY.md
+- Skill: @security-scan
+- Effort: 15 min
+- Dependencies: None
+
+#### Step 2: [ ] Implement system file blocklist (/etc/passwd, /etc/shadow, etc.)
+- File: pkg/dsl/builtins.go
+- Skill: @security-scan
+- Effort: 20 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add workspace root validation
+- File: pkg/dsl/builtins.go
+- Skill: @security-scan
+- Effort: 25 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Add unit tests for symlink bypass prevention
+- File: pkg/dsl/builtins_test.go
+- Skill: @testing-security
+- Effort: 30 min
+- Dependencies: Step 3
+
+---
+
+## 🔴 P0.5: INTEGRATION WIRING (Critical Path)
+
+### IMPL-007: OpenAPI→CLI Wire (End-to-End Integration)
+
+#### Step 1: [ ] Add spec loading to cmd/openapi-cli/main.go
+- File: cmd/openapi-cli/main.go
+- Spec: specs/CLI-ENTRY-POINT.md
+- Skill: @testing-integration
+- Effort: 20 min
+- Dependencies: None
+
+#### Step 2: [ ] Call pkg/openapi parser from main.go
+- File: cmd/openapi-cli/main.go
+- Spec: specs/OPENAPI-PARSER-IMPLEMENTATION.md
+- Skill: @testing-integration
+- Effort: 25 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Call pkg/generator with parsed operations
+- File: cmd/openapi-cli/main.go
+- Spec: specs/COMMAND-GENERATOR-IMPLEMENTATION.md
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Register generated commands with Cobra root
+- File: cmd/openapi-cli/main.go
+- Spec: specs/COBRA-INTEGRATION.md
+- Skill: @testing-integration
+- Effort: 35 min
+- Dependencies: Step 3
+
+#### Step 5: [ ] Add end-to-end test: spec → CLI → HTTP request
+- File: test/e2e/cli_generation_test.go
+- Skill: @testing-e2e
+- Effort: 45 min
+- Dependencies: Step 4
+
+---
+
+### IMPL-008: MCP Tool Registration Wire
+
+#### Step 1: [ ] Load generated commands as MCP tool definitions
+- File: pkg/mcp/converter.go
+- Spec: specs/MCP-HANDLERS.md
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: None
+
+#### Step 2: [ ] Implement tool registration in cmd/mcp-server/main.go
+- File: cmd/mcp-server/main.go
+- Spec: specs/MCP-SERVER-IMPLEMENTATION.md
+- Skill: @testing-integration
+- Effort: 35 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Test with Claude Desktop integration
+- File: test/integration/mcp_claude_test.go
+- Skill: @testing-integration
+- Effort: 45 min
+- Dependencies: Step 2
+
+---
+
+### IMPL-009: MCP→WASM Integration Wire
+
+#### Step 1: [ ] Wire MCP CallTool handler to pkg/wasm runtime
+- File: pkg/mcp/handlers/tools.go
+- Spec: specs/WASM-RUNTIME.md
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: None
+
+#### Step 2: [ ] Implement capability enforcement at tool call
+- File: pkg/mcp/handlers/tools.go
+- Spec: specs/CAPABILITY-SYSTEM.md
+- Skill: @security-scan
+- Effort: 35 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add WASM module loading to MCP context
+- File: pkg/mcp/server.go
+- Spec: specs/WASM-LOADER.md
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Add integration test for MCP→WASM flow
+- File: test/integration/mcp_wasm_test.go
+- Skill: @testing-integration
+- Effort: 40 min
+- Dependencies: Step 3
+
+---
+
+### IMPL-010: Auth→Request Flow Wire
+
+#### Step 1: [ ] Wire auth provider into pkg/client/client.go
+- File: pkg/client/client.go
+- Spec: specs/API-AUTHENTICATION.md
+- Skill: @testing-integration
+- Effort: 25 min
+- Dependencies: None
+
+#### Step 2: [ ] Add token injection to HTTP requests
+- File: pkg/client/client.go
+- Spec: specs/OAUTH2-IMPLEMENTATION.md
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add mTLS configuration to HTTP client
+- File: pkg/client/client.go
+- Spec: specs/MTLS-IMPLEMENTATION.md
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Add integration test for authenticated requests
+- File: test/integration/auth_flow_test.go
+- Skill: @testing-integration
+- Effort: 40 min
+- Dependencies: Step 3
+
+---
+
+### IMPL-011: Daemon HTTP Proxy Wire
+
+#### Step 1: [ ] Implement HTTP proxy in daemon proxy.go
+- File: pkg/daemon/proxy.go
+- Spec: specs/DAEMON-PROXY.md
+- Skill: @testing-integration
+- Effort: 40 min
+- Dependencies: None
+
+#### Step 2: [ ] Add request routing to backend URL
+- File: pkg/daemon/proxy.go
+- Spec: specs/UNIX-SOCKET-PROXY.md
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add connection pooling
+- File: pkg/daemon/proxy.go
+- Skill: @testing-integration
+- Effort: 35 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Add integration test for proxy flow
+- File: test/integration/daemon_proxy_test.go
+- Skill: @testing-integration
+- Effort: 40 min
+- Dependencies: Step 3
+
+---
+
+## 🟣 P1.5: PRODUCTION READINESS (PRR Gates)
+
+### PRR-001: OpenTelemetry Tracing Implementation
+
+#### Step 1: [ ] Create internal/telemetry/provider.go with TracerProvider
+- File: internal/telemetry/provider.go
+- Spec: specs/MIDDLEWARE-TRACING.md
+- Skill: @testing-unit
+- Effort: 40 min
+- Dependencies: None
+
+#### Step 2: [ ] Add OTLP exporter configuration
+- File: internal/telemetry/exporter.go
+- Skill: @testing-unit
+- Effort: 35 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add tracing middleware to MCP handlers
+- File: pkg/mcp/middleware.go
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: Step 2
+
+#### Step 4: [ ] Add tracing to WASM runtime
+- File: pkg/wasm/runtime.go
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: Step 2
+
+#### Step 5: [ ] Add tracing to HTTP client
+- File: pkg/client/client.go
+- Skill: @testing-integration
+- Effort: 25 min
+- Dependencies: Step 2
+
+---
+
+### PRR-002: On-Call Documentation
+
+#### Step 1: [ ] Create runbooks/ directory structure
+- File: runbooks/README.md
+- Skill: @best-practice-guide
+- Effort: 20 min
+- Dependencies: None
+
+#### Step 2: [ ] Add daemon-troubleshooting runbook
+- File: runbooks/daemon-troubleshooting.md
+- Skill: @best-practice-guide
+- Effort: 45 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add mcp-troubleshooting runbook
+- File: runbooks/mcp-troubleshooting.md
+- Skill: @best-practice-guide
+- Effort: 45 min
+- Dependencies: Step 1
+
+#### Step 4: [ ] Add escalation matrix
+- File: runbooks/escalation.md
+- Skill: @best-practice-guide
+- Effort: 30 min
+- Dependencies: Step 1
+
+---
+
+### PRR-003: CI/CD Security Pipeline
+
+#### Step 1: [ ] Create .github/workflows/security.yml
+- File: .github/workflows/security.yml
+- Skill: @security-scan
+- Effort: 25 min
+- Dependencies: None
+
+#### Step 2: [ ] Add Trivy vulnerability scanning
+- File: .github/workflows/security.yml
+- Skill: @security-scan
+- Effort: 20 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add govulncheck scanning
+- File: .github/workflows/security.yml
+- Skill: @security-scan
+- Effort: 15 min
+- Dependencies: Step 1
+
+#### Step 4: [ ] Add golangci-lint with security checks
+- File: .github/workflows/security.yml
+- Skill: @security-scan
+- Effort: 20 min
+- Dependencies: Step 1
+
+#### Step 5: [ ] Add dependency scanning (dependabot)
+- File: .github/dependabot.yml
+- Skill: @security-scan
+- Effort: 15 min
+- Dependencies: None
+
+---
+
+### PRR-004: Compliance Verification Implementation
+
+#### Step 1: [ ] Create internal/compliance/ package structure
+- File: internal/compliance/doc.go
+- Spec: specs/COMPLIANCE-VERIFICATION.md
+- Skill: @testing-unit
+- Effort: 15 min
+- Dependencies: None
+
+#### Step 2: [ ] Implement Bible Standard compliance tests
+- File: internal/compliance/bible_standard.go
+- Spec: specs/BIBLE-STANDARD-COMPLIANCE.md
+- Skill: @testing-unit
+- Effort: 45 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Implement OAuth2 compliance tests
+- File: internal/compliance/oauth2.go
+- Spec: specs/OAUTH2-IMPLEMENTATION.md
+- Skill: @testing-unit
+- Effort: 35 min
+- Dependencies: Step 1
+
+#### Step 4: [ ] Implement TLS compliance tests
+- File: internal/compliance/tls.go
+- Spec: specs/MTLS-IMPLEMENTATION.md
+- Skill: @testing-unit
+- Effort: 30 min
+- Dependencies: Step 1
+
+#### Step 5: [ ] Add compliance test runner
+- File: internal/compliance/runner.go
+- Skill: @testing-unit
+- Effort: 30 min
+- Dependencies: Step 2, 3, 4
+
+---
+
+### PRR-005: Kubernetes Deployment Validation
+
+#### Step 1: [ ] Create test Kubernetes manifests
+- File: k8s/test-deployment.yaml
+- Spec: specs/KUBERNETES-MANIFESTS.md
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: None
+
+#### Step 2: [ ] Add Helm chart tests
+- File: chart/muster/tests/
+- Skill: @testing-integration
+- Effort: 40 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add kind cluster E2E test
+- File: test/e2e/kubernetes_test.go
+- Skill: @testing-e2e
+- Effort: 50 min
+- Dependencies: Step 1
+
+#### Step 4: [ ] Add deployment smoke test
+- File: test/e2e/deployment_smoke_test.go
+- Skill: @testing-e2e
+- Effort: 35 min
+- Dependencies: Step 3
+
+---
+
+### PRR-006: API Documentation Generation
+
+#### Step 1: [ ] Add OpenAPI spec generation from code
+- File: scripts/generate-openapi-docs.sh
+- Spec: specs/API-DOCUMENTATION.md
+- Skill: @api-documentation
+- Effort: 30 min
+- Dependencies: None
+
+#### Step 2: [ ] Generate CLI reference documentation
+- File: docs/cli-reference.md
+- Spec: specs/DOCS-CLI-REFERENCE.md
+- Skill: @api-documentation
+- Effort: 35 min
+- Dependencies: None
+
+#### Step 3: [ ] Add MCP protocol documentation
+- File: docs/mcp-protocol.md
+- Spec: specs/MCP-PROTOCOL.md
+- Skill: @api-documentation
+- Effort: 40 min
+- Dependencies: None
+
+#### Step 4: [ ] Validate documentation against implementation
+- File: test/integration/docs_validation_test.go
+- Skill: @testing-integration
+- Effort: 30 min
+- Dependencies: Step 1, 2, 3
+
+---
+
+### PRR-007: Alerting Rules Implementation
+
+#### Step 1: [ ] Create Prometheus alerting rules
+- File: deployments/prometheus/alerts.yml
+- Spec: specs/OPS-ALERTING.md
+- Skill: @observability-logging
+- Effort: 35 min
+- Dependencies: None
+
+#### Step 2: [ ] Add daemon health alerts
+- File: deployments/prometheus/alerts.yml
+- Skill: @observability-logging
+- Effort: 25 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add MCP performance alerts
+- File: deployments/prometheus/alerts.yml
+- Skill: @observability-logging
+- Effort: 25 min
+- Dependencies: Step 1
+
+#### Step 4: [ ] Add Alertmanager configuration
+- File: deployments/alertmanager/config.yml
+- Spec: specs/OPS-ALERTING.md
+- Skill: @observability-logging
+- Effort: 30 min
+- Dependencies: Step 1
+
+---
+
+### PRR-008: Rollback Testing
+
+#### Step 1: [ ] Document rollback procedure
+- File: runbooks/rollback.md
+- Skill: @best-practice-guide
+- Effort: 30 min
+- Dependencies: None
+
+#### Step 2: [ ] Create rollback test script
+- File: test/integration/rollback_test.go
+- Skill: @testing-integration
+- Effort: 40 min
+- Dependencies: Step 1
+
+#### Step 3: [ ] Add database migration rollback tests
+- File: test/integration/migration_rollback_test.go
+- Skill: @testing-database
+- Effort: 35 min
+- Dependencies: None
+
+---
+
+## 📊 REVISED SUMMARY
+
+| Priority | Tasks | Baby Steps | Effort |
+|----------|-------|------------|--------|
+| P-1 CRITICAL | 4 | 17 | 6-8 hrs |
+| P0 CRITICAL | 3 | 23 | 6-8 hrs |
+| P0.5 INTEGRATION | 5 | 22 | 10-14 hrs |
+| P1 HIGH | 5 | 54 | 18-24 hrs |
+| P1.5 PRR | 8 | 41 | 18-24 hrs |
+| P2 MEDIUM | 5 | 54 | 16-22 hrs |
+| P3 TESTS | 3 | 13 | 7-9 hrs |
+| P4 PLATFORM | 2 | 12 | 8-12 hrs |
+| **TOTAL** | **35** | **236** | **89-121 hrs** |
+
+---
+
+## Revised Execution Order
+
+1. **SEC-005 → SEC-006 → SEC-007 → SEC-008** (Security Critical Fixes - 17 steps)
+2. **SEC-002 → SEC-003 → SEC-004** (Security Validation - 23 steps)
+3. **IMPL-007 → IMPL-008 → IMPL-009 → IMPL-010 → IMPL-011** (Integration Wiring - 22 steps)
+4. **AUDIT-001 → AUDIT-002** (Audit/Tracing - 23 steps)
+5. **IMPL-003 → IMPL-004 → IMPL-005 → IMPL-006** (Features - 46 steps)
+6. **PRR-001 → PRR-002 → ... → PRR-008** (Production Readiness - 41 steps)
+7. **FEAT-001 → FEAT-002 → FEAT-003** (Medium - 21 steps)
+8. **TEST-001 → TEST-002 → TEST-003** (Coverage - 13 steps)
+9. **PLAT-001 → PLAT-002** (Platform - 12 steps)
 
 ---
 
 ## Current Status
 
 - **Iteration:** 1703
-- **Pending Baby Steps:** 156
+- **Pending Baby Steps:** 236 (was 156, +80 added)
 - **Completed:** SEC-001, IMPL-002
-- **Completion:** 78%
+- **True Completion:** 60% (was 78%, revised based on PRR)
 - **Last Updated:** 2026-03-22
 - **Baby Steps Methodology:** Applied ✅
+- **Completeness Validation:** Applied ✅
