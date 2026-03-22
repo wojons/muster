@@ -1197,26 +1197,43 @@
   - All tests passing ✅
 - **Lines**: 458 lines of implementation + 573 lines of tests = 1,031 total
 
-#### Step 8: [ ] Implement Log() and LogAsync() methods
+#### Step 8: [x] Implement Log() and LogAsync() methods
 - File: internal/audit/logger.go
 - Spec: specs/EVENTS-AUDIT.md lines 375-406
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: Step 7
+- **Completed**: Log() and LogAsync() methods already implemented and tested
+- **Implementation**:
+  - `Log()`: Records audit events with ID generation, timestamping, hash chain computation, redaction, buffering, and auto-flush
+  - `LogAsync()`: Non-blocking wrapper using goroutine
+- **Tests**: 13 comprehensive test functions, all passing ✅
 
-#### Step 9: [ ] Implement hash chain for tamper resistance
+#### Step 9: [x] Implement hash chain for tamper resistance
 - File: internal/audit/logger.go
 - Spec: specs/EVENTS-AUDIT.md lines 408-429
 - Skill: @security-scan
 - Effort: 30 min
 - Dependencies: Step 8
+- **Completed**: Hash chain implementation already complete and tested
+- **Implementation**:
+  - `calculateHash()`: Computes SHA256 hash of event data including previous hash
+  - Each event's hash includes the previous hash, creating an immutable chain
+  - `lastHash` field maintains the chain state
+- **Tests**: `TestAuditLogger_Log_HashChain` and `TestAuditLogger_CalculateHash` passing ✅
 
-#### Step 10: [ ] Implement Flush() and Close() methods
+#### Step 10: [x] Implement Flush() and Close() methods
 - File: internal/audit/logger.go
 - Spec: specs/EVENTS-AUDIT.md lines 469-497
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 9
+- **Completed**: Flush() and Close() methods already implemented and tested
+- **Implementation**:
+  - `Flush()`: Thread-safe buffer flush to storage with error handling and retry
+  - `Close()`: Graceful shutdown with WaitGroup synchronization
+  - `flushLoop()`: Background goroutine for periodic flushing
+- **Tests**: `TestAuditLogger_Flush_*` and `TestAuditLogger_Close` passing ✅
 
 #### Step 11: [ ] Add unit tests for redaction
 - File: internal/audit/redaction_test.go
