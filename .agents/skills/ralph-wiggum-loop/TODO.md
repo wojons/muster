@@ -1359,12 +1359,21 @@
 - **All tests passing**: 10/10 ✅
 - **Lint**: 0 issues ✅
 
-#### Step 5: [ ] Implement NewTracerProvider() with resource/exporter
+#### Step 5: [x] Implement NewTracerProvider() with resource/exporter
 - File: internal/telemetry/provider.go
 - Spec: specs/MIDDLEWARE-TRACING.md lines 63-101
 - Skill: @testing-unit
 - Effort: 50 min
 - Dependencies: Step 4
+- **Completed**: Implemented NewTracerProvider() with full resource and exporter setup
+- **Implementation**:
+  - Resource creation with service name, version, and custom attributes
+  - Exporter creation supporting both gRPC and HTTP protocols
+  - TracerProvider setup with configurable sampling rate
+  - Global OpenTelemetry provider and propagator configuration
+  - Comprehensive error handling and validation
+- **Tests**: 10 comprehensive test functions covering disabled/enabled tracing, HTTP/gRPC protocols, custom attributes, sampling rates, propagators, context cancellation, and concurrent access
+- **All tests passing**: ✅
 
 #### Step 6: [ ] Create Span struct with helper methods
 - File: internal/telemetry/span.go
