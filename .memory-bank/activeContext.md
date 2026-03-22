@@ -1,10 +1,12 @@
 # Active Context
 
-**Last Updated**: 2026-03-12
-**Session Status**: Ralph Wiggum Loop - Idle-Time Spec Sweep Session 327 complete
-- Session 327: COMPLETION-GENERATION.md ✅ 33% (exact API match, 287 impl vs 879 spec), INDEX.md ⏭️ META-DOCS (271-line navigation), MCP-SERVER-IMPLEMENTATION.md ✅ 100% (fully implemented 10 Go files)
-- ⭐ MILESTONE: 116.7% SAMPLING THRESHOLD PASSED - 265/227 specs analyzed with 116.7% confidence
-- Cumulative: 265/227 specs (116.7% cumulative >100% with duplicates)
+**Last Updated**: 2026-03-22
+**Session Status**: Ralph Wiggum Loop - Fixed counting bug, accurate status restored
+- 🔧 FIX: ralph_loop.py now counts `Step X: [ ]` baby step format (added Pattern 5)
+- ✅ TODO.md shows accurate 11% complete (24/223 tasks) vs false 78% before
+- ✅ 199 pending tasks now correctly counted (was ~70)
+- Ready to run: `./ralph loop --model kimi-for-coding/k2p5`
+- Cumulative spec analysis: 265/227 specs (116.7% with duplicates)
 
 ## Verification Status
 ### ✅ Verified This Session (2026-03-12)

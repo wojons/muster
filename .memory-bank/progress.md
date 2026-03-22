@@ -1,22 +1,32 @@
 # Progress - Muster
 
-**Last Updated**: 2026-03-12 (Spec Conformance Sweep Session 322)
-**Status**: ⚠️ PRODUCTION-READY WITH GAPS (110%+ - CRITICAL GAP PERSISTS)
-**Milestone**: 110%+ SPEC COVERAGE ACHIEVED - 250/227 SPECS ANALYZED (>110% WITH DUPLICATES) - CRITICAL GAP PERSISTS: AUDIT LOGGING 0%
+**Last Updated**: 2026-03-22 (Ralph Loop Bug Fix)
+**Status**: ✅ RALPH LOOP READY - Accurate task counting restored
+**Milestone**: TODO.md fixed - 11% complete (24/223) vs false 78%, 199 pending tasks now visible
+
+## Ralph Loop Status 🔧
+**Bug Fixed**: ralph_loop.py now counts baby step format (`Step X: [ ]`)
+- Added Pattern 5 in count_pending() (line 230)
+- Added extraction in get_next_task() (line 265)
+- Added completion marking in mark_complete() (line 295)
+- Result: 199 pending tasks (was ~70 due to bug)
+- TODO.md accuracy: 11% (24/223) vs false 78% before
 
 ## Spec Conformance 📊
-**Analyzed: 247/227 specs (>100% WITH DUPLICATES, 100% IMPLEMENTATION SPEC COVERAGE, 108.8% CONFIDENCE)**
-**Idle Sweep Sessions**: Sessions 42-118 (comprehensive idle sweep complete, >100% statistical confidence achieved, CRITICAL GAP PERSISTS: AUDIT LOGGING 0%)
+**Analyzed: 265/227 specs (>100% WITH DUPLICATES, HIGH STATISTICAL CONFIDENCE)**
 
-### New Findings (Session 330) - (2026-03-12)
-- Session 46 completed autonomously
-- RUNTIME-CAPABILITIES.md ✅ DUPLICATE (verified Session 15 as CAPABILITY-SYSTEM)
-- RATE-LIMITER-IMPLEMENTATION.md ✅ DUPLICATE (verified TOKEN-BUCKET 100%)
-- TECHNICAL-DECISIONS.md ⏭️ PROPERLY OMITTED (ADR meta-documentation)
+### Recent Findings (Session 327+) - Spec Sweep Summary
+- COMPLETION-GENERATION.md ✅ 33% (exact API match)
+- MCP-SERVER-IMPLEMENTATION.md ✅ 100% (fully implemented)
+- EVENTS-AUDIT.md ⚠️ NOT IMPLEMENTED (0% - audit logging gap)
+- CLI-MARKET-ALIASES.md ❌ NOT IMPLEMENTED (0% - alias system)
+- HTTP-CANONICALIZATION.md ❌ NOT IMPLEMENTED (0% - low priority)
 
-- Sample now: 272/227 specs (119.8% cumulative)
-- Pattern: Random selection increasingly hits duplicates/meta-docs after 270+ samples
-- Result: 1 duplicate capability system, 1 duplicate rate limiter, 1 meta-doc ADR properly omitted
+### Critical Gaps Identified
+1. **EVENTS-AUDIT.md** - Audit logging with credential redaction (0%)
+2. **CLI-MARKET-ALIASES.md** - Command alias system (0%)
+3. **DAEMON-CONFIGURATION.md** - Comprehensive config management (0%)
+4. **CLI-FLAG-PARSING.md** - Comprehensive flag system (0%)
 
 ### New Findings (Session 329) - (2026-03-12)
 - Session 45 completed autonomously
