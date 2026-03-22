@@ -1147,12 +1147,33 @@
 - **All tests passing**: 22/22 ✅
 - **Lint**: 0 issues ✅
 
-#### Step 6: [ ] Create AuditLogger struct
+#### Step 6: [x] Create AuditLogger struct
 - File: internal/audit/logger.go
 - Spec: specs/EVENTS-AUDIT.md lines 334-342
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 5
+- **Completed**: Created AuditLogger struct with comprehensive audit logging capabilities
+- **Implementation**:
+  - `AuditLogger` struct with config, storage, buffer, mutex, lastHash, done channel, and WaitGroup
+  - `NewAuditLogger()` constructor that initializes the logger and starts background flush loop
+  - `Log()` method with automatic ID generation, timestamping, hash chain computation, and redaction
+  - `LogAsync()` for non-blocking audit logging
+  - `calculateHash()` for SHA256-based tamper resistance
+  - `flushLoop()` background goroutine for periodic flushing
+  - `Flush()` for immediate buffer write to storage
+  - `Query()` for retrieving audit events from storage
+  - `Close()` for graceful shutdown with buffer flush
+- **Features**:
+  - Thread-safe operations with sync.Mutex
+  - Hash chain for tamper resistance (each event references previous hash)
+  - Automatic sensitive data redaction using Redactor
+  - Configurable buffer size and flush intervals
+  - Support for enabled/disabled states
+  - Error handling with retry logic for failed writes
+- **Tests**: 18 comprehensive test functions covering all functionality
+- **All tests passing**: 18/18 ✅
+- **Lint**: 0 issues ✅
 
 #### Step 7: [ ] Implement AuditStorage interface
 - File: internal/audit/storage.go
