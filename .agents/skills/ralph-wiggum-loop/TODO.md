@@ -1175,12 +1175,27 @@
 - **All tests passing**: 18/18 ✅
 - **Lint**: 0 issues ✅
 
-#### Step 7: [ ] Implement AuditStorage interface
+#### Step 7: [x] Implement AuditStorage interface
 - File: internal/audit/storage.go
 - Spec: specs/EVENTS-AUDIT.md lines 344-359
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: Step 6
+- **Completed**: Implemented AuditStorage interface with two storage backends
+- **Implementations**:
+  - `MemoryStorage`: In-memory storage with full filtering support (27 test cases)
+  - `FileStorage`: JSON Lines file storage with automatic rotation (21 test cases)
+- **Features**:
+  - Thread-safe operations with RWMutex
+  - Comprehensive filtering (time range, categories, levels, actor, resource, action, success)
+  - Log rotation with configurable max size and file count
+  - Defensive copying to prevent external modification
+  - Proper error handling and closed state management
+- **Tests**: 48 comprehensive test cases covering:
+  - MemoryStorage: Write, Query (all filter types), Close, concurrent access
+  - FileStorage: Write, Query, rotation (automatic and manual), permissions
+  - All tests passing ✅
+- **Lines**: 458 lines of implementation + 573 lines of tests = 1,031 total
 
 #### Step 8: [ ] Implement Log() and LogAsync() methods
 - File: internal/audit/logger.go
