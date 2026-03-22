@@ -374,19 +374,31 @@
 
 ### IMPL-004: Command Aliases (2-3 days)
 
-#### Step 1: [ ] Create internal/alias/doc.go
+#### Step 1: [x] Create internal/alias/doc.go
 - File: internal/alias/doc.go
-- Spec: specs/CLI-MARKET-ALIASES.md
+- Spec: specs/CLI-MARKET-ALIASES.md lines 25-45
 - Skill: @testing-unit
 - Effort: 10 min
 - Dependencies: None
+- **Completed**: Created comprehensive package documentation for the alias system
+- **Lines**: 53 lines of documentation covering basic usage, Manager operations, Expander features, storage format, default aliases, and thread safety
+- **Features Documented**:
+  - Basic alias definition and retrieval
+  - Recursive expansion with circular detection
+  - Storage format (YAML)
+  - Default aliases
+  - Reserved names
+  - Thread safety guarantees
 
-#### Step 2: [ ] Define Alias struct with Name, Command, Description
+#### Step 2: [x] Define Alias struct with Name, Command, Description
 - File: internal/alias/types.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 25-45
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 1
+- **Completed**: Created Alias struct with Name, Command, and Description fields
+- **Features**: JSON/YAML tags, String() and IsValid() methods, constructor functions
+- **Tests**: 8 test functions covering all scenarios, all passing ✅
 
 #### Step 3: [ ] Create Manager struct with mutex-protected aliases map
 - File: internal/alias/manager.go
