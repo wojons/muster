@@ -111,11 +111,39 @@ type Runtime struct {
 	config     *RuntimeConfig
 	limits     *SandboxLimits
 	capability *CapabilitySet
+	tracer     Tracer
 	mu         sync.RWMutex
+}
+
+// Tracer defines the interface for WASM execution tracing.
+// This abstraction allows for pluggable tracing implementations.
+type Tracer interface {
+	// StartSpan creates a new span for WASM execution.
+	StartSpan(name string) Span
+}
+
+// Span represents a trace span for WASM operations.
+type Span interface {
+	// End completes the span.
+	End()
+	// SetTag adds a tag/attribute to the span.
+	SetTag(key string, value interface{})
+	// SetError marks the span as errored with the given error.
+	SetError(err error)
 }
 
 // NewRuntime creates a new WASM runtime.
 func NewRuntime(config *RuntimeConfig, limits *SandboxLimits) *Runtime {
+	return NewRuntimeWithTracer(config, limits, nil)
+}
+
+// NewRuntimeWithTracer creates a new WASM runtime with a tracer.
+//
+// Example:
+//
+//	tracer := telemetry.NewTracer(provider.Tracer("wasm"))
+//	runtime := NewRuntimeWithTracer(config, limits, NewTelemetryTracer(tracer))
+func NewRuntimeWithTracer(config *RuntimeConfig, limits *SandboxLimits, tracer Tracer) *Runtime {
 	if config == nil {
 		config = DefaultRuntimeConfig()
 	}
@@ -127,6 +155,7 @@ func NewRuntime(config *RuntimeConfig, limits *SandboxLimits) *Runtime {
 		config:     config,
 		limits:     limits,
 		capability: NewCapabilitySet(),
+		tracer:     tracer,
 	}
 }
 
@@ -171,4 +200,19 @@ func (r *Runtime) ListCapabilities() []Capability {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.capability.List()
+}
+
+// SetTracer sets the tracer for the runtime.
+// This allows adding tracing to an existing runtime instance.
+func (r *Runtime) SetTracer(tracer Tracer) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.tracer = tracer
+}
+
+// Tracer returns the current tracer for the runtime.
+func (r *Runtime) Tracer() Tracer {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.tracer
 }
