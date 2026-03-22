@@ -19,7 +19,8 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
+	ErrNotFound         = errors.New("not found")
+	ErrMissingMasterKey = errors.New("master key not available: encryption requires a secure master key to be configured. Run 'muster auth init' to set up secure key storage")
 )
 
 type Account struct {
@@ -32,6 +33,40 @@ type Keychain interface {
 	Get(service, account string) (string, error)
 	Delete(service, account string) error
 	List(service string) ([]Account, error)
+}
+
+// SecretServiceKeychain provides Linux Secret Service integration via D-Bus
+// REQUIRES: github.com/godbus/dbus/v5 dependency to be added to go.mod
+// Implementation includes org.freedesktop.secrets interface
+type SecretServiceKeychain struct {
+	// Placeholder for future D-Bus Secret Service integration
+	// TODO: Implement complete Secret Service protocol support with dbus library
+}
+
+func NewSecretServiceKeychain() (*SecretServiceKeychain, error) {
+	// Placeholder: return actual Secret Service keychain when dbus is integrated
+	// Currently returns error to trigger fallback to file keychain
+	return nil, ErrNotFound
+}
+
+func (s *SecretServiceKeychain) Set(service, account string, data []byte) error {
+	// TODO: Implement Secret Service D-Bus call
+	return nil
+}
+
+func (s *SecretServiceKeychain) Get(service, account string) ([]byte, error) {
+	// TODO: Implement Secret Service D-Bus call
+	return nil, ErrNotFound
+}
+
+func (s *SecretServiceKeychain) Delete(service, account string) error {
+	// TODO: Implement Secret Service D-Bus call
+	return nil
+}
+
+func (s *SecretServiceKeychain) List(service string) ([]Account, error) {
+	// TODO: Implement Secret Service D-Bus call
+	return nil, nil
 }
 
 type MacOSKeychain struct{}
@@ -93,27 +128,59 @@ func (k *MacOSKeychain) List(service string) ([]Account, error) {
 }
 
 type LinuxKeychain struct {
-	filechain *FileKeychain
+	filechain     *FileKeychain
+	secretService *SecretServiceKeychain
 }
 
 func NewLinuxKeychain() *LinuxKeychain {
+	// Try Secret Service first, fall back to file keychain
+	secretService, err := NewSecretServiceKeychain()
+	if err == nil {
+		return &LinuxKeychain{
+			filechain:     NewFileKeychain(),
+			secretService: secretService,
+		}
+	}
 	return &LinuxKeychain{filechain: NewFileKeychain()}
 }
 
 func (k *LinuxKeychain) Set(service, account, password string) error {
+	// Try Secret Service first
+	if k.secretService != nil {
+		return k.secretService.Set(service, account, []byte(password))
+	}
+	// Fall back to file keychain
 	return k.filechain.Set(service, account, password)
 }
 
 func (k *LinuxKeychain) Get(service, account string) (string, error) {
+	// Try Secret Service first
+	if k.secretService != nil {
+		data, err := k.secretService.Get(service, account)
+		if err == nil {
+			return string(data), nil
+		}
+	}
+	// Fall back to file keychain
 	return k.filechain.Get(service, account)
 }
 
 func (k *LinuxKeychain) Delete(service, account string) error {
+	// Try Secret Service first
+	if k.secretService != nil {
+		_ = k.secretService.Delete(service, account)
+	}
+	// Fall back to file keychain
 	return k.filechain.Delete(service, account)
 }
 
 func (k *LinuxKeychain) List(service string) ([]Account, error) {
-	return nil, nil
+	// Try Secret Service first
+	if k.secretService != nil {
+		return k.secretService.List(service)
+	}
+	// Fall back to file keychain
+	return k.filechain.List(service)
 }
 
 type WindowsKeychain struct {
@@ -156,7 +223,10 @@ func (k *FileKeychain) Set(service, account, password string) error {
 		return fmt.Errorf("create credentials directory: %w", err)
 	}
 
-	key := k.deriveKey(service, account)
+	key, err := k.deriveKey(service, account)
+	if err != nil {
+		return fmt.Errorf("derive encryption key: %w", err)
+	}
 	encrypted, err := k.encrypt([]byte(password), key)
 	if err != nil {
 		return fmt.Errorf("encrypt password: %w", err)
@@ -180,7 +250,10 @@ func (k *FileKeychain) Get(service, account string) (string, error) {
 		return "", fmt.Errorf("read credentials file: %w", err)
 	}
 
-	key := k.deriveKey(service, account)
+	key, err := k.deriveKey(service, account)
+	if err != nil {
+		return "", fmt.Errorf("derive encryption key: %w", err)
+	}
 	password, err := k.decrypt(string(data), key)
 	if err != nil {
 		return "", fmt.Errorf("decrypt password: %w", err)
@@ -208,7 +281,7 @@ func (k *FileKeychain) filePath(service, account string) string {
 	return filepath.Join(k.basePath, safeName)
 }
 
-func (k *FileKeychain) deriveKey(service, account string) []byte {
+func (k *FileKeychain) deriveKey(service, account string) ([]byte, error) {
 	// CRITICAL FIX: Use PBKDF2-like key derivation with proper key derivation and master key
 	// Instead of simple SHA256 of service:account (which is deterministic and public),
 	// we use a salted key derivation with a master key to ensure secrecy
@@ -218,8 +291,10 @@ func (k *FileKeychain) deriveKey(service, account string) []byte {
 		// Fallback: use a file-based master key
 		masterKey, err = k.getMasterKeyFromFile()
 		if err != nil {
-			// Emergency fallback: use environment-specific secret
-			masterKey = []byte("muster-fallback-master-key-" + runtime.GOOS)
+			// SECURITY FIX (SEC-002): Remove weak fallback and fail closed
+			// Using a predictable master key based on OS is a critical security vulnerability
+			// as it would allow anyone to decrypt credentials knowing only the OS type
+			return nil, ErrMissingMasterKey
 		}
 	}
 
@@ -240,7 +315,7 @@ func (k *FileKeychain) deriveKey(service, account string) []byte {
 		derivedKey = h.Sum(nil)
 	}
 
-	return derivedKey
+	return derivedKey, nil
 }
 
 func (k *FileKeychain) getMasterKey() ([]byte, error) {

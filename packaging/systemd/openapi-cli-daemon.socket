@@ -1,0 +1,11 @@
+[Unit]
+Description=OpenAPI CLI Daemon Socket
+Documentation=https://docs.openapi-cli.io
+
+[Socket]
+ListenStream=/run/muster/daemon.sock
+SocketGroup=muster
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target

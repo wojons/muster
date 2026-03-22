@@ -1,0 +1,76 @@
+# AppArmor profile for Muster daemon
+# Place this file at /etc/apparmor.d/usr.bin.muster
+
+#include <tunables/global>
+
+profile muster /usr/bin/muster {
+  #include <abstractions/base>
+  #include <abstractions/authentication>
+  #include <abstractions/consoles>
+  #include <abstractions/openssl>
+  #include <abstractions/nameservice>
+  #include <abstractions/user-download>
+
+  # Network access - required for HTTP API calls
+  network inet stream,
+  network inet6 stream,
+  network inet dgram,
+  network inet6 dgram,
+
+  # Allow bind to specific ports for daemon mode
+  network inet stream bind,
+
+  # Daemon communication
+  unix stream send receive,
+  unix stream connect,
+
+  # Configuration, data, and state directories
+  /etc/muster/** r,
+  /etc/muster/ rw,
+  /var/lib/muster/** rw,
+  /var/lib/muster/** rwkl,
+  /var/log/muster/** rw,
+  /var/log/muster/** w,
+  /run/muster/** rw,
+  /run/muster/** rwkl,
+
+  # SSH keys
+  /etc/ssh/ssh_config r,
+  ~/.ssh/** rwk,
+
+  # Certificate stores
+  /etc/ssl/certs/** r,
+  /etc/ssl/private/** rk,
+  ~/.local/share/muster/** rw,
+  ~/.config/muster/** rw,
+  ~/.cache/muster/** rw,
+
+  # OpenAPI spec files and WASM modules
+  /var/lib/muster/inventories/** r,
+  /var/lib/muster/modules/** r,
+  /var/lib/muster/specs/** r,
+  /var/lib/muster/known-good/** rw,
+  /var/lib/muster/audit/** rw,
+
+  # Temp directory for downloads/processing
+  /tmp/** rw,
+  /tmp/ rw,
+
+  # Executions
+  /usr/bin/** rx,
+  /bin/** rx,
+
+  # System calls
+  capability net_admin,
+  capability setuid,
+  capability setgid,
+
+  # Deny everything else
+  deny /root/** rwx,
+  deny /home/*/.ssh/** w,
+  deny /etc/** w,
+
+  # Signal handling
+  signal (receive) set=(term, hup) peer=unconfined,
+
+}

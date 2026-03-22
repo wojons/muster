@@ -129,7 +129,11 @@ func TestRealAuthIntegration(t *testing.T) {
 			PKCE:         false,
 		}
 
-		tokenResponse, err := flow.Exchange(authorizationCode)
+		// Start the flow to generate and store state
+		authRequest, err := flow.Start()
+		require.NoError(t, err, "Should start auth flow successfully")
+
+		tokenResponse, err := flow.Exchange(authorizationCode, authRequest.State)
 		require.NoError(t, err, "Should exchange auth code for token")
 		assert.NotEmpty(t, tokenResponse.AccessToken, "Should have access token")
 		assert.NotEmpty(t, tokenResponse.RefreshToken, "Should have refresh token")
@@ -264,7 +268,7 @@ func TestRealAuthIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Step 2: Simulate user authorization and code exchange
-		tokenResponse, err := flow.Exchange(authorizationCode)
+		tokenResponse, err := flow.Exchange(authorizationCode, authRequest.State)
 		require.NoError(t, err)
 
 		// Step 3: Store token
@@ -328,7 +332,11 @@ func TestOAuth2ErrorHandling(t *testing.T) {
 			PKCE:         false,
 		}
 
-		_, err := flow.Exchange("invalid_code")
+		// Start the flow to generate and store state
+		authRequest, err := flow.Start()
+		require.NoError(t, err)
+
+		_, err = flow.Exchange("invalid_code", authRequest.State)
 		assert.Error(t, err, "Should error on invalid auth code")
 	})
 

@@ -1,0 +1,14 @@
+Package: muster
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.31), ca-certificates
+Recommends: gnome-keyring | kwallet-cli
+Suggests: muster-completion
+Maintainer: Muster Team <team@muster.sh>
+Description: Modern API Client and Development Tool
+ Muster is a powerful CLI tool for API development and testing.
+ Features OpenAPI integration, authentication management, and
+ extensible workflows.
+Homepage: https://muster.sh

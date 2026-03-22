@@ -103,6 +103,138 @@ func TestAuthorizationCodeFlow_Start_PKCE(t *testing.T) {
 	}
 }
 
+func TestAuthorizationCodeFlow_Start_StoresState(t *testing.T) {
+	flow := &AuthorizationCodeFlow{
+		ClientID:    "test-client-id",
+		AuthURL:     "https://example.com/auth",
+		RedirectURL: "http://localhost:8080/callback",
+		Scopes:      []string{"read"},
+	}
+
+	req, err := flow.Start()
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	if flow.State == "" {
+		t.Fatal("Start() did not store state in flow.State")
+	}
+
+	if flow.State != req.State {
+		t.Errorf("flow.State (%s) != req.State (%s)", flow.State, req.State)
+	}
+}
+
+func TestAuthorizationCodeFlow_Exchange_ValidState(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"access_token": "test-access-token",
+			"token_type": "Bearer",
+			"expires_in": 3600
+		}`))
+	}))
+	defer mockServer.Close()
+
+	flow := &AuthorizationCodeFlow{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		TokenURL:     mockServer.URL,
+		RedirectURL:  "http://localhost:8080/callback",
+		State:        "test-state-123",
+	}
+
+	resp, err := flow.Exchange("test-auth-code", "test-state-123")
+	if err != nil {
+		t.Fatalf("Exchange() error = %v", err)
+	}
+
+	if resp.AccessToken != "test-access-token" {
+		t.Errorf("AccessToken = %v, want test-access-token", resp.AccessToken)
+	}
+}
+
+func TestAuthorizationCodeFlow_Exchange_InvalidState(t *testing.T) {
+	flow := &AuthorizationCodeFlow{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		TokenURL:     "https://example.com/token",
+		RedirectURL:  "http://localhost:8080/callback",
+		State:        "expected-state",
+	}
+
+	_, err := flow.Exchange("test-auth-code", "attacker-state")
+	if err == nil {
+		t.Fatal("Exchange() should have failed with state mismatch")
+	}
+
+	if !contains(err.Error(), "state mismatch") {
+		t.Errorf("Expected state mismatch error, got: %v", err)
+	}
+}
+
+func TestAuthorizationCodeFlow_Exchange_EmptyState(t *testing.T) {
+	flow := &AuthorizationCodeFlow{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		TokenURL:     "https://example.com/token",
+		RedirectURL:  "http://localhost:8080/callback",
+		State:        "expected-state",
+	}
+
+	_, err := flow.Exchange("test-auth-code", "")
+	if err == nil {
+		t.Fatal("Exchange() should have failed with empty state")
+	}
+
+	if !contains(err.Error(), "state mismatch") {
+		t.Errorf("Expected state mismatch error, got: %v", err)
+	}
+}
+
+func TestAuthorizationCodeFlow_Integration_StartAndExchange(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"access_token": "test-access-token",
+			"token_type": "Bearer",
+			"expires_in": 3600
+		}`))
+	}))
+	defer mockServer.Close()
+
+	flow := &AuthorizationCodeFlow{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		AuthURL:      "https://example.com/auth",
+		TokenURL:     mockServer.URL,
+		RedirectURL:  "http://localhost:8080/callback",
+		Scopes:       []string{"read"},
+	}
+
+	// Start the flow to generate state
+	req, err := flow.Start()
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	if flow.State == "" {
+		t.Fatal("Start() did not generate state")
+	}
+
+	// Simulate callback with correct state
+	resp, err := flow.Exchange("test-auth-code", req.State)
+	if err != nil {
+		t.Fatalf("Exchange() error = %v", err)
+	}
+
+	if resp.AccessToken != "test-access-token" {
+		t.Errorf("AccessToken = %v, want test-access-token", resp.AccessToken)
+	}
+}
+
 func TestDeviceCodeFlow_Start(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test that makes HTTP request in short mode")

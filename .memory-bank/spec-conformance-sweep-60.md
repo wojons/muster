@@ -1,83 +1,181 @@
 # Spec Conformance Sweep Session 60
 
-## Analyzed Specs (3 random samples)
+**Date**: 2026-03-11
+**Sample Progress**: 178/227 specs (78.4% cumulative → 181/227 (79.7%), +1.3% increase)
+**Specs Analyzed**: 3 (DOCS-INSTALLATION.md, OS-PROCESS.md, MIDDLEWARE-RECOVERY.md)
 
-### 1. ARCHITECTURE-VISUAL.md (516-line architecture documentation)
-- **Category**: Meta-Documentation (visual architecture guide)
-- **Status**: ✅ PROPERLY OMITTED (architecture documentation, not feature specification)
-- **Spec describes**: Complete system architecture visual guide with diagrams
-  - System overview with CLI Interface, MCP Interface, Shared Core components (lines 12-57)
-  - Startup flow diagrams showing CLI parsing → Config load → Inventory fetch → Auth → Generate → Execute (lines 61-98)
-  - Request execution flow with middleware chain (fingerprint, auth, rate limit, WASM, crypto) (lines 100-147)
-  - Cache structure for ~/.cache/oa/ with inventory/, modules/, specs/ subdirs (lines 149-216)
-  - Component dependencies showing CLI/MCP → Shared Core → Execution Engine (lines 218-250)
-  - State machine for command execution (7 states: IDLE → PARSED → VALIDATED → CONFIG_LOADED → INVENTORY_READY → AUTHENTICATED → REQUEST_BUILT → REQUEST_PROCESSED → EXECUTING → RESPONSE_RECEIVED → RESPONSE_PROCESSED → COMPLETE) (lines 262-348)
-  - Security architecture with 5 layers (Application, Transport, Authentication, Authorization, Secrets) (lines 350-373)
-  - Module loading flow with Discovery → Cache Check → Download → Verify → Store → Instantiate → Initialize (lines 375-398)
-  - Deployment patterns: Local Binary, Container, CI/CD, MCP Server (lines 400-438)
-  - Performance characteristics and error handling flows (lines 466-493)
-- **Evidence**: This is architectural design documentation, NOT implementation spec
-  - NO code requirements
-  - NO function/method signatures
-  - NO implementation deadlines
-  - Visual mermaid diagrams for system understanding
-- **Context**: User-facing architecture reference showing system design and component relationships
-- **Status**: PROPERLY OMITTED (visual architecture guide, not code feature)
+## Analysis
 
-### 2. REFERENCE-IMPLEMENTATION.md (74-line spec)
-- **Category**: Meta-Documentation (project structure guide)
-- **Status**: ✅ PROPERLY OMITTED (reference documentation, not feature spec)
-- **Spec describes**: Project structure and build configuration reference
-  - Project structure: cmd/, pkg/, internal/ directories (lines 12-31)
-  - Key implementation files with line counts (WASM runtime ~500 lines, MCP server ~400 lines) (lines 33-41)
-  - Build configuration: .goreleaser.yml with macOS, Linux, Windows builds (lines 42-57)
-  - Testing: go test commands for unit, coverage, integration tests (lines 59-72)
-- **Evidence**: Documentation describing code organization, NOT implementation requirements
-  - NO code snippets beyond struct/file names
-  - NO detailed implementation specifications
-  - NO method signatures or algorithm requirements
-- **Context**: Reference documentation for developers showing directory layout and build/test commands
-- **Status**: PROPERLY OMITTED (reference implementation guide, not feature specification)
+### 1. DOCS-INSTALLATION.md (292 lines - Installation Documentation)
 
-### 3. SDK-TEMPLATES.md (592-line comprehensive enterprise spec)
-- **Category**: Enterprise SaaS 12-Language SDK Generation System
-- **Status**: ❌ NOT IMPLEMENTED (0% - no template engine, no SDK generation capability)
-- **Spec describes**: Complete SDK template generation system for 12 languages
-  - Template processing pipeline: OpenAPI → IR → Template → SDK code (lines 18-23)
-  - Template variables: api_name, api_version, base_url, auth_schemes, operations, models, tags (lines 27-38)
-  - Template inheritance hierarchy with base/, language/, partials/ directories (lines 47-66)
-  - Language-specific templates for:
-    * Python: client.py.tmpl, operation.py.tmpl, model.py.tmpl, config.py.tmpl (lines 70-118)
-    * JavaScript/TypeScript: client.ts.tmpl with ES6 async, operation templates (lines 120-142)
-    * Java: Client.java.tmpl with CompletableFuture async calls (lines 144-205)
-    * Go: client.go.tmpl with context.Context support (lines 207-289)
-    * Rust: client.rs.tmpl with tokio async and reqwest client (lines 291-350)
-  - Template functions registry: snake_case, camel_case, pascal_case, kebab_case, type mapping functions (lines 352-369)
-  - Template validation with cross-language consistency tests (lines 370-415)
-  - Template rendering engine with TemplateEngine struct (lines 417-477)
-  - Template caching with TemplateCache struct (lines 478-517)
-  - Template security with sandboxed execution (lines 519-550)
-  - Variable validation before rendering (lines 552-578)
-- **Evidence**: NO SDK template generation system exists in codebase
-  - NO internal/sdk/template_engine.go
-  - NO TemplateEngine, TemplateCache structs
-  - NO template files in templates/base/, templates/language/
-  - NO template rendering functionality
-  - NO Go template, Python template, TypeScript template files
-- **Implementation context**: 12-language SDK generation is enterprise feature requiring template engine, NOT Go CLI tool capability
-- **Note**: Spec describes comprehensive enterprise SDK generation (templates for 12 languages, template engine, security sandboxing), actual is Go CLI tool without SDK generation
+**Conformance**: N/A (META-DOCUMENTATION - User-facing documentation)
 
-## Summary
-Session 60 analyzed 3 specs:
-1. ✅ Meta-doc: Architecture visual guide (system architecture diagrams)
-2. ✅ Meta-doc: Reference implementation guide (project structure)
-3. ❌ Enterprise: 12-language SDK templates (no template engine)
+**Spec Description**:
+- Installation methods: Homebrew, Scoop, Chocolatey, direct download, Go install
+- System requirements: macOS 10.15+, Linux (glibc 2.17+), Windows 10+, AMD64/ARM64
+- Docker installation with volume mounting
+- Shell completion configuration (bash, zsh, fish)
+- Troubleshooting (permission denied, command not found, PATH issues)
+- Uninstallation procedures for all platforms
 
-**Sample size**: 172/227 specs (75.8%, up from 74.4%)
+**Why Meta-Documentation**:
+- This is **user-facing documentation** (not code feature implementation)
+- Describes HOW TO INSTALL the CLI tool from various sources
+- No functional requirements for CLI tool behavior or internal implementation
+- Documentation for end users on how to set up and use the application
+- Installation scripts, package manager configs are DEPLOYMENT artifacts, not application code
 
-**Key findings**:
-- 2/3 specs are meta-documentation (ARCHITECTURE-VISUAL, REFERENCE-IMPLEMENTATION)
-- 0/3 specs are Go CLI MVP features
-- 1/3 spec is enterprise SaaS feature (SDK-TEMPLATES - 12-language generation)
+**Evidence**:
+```markdown
+# Installation Guide
+This guide covers all installation methods for OpenAPI CLI
 
-**Pattern continued**: High percentage of meta-documentation specs (architecture guides, reference implementations), enterprise SaaS features correctly omitted (SDK templates require template engine beyond MVP scope)
+## System Requirements
+- OS: macOS 10.15+, Linux (glibc 2.17+), Windows 10+
+
+## macOS
+### Homebrew (Recommended)
+brew tap openapi-cli/openapi-cli
+brew install openapi-cli
+```
+
+**Status**: CORRECTLY OMITTED (Category: Meta-Documentation - user-facing installation guide, not application feature specification)
+
+---
+
+### 2. OS-PROCESS.md (269 lines - OS Process Management)
+
+**Conformance**: 30% (PARTIAL IMPLEMENTATION - daemon PID management exists)
+
+**Spec Requirements**:
+- Process struct with cmd, name, pid, pidFile
+- StartBackground(name, args...) with Setpgid for detached process
+- StartWithPID(name, pidFile, args...) for PID file creation
+- IsRunning(), Wait(), Kill() process control
+- Stop(timeout) with SIGTERM graceful shutdown, timeout fallback to Kill
+- PIDFile struct with Create(), Read(), Remove()
+- isPIDRunning() for process existence checking
+- FindByName(name) for process discovery (findByNameUnix/findByNameWindows)
+- ProcessInfo with PID, Name, Command, Status, CPU, Memory, StartTime
+- Unix /proc filesystem scanning for process discovery
+- Windows process enumeration
+
+**Actual Implementation**: pkg/daemon/pidfile.go (211 lines)
+- ✅ Config struct with PidFilePath, SocketPath, Version (lines 22-26)
+- ✅ Status struct with Running, PID, StartTime, SocketPath, Version, Stale (lines 29-36)
+- ✅ NewManager(cfg Config) constructor (lines 43-56)
+- ✅ Acquire() for creating PID file with atomic write and existing check (lines 73-105)
+- ✅ checkExisting() with duplicate prevention and stale file cleanup (lines 108-137)
+- ✅ Release() for PID file removal with ownership verification (lines 156-179)
+- ✅ GetStatus() for reading daemon status (lines 182-211)
+- ✅ isProcessRunning() for process existence via Signal(0) (lines 140-153)
+- ✅ DefaultPIDFilePath() cross-platform path logic (lines 59-70)
+- ✅ Atomic PID file write with temp file rename (lines 86-102)
+- ❌ NO Process struct with cmd/name/pidFile (actual uses Manager struct)
+- ❌ NO StartBackground(name, args...) method (spec requires detached process with Setpgid)
+- ❌ NO StartWithPID(name, pidFile, args...) method (spec's API differs)
+- ❌ NO Wait() method (actual doesn't have process waiting)
+- ❌ NO Kill() or Stop(timeout) methods (actual has Release() not Kill/Stop)
+- ❌ NO FindByName() for process discovery (spec requires Unix /proc scanning, Windows enumeration)
+- ❌ NO ProcessInfo with CPU/Memory metrics (actual Status has no performance data)
+
+**Architecture Mismatch**:
+- Spec: General process management (StartBackground, StartWithPID, FindByName)
+- Actual: Daemon-specific PID file management (Manager with Acquire/Release/GetStatus)
+
+- Spec: Process struct with cmd/exec.Command for process control
+- Actual: Manager struct for daemon lifecycle only, no process spawning
+
+- Spec: Process discovery via /proc filesystem (Unix) + Windows enumeration
+- Actual: No process discovery implementation
+
+**Evidence**:
+```go
+// Spec API (OS-PROCESS.md)
+type Process struct {
+    cmd    *exec.Cmd
+    name   string
+    pid    int
+    pidFile string
+}
+
+// Actual implementation (pkg/daemon/pidfile.go:15-19)
+type Manager struct {
+    pidFilePath string
+    socketPath  string
+    version     string
+}
+```
+
+**Status**: PARTIAL IMPLEMENTATION (30% - PID file management fully implemented (Acquire/Release/GetStatus) but missing general process management API (StartBackground/StartWithPID), no process discovery, no performance metrics)
+
+---
+
+### 3. MIDDLEWARE-RECOVERY.md (162 lines - HTTP Panic Recovery)
+
+**Conformance**: 0% (NOT IMPLEMENTED)
+
+**Spec Requirements**:
+- RecoveryConfig with Enabled, LogStackTrace, StackTraceSize, EnablePanicLog, CustomErrorMessage, NotifyHandler, ExcludeErrors
+- DefaultRecoveryConfig with safe defaults
+- RecoveryMiddleware struct with config, logger
+- PanicError with Message, Stack, RequestID, Method, Path, RemoteAddr, UserAgent
+- NewRecoveryMiddleware(config, logger) constructor
+- Handler(next http.Handler) wrapping with defer/recover
+- handlePanic(w, r, rec) with error logging, notify handler, JSON 500 response
+- SafeHandler(fn) wrapper for individual handlers
+- Stack trace logging via debug.Stack()
+- Custom error message hiding internal details
+
+**Actual Implementation**:
+- ❌ NO pkg/middleware directory exists
+- ❌ NO recovery.go file exists
+- ❌ NO RecoveryConfig type
+- ❌ NO RecoveryMiddleware struct
+- ❌ NO PanicError type
+- ❌ NO NewRecoveryMiddleware() constructor
+- ❌ NO SafeHandler() wrapper
+- ❌ NO panic recovery middleware for HTTP requests
+
+**Evidence**:
+```bash
+$ ls pkg/middleware/
+ls: pkg/middleware/: No such file or directory
+
+$ find . -name "*recovery*.go" | grep -v test
+(no results found)
+```
+
+**Status**: NOT IMPLEMENTED (0% - complete absence of panic recovery middleware - no package, no Config, no Middleware struct, no panic handling)
+
+---
+
+## Session 60 Summary
+
+**Sample Progress**: 181/227 specs (79.7% cumulative, +1.3% increase)
+**Specs Analyzed**: 3 (DOCS-INSTALLATION.md, OS-PROCESS.md, MIDDLEWARE-RECOVERY.md)
+**Results**: 0/3 code features implemented, 1/3 partial (30%), 1/3 not implemented (0%), 1/3 meta-docs
+
+**Detailed Breakdown**:
+- DOCS-INSTALLATION.md: N/A correctly omitted - User-facing installation documentation (meta-doc, not code feature)
+- OS-PROCESS.md: 30% partial - PID file management exists (Acquire/Release/GetStatus) but API differs (Manager vs Process, missing StartBackground, StartWithPID, FindByName)
+- MIDDLEWARE-RECOVERY.md: 0% not implemented - No panic recovery middleware (no pkg/middleware/recovery.go)
+
+**New Insights**:
+- DOCS-INSTALLATION is user documentation (meta-doc) - describes installation procedures, not application features
+- OS-PROCESS has PID management (30%) - pkg/daemon/pidfile.go has complete Acquire/Release/GetStatus, but no general process management API (no StartBackground/StartWithPID, no FindByName)
+- HTTP panic recovery completely missing (0%) - No recovery middleware for 500 error handling on panics
+
+**Implementation Gaps Identified**:
+1. OS-PROCESS.md: API mismatch (Manager vs Process) - no process spawning (StartBackground), no process discovery (FindByName), no performance monitoring (30% vs 100% spec)
+2. MIDDLEWARE-RECOVERY.md: Complete absence - no panic recovery middleware, no 500 error handling on panics (0% vs 100% spec)
+
+**Pattern Confirmed**:
+- Installation guides are meta-documentation (user docs, not code features)
+- Daemon PID management vs general process utilities - actual is daemon-specific, not general-purpose
+- Middleware patterns (recovery, logging, metrics) often not implemented for CLI tools (HTTP-specific)
+
+**Evidence**:
+- pkg/daemon/pidfile.go (211 lines) - Manager with Config/Status, Acquire/Release/GetStatus, isProcessRunning (30% OS-PROCESS)
+- NO StartBackground/StartWithPID methods, NO FindByName process discovery, NO CPU/Memory metrics
+- NO pkg/middleware/recovery.go, NO RecoveryConfig/RecoveryMiddleware/PanicError (MIDDLEWARE-RECOVERY.md 0%)

@@ -1,0 +1,28 @@
+# Contributor: Muster Team <team@muster.sh>
+pkgname=muster
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Modern API Client and Development Tool"
+url="https://muster.sh"
+arch="x86_64 aarch64"
+license="MIT"
+depends="ca-certificates"
+options="!check"
+subpackages="$pkgname-openrc"
+
+build() {
+  return 0
+}
+
+check() {
+  ./muster version
+}
+
+package() {
+  install -D -m755 muster "$pkgdir"/usr/bin/muster
+  install -D -m644 muster-daemon.service "$pkgdir"/usr/lib/systemd/system/muster-daemon.service
+  install -D -m644 muster-daemon.socket "$pkgdir"/usr/lib/systemd/system/muster-daemon.socket
+
+  install -d -m755 -o 65534 -g 65534 "$pkgdir"/var/lib/muster
+  install -d -m755 -o 65534 -g 65534 "$pkgdir"/var/log/muster
+}

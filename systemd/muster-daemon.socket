@@ -1,0 +1,12 @@
+[Unit]
+Description=Muster Daemon Socket
+Documentation=https://muster.sh/docs/daemon
+
+[Socket]
+ListenStream=/run/muster/daemon.sock
+SocketMode=0660
+SocketUser=muster
+SocketGroup=muster
+
+[Install]
+WantedBy=sockets.target

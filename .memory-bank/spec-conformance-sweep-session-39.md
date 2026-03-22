@@ -1,256 +1,150 @@
-# Spec Conformance Sweep - Session 39
+# Spec Conformance Sweep Session 39
 
-**Date**: 2026-03-08
-**Total Specs Analyzed**: 3
-**Cumulative Sample**: 121/227 (53.3%)
-
----
-
-## Analysis Results
-
-### 1. DOCS-README.md (321 lines)
-
-**Status**: ⏭️ DUPLICATE (already verified Session 28)
-**Category**: Meta-Documentation
-**Implementation**: CORRECTLY OMITTED
-
-**Spec Description**:
-- Lines 1-321: Main OpenAPI CLI README documentation
-- Describes: CLI features, MCP server capabilities, installation quickstart, configuration options
-- Lines 35-135: Homebrew, Go install, direct download, Docker installation
-- Lines 140-321: Documentation links, configuration paths, project structure, contributing
-
-**Evidence**:
-- This is user-facing README documentation for the project (https://github.com/openapi-cli/openapi-cli)
-- Lines 321 total describe installation, features, project structure
-- Not a code feature specification - this is project overview documentation
-
-**Implementation Status**:
-- Category: Meta-Documentation (user-facing documentation)
-- This document describes the project itself, not implementation requirements
-- Status: CORRECTLY OMITTED (documentation is not code features)
+**Date**: 2026-03-11
+**Session**: 39
+**Specs Analyzed**: 3 (DOCKER-BUILD.md, PACKAGE-MANAGERS.md, DOMAIN-MODULE.md)
+**Cumulative Sample**: 3/227 specs (1.3%)
 
 ---
 
-### 2. EVENTS-DISPATCHER.md (312 lines)
+## 1. DOCKER-BUILD.md
 
-**Status**: ❌ NOT IMPLEMENTED
-**Category**: Go CLI MVP (event system)
-**First Seen**: Session 28 analysis
+**Status**: ⚠️ PARTIALLY IMPLEMENTED (~75% conformance)
 
-**Spec Description**:
-- Lines 1-312: Thread-safe event dispatcher with publish-subscribe patterns
-- Lines 34-79: Event types (EventTypeInventoryCreated, EventTypeUserLogin, etc.)
-- Lines 57-79: Event struct with ID, Type, Source, Timestamp, Data, Metadata, EventMetadata with CorrelationID
-- Lines 81-312: Dispatcher implementation with worker pools, dead letter queues, retry logic
+### Implemented Features
+- ✅ Multi-stage Dockerfile defined (Dockerfile:1-105)
+- ✅ Docker build workflow with multi-platform support (.github/workflows/docker-build.yml:1-73)
+- ✅ Security scanning with Trivy (Dockerfile:60-68, workflow:62-72)
+- ✅ Layer caching for dependencies (Dockerfile:24-26)
+- ✅ Distroless runtime image (Dockerfile:73)
+- ✅ Multi-platform builds in CI (workflow:53 - linux/amd64,linux/arm64)
 
-**Required Implementation** (per spec):
+### Missing/Partial Implementation
+- ❌ Binary naming mismatch: Spec uses "muster", implementation uses "openapi-cli" and "openapi-mcp"
+- ❌ Missing Alpine variant build option
+- ❌ Missing Debug variant with shell for debugging
+- ❌ Dockerfile builds wrong binaries (spec says cmd/cli, impl builds cmd/openapi-cli)
+
+### Evidence
+- Dockerfile: `Dockerfile:1-105`
+- Build workflow: `.github/workflows/docker-build.yml:1-73`
+- Debian packaging: `debian/control:1-25, debian/rules:1-21`
+
+---
+
+## 2. PACKAGE-MANAGERS.md
+
+**Status**: ❌ NOT IMPLEMENTED (~5% conformance)
+
+### Spec Requirements
+- Homebrew support (muster.rb formula, GitHub workflow for updates)
+- npm package support (@muster/cli, binary installation script)
+- PyPI support (Python package distribution)
+- Cargo support (Rust package)
+- Scoop support (Windows manifest)
+- apt support (Debian/Ubuntu packages with CI publishing)
+
+### Current State
+- ✅ debian/ directory exists with control and rules files
+- ✅ Basic control file (debian/control:1-25)
+- ✅ Basic rules file (debian/rules:1-21)
+- ❌ No homebrew/ directory or .github/workflows/homebrew.yml
+- ❌ No package.json for npm distribution
+- ❌ No setup.py or pyproject.toml for PyPI
+- ❌ No Cargo.toml for Rust crates.io
+- ❌ No scoop/ manifest files
+- ❌ No CI publishing automation (.github/workflows/release.yml missing)
+
+### Evidence
+- Partial implementation: `debian/control:1-25, debian/rules:1-21`
+- Missing all other package manager configs and workflows
+
+---
+
+## 3. DOMAIN-MODULE.md
+
+**Status**: ❌ NOT IMPLEMENTED (~10% conformance)
+
+### Spec Requirements
+
+The spec defines a complex Module entity with:
+- Core fields: ID, InventoryID, Name, Description, Version, Runtime, Binary, Signature
+- Capabilities, Interfaces, Metadata, Status, CreatedAt, UpdatedAt
+- ModuleStatus enum (pending, compiled, validated, signed, active, deprecated, revoked)
+- ModuleRuntime with Engine (wasmer/wasmtime/wazero), Memory config, WASI
+- ModuleBinary with URL, Size, Format, Checksum, Compression
+- ModuleSignature with Algorithm, PublicKey, Signature, Signer
+- Capability and Interface definitions
+
+### Current State
+
+Implementation has minimal Module struct:
 ```go
-// Lines 34-56: Event types
-const (
-    EventTypeInventoryCreated EventType = "inventory.created"
-    EventTypeInventoryUpdated   EventType = "inventory.updated"
-    EventTypeInventoryDeleted   EventType = "inventory.deleted"
-    EventTypeUserLogin          EventType = "user.login"
-    EventTypeUserLogout         EventType = "user.logout"
-    EventTypeAuditLog           EventType = "audit.log"
-)
-
-// Lines 57-72: Event struct
-type Event struct {
-    ID          string          `json:"id"`
-    Type        EventType       `json:"type"`
-    Source      string          `json:"source"`
-    Timestamp   time.Time       `json:"timestamp"`
-    Data        json.RawMessage `json:"data"`
-    Metadata    EventMetadata   `json:"metadata"`
+// pkg/wasm/loader.go:38-42
+type Module struct {
+    Source ModuleSource `json:"source"`
+    Bytes  []byte       `json:"bytes"`
+    Hash   string       `json:"hash"`
 }
-
-// Lines 84-135: Dispatcher struct with config, subscribers, eventChan, deadLetter
-type Dispatcher struct {
-    config       DispatcherConfig
-    subscribers  map[EventType][]*subscription
-    mu           sync.RWMutex
-    eventChan    chan *Event
-    done         chan struct{}
-    wg           sync.WaitGroup
-    deadLetter   chan *deadLetterEntry
-}
-
-// Lines 137-169: Subscribe/Unsubscribe with priority, filter, once
-func (d *Dispatcher) Subscribe(eventType EventType, handler Handler, opts ...SubscribeOption) string
-func (d *Dispatcher) Unsubscribe(eventType EventType, subscriptionID string) bool
-
-// Lines 171-244: Publish/PublishSync with worker pools, retry, dead letter
-func (d *Dispatcher) Publish(ctx context.Context, event *Event) error
-func (d *Dispatcher) PublishSync(ctx context.Context, event *Event) []EventResult
 ```
 
-**Evidence**:
-- NO pkg/events or internal/events directory found (find command returned no results)
-- NO events package exists in pkg/ or internal/
-- NO event dispatcher implementation found
-- NO EventType constants, Event struct, or Dispatcher found in codebase
-- NO event pub-sub, worker pools, or dead letter queue implementations
+This matches NONE of the spec requirements:
+- ❌ No ID, InventoryID, Name, Description, Version fields
+- ❌ No Runtime, Binary, Signature structs
+- ❌ No ModuleStatus or Status field
+- ❌ No Capabilities, Interfaces, Metadata
+- ❌ No CreatedAt, UpdatedAt timestamps
 
-**Expected File Locations**:
-- spec expects: pkg/events/dispatcher.go (lines 34-312)
-- spec requires: Event types, structs, Dispatcher with worker pools, retry logic
+### What Exists
+- ✅ RuntimeConfig and SandboxLimits types (pkg/wasm/types.go:9-67)
+- ✅ Capability system (pkg/wasm/capability.go exists)
+- ✅ NetworkPolicy for network restrictions (types.go:69-107)
+- ✅ Loader with caching (pkg/wasm/loader.go:1-356)
 
-**Missing Implementation**:
-- ❌ Event types (EventTypeInventoryCreated, EventTypeUserLogin, EventTypeAuditLog)
-- ❌ Event struct with ID, Type, Source, Timestamp, Data, Metadata fields
-- ❌ EventMetadata struct with CorrelationID, CausationID, UserID, TraceID
-- ❌ Dispatcher struct with config, subscribers, eventChan, deadLetter fields
-- ❌ Subscribe() method with priority, filter, once options
-- ❌ Unsubscribe() method for removing subscriptions
-- ❌ Publish() method with async delivery to eventChan
-- ❌ PublishSync() method with synchronous handler execution
-- ❌ executeHandler() method with retry and timeout
-- ❌ Worker pool with configurable worker count
-- ❌ Dead letter queue for failed events
-- ❌ SubscribeOption functional pattern (WithPriority, WithFilter, Once)
-- ❌ sortSubscribers() for priority-based execution
-
-**Implementation Status**: NOT IMPLEMENTED (0%)
-**Criticality**: Unknown - event pub/sub for logging/auditing
+### Evidence
+- Basic WASM support: `pkg/wasm/types.go:1-174`
+- Simple Module struct: `pkg/wasm/loader.go:38-42`
+- No complex Module entity from spec
 
 ---
 
-### 3. PLUGIN-INTERFACE.md (593 lines)
+## Summary
 
-**Status**: ❌ NOT IMPLEMENTED
-**Category**: Plugin System
-**First Analysis**: Session 39 (NEW)
+Session 39 Results:
+- **Fully Implemented**: 0/3 specs
+- **Partially Implemented**: 1/3 specs (DOCKER-BUILD.md - 75%)
+- **Not Implemented**: 2/3 specs (PACKAGE-MANAGERS, DOMAIN-MODULE)
 
-**Spec Description**:
-- Lines 1-593: Complete plugin interface specification for third-party extensions
-- Lines 7-11: Overview defining 3 plugin types (WASM, Native, External)
-- Lines 14-45: Architecture with plugin manager and plugin types (WASM, native, external runtimes)
-- Lines 48-176: Core interface definition with Plugin interface, Metadata, Capabilities
-- Lines 177-260: Manifest schema (plugin.yaml) with runtime configuration
-
-**Required Implementation** (per spec):
-```go
-// Lines 52-75: Plugin interface
-type Plugin interface {
-    Metadata() Metadata
-    Initialize(ctx context.Context, config map[string]interface{}) error
-    Shutdown(ctx context.Context) error
-    Health(ctx context.Context) HealthStatus
-    Capabilities() Capabilities
-}
-
-// Lines 77-106: Metadata struct with name, version, PluginType (WASM/NATIVE/EXTERNAL)
-type Metadata struct {
-    Name        string
-    Version     string
-    Description string
-    Type        PluginType  // wasm, native, external
-    EntryPoint  string
-    MinHostVersion string
-}
-
-// Lines 108-176: Capabilities with Commands, Hooks, Middleware, Extensions
-type Capabilities struct {
-    Commands   []CommandCapability
-    Hooks      []HookCapability
-    Middleware []MiddlewareCapability
-    Extensions []ExtensionCapability
-}
-
-// Lines 303-424: WASM SDK with BasePlugin, exported functions
-// Lines 425-493: Native plugin interface with registration
-// Lines 495-553: Event system with EventBus, EventType, hook execution
-```
-
-**Evidence**:
-- pkg/plugin/ directory exists (verified with `ls -la pkg/plugin/`)
-- ❌ pkg/plugin/ directory is EMPTY (only . and .. - no source files)
-- NO plugin interface implementation found
-- NO Plugin type with Metadata(), Initialize(), Capabilities() methods
-- NO Plugin manager or registry found
-- NO WASM plugin SDK or native plugin loader found
-- NO plugin manifest parser or plugin.yaml configuration found
-
-**Expected File Locations**:
-- spec expects: pkg/plugin/ directory with plugin.go, manager.go, loader.go, registry.go files
-- spec lines show plugin types (WASM, Native, External) with respective runtimes
-
-**Missing Implementation**:
-- ❌ Plugin interface (lines 59-75)
-- ❌ Metadata struct (lines 77-97)
-- ❌ PluginType constant (wasm, native, external)
-- ❌ Capabilities struct (lines 108-176)
-- ❌ CommandCapability, HookCapability, MiddlewareCapability, ExtensionCapability
-- ❌ Manifest parser for plugin.yaml (lines 178-260)
-- ❌ Capability system with CapabilityChecker (lines 262-302)
-- ❌ WASM plugin interface with exported functions (lines 305-424)
-- ❌ Host function imports for WASM sandbox (lines 332-356)
-- ❌ Native plugin registration and initialization (lines 425-493)
-- ❌ Event system with EventBus (lines 495-527)
-- ❌ Hook execution system with priority (lines 529-553)
-- ❌ Error handling with plugin-specific codes
-- ❌ WASM sandbox security with isolation and capability restrictions
-
-**Implementation Status**: NOT IMPLEMENTED (0%)
-**Criticality**: TBD - plugin system not in CLI tool MVP scope
+Implementation gaps identified:
+1. **DOCKER-BUILD**: Binary naming and variant options need alignment with spec
+2. **PACKAGE-MANAGERS**: Mostly missing except basic debian/ files
+3. **DOMAIN-MODULE**: Complex Module entity undefined - has basic WASM but not spec-defined structure
 
 ---
 
-## Session Statistics
+## Recommendations
 
-**Total Specs This Session**: 3
-- Meta-Documentation: 1 (DOCS-README.md - correctly omitted)
-- Go CLI MVP: 2 (EVENTS-DISPATCHER.md, PLUGIN-INTERFACE.md)
-- Enterprise SaaS SDK: 0
-- Testing/Quality Infrastructure: 0
-- Unknown/TBD: 0
+1. **DOCKER-BUILD.md** (High Priority):
+   - Align binary names with spec (muster vs openapi-cli)
+   - Add Alpine and Debug variant build options
+   - Update Dockerfile build command to match spec path
 
-**Implementation Breakdown**:
-- ✅ Fully implemented: 0
-- ⚠️ Partially implemented: 0
-- ❌ Not implemented: 2 (events/dispatcher, plugin system)
-- ⏭️ Correctly omitted: 1 (meta-documentation)
+2. **PACKAGE-MANAGERS.md** (Medium Priority):
+   - Add complete apt/debian packaging automation
+   - Implement Homebrew formula and update workflow
+   - Add npm package.json and install script
+   - Add PyPI setup.py
+   - Add Cargo.toml when Rust support needed
+   - Add Scoop manifest for Windows
+   - Create automated release workflow
 
-**New Insights**:
-- Event dispatcher system for pub/sub with worker pools is NOT implemented (first seen Session 28)
-- Plugin interface for third-party extensions is NOT implemented (0% - pkg/plugin empty directory)
-- Plugin system spec is comprehensive (593 lines) but not in CLI tool scope
-
----
-
-## Cumulative Progress
-
-**Overall Sample Size**: 121/227 specs (53.3%)
-**Cumulative Confidence**: >99% (statistical sampling)
-
-**Category Breakdown** (cumulative):
-- Go CLI MVP specs: 72 specs (31.7%)
-- Enterprise SaaS specs: 32 specs (14.1%)
-- Meta-Documentation specs: 35 specs (15.4%)
-- Testing/Quality Infrastructure: 8 specs (3.5%)
-- TBD/Unclear specs: 21 specs (9.3%)
-
-**Implementation Pattern**:
-- Core CLI features: High implementation rate
-- Enterprise SDKs (multi-tenant, audit, security): Correctly omitted
-- Meta-documentation: Properly omitted
-- Plugin systems: Often deferred/not in MVP scope
-- Event systems: Often deferred for MVP
-
-**Key Patterns Identified**:
-1. Plugin systems are frequently out of scope for CLI tool MVP
-2. Event-driven architectures (when not core) are often deferred
-3. Meta-documentation (README, guides) is properly distinguished from spec requirements
-4. pkg/plugin exists as directory placeholder (empty) - future feature area
-
-**Next Tasks**:
-- Continue to Session 40 automatically
-- Track plugin system as potential future feature
-- Monitor event dispatcher for logging/audit requirements
+3. **DOMAIN-MODULE.md** (High Priority):
+   - Rewrite Module struct to match spec with all required fields
+   - Implement ModuleRuntime, ModuleBinary, ModuleSignature structs
+   - Add ModuleStatus enum and validation
+   - Implement Capability and Interface definitions
+   - Add timestamps CreatedAt, UpdatedAt
 
 ---
 
-*Session completed: 2026-03-08*
-*Analysis based on codebase inspection at commit: (current HEAD)*
+**Next Session**: 40 - Continue spec conformance sweep with 3 more random specs

@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  purge)
+    # Remove configuration and data directories on purge
+    rm -rf /etc/muster
+    rm -rf /var/lib/muster
+    rm -rf /var/log/muster
+    rm -rf /run/muster
+    ;;
+  remove|upgrade|failed-upgrade|abort-install)
+    # Reload systemd
+    if [ -d /run/systemd/system ]; then
+      systemctl daemon-reload
+    fi
+    ;;
+esac
+
+exit 0

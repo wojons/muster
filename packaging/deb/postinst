@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    # Create directories
+    mkdir -p /etc/muster
+    mkdir -p /var/lib/muster
+    mkdir -p /var/log/muster
+    mkdir -p /run/muster
+
+    # Set permissions
+    chown muster:muster /var/lib/muster
+    chown muster:muster /var/log/muster
+    chown muster:muster /run/muster
+
+    # Update mime database
+    update-mime-database /usr/share/mime || true
+
+    # Update desktop database
+    update-desktop-database /usr/share/applications || true
+
+    # Reload systemd
+    if [ -d /run/systemd/system ]; then
+      systemctl daemon-reload
+      systemctl enable muster-daemon.socket
+    fi
+    ;;
+esac
+
+exit 0

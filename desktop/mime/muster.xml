@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-openapi">
+    <comment>OpenAPI Specification</comment>
+    <glob pattern="*.openapi.yaml"/>
+    <glob pattern="*.openapi.json"/>
+    <glob pattern="*openapi*.yaml"/>
+    <glob pattern="*openapi*.json"/>
+  </mime-type>
+</mime-info>

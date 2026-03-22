@@ -52,10 +52,10 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: true,
 			setup: func() {
-				os.Setenv("ENVIRONMENT", "production")
+				_ = os.Setenv("ENVIRONMENT", "production")
 			},
 			cleanup: func() {
-				os.Unsetenv("ENVIRONMENT")
+				_ = os.Unsetenv("ENVIRONMENT")
 			},
 		},
 	}
@@ -66,7 +66,7 @@ func TestConfig_Validate(t *testing.T) {
 				tt.setup()
 			}
 			if tt.cleanup != nil {
-				defer tt.cleanup()
+				defer func() { tt.cleanup() }()
 			}
 
 			err := tt.config.Validate()
@@ -205,8 +205,8 @@ func TestLogger_Log(t *testing.T) {
 	// Create temporary file for testing
 	tmpFile, err := os.CreateTemp("", "audit_test_*.jsonl")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_ = tmpFile.Close()
 
 	config := Config{
 		Enabled:         true,
@@ -221,7 +221,7 @@ func TestLogger_Log(t *testing.T) {
 
 	logger, err := NewLogger(config, storage)
 	require.NoError(t, err)
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	ctx := context.Background()
 
@@ -315,7 +315,7 @@ func TestLogger_Log_Disabled(t *testing.T) {
 	storage := &mockStorage{}
 	logger, err := NewLogger(config, storage)
 	require.NoError(t, err)
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	ctx := context.Background()
 	event := &Event{
@@ -331,8 +331,8 @@ func TestLogger_Log_Disabled(t *testing.T) {
 func TestLogger_ChainOfCustody(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "audit_chain_test_*.jsonl")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_ = tmpFile.Close()
 
 	config := Config{
 		Enabled:         true,
@@ -347,7 +347,7 @@ func TestLogger_ChainOfCustody(t *testing.T) {
 
 	logger, err := NewLogger(config, storage)
 	require.NoError(t, err)
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	ctx := context.Background()
 
@@ -378,12 +378,12 @@ func TestLogger_ChainOfCustody(t *testing.T) {
 func TestFileStorage(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "audit_storage_test_*.jsonl")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_ = tmpFile.Close()
 
 	storage, err := NewFileStorage(tmpFile.Name())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	t.Run("write and read event", func(t *testing.T) {
 		event := &Event{
@@ -429,7 +429,7 @@ func TestDatabaseStorage(t *testing.T) {
 	// Create in-memory SQLite database
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Create audit table
 	_, err = db.Exec(`
@@ -449,7 +449,7 @@ func TestDatabaseStorage(t *testing.T) {
 
 	storage, err := NewDatabaseStorage(db)
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { _ = storage.Close() }()
 
 	t.Run("write event to database", func(t *testing.T) {
 		event := &Event{
