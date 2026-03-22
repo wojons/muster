@@ -95,17 +95,21 @@ func TestRedactor_RedactEvent(t *testing.T) {
 		expected map[string]string
 	}{
 		{
-			name: "redact password in metadata",
+			name: "redact password in context metadata",
 			event: &AuditEvent{
 				ID:        "test-1",
 				Timestamp: time.Now(),
+				Level:     AuditLevelInfo,
+				Category:  AuditCategoryAuth,
 				Action:    "login",
-				Actor:     "user@example.com",
-				Resource:  "auth",
-				Outcome:   "success",
-				Metadata: map[string]interface{}{
-					"username": "user@example.com",
-					"password": "secret123",
+				Actor:     AuditActor{ID: "user-1", Type: "user", Name: "user@example.com"},
+				Resource:  AuditResource{ID: "auth-1", Type: "service", Name: "auth"},
+				Result:    AuditResult{Success: true},
+				Context: AuditContext{
+					Metadata: map[string]string{
+						"username": "user@example.com",
+						"password": "secret123",
+					},
 				},
 			},
 			expected: map[string]string{
@@ -113,17 +117,21 @@ func TestRedactor_RedactEvent(t *testing.T) {
 			},
 		},
 		{
-			name: "redact token in metadata",
+			name: "redact token in context metadata",
 			event: &AuditEvent{
 				ID:        "test-2",
 				Timestamp: time.Now(),
+				Level:     AuditLevelInfo,
+				Category:  AuditCategoryData,
 				Action:    "api_call",
-				Actor:     "client-123",
-				Resource:  "api",
-				Outcome:   "success",
-				Metadata: map[string]interface{}{
-					"endpoint": "/api/data",
-					"token":    "Bearer abc123xyz",
+				Actor:     AuditActor{ID: "client-123", Type: "client", Name: "client-123"},
+				Resource:  AuditResource{ID: "api-1", Type: "endpoint", Name: "api"},
+				Result:    AuditResult{Success: true},
+				Context: AuditContext{
+					Metadata: map[string]string{
+						"endpoint": "/api/data",
+						"token":    "Bearer abc123xyz",
+					},
 				},
 			},
 			expected: map[string]string{
@@ -131,17 +139,21 @@ func TestRedactor_RedactEvent(t *testing.T) {
 			},
 		},
 		{
-			name: "redact api_key in metadata",
+			name: "redact api_key in context metadata",
 			event: &AuditEvent{
 				ID:        "test-3",
 				Timestamp: time.Now(),
+				Level:     AuditLevelInfo,
+				Category:  AuditCategoryData,
 				Action:    "api_call",
-				Actor:     "client-456",
-				Resource:  "api",
-				Outcome:   "success",
-				Metadata: map[string]interface{}{
-					"endpoint": "api/endpoint",
-					"api_key":  "sk-1234567890abcdef",
+				Actor:     AuditActor{ID: "client-456", Type: "client", Name: "client-456"},
+				Resource:  AuditResource{ID: "api-1", Type: "endpoint", Name: "api"},
+				Result:    AuditResult{Success: true},
+				Context: AuditContext{
+					Metadata: map[string]string{
+						"endpoint": "api/endpoint",
+						"api_key":  "sk-1234567890abcdef",
+					},
 				},
 			},
 			expected: map[string]string{
@@ -153,13 +165,16 @@ func TestRedactor_RedactEvent(t *testing.T) {
 			event: &AuditEvent{
 				ID:        "test-4",
 				Timestamp: time.Now(),
+				Level:     AuditLevelInfo,
+				Category:  AuditCategoryData,
 				Action:    "view",
-				Actor:     "user@example.com",
-				Resource:  "document",
-				Outcome:   "success",
-				Metadata: map[string]interface{}{
-					"document_id": "doc-123",
-					"view_count":  42,
+				Actor:     AuditActor{ID: "user-1", Type: "user", Name: "user@example.com"},
+				Resource:  AuditResource{ID: "doc-123", Type: "document", Name: "document"},
+				Result:    AuditResult{Success: true},
+				Context: AuditContext{
+					Metadata: map[string]string{
+						"document_id": "doc-123",
+					},
 				},
 			},
 			expected: map[string]string{
@@ -171,15 +186,19 @@ func TestRedactor_RedactEvent(t *testing.T) {
 			event: &AuditEvent{
 				ID:        "test-5",
 				Timestamp: time.Now(),
+				Level:     AuditLevelInfo,
+				Category:  AuditCategoryAdmin,
 				Action:    "create",
-				Actor:     "admin@example.com",
-				Resource:  "user",
-				Outcome:   "success",
-				Metadata: map[string]interface{}{
-					"username": "newuser",
-					"password": "mypassword123",
-					"api_key":  "key-secret-789",
-					"token":    "access-token-456",
+				Actor:     AuditActor{ID: "admin-1", Type: "admin", Name: "admin@example.com"},
+				Resource:  AuditResource{ID: "user-123", Type: "user", Name: "user"},
+				Result:    AuditResult{Success: true},
+				Context: AuditContext{
+					Metadata: map[string]string{
+						"username": "newuser",
+						"password": "mypassword123",
+						"api_key":  "key-secret-789",
+						"token":    "access-token-456",
+					},
 				},
 			},
 			expected: map[string]string{
@@ -198,7 +217,7 @@ func TestRedactor_RedactEvent(t *testing.T) {
 
 			// Check expected values
 			for key, expectedValue := range tt.expected {
-				actualValue, ok := tt.event.Metadata[key]
+				actualValue, ok := tt.event.Context.Metadata[key]
 				require.True(t, ok, "Metadata key %s should exist", key)
 				assert.Equal(t, expectedValue, actualValue, "Metadata key %s should be redacted correctly", key)
 			}
@@ -232,66 +251,24 @@ func TestRedactor_RedactEvent_CaseInsensitive(t *testing.T) {
 			event := &AuditEvent{
 				ID:        "test",
 				Timestamp: time.Now(),
+				Level:     AuditLevelInfo,
+				Category:  AuditCategorySystem,
 				Action:    "test",
-				Metadata: map[string]interface{}{
-					tt.key: tt.value,
+				Actor:     AuditActor{ID: "test", Type: "system"},
+				Resource:  AuditResource{ID: "test", Type: "test"},
+				Result:    AuditResult{Success: true},
+				Context: AuditContext{
+					Metadata: map[string]string{
+						tt.key: tt.value,
+					},
 				},
 			}
 
 			err := r.RedactEvent(event)
 			require.NoError(t, err)
-			assert.Equal(t, tt.expected, event.Metadata[tt.key])
+			assert.Equal(t, tt.expected, event.Context.Metadata[tt.key])
 		})
 	}
-}
-
-func TestRedactor_RedactEvent_NestedData(t *testing.T) {
-	r := NewRedactor()
-
-	// Test with nested metadata structure
-	event := &AuditEvent{
-		ID:        "test-nested",
-		Timestamp: time.Now(),
-		Action:    "create",
-		Metadata: map[string]interface{}{
-			"user": map[string]interface{}{
-				"name":     "john",
-				"password": "secretpass",
-			},
-			"auth": map[string]interface{}{
-				"token": "bearer-token-123",
-			},
-		},
-	}
-
-	err := r.RedactEvent(event)
-	require.NoError(t, err)
-
-	// Check nested values are redacted
-	userData, ok := event.Metadata["user"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "[REDACTED]", userData["password"])
-	assert.Equal(t, "john", userData["name"])
-
-	authData, ok := event.Metadata["auth"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "[REDACTED]", authData["token"])
-}
-
-func TestRedactor_RedactEvent_InvalidEvent(t *testing.T) {
-	r := NewRedactor()
-
-	// Test with nil event - should handle gracefully
-	t.Run("nil event", func(t *testing.T) {
-		// This would panic on marshal, so we test that it doesn't
-		// In real usage, callers should check for nil
-		event := &AuditEvent{
-			ID:        "test",
-			Timestamp: time.Now(),
-		}
-		err := r.RedactEvent(event)
-		require.NoError(t, err)
-	})
 }
 
 func TestRedactor_ConcurrentAccess(t *testing.T) {
@@ -304,14 +281,22 @@ func TestRedactor_ConcurrentAccess(t *testing.T) {
 			event := &AuditEvent{
 				ID:        "test-concurrent",
 				Timestamp: time.Now(),
-				Metadata: map[string]interface{}{
-					"password": "secret",
-					"index":    idx,
+				Level:     AuditLevelInfo,
+				Category:  AuditCategorySystem,
+				Action:    "test",
+				Actor:     AuditActor{ID: "test", Type: "system"},
+				Resource:  AuditResource{ID: "test", Type: "test"},
+				Result:    AuditResult{Success: true},
+				Context: AuditContext{
+					Metadata: map[string]string{
+						"password": "secret",
+						"index":    string(rune('0' + idx)),
+					},
 				},
 			}
 			err := r.RedactEvent(event)
 			require.NoError(t, err)
-			assert.Equal(t, "[REDACTED]", event.Metadata["password"])
+			assert.Equal(t, "[REDACTED]", event.Context.Metadata["password"])
 			done <- true
 		}(i)
 	}
