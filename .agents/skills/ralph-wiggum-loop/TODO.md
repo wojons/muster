@@ -130,11 +130,14 @@
 - **Coverage**: Logs both missing header and invalid token scenarios
 - **Tests**: All existing tests pass, logs visible during test execution
 
-#### Step 7: [ ] Add unit tests for token generation/validation
+#### Step 7: [x] Add unit tests for token generation/validation
 - File: pkg/daemon/token_test.go
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 6
+- **Completed**: Comprehensive unit tests for TokenManager covering generation, validation, Save, Load, Validate, ValidateFromHeader, Cleanup, and concurrent access
+- **Tests**: 10 test functions, 100% passing
+- **Coverage**: Token generation (32 bytes base64), file permissions (0600), Bearer header validation, constant-time comparison, concurrent safety
 
 #### Step 8: [ ] Add integration test for authenticated socket communication
 - File: pkg/daemon/proxy_integration_test.go
