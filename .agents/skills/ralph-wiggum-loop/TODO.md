@@ -1,6 +1,6 @@
 # Ralph Wiggum Loop - Task Queue (Baby Steps)
 
-## Status: 11% Complete (26/223) | Target: Production Ready
+## Status: 12% Complete (27/223) | Target: Production Ready
 
 ---
 
@@ -1007,12 +1007,23 @@
 - **All tests passing**: 11/11 ✅
 - **Lint**: 0 issues ✅
 
-#### Step 4: [ ] Add validation layer with go-playground/validator
+#### Step 4: [x] Add validation layer with go-playground/validator
 - File: pkg/config/validator.go
 - Spec: specs/VIPER-INTEGRATION.md lines 116-145
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: Step 3
+- **Completed**: Implemented comprehensive configuration validation layer
+- **Features**:
+  - `ValidatedConfig` struct with validation tags (url, min/max ranges, file/dir existence, output format oneof)
+  - `Validator` struct with `NewValidator()`, `Validate()`, and `ValidateConfig()` methods
+  - Custom validation for cert/key file pairs using `RegisterValidation()`
+  - `ConfigurationError` type with Field, Message, and Source fields
+  - Helper functions: `ValidateConfigStruct()`, `ValidateAndReturnErrors()`, `IsConfigurationError()`, `GetConfigurationError()`
+  - Common error variables: `ErrConfigNotFound`, `ErrInvalidHost`, `ErrMissingCert`, `ErrMissingKey`
+- **Tests**: Comprehensive test suite with 12+ test functions covering validation scenarios, error types, and concurrent access
+- **All tests passing**: ✅
+- **Lint**: 0 issues ✅
 
 #### Step 5: [ ] Add unit tests for BindPFlag
 - File: pkg/config/loader_test.go
