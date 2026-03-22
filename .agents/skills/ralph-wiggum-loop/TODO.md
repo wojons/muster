@@ -1550,11 +1550,36 @@
 - **All tests passing**: ✅
 - **Lint**: 0 issues ✅
 
-#### Step 2: [ ] Create pkg/cache/memory_test.go
+#### Step 2: [x] Create pkg/cache/memory_test.go
 - File: pkg/cache/memory_test.go
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: None
+- **Completed**: Created comprehensive unit tests for MemoryCache
+- **Tests Added**:
+  - TestMemoryCache_Constructor: Tests various constructor configurations
+  - TestMemoryCache_SetEmptyKey: Validates error on empty key
+  - TestMemoryCache_SetWithOptions: Tests all SetOption combinations (WithTTL, WithTags, WithAsync)
+  - TestMemoryCache_GetMissingKey: Tests retrieval of missing keys
+  - TestMemoryCache_GetExpired: Tests expired value handling
+  - TestMemoryCache_GetUpdatesAccessTracking: Verifies access count and time updates
+  - TestMemoryCache_DeleteNonExistent: Tests delete of missing key
+  - TestMemoryCache_DeleteSizeTracking: Verifies size updates on delete
+  - TestMemoryCache_KeysPatternMatching: Tests pattern matching functionality
+  - TestMemoryCache_StatsCalculations: Tests stats computation (hits, misses, hit rate)
+  - TestMemoryCache_CloseIdempotent: Tests close behavior
+  - TestMemoryCache_OperationsOnClosedCache: Tests all methods after close
+  - TestMemoryCache_EvictionPolicies: Tests LRU, LFU, FIFO, and SizeBased policies
+  - TestMemoryCache_ConcurrentOperations: Tests thread safety with concurrent access
+  - TestMemoryCache_TTLLifecycle: Tests TTL from creation to expiration
+  - TestMemoryCache_NoTTLNeverExpires: Tests that TTL=0 means no expiration
+  - TestMemoryCache_OverwriteUpdatesSize: Tests size updates on overwrite
+  - TestMemoryCache_VersionIncrement: Tests version incrementing on updates
+  - TestMemoryCache_ClearResetsEverything: Tests that Clear resets all state
+  - TestMemoryCache_HasExpiredKey: Tests Has() behavior with expired keys
+  - TestMemoryCache_CreatedAtSetOnSet: Tests automatic CreatedAt setting
+- **Total**: 21 test functions, all passing ✅
+- **Lines**: ~580 lines of test code
 
 #### Step 3: [ ] Create pkg/config/loader_test.go
 - File: pkg/config/loader_test.go
