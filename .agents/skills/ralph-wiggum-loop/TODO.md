@@ -1279,11 +1279,21 @@
 
 ### AUDIT-002: Distributed Tracing
 
-#### Step 1: [ ] Add OpenTelemetry dependencies to go.mod
+#### Step 1: [x] Add OpenTelemetry dependencies to go.mod
 - File: go.mod
 - Skill: @dependency-upgrade
 - Effort: 10 min
 - Dependencies: None
+- **Completed**: Added OpenTelemetry dependencies for distributed tracing
+- **Dependencies Added**:
+  - `go.opentelemetry.io/otel v1.24.0` - Core OpenTelemetry API
+  - `go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.24.0` - OTLP trace exporters
+  - `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0` - gRPC exporter
+  - `go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.24.0` - HTTP exporter
+  - `go.opentelemetry.io/otel/sdk v1.24.0` - OpenTelemetry SDK
+  - `go.opentelemetry.io/otel/trace v1.24.0` - Trace API
+  - `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0` - HTTP instrumentation
+- **Validation**: `go mod tidy` completed successfully, code compiles without errors ✅
 
 #### Step 2: [ ] Create internal/telemetry/doc.go
 - File: internal/telemetry/doc.go
