@@ -243,7 +243,15 @@
 - [x] Add unit tests
 - [x] Create pkg/retry/errors.go with error types
 - [x] All tests passing (21 tests)
-- [ ] Integrate with pkg/client/client.go (deferred - pkg/client empty)
+- [x] Integrate with pkg/client/client.go
+  - Added `retrier` field to Client struct
+  - Created `WithRetryConfig()` ClientOption for retry configuration
+  - Implemented `doWithRetry()` method with automatic retry on 5xx and 429 status codes
+  - Implemented `doOnce()` method for single request execution
+  - Added `SetRetrier()` and `GetRetrier()` methods for dynamic configuration
+  - Added `IsRetryEnabled()` helper method
+  - Created comprehensive unit tests (21 test functions)
+  - All tests passing ✅
 
 ---
 
