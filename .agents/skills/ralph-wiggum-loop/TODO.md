@@ -269,12 +269,16 @@
 - **Features**: IsValid() and String() methods, comprehensive documentation
 - **Tests**: 100% passing (14 test functions covering all flag types)
 
-#### Step 3: [ ] Create FlagDefinition struct
+#### Step 3: [x] Create FlagDefinition struct
 - File: internal/cli/flags/types.go
 - Spec: specs/COBRA-INTEGRATION.md lines 56-85
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 2
+- **Completed**: FlagDefinition struct with all 10 fields implemented
+- **Fields**: Name, Shorthand, Type, Description, Default, Required, Validator, Hidden, Deprecated, EnvVar
+- **Methods**: Validate() with comprehensive error checking
+- **Tests**: 6 test cases covering valid/invalid definitions, all passing ✅
 
 #### Step 4: [ ] Create Parser struct with Validate/Bind methods
 - File: internal/cli/flags/parser.go
