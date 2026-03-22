@@ -3,13 +3,15 @@ module github.com/openapi-cli/openapi-cli
 go 1.25.0
 
 require (
+
+	// File system watching for config hot reload
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	// CLI framework
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 )
 
 require (
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -20,7 +22,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.5
 
 	// Testing
 	github.com/stretchr/testify v1.11.1
@@ -35,12 +37,15 @@ require (
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/bytecodealliance/wasmtime-go/v8 v8.0.0
 	github.com/getkin/kin-openapi v0.133.0
+	github.com/godbus/dbus/v5 v5.0.4
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/pressly/goose/v3 v3.27.0
 	github.com/prometheus/client_golang v1.19.0
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/rs/zerolog v1.32.0
+	github.com/xeipuuv/gojsonschema v1.2.0
 	go.starlark.net v0.0.0-20240123142251-f86470692795
 	go.uber.org/zap v1.27.1
 	modernc.org/sqlite v1.46.1
@@ -48,7 +53,6 @@ require (
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bytecodealliance/wasmtime-go/v8 v8.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
@@ -75,7 +79,6 @@ require (
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
