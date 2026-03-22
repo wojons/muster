@@ -912,38 +912,44 @@
 - **Tests**: 6 test functions with 63 test cases, all passing ✅
 - **Lines**: 169 lines of code + 470 lines of tests
 
-#### Step 2: [ ] Define URL normalization rules
+#### Step 2: [x] Define URL normalization rules
 - File: pkg/httputil/canonical.go
 - Spec: specs/HTTP-CANONICALIZATION.md lines 25-55
 - Skill: @data-validation
 - Effort: 25 min
 - Dependencies: Step 1
+- **Completed**: URL normalization rules defined with lowercase scheme/host, default port removal, and query parameter sorting
 
-#### Step 3: [ ] Implement CanonicalizeURL(url string) string
+#### Step 3: [x] Implement CanonicalizeURL(url string) string
 - File: pkg/httputil/canonical.go
 - Spec: specs/HTTP-CANONICALIZATION.md lines 56-85
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 2
+- **Completed**: CanonicalizeURL implemented with comprehensive error handling and edge case support
 
-#### Step 4: [ ] Implement CanonicalizeHeaders(headers http.Header) http.Header
+#### Step 4: [x] Implement CanonicalizeHeaders(headers http.Header) http.Header
 - File: pkg/httputil/canonical.go
 - Spec: specs/HTTP-CANONICALIZATION.md lines 86-115
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 3
+- **Completed**: CanonicalizeHeaders implemented with lowercase header names and sorted values
 
-#### Step 5: [ ] Add unit tests for URL canonicalization
+#### Step 5: [x] Add unit tests for URL canonicalization
 - File: pkg/httputil/canonical_test.go
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 4
+- **Completed**: 24 comprehensive test cases covering URL canonicalization including edge cases
 
-#### Step 6: [ ] Add unit tests for header canonicalization
+#### Step 6: [x] Add unit tests for header canonicalization
 - File: pkg/httputil/canonical_test.go
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: Step 5
+- **Completed**: 9 test cases for header canonicalization plus immutability tests
+- **Total Tests**: 63 test cases across 6 test functions, all passing ✅
 
 ---
 
