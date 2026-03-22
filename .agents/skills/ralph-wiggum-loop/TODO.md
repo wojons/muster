@@ -955,12 +955,17 @@
 
 ### FEAT-003: Viper Advanced Integration
 
-#### Step 1: [ ] Add viper.BindPFlag() integration for CLI flags
+#### Step 1: [x] Add viper.BindPFlag() integration for CLI flags
 - File: pkg/config/loader.go
 - Spec: specs/VIPER-INTEGRATION.md lines 30-55
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: None
+- **Completed**: Implemented BindPFlags() method in Loader struct
+- **Features**: Binds host, timeout, verbose, config, profile, and output flags
+- **Added**: BindEnvVar() for environment variable binding
+- **Added**: GetViper() for accessing internal viper instance
+- **Tests**: 12 comprehensive test functions covering flag binding, env vars, and integration
 
 #### Step 2: [ ] Implement WatchConfig() for hot reload
 - File: pkg/config/watcher.go
