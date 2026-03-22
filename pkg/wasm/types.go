@@ -113,11 +113,12 @@ func (p *NetworkPolicy) IsAllowed(host string, port int) bool {
 
 // Runtime represents a WASM runtime with capability management.
 type Runtime struct {
-	config     *RuntimeConfig
-	limits     *SandboxLimits
-	capability *CapabilitySet
-	tracer     Tracer
-	mu         sync.RWMutex
+	config        *RuntimeConfig
+	limits        *SandboxLimits
+	capability    *CapabilitySet
+	tracer        Tracer
+	networkPolicy *NetworkPolicy
+	mu            sync.RWMutex
 }
 
 // Tracer defines the interface for WASM execution tracing.
@@ -157,10 +158,11 @@ func NewRuntimeWithTracer(config *RuntimeConfig, limits *SandboxLimits, tracer T
 	}
 
 	return &Runtime{
-		config:     config,
-		limits:     limits,
-		capability: NewCapabilitySet(),
-		tracer:     tracer,
+		config:        config,
+		limits:        limits,
+		capability:    NewCapabilitySet(),
+		tracer:        tracer,
+		networkPolicy: nil, // No restrictions by default
 	}
 }
 
@@ -220,4 +222,44 @@ func (r *Runtime) Tracer() Tracer {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.tracer
+}
+
+// SetNetworkPolicy sets the network policy for the runtime.
+// This controls which hosts and ports WASM modules can access.
+func (r *Runtime) SetNetworkPolicy(policy *NetworkPolicy) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.networkPolicy = policy
+}
+
+// NetworkPolicy returns the current network policy for the runtime.
+func (r *Runtime) NetworkPolicy() *NetworkPolicy {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.networkPolicy == nil {
+		return nil
+	}
+	// Return a copy to prevent external modification
+	policyCopy := &NetworkPolicy{
+		AllowedHosts: make([]string, len(r.networkPolicy.AllowedHosts)),
+		AllowedPorts: make([]int, len(r.networkPolicy.AllowedPorts)),
+		BlockedHosts: make([]string, len(r.networkPolicy.BlockedHosts)),
+	}
+	copy(policyCopy.AllowedHosts, r.networkPolicy.AllowedHosts)
+	copy(policyCopy.AllowedPorts, r.networkPolicy.AllowedPorts)
+	copy(policyCopy.BlockedHosts, r.networkPolicy.BlockedHosts)
+	return policyCopy
+}
+
+// CheckNetworkAccess verifies if network access to a host:port is allowed.
+// Returns true if no policy is set (permissive default) or if the policy allows the access.
+func (r *Runtime) CheckNetworkAccess(host string, port int) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.networkPolicy == nil {
+		return true // Permissive default when no policy is set
+	}
+
+	return r.networkPolicy.IsAllowed(host, port)
 }

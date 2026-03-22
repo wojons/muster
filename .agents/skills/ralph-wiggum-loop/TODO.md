@@ -1828,12 +1828,30 @@
 - **All tests passing**: 7/7 ✅
 - **Lint**: 0 issues in modified files ✅
 
-#### Step 4: [ ] Integrate NetworkPolicy enforcement in WASM sandbox
+#### Step 4: [x] Integrate NetworkPolicy enforcement in WASM sandbox
 - File: pkg/wasm/sandbox.go
 - Spec: specs/WASM-SANDBOX.md lines 80-120
 - Skill: @security-scan
 - Effort: 40 min
 - Dependencies: Step 3
+- **Completed**: Integrated NetworkPolicy enforcement into both Runtime and SandboxedFS
+- **Implementation**:
+  - Added `networkPolicy` field to Runtime struct
+  - Added `SetNetworkPolicy()`, `NetworkPolicy()`, and `CheckNetworkAccess()` methods to Runtime
+  - Added `networkPolicy` field to SandboxedFS struct
+  - Added `SetNetworkPolicy()`, `GetNetworkPolicy()`, and `CheckNetworkAccess()` methods to SandboxedFS
+  - Thread-safe with mutex protection and defensive copying
+  - Permissive default (allows all when no policy is set)
+- **Tests**: Created comprehensive test suite with 8 test functions, 35+ test cases
+  - NetworkPolicy_IsAllowed: 12 test cases for policy matching
+  - SandboxedFS_SetNetworkPolicy: Policy storage and retrieval
+  - Runtime_SetNetworkPolicy: Runtime policy management
+  - Runtime_CheckNetworkAccess: Access control verification
+  - SandboxedFS_CheckNetworkAccess: Sandbox-level access control
+  - ConcurrentAccess: Thread safety validation
+  - EdgeCases: Nil/empty policy behavior
+- **All tests passing**: ✅
+- **Lines**: 400+ lines of code and tests
 
 #### Step 5: [ ] Add unit tests for memory/CPU limits
 - File: pkg/wasm/runtime_test.go
