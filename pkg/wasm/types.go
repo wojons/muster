@@ -39,6 +39,7 @@ type SandboxLimits struct {
 	MaxFileDescriptors   int           // Maximum open file descriptors
 	MaxFileSize          uint64        // Maximum file size in bytes
 	MaxConcurrentThreads int           // Maximum concurrent threads
+	MaxFuel              uint64        // Maximum CPU fuel (instruction count limit)
 }
 
 // DefaultLimits returns the default sandbox limits.
@@ -49,6 +50,7 @@ func DefaultLimits() *SandboxLimits {
 		MaxFileDescriptors:   64,
 		MaxFileSize:          10 * 1024 * 1024, // 10MB
 		MaxConcurrentThreads: 4,
+		MaxFuel:              10_000_000_000, // 10 billion instructions
 	}
 }
 
@@ -62,6 +64,9 @@ func (l *SandboxLimits) Validate() error {
 	}
 	if l.MaxFileSize == 0 {
 		return errors.New("max file size must be specified")
+	}
+	if l.MaxFuel == 0 {
+		return errors.New("max fuel must be specified")
 	}
 	return nil
 }

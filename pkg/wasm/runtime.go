@@ -91,8 +91,7 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 	engine := wasmtime.NewEngine()
 
 	// Note: Memory limits enforced via MaxFileSize check (line 59-64), context timeout (line 25-29),
-	// store limiter below, and runtime validation during execution.
-	// Future improvement: Add fuel-based limiting via AddFuel().
+	// store limiter below, fuel limits, and runtime validation during execution.
 	store := wasmtime.NewStore(engine)
 
 	// Set maximum memory allocation (default 256MB, override via limits.MaxMemory)
@@ -103,6 +102,21 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 	// Limiter(memorySize, tableElements, instances, tables, memories)
 	// Use -1 for default values on limits we don't want to change
 	store.Limiter(maxMemory, -1, -1, -1, -1)
+
+	// Add fuel for CPU time limiting (fuel is consumed per WebAssembly instruction)
+	// Default: 10 billion instructions, override via limits.MaxFuel
+	maxFuel := uint64(10_000_000_000) // 10 billion instructions default
+	if r.limits != nil && r.limits.MaxFuel > 0 {
+		maxFuel = r.limits.MaxFuel
+	}
+	if err := store.AddFuel(maxFuel); err != nil {
+		result.Error = fmt.Sprintf("failed to add fuel: %v", err)
+		if span != nil {
+			span.SetTag("fuel_error", true)
+			span.SetError(err)
+		}
+		return result, fmt.Errorf("failed to add fuel: %w", err)
+	}
 
 	// Validate module compiles within limits before execution
 	module, err := wasmtime.NewModule(engine, moduleBytes)

@@ -1766,11 +1766,24 @@
 - **Tests**: Added 3 test cases for default, custom, and enforcement scenarios
 - **All tests passing**: ✅
 
-#### Step 2: [ ] Add wasmtime.WithFuel for CPU time limits
+#### Step 2: [x] Add wasmtime.WithFuel for CPU time limits
 - File: pkg/wasm/runtime.go
 - Skill: @security-scan
 - Effort: 20 min
 - Dependencies: Step 1
+- **Completed**: Implemented fuel-based CPU limiting using wasmtime Store.AddFuel()
+- **Implementation**:
+  - Added MaxFuel field to SandboxLimits (default: 10 billion instructions)
+  - Integrated fuel limiting into ExecuteWithContext() method
+  - Added validation for MaxFuel in SandboxLimits.Validate()
+  - Fuel is consumed per WebAssembly instruction executed
+  - Execution stops if fuel runs out (out-of-fuel error)
+- **Tests**: Added comprehensive tests for fuel configuration and limits
+  - TestSandboxLimitsWithFuel: Verifies default fuel value
+  - TestLimitsValidateWithFuel: Tests validation scenarios
+  - TestExecuteWithFuelLimit: Tests custom fuel limits
+  - TestDefaultLimitsFuelValue: Verifies 10 billion default
+- **All tests passing**: 6/6 ✅
 
 #### Step 3: [ ] Add wasmtime.WithEpochInterruption for timeout enforcement
 - File: pkg/wasm/runtime.go

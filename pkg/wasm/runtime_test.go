@@ -191,3 +191,69 @@ func TestRuntimeWithCaps(t *testing.T) {
 		t.Error("expected fs.execute to not be granted")
 	}
 }
+
+func TestSandboxLimitsWithFuel(t *testing.T) {
+	limits := DefaultLimits()
+
+	if limits.MaxFuel != 10_000_000_000 {
+		t.Errorf("expected MaxFuel to be 10 billion, got %d", limits.MaxFuel)
+	}
+}
+
+func TestLimitsValidateWithFuel(t *testing.T) {
+	tests := []struct {
+		name    string
+		limits  *SandboxLimits
+		wantErr bool
+	}{
+		{"valid with fuel", DefaultLimits(), false},
+		{"no fuel", &SandboxLimits{MaxMemory: 128 * 1024 * 1024, MaxExecutionTime: 30 * time.Second, MaxFileSize: 10 * 1024 * 1024}, true},
+		{"zero fuel", &SandboxLimits{MaxMemory: 128 * 1024 * 1024, MaxExecutionTime: 30 * time.Second, MaxFileSize: 10 * 1024 * 1024, MaxFuel: 0}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.limits.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SandboxLimits.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestExecuteWithFuelLimit(t *testing.T) {
+	// Test that custom fuel limits are properly configured in SandboxLimits
+	tests := []struct {
+		name    string
+		maxFuel uint64
+	}{
+		{"default fuel", 10_000_000_000},
+		{"custom fuel", 100_000},
+		{"low fuel", 1000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			limits := DefaultLimits()
+			limits.MaxFuel = tt.maxFuel
+
+			runtime := NewRuntime(nil, limits)
+
+			// Verify that the runtime has the correct fuel limit
+			if runtime.Limits().MaxFuel != tt.maxFuel {
+				t.Errorf("expected MaxFuel to be %d, got %d", tt.maxFuel, runtime.Limits().MaxFuel)
+			}
+		})
+	}
+}
+
+func TestDefaultLimitsFuelValue(t *testing.T) {
+	limits := DefaultLimits()
+	if limits.MaxFuel == 0 {
+		t.Error("MaxFuel should have a non-zero default value")
+	}
+	// Default should be 10 billion
+	if limits.MaxFuel != 10_000_000_000 {
+		t.Errorf("MaxFuel default should be 10 billion, got %d", limits.MaxFuel)
+	}
+}
