@@ -75,11 +75,14 @@
 
 ### SEC-003: Daemon Socket Authentication (CRITICAL)
 
-#### Step 1: [ ] Design token generation scheme
+#### Step 1: [x] Design token generation scheme
 - Spec: specs/UNIX-SOCKET-PROXY.md, specs/DAEMON-LIFECYCLE.md
 - Skill: @security-scan
 - Effort: 20 min
 - Dependencies: None
+- **Completed**: Created comprehensive token design document
+- **Location**: docs/design-daemon-token.md
+- **Summary**: Designed cryptographically secure token scheme using crypto/rand with 32-byte tokens, base64 encoding, 0600 file permissions, and constant-time validation
 
 #### Step 2: [ ] Create TokenManager struct
 - File: pkg/daemon/token.go
