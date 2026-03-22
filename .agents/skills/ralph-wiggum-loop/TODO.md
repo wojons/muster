@@ -1235,11 +1235,22 @@
   - `flushLoop()`: Background goroutine for periodic flushing
 - **Tests**: `TestAuditLogger_Flush_*` and `TestAuditLogger_Close` passing ✅
 
-#### Step 11: [ ] Add unit tests for redaction
+#### Step 11: [x] Add unit tests for redaction
 - File: internal/audit/redaction_test.go
 - Skill: @testing-security
 - Effort: 35 min
 - Dependencies: Step 4
+- **Completed**: Comprehensive unit tests for redaction already implemented and passing
+- **Test Coverage**: 322 lines of test code covering:
+  - RedactionRule struct validation
+  - MandatoryRedactionRules coverage (password, token, api_key, secret patterns)
+  - NewRedactor initialization with compiled regex patterns
+  - RedactEvent with various sensitive fields (password, token, api_key)
+  - Case-insensitive field matching (password, PASSWORD, PaSsWoRd, etc.)
+  - Multiple sensitive fields in single event
+  - Concurrent access safety (10 concurrent goroutines)
+  - Non-sensitive data preservation
+- **All tests passing**: 10/10 test functions, 30+ sub-tests ✅
 
 #### Step 12: [ ] Add integration tests for audit logging
 - File: internal/audit/logger_test.go
