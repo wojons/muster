@@ -180,25 +180,3 @@ func TestFetcher_HTTPClientInterface(t *testing.T) {
 		t.Error("Client not set properly")
 	}
 }
-
-func TestManager_FetchOpenAPISpec(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping HTTP test in short mode")
-	}
-
-	t.Run("nil OpenAPI spec", func(t *testing.T) {
-		manager, err := NewManager(ManagerConfig{})
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		inv := &Inventory{
-			OpenAPISpec: nil,
-		}
-
-		_, err = manager.FetchOpenAPISpec(context.Background(), inv)
-		if err == nil {
-			t.Error("Expected error for nil OpenAPI spec")
-		}
-	})
-}

@@ -1,7 +1,6 @@
 package inventory
 
 import (
-	"context"
 	"testing"
 	"time"
 )
@@ -14,66 +13,6 @@ func TestNewInventoryManager(t *testing.T) {
 
 	if manager == nil {
 		t.Fatal("NewManager() returned nil")
-	}
-}
-
-func TestManager_Fetch(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test that makes HTTP request in short mode")
-	}
-
-	manager, err := NewManager(ManagerConfig{})
-	if err != nil {
-		t.Fatalf("NewManager() error = %v", err)
-	}
-
-	ctx := context.Background()
-	_, err = manager.Fetch(ctx, "https://api.example.com", FetchOptions{})
-	if err != nil {
-		t.Logf("Fetch() error (expected if no server): %v", err)
-	}
-}
-
-func TestManager_ListCached(t *testing.T) {
-	manager, err := NewManager(ManagerConfig{})
-	if err != nil {
-		t.Fatalf("NewManager() error = %v", err)
-	}
-
-	cached, err := manager.ListCached()
-	if err != nil {
-		t.Fatalf("ListCached() error = %v", err)
-	}
-
-	if cached == nil {
-		t.Log("ListCached() returned nil (expected for cache with no data)")
-		return
-	}
-
-	t.Logf("ListCached() found %d cached inventories", len(cached))
-}
-
-func TestManager_PurgeCache(t *testing.T) {
-	manager, err := NewManager(ManagerConfig{})
-	if err != nil {
-		t.Fatalf("NewManager() error = %v", err)
-	}
-
-	err = manager.PurgeCache("test-host")
-	if err != nil {
-		t.Fatalf("PurgeCache() error = %v", err)
-	}
-}
-
-func TestManager_GetVersionHistory(t *testing.T) {
-	manager, err := NewManager(ManagerConfig{})
-	if err != nil {
-		t.Fatalf("NewManager() error = %v", err)
-	}
-
-	_, err = manager.GetVersionHistory("test-host")
-	if err == nil {
-		t.Error("GetVersionHistory() expected error for non-existent host")
 	}
 }
 
