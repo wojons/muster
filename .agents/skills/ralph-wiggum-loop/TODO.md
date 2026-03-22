@@ -1375,12 +1375,28 @@
 - **Tests**: 10 comprehensive test functions covering disabled/enabled tracing, HTTP/gRPC protocols, custom attributes, sampling rates, propagators, context cancellation, and concurrent access
 - **All tests passing**: ✅
 
-#### Step 6: [ ] Create Span struct with helper methods
+#### Step 6: [x] Create Span struct with helper methods
 - File: internal/telemetry/span.go
 - Spec: specs/MIDDLEWARE-TRACING.md
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 5
+- **Completed**: Created comprehensive Span wrapper struct with helper methods for OpenTelemetry integration
+- **Implementation**:
+  - `Span` struct wrapping trace.Span with simplified interface
+  - `StartSpan()` - Creates new span with configurable options
+  - `StartSpanFromContext()` - Creates child span from existing context
+  - Attribute setters: `SetAttribute()`, `SetAttributeInt()`, `SetAttributeFloat()`, `SetAttributeBool()`, `SetAttributes()`
+  - Error recording: `RecordError()`, `RecordErrorWithMessage()`
+  - Status management: `SetStatus()`, `SetOK()`
+  - Event tracking: `AddEvent()`, `AddEventWithAttributes()`, `AddEventWithTimestamp()`
+  - Context integration: `ContextWithSpan()`, `SpanFromContext()`
+  - Identification: `TraceID()`, `SpanID()`, `SpanContext()`, `Name()`
+  - Lifecycle: `End()`, `IsRecording()`, `IsValid()`
+  - Utility: `String()` for debugging
+- **Tests**: Comprehensive test suite with 18 test functions covering all methods
+- **All tests passing**: ✅
+- **Lint**: 0 issues ✅
 
 #### Step 7: [ ] Implement Tracer interface wrapper
 - File: internal/telemetry/tracer.go
