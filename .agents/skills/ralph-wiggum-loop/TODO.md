@@ -1025,28 +1025,47 @@
 - **All tests passing**: ✅
 - **Lint**: 0 issues ✅
 
-#### Step 5: [ ] Add unit tests for BindPFlag
+#### Step 5: [x] Add unit tests for BindPFlag
 - File: pkg/config/loader_test.go
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 4
+- **Completed**: Comprehensive unit tests for BindPFlags added in loader_test.go
+- **Tests**: 4 test cases covering Bind Persistent Flags, Flag Override, Missing Flags, and Partial Flags
+- **All tests passing**: ✅
+- **Commit**: 7b7a0a6 - FEAT-003: Add viper.BindPFlag() integration for CLI flags
 
-#### Step 6: [ ] Add integration tests for WatchConfig
+#### Step 6: [x] Add integration tests for WatchConfig
 - File: pkg/config/watcher_test.go
 - Skill: @testing-integration
 - Effort: 35 min
 - Dependencies: Step 5
+- **Completed**: Comprehensive integration tests for WatchConfig added in watcher_test.go
+- **Tests**: 8 test functions covering WatchConfig, Stop, IsWatching, GetConfig, ConcurrentAccess, and MultipleFileChanges
+- **All tests passing**: ✅
+- **Commit**: 66f6a4d - FEAT-003 Step 2: Implement WatchConfig() for hot reload
 
 ---
 
 ### AUDIT-001: Implement AuditLogger
 
-#### Step 1: [ ] Define AuditConfig struct
+#### Step 1: [x] Define AuditConfig struct
 - File: internal/audit/config.go
 - Spec: specs/EVENTS-AUDIT.md lines 10-31
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: None
+- **Completed**: Implemented AuditConfig struct with all required fields
+- **Implementation**:
+  - Created `internal/audit/` package directory
+  - Defined `AuditConfig` struct with 10 fields: Enabled, StorageType, RetentionDays, BufferSize, FlushInterval, EncryptionKey, HashAlgorithm, IncludeBody, SensitiveFields
+  - Added `DefaultAuditConfig` with sensible defaults
+  - Implemented `Validate()` method with comprehensive validation
+  - Implemented `Clone()` method for deep copying
+  - Created `ConfigError` type for validation errors
+- **Tests**: 19 test cases covering validation, defaults, cloning, and error handling
+- **All tests passing**: ✅
+- **Lint**: 0 issues ✅
 
 #### Step 2: [ ] Define RedactionRule struct
 - File: internal/audit/redaction.go
