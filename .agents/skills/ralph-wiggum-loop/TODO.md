@@ -1097,19 +1097,24 @@
 - **All tests passing**: 18/18 ✅
 - **Lint**: 0 issues ✅
 
-#### Step 3: [ ] Create Redactor with MandatoryRedactionRules
+#### Step 3: [x] Create Redactor with MandatoryRedactionRules
 - File: internal/audit/redaction.go
 - Spec: specs/EVENTS-AUDIT.md lines 51-82
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 2
+- **Completed**: Implemented Redactor struct with mandatory rules and pre-compiled regex patterns
+- **Features**: Thread-safe operations, 5 mandatory rules for passwords, tokens, secrets, credit cards, SSNs
 
-#### Step 4: [ ] Implement NewRedactor() and RedactEvent()
+#### Step 4: [x] Implement NewRedactor() and RedactEvent()
 - File: internal/audit/redaction.go
 - Spec: specs/EVENTS-AUDIT.md lines 91-143
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: Step 3
+- **Completed**: Implemented NewRedactor() constructor and RedactEvent() method
+- **Features**: JSON serialization/deserialization, recursive path traversal, case-insensitive field matching
+- **Tests**: 11 test functions, all passing ✅
 
 #### Step 5: [ ] Define AuditEvent, AuditActor, AuditResource types
 - File: internal/audit/types.go
