@@ -18,6 +18,7 @@ type SandboxedFS struct {
 	virtualFiles   map[string][]byte
 	restrictAccess bool
 	root           string
+	networkPolicy  *NetworkPolicy
 }
 
 // NewSandboxedFS creates a new sandboxed filesystem.
@@ -289,3 +290,42 @@ func (vfi *virtualFileInfo) Mode() os.FileMode  { return vfi.mode }
 func (vfi *virtualFileInfo) ModTime() time.Time { return time.Unix(0, 0) }
 func (vfi *virtualFileInfo) IsDir() bool        { return false }
 func (vfi *virtualFileInfo) Sys() interface{}   { return nil }
+
+// SetNetworkPolicy sets the network policy for sandboxed network access.
+func (fs *SandboxedFS) SetNetworkPolicy(policy *NetworkPolicy) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.networkPolicy = policy
+}
+
+// GetNetworkPolicy returns the current network policy.
+func (fs *SandboxedFS) GetNetworkPolicy() *NetworkPolicy {
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+	if fs.networkPolicy == nil {
+		return nil
+	}
+	// Return a copy to prevent external modification
+	policyCopy := &NetworkPolicy{
+		AllowedHosts: make([]string, len(fs.networkPolicy.AllowedHosts)),
+		AllowedPorts: make([]int, len(fs.networkPolicy.AllowedPorts)),
+		BlockedHosts: make([]string, len(fs.networkPolicy.BlockedHosts)),
+	}
+	copy(policyCopy.AllowedHosts, fs.networkPolicy.AllowedHosts)
+	copy(policyCopy.AllowedPorts, fs.networkPolicy.AllowedPorts)
+	copy(policyCopy.BlockedHosts, fs.networkPolicy.BlockedHosts)
+	return policyCopy
+}
+
+// CheckNetworkAccess verifies if network access to a host:port is allowed.
+// Returns true if no policy is set (permissive default) or if the policy allows the access.
+func (fs *SandboxedFS) CheckNetworkAccess(host string, port int) bool {
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+
+	if fs.networkPolicy == nil {
+		return true // Permissive default when no policy is set
+	}
+
+	return fs.networkPolicy.IsAllowed(host, port)
+}
