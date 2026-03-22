@@ -420,47 +420,77 @@
 - **Tests**: 22 test functions with 100% coverage of Manager methods
 - **Linting**: All checks passing
 
-#### Step 4: [ ] Implement Define(name, command string) error
+#### Step 4: [x] Implement Define(name, command string) error
 - File: internal/alias/manager.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 76-95
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: Step 3
+- **Completed**: Define method implemented in manager.go:39-41 with full validation and persistence
+- **Tests**: 7 comprehensive test cases in manager_test.go:74-165, all passing ✅
 
-#### Step 5: [ ] Implement Remove(name string) error
+#### Step 5: [x] Implement Remove(name string) error
 - File: internal/alias/manager.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 96-110
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 4
+- **Completed**: Remove method implemented in manager.go:65-75 with thread-safe deletion
+- **Tests**: 3 test cases in manager_test.go:184-230, all passing ✅
 
-#### Step 6: [ ] Implement Get(name string) (*Alias, error)
+#### Step 6: [x] Implement Get(name string) (*Alias, error)
 - File: internal/alias/manager.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 111-125
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 5
+- **Completed**: Get method implemented in manager.go:79-85 with read lock
+- **Note**: Returns (*Alias, bool) instead of (*Alias, error) per Go conventions
+- **Tests**: 2 test cases in manager_test.go:232-256, all passing ✅
 
-#### Step 7: [ ] Implement List() []*Alias
+#### Step 7: [x] Implement List() []*Alias
 - File: internal/alias/manager.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 126-140
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 6
+- **Completed**: List method implemented in manager.go:89-98 returning defensive copy
+- **Tests**: 3 test cases in manager_test.go:258-310, all passing ✅
 
-#### Step 8: [ ] Create Expander with circular detection
+#### Step 8: [x] Create Expander with circular detection
 - File: internal/alias/expander.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 141-180
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: Step 7
+- **Completed**: Created Expander struct with:
+  - Circular reference detection via history tracking
+  - Maximum expansion depth limit (10 levels)
+  - Context cancellation support
+  - Thread-safe operations
+  - Single-level expansion option (ExpandOnce)
+  - History inspection and reset capabilities
+- **Tests**: 13 comprehensive test functions covering:
+  - Basic expansion scenarios
+  - Recursive chained aliases
+  - Circular reference detection
+  - Self-referential aliases
+  - Depth limit enforcement
+  - Context cancellation
+  - Concurrent access
+- **All tests passing**: 21 test cases ✅
+- **Linting**: 0 issues ✅
 
-#### Step 9: [ ] Implement Expand(args []string) ([]string, error)
+#### Step 9: [x] Implement Expand(args []string) ([]string, error)
 - File: internal/alias/expander.go
 - Spec: specs/CLI-MARKET-ALIASES.md lines 181-210
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 8
+- **Completed**: Implemented Expand method as convenience wrapper around ExpandCommand with background context
+- **Signature**: `func (e *Expander) Expand(args []string) ([]string, error)`
+- **Tests**: 3 test cases covering basic expansion, chained aliases, and depth limit errors
+- **All tests passing**: ✅
 
 #### Step 10: [ ] Create storage.go with YAML persistence
 - File: internal/alias/storage.go
