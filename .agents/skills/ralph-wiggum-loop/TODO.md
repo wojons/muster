@@ -1116,12 +1116,36 @@
 - **Features**: JSON serialization/deserialization, recursive path traversal, case-insensitive field matching
 - **Tests**: 11 test functions, all passing ✅
 
-#### Step 5: [ ] Define AuditEvent, AuditActor, AuditResource types
+#### Step 5: [x] Define AuditEvent, AuditActor, AuditResource types
 - File: internal/audit/types.go
 - Spec: specs/EVENTS-AUDIT.md lines 248-329
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: None
+- **Completed**: Implemented comprehensive audit types with full spec compliance
+- **Implementation**:
+  - `AuditLevel` type with constants (debug, info, warning, error, critical) and IsValid() method
+  - `AuditCategory` type with constants (authentication, authorization, data_access, system, security, administrative) and IsValid() method
+  - `AuditActor` struct with ID, Type, Name, IPAddress, UserAgent, SessionID and Validate() method
+  - `AuditResource` struct with ID, Type, Name, Path and Validate() method
+  - `AuditResult` struct with Success, Code, Message, Details
+  - `AuditContext` struct with RequestID, TraceID, Metadata
+  - `AuditChange` struct with Field, OldValue, NewValue
+  - `AuditEvent` struct with comprehensive fields including hash chain support (ID, Timestamp, Level, Category, Action, Actor, Resource, Result, Context, Changes, Hash, PreviousHash)
+- **Methods Implemented**:
+  - `AuditEvent.Validate()` - validates all required fields
+  - `AuditEvent.ComputeHash()` - calculates SHA256 hash for tamper resistance
+  - `AuditEvent.SetHash(previousHash)` - computes and sets hash with chain support
+  - `AuditEvent.String()` - human-readable representation
+  - `AuditEvent.Clone()` - deep copy with all nested structures
+  - `AuditActor.Validate()` - validates actor fields
+  - `AuditResource.Validate()` - validates resource fields
+  - `AuditLevel.IsValid()` - validates level constants
+  - `AuditCategory.IsValid()` - validates category constants
+- **Tests**: Created comprehensive types_test.go with 22 test functions covering all types and methods
+- **Lines**: 232 lines of implementation code + 341 lines of tests
+- **All tests passing**: 22/22 ✅
+- **Lint**: 0 issues ✅
 
 #### Step 6: [ ] Create AuditLogger struct
 - File: internal/audit/logger.go
