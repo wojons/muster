@@ -33,7 +33,7 @@ func (r *Runtime) Execute(moduleBytes []byte, function string, args ...interface
 }
 
 // ExecuteWithContext runs a WASM module with context support for cancellation.
-// Enforces execution time limits via context cancellation.
+// Enforces execution time limits via context cancellation and epoch interruption.
 func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, function string, args ...interface{}) (*ExecutionResult, error) {
 	start := time.Now()
 
@@ -87,11 +87,22 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 		}
 	}
 
-	// Create Wasmtime engine with resource limits to prevent DoS via memory exhaustion
-	engine := wasmtime.NewEngine()
+	// Calculate execution timeout from limits or context
+	var executionTimeout time.Duration
+	if r.limits != nil && r.limits.MaxExecutionTime > 0 {
+		executionTimeout = r.limits.MaxExecutionTime
+	}
 
-	// Note: Memory limits enforced via MaxFileSize check (line 59-64), context timeout (line 25-29),
-	// store limiter below, fuel limits, and runtime validation during execution.
+	// Create Wasmtime engine with epoch interruption for timeout enforcement
+	// Epoch interruption allows cooperative preemption of long-running WASM code
+	config := wasmtime.NewConfig()
+	if executionTimeout > 0 {
+		config.SetEpochInterruption(true)
+	}
+	engine := wasmtime.NewEngineWithConfig(config)
+
+	// Note: Memory limits enforced via MaxFileSize check, context timeout,
+	// store limiter below, fuel limits, epoch interruption, and runtime validation.
 	store := wasmtime.NewStore(engine)
 
 	// Set maximum memory allocation (default 256MB, override via limits.MaxMemory)
@@ -102,6 +113,50 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 	// Limiter(memorySize, tableElements, instances, tables, memories)
 	// Use -1 for default values on limits we don't want to change
 	store.Limiter(maxMemory, -1, -1, -1, -1)
+
+	// Enable epoch interruption for timeout enforcement
+	// This allows the engine to preempt long-running WASM code
+	var epochTicker *time.Ticker
+	var epochStop chan struct{}
+	if executionTimeout > 0 {
+		// Set epoch deadline to 1 - execution will be interrupted after 1 epoch tick
+		store.SetEpochDeadline(1)
+
+		// Create a ticker that increments the epoch at regular intervals
+		// Use a tick interval that divides the timeout into ~10 increments
+		tickInterval := executionTimeout / 10
+		if tickInterval < 100*time.Millisecond {
+			tickInterval = 100 * time.Millisecond
+		}
+		if tickInterval > executionTimeout {
+			tickInterval = executionTimeout / 2
+		}
+
+		epochTicker = time.NewTicker(tickInterval)
+		epochStop = make(chan struct{})
+
+		// Start a goroutine to increment the epoch
+		go func() {
+			for {
+				select {
+				case <-epochTicker.C:
+					engine.IncrementEpoch()
+				case <-epochStop:
+					return
+				}
+			}
+		}()
+
+		// Stop the epoch ticker when execution completes
+		defer func() {
+			if epochTicker != nil {
+				epochTicker.Stop()
+			}
+			if epochStop != nil {
+				close(epochStop)
+			}
+		}()
+	}
 
 	// Add fuel for CPU time limiting (fuel is consumed per WebAssembly instruction)
 	// Default: 10 billion instructions, override via limits.MaxFuel

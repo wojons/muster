@@ -1785,11 +1785,28 @@
   - TestDefaultLimitsFuelValue: Verifies 10 billion default
 - **All tests passing**: 6/6 ✅
 
-#### Step 3: [ ] Add wasmtime.WithEpochInterruption for timeout enforcement
+#### Step 3: [x] Add wasmtime.WithEpochInterruption for timeout enforcement
 - File: pkg/wasm/runtime.go
 - Skill: @security-scan
 - Effort: 25 min
 - Dependencies: Step 2
+- **Completed**: Implemented epoch interruption for timeout enforcement
+- **Implementation**:
+  - Configured wasmtime engine with `SetEpochInterruption(true)` when timeout is configured
+  - Set epoch deadline on store with `SetEpochDeadline(1)` to trigger after first epoch tick
+  - Added background goroutine with ticker to increment epoch at regular intervals
+  - Integrated cleanup with defer to stop ticker and close channel
+  - Works alongside context cancellation for robust timeout enforcement
+- **Tests**: Created 7 comprehensive test functions in epoch_interruption_test.go:
+  - TestEpochInterruption_Enabled: Verifies interruption is enabled with timeout
+  - TestEpochInterruption_Disabled: Verifies no interruption without timeout
+  - TestEpochInterruption_TimeoutEnforcement: Tests short and long timeouts
+  - TestEpochInterruption_ContextCancellation: Tests interaction with context
+  - TestEpochInterruption_DefaultTimeout: Tests default limits
+  - TestEpochInterruption_EngineConfiguration: Tests engine setup with/without timeout
+  - TestEpochInterruption_ConcurrentAccess: Tests thread safety
+- **All tests passing**: 7/7 ✅
+- **Lint**: 0 issues in modified files ✅
 
 #### Step 4: [ ] Integrate NetworkPolicy enforcement in WASM sandbox
 - File: pkg/wasm/sandbox.go
