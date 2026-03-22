@@ -109,19 +109,26 @@
 - **Completed**: TokenManager.Save() already writes files with 0600 permissions
 - **Implementation**: Token file created with os.WriteFile(path, []byte(token), 0600)
 
-#### Step 5: [ ] Add token validation middleware in proxy
+#### Step 5: [x] Add token validation middleware in proxy
 - File: pkg/daemon/proxy.go
 - Spec: specs/UNIX-SOCKET-PROXY.md lines 79-110
 - Skill: @testing-security
 - Effort: 35 min
 - Dependencies: Step 4
+- **Completed**: Token validation middleware already implemented with withTokenAuth() and NewAuthenticatedProxyServer()
+- **Features**: Bearer token validation, health endpoint exclusion, constant-time comparison
+- **Tests**: 8 comprehensive test cases covering valid/invalid tokens, missing headers, malformed headers, health endpoints
 
-#### Step 6: [ ] Log unauthorized access attempts
+#### Step 6: [x] Log unauthorized access attempts
 - File: pkg/daemon/proxy.go
 - Spec: specs/EVENTS-AUDIT.md
 - Skill: @logging-fundamentals
 - Effort: 15 min
 - Dependencies: Step 5
+- **Completed**: Added structured logging for unauthorized access attempts using pkg/log
+- **Log Format**: WARN level with event=auth_failure, reason, path, remote_addr fields
+- **Coverage**: Logs both missing header and invalid token scenarios
+- **Tests**: All existing tests pass, logs visible during test execution
 
 #### Step 7: [ ] Add unit tests for token generation/validation
 - File: pkg/daemon/token_test.go

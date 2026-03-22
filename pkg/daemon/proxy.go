@@ -8,8 +8,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/openapi-cli/openapi-cli/pkg/log"
 )
 
 // ProxyServer handles HTTP proxying over Unix socket
@@ -19,6 +22,7 @@ type ProxyServer struct {
 	listener     net.Listener
 	server       *http.Server
 	shutdownChan chan struct{}
+	tokenManager *TokenManager
 	mu           sync.RWMutex
 }
 
@@ -32,6 +36,77 @@ func NewProxyServer(socketPath string, handler http.Handler) *ProxyServer {
 		socketPath:   socketPath,
 		handler:      handler,
 		shutdownChan: make(chan struct{}),
+	}
+}
+
+// NewAuthenticatedProxyServer creates a new HTTP proxy server with token authentication
+func NewAuthenticatedProxyServer(socketPath string, handler http.Handler, tokenManager *TokenManager) *ProxyServer {
+	if handler == nil {
+		handler = createDefaultHandler()
+	}
+
+	// Wrap handler with authentication middleware
+	authHandler := withTokenAuth(handler, tokenManager)
+
+	return &ProxyServer{
+		socketPath:   socketPath,
+		handler:      authHandler,
+		tokenManager: tokenManager,
+		shutdownChan: make(chan struct{}),
+	}
+}
+
+// withTokenAuth wraps a handler with token authentication middleware
+// Excludes health check endpoints from authentication
+func withTokenAuth(next http.Handler, tokenManager *TokenManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip authentication for health check endpoints
+		if isHealthEndpoint(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Extract token from Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			log.Global().Warn().
+				Str("event", "auth_failure").
+				Str("reason", "missing_header").
+				Str("path", r.URL.Path).
+				Str("remote_addr", r.RemoteAddr).
+				Msg("Unauthorized access attempt: missing authorization header")
+			http.Error(w, `{"error":"Unauthorized","message":"Missing authorization header"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// Validate token
+		if !tokenManager.ValidateFromHeader(authHeader) {
+			log.Global().Warn().
+				Str("event", "auth_failure").
+				Str("reason", "invalid_token").
+				Str("path", r.URL.Path).
+				Str("remote_addr", r.RemoteAddr).
+				Msg("Unauthorized access attempt: invalid or expired token")
+			http.Error(w, `{"error":"Unauthorized","message":"Invalid or expired token"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// Token is valid, proceed with request
+		next.ServeHTTP(w, r)
+	})
+}
+
+// isHealthEndpoint checks if the path is a health check endpoint
+// Health endpoints are excluded from authentication
+func isHealthEndpoint(path string) bool {
+	// Normalize path
+	path = strings.TrimSuffix(path, "/")
+
+	switch path {
+	case "/health", "/health/live", "/health/ready", "/health/startup":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -169,10 +244,9 @@ func createDefaultHandler() http.Handler {
 
 // ProxyHandler creates a handler that proxies requests to a backend URL
 type ProxyHandler struct {
-	backendURL    string
-	forwardedFor  bool
-	_rewritePrefix string // TODO: implement path rewriting
-	httpClient    *http.Client
+	backendURL   string
+	forwardedFor bool
+	httpClient   *http.Client
 }
 
 // NewProxyHandler creates a new proxy handler
