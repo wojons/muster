@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
@@ -104,4 +106,50 @@ func (l *Loader) setDefaultPaths(cfg *Config) {
 func Load() (*Config, error) {
 	loader := NewLoader()
 	return loader.Load()
+}
+
+// BindPFlags binds Cobra command flags to Viper configuration keys.
+// This allows CLI flags to override configuration file values.
+// It binds persistent flags defined on the root command.
+func (l *Loader) BindPFlags(cmd *cobra.Command) error {
+	// Define flag-to-viper key mappings
+	flagBindings := []struct {
+		flagKey  string
+		viperKey string
+		flagType string
+	}{
+		{"host", "default_host", "string"},
+		{"timeout", "default_timeout", "duration"},
+		{"verbose", "verbose", "bool"},
+		{"config", "config_file", "string"},
+		{"profile", "default_profile", "string"},
+		{"output", "output_format", "string"},
+	}
+
+	for _, binding := range flagBindings {
+		flag := cmd.PersistentFlags().Lookup(binding.flagKey)
+		if flag != nil {
+			if err := l.v.BindPFlag(binding.viperKey, flag); err != nil {
+				return fmt.Errorf("failed to bind flag %q: %w", binding.flagKey, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// BindEnvVar binds an environment variable to a Viper configuration key.
+// The environment variable name is automatically prefixed with the loader's
+// env prefix (e.g., OPENAPI_CLI_HOST for key "host").
+func (l *Loader) BindEnvVar(key string) error {
+	envVarName := strings.ToUpper(strings.ReplaceAll(key, "-", "_"))
+	if err := l.v.BindEnv(key, envVarName); err != nil {
+		return fmt.Errorf("failed to bind env var for key %q: %w", key, err)
+	}
+	return nil
+}
+
+// GetViper returns the internal viper instance for advanced usage.
+func (l *Loader) GetViper() *viper.Viper {
+	return l.v
 }
