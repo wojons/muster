@@ -556,74 +556,92 @@
 - **Tests**: 10 comprehensive unit tests covering all handler types and validation
 - **All tests passing**: ✅
 
-#### Step 3: [ ] Define HandlerFunc and HandlerMiddleware types
+#### Step 3: [x] Define HandlerFunc and HandlerMiddleware types
 - File: pkg/events/handler.go
 - Spec: specs/EVENTS-HANDLERS.md lines 21, 29
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 2
+- **Completed**: HandlerFunc and HandlerMiddleware types already defined in handler.go
 
-#### Step 4: [ ] Create HandlerInfo struct
+#### Step 4: [x] Create HandlerInfo struct
 - File: pkg/events/handler.go
 - Spec: specs/EVENTS-HANDLERS.md lines 31-39
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 3
+- **Completed**: HandlerInfo struct with all fields and Validate() method already implemented
 
-#### Step 5: [ ] Create HandlerRegistry struct
+#### Step 5: [x] Create HandlerRegistry struct
 - File: pkg/events/registry.go
 - Spec: specs/EVENTS-HANDLERS.md lines 55-61
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: Step 4
+- **Completed**: Implemented HandlerRegistry with handlers map, byType index, middleware slice, RWMutex, and Logger
 
-#### Step 6: [ ] Implement Register(info *HandlerInfo) error
+#### Step 6: [x] Implement Register(info *HandlerInfo) error
 - File: pkg/events/registry.go
 - Spec: specs/EVENTS-HANDLERS.md lines 78-108
 - Skill: @testing-unit
 - Effort: 25 min
 - Dependencies: Step 5
+- **Completed**: Implemented with validation, duplicate detection, and event type indexing
 
-#### Step 7: [ ] Implement Unregister(name string) bool
+#### Step 7: [x] Implement Unregister(name string) bool
 - File: pkg/events/registry.go
 - Spec: specs/EVENTS-HANDLERS.md lines 110-132
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: Step 6
+- **Completed**: Implemented with cleanup of both handlers map and byType index
 
-#### Step 8: [ ] Implement GetHandlers(eventType EventType) []*HandlerInfo
+#### Step 8: [x] Implement GetHandlers(eventType EventType) []*HandlerInfo
 - File: pkg/events/registry.go
 - Spec: specs/EVENTS-HANDLERS.md lines 134-148
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 7
+- **Completed**: Implemented with read lock and defensive copy
 
-#### Step 9: [ ] Implement Execute(ctx, event) []HandlerResult
+#### Step 9: [x] Implement Execute(ctx, event) []HandlerResult
 - File: pkg/events/registry.go
 - Spec: specs/EVENTS-HANDLERS.md lines 150-192
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: Step 8
+- **Completed**: Implemented with middleware wrapping, timeout, retry logic, and error handling
 
-#### Step 10: [ ] Create middleware.go with wrapWithMiddleware/Timeout/Retry
-- File: pkg/events/middleware.go
+#### Step 10: [x] Implement wrapWithMiddleware/Timeout/Retry helpers
+- File: pkg/events/registry.go
 - Spec: specs/EVENTS-HANDLERS.md lines 194-231
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: Step 9
+- **Completed**: Implemented all three helper methods with proper chaining
 
-#### Step 11: [ ] Implement List() []string
+#### Step 11: [x] Implement List() []string
 - File: pkg/events/registry.go
 - Spec: specs/EVENTS-HANDLERS.md lines 239-248
 - Skill: @testing-unit
 - Effort: 10 min
 - Dependencies: Step 10
+- **Completed**: Implemented with read lock
 
-#### Step 12: [ ] Add unit tests for Registry
+#### Step 12: [x] Add unit tests for Registry
 - File: pkg/events/registry_test.go
 - Skill: @testing-unit
 - Effort: 45 min
 - Dependencies: Step 11
+- **Completed**: Added comprehensive test suite with 22 test functions covering:
+  - Registry creation, registration, unregistration
+  - Handler retrieval by event type
+  - Execution with success/failure scenarios
+  - Timeout and retry functionality
+  - Middleware chain execution
+  - List, Count, IsRegistered operations
+  - Concurrent access safety
+  - All tests passing ✅
 
 ---
 
