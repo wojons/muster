@@ -1398,37 +1398,125 @@
 - **All tests passing**: ✅
 - **Lint**: 0 issues ✅
 
-#### Step 7: [ ] Implement Tracer interface wrapper
+#### Step 7: [x] Implement Tracer interface wrapper
 - File: internal/telemetry/tracer.go
 - Spec: specs/MIDDLEWARE-TRACING.md lines 152-162
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: Step 6
+- **Completed**: Implemented Tracer wrapper struct with comprehensive helper methods
+- **Implementation**:
+  - `Tracer` struct wrapping `trace.Tracer` with simplified interface
+  - `NewTracer()` constructor for basic tracer creation
+  - `NewTracerWithName()` constructor for named tracers
+  - `Start()` method creating spans with options support
+  - `StartFromContext()` method for child span creation
+  - `Name()`, `IsValid()`, `Internal()` helper methods
+  - Safe nil handling throughout
+- **Tests**: 10 comprehensive test functions covering:
+  - Constructor validation (NewTracer, NewTracerWithName)
+  - Span creation with various options
+  - Context-based span hierarchy
+  - Nil tracer handling
+  - Concurrent access safety
+  - Integration with existing Span wrapper
+- **All tests passing**: 10/10 ✅
+- **Lint**: 0 issues ✅
 
-#### Step 8: [ ] Add tracing to MCP handlers
-- File: pkg/mcp/handlers/*.go
+#### Step 8: [x] Add tracing to MCP handlers
+- File: pkg/mcp/handlers/tracing.go
 - Skill: @testing-integration
 - Effort: 45 min
 - Dependencies: Step 7
+- **Completed**: Implemented comprehensive tracing middleware for MCP handlers
+- **Implementation**:
+  - Created `TracedHandler` struct that wraps existing handlers with OpenTelemetry tracing
+  - Created `TracingRegistry` for automatic tracing of all registered handlers
+  - Added span creation around Handle() calls with method name, params size, and error tracking
+  - Supports all MCP result types (ListToolsResult, CallToolResult, ListPromptsResult, etc.)
+  - Records error codes and messages for MCPError types
+  - Added configuration options via TracingOptions struct
+- **Tests**: 15 comprehensive test functions covering:
+  - Handler wrapping and method delegation
+  - Success and error scenarios
+  - Different result type detection
+  - Concurrent access safety
+  - Registry integration
+  - Context propagation
+- **All tests passing**: 15/15 ✅
 
-#### Step 9: [ ] Add tracing to WASM runtime
-- File: pkg/wasm/runtime.go
+#### Step 9: [x] Add tracing to WASM runtime
+- File: pkg/wasm/runtime.go, pkg/wasm/types.go, pkg/wasm/telemetry_wasm.go
 - Skill: @testing-integration
 - Effort: 40 min
 - Dependencies: Step 7
+- **Completed**: Implemented comprehensive tracing support for WASM runtime
+- **Implementation**:
+  - Added Tracer interface and Span interface to types.go for pluggable tracing
+  - Added tracer field to Runtime struct
+  - Created NewRuntimeWithTracer() constructor and SetTracer() method
+  - Created TelemetryTracer adapter to bridge WASM Tracer to internal telemetry package
+  - Created TelemetrySpan that wraps telemetry.Span for WASM operations
+  - Added NoopSpan for when tracing is disabled
+  - Integrated tracing into ExecuteWithContext(), Validate(), and GetModuleInfo() methods
+  - Added span creation at method entry with function name, module size, and args count tags
+  - Added error tracing for all error paths (context cancelled, capability denied, size limit, compilation, instantiation, function not found, arg conversion, execution)
+  - Added success tracking with duration_ms tag at completion
+- **Files Modified**:
+  - pkg/wasm/types.go: Added Tracer/Span interfaces, tracer field in Runtime, NewRuntimeWithTracer(), SetTracer(), Tracer()
+  - pkg/wasm/runtime.go: Added tracing instrumentation to ExecuteWithContext(), Validate(), GetModuleInfo()
+  - pkg/wasm/telemetry_wasm.go: Created TelemetryTracer and TelemetrySpan adapters
+- **All tests passing**: ✅
 
-#### Step 10: [ ] Add tracing to HTTP client
+#### Step 10: [x] Add tracing to HTTP client
 - File: pkg/client/client.go
 - Spec: specs/MIDDLEWARE-TRACING.md lines 235-240
 - Skill: @testing-integration
 - Effort: 30 min
 - Dependencies: Step 7
+- **Completed**: Created HTTP client package with comprehensive OpenTelemetry tracing
+- **Implementation**:
+  - Created pkg/client/client.go with Client struct supporting HTTP operations
+  - Implemented NewClient() and NewClientWithTracer() constructors
+  - Added ClientOption pattern for configuration (WithBaseURL, WithHeader, WithTimeout)
+  - Implemented Do(), Get(), Post(), Put(), Delete(), Patch() methods
+  - Integrated OpenTelemetry tracing with span creation for all requests
+  - Added HTTP semantic attributes: method, URL, host, scheme, target, status_code
+  - Added response attributes: content_length, content_type
+  - Traced error conditions with error classification (4xx vs 5xx)
+  - Added support for default headers applied to all requests
+  - Created 17 comprehensive unit tests covering all methods and scenarios
+- **Test Coverage**:
+  - Client initialization with various options
+  - All HTTP methods (GET, POST, PUT, DELETE, PATCH)
+  - Tracing integration with telemetry package
+  - Error handling (network errors, 4xx, 5xx responses)
+  - Context cancellation
+  - Concurrent request handling
+  - Default headers application
+- **All tests passing**: 17/17 ✅
 
-#### Step 11: [ ] Add unit tests for telemetry
+#### Step 11: [x] Add unit tests for telemetry
 - File: internal/telemetry/*_test.go
 - Skill: @testing-unit
 - Effort: 45 min
 - Dependencies: Step 10
+- **Completed**: Comprehensive unit tests already exist for telemetry package
+- **Existing Test Coverage**:
+  - config_test.go: 11 test functions covering validation, defaults, cloning, protocol validation, concurrent access
+  - provider_test.go: 10 test functions covering provider creation, HTTP/gRPC protocols, custom attributes, sampling rates, context cancellation
+  - span_test.go: 18 test functions covering span creation, attribute setting, error recording, events, concurrent access
+  - tracer_test.go: 10 test functions covering tracer creation, span creation, context-based spans, nil handling, concurrent access
+- **Total Tests**: 49 test functions, all passing ✅
+- **Key Test Scenarios**:
+  - Configuration validation and defaults
+  - Tracer provider with OTLP exporters
+  - Span lifecycle (creation, attributes, events, errors, ending)
+  - Context propagation
+  - Concurrent access safety
+  - Integration between Tracer and Span
+  - No-op implementations when tracing disabled
+- **All tests passing**: 49/49 ✅
 
 ---
 

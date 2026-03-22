@@ -42,24 +42,48 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 		Duration: time.Since(start),
 	}
 
+	// Create a span for execution tracing if tracer is configured
+	var span Span
+	if r.tracer != nil {
+		span = r.tracer.StartSpan("wasm.execute")
+		span.SetTag("function", function)
+		span.SetTag("module_size", len(moduleBytes))
+		span.SetTag("args_count", len(args))
+		defer span.End()
+	}
+
 	// Check for context cancellation BEFORE execution
 	select {
 	case <-ctx.Done():
 		result.Error = "execution cancelled by context"
+		if span != nil {
+			span.SetTag("cancelled", true)
+			span.SetError(ctx.Err())
+		}
 		return result, ctx.Err()
 	default:
 	}
 
 	// Check capabilities before execution
 	if !r.CheckCapability("stdio") {
-		return result, fmt.Errorf("stdio capability not granted")
+		err := fmt.Errorf("stdio capability not granted")
+		if span != nil {
+			span.SetTag("capability_error", true)
+			span.SetError(err)
+		}
+		return result, err
 	}
 
 	// Enforce module size limits before compilation
 	if r.limits != nil && r.limits.MaxFileSize > 0 {
 		if int64(len(moduleBytes)) > int64(r.limits.MaxFileSize) {
 			result.Error = fmt.Sprintf("module byte size %d exceeds configured maximum %d", len(moduleBytes), r.limits.MaxFileSize)
-			return result, fmt.Errorf("module size exceeds MaximumFileSize limit")
+			err := fmt.Errorf("module size exceeds MaximumFileSize limit")
+			if span != nil {
+				span.SetTag("size_limit_error", true)
+				span.SetError(err)
+			}
+			return result, err
 		}
 	}
 
@@ -84,6 +108,10 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 	module, err := wasmtime.NewModule(engine, moduleBytes)
 	if err != nil {
 		result.Error = fmt.Sprintf("compile module: %v", err)
+		if span != nil {
+			span.SetTag("compile_error", true)
+			span.SetError(err)
+		}
 		return result, err
 	}
 
@@ -91,6 +119,10 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 	instance, err := wasmtime.NewInstance(store, module, []wasmtime.AsExtern{})
 	if err != nil {
 		result.Error = fmt.Sprintf("instantiate: %v", err)
+		if span != nil {
+			span.SetTag("instantiate_error", true)
+			span.SetError(err)
+		}
 		return result, err
 	}
 
@@ -98,13 +130,22 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 	wasmFunc := instance.GetFunc(store, function)
 	if wasmFunc == nil {
 		result.Error = fmt.Sprintf("function not found: %s", function)
-		return result, fmt.Errorf("function not found: %s", function)
+		err := fmt.Errorf("function not found: %s", function)
+		if span != nil {
+			span.SetTag("function_not_found", true)
+			span.SetError(err)
+		}
+		return result, err
 	}
 
 	// Convert args to wasmtime values
 	wasmArgs, err := convertArgsToWasmtime(args)
 	if err != nil {
 		result.Error = fmt.Sprintf("convert args: %v", err)
+		if span != nil {
+			span.SetTag("convert_args_error", true)
+			span.SetError(err)
+		}
 		return result, err
 	}
 
@@ -120,12 +161,23 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 
 	if err != nil {
 		result.Error = fmt.Sprintf("execution error: %v", err)
+		if span != nil {
+			span.SetTag("execution_error", true)
+			span.SetError(err)
+		}
 		return result, err
 	}
 
 	// Convert result - extract the first value
 	result.Output = rawResult
 	result.Success = true
+	result.Duration = time.Since(start)
+
+	// Record success in span
+	if span != nil {
+		span.SetTag("success", true)
+		span.SetTag("duration_ms", result.Duration.Milliseconds())
+	}
 
 	return result, nil
 }
@@ -155,16 +207,40 @@ func (r *Runtime) ExecuteWithConfig(moduleBytes []byte, config *ExecutionConfig)
 
 // Validate checks if a WASM module is valid.
 func (r *Runtime) Validate(moduleBytes []byte) error {
+	var span Span
+	if r.tracer != nil {
+		span = r.tracer.StartSpan("wasm.validate")
+		span.SetTag("module_size", len(moduleBytes))
+		defer span.End()
+	}
+
 	engine := wasmtime.NewEngine()
 	_, err := wasmtime.NewModule(engine, moduleBytes)
+	if err != nil && span != nil {
+		span.SetTag("validation_error", true)
+		span.SetError(err)
+	} else if span != nil {
+		span.SetTag("valid", true)
+	}
 	return err
 }
 
 // GetModuleInfo extracts information about a WASM module.
 func (r *Runtime) GetModuleInfo(moduleBytes []byte) (*ModuleInfo, error) {
+	var span Span
+	if r.tracer != nil {
+		span = r.tracer.StartSpan("wasm.get_module_info")
+		span.SetTag("module_size", len(moduleBytes))
+		defer span.End()
+	}
+
 	engine := wasmtime.NewEngine()
 	module, err := wasmtime.NewModule(engine, moduleBytes)
 	if err != nil {
+		if span != nil {
+			span.SetTag("error", true)
+			span.SetError(err)
+		}
 		return nil, err
 	}
 
@@ -176,6 +252,10 @@ func (r *Runtime) GetModuleInfo(moduleBytes []byte) (*ModuleInfo, error) {
 	for _, export := range module.Exports() {
 		info.Functions = append(info.Functions, export.Name())
 		info.FunctionCount++
+	}
+
+	if span != nil {
+		span.SetTag("function_count", info.FunctionCount)
 	}
 
 	return info, nil
