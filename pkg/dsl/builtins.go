@@ -22,10 +22,23 @@ import (
 	"go.starlark.net/starlark"
 )
 
-const (
-	// CRITICAL FIX: Maximum response size to prevent DoS via memory exhaustion
-	maxHTTPResponseSize = 10 * 1024 * 1024 // 10MB
-)
+// MaxResponseBodySize is the maximum allowed HTTP response body size (10MB)
+// to prevent DoS attacks via memory exhaustion
+const MaxResponseBodySize = 10 * 1024 * 1024 // 10MB
+
+// safeReadAll reads from r with a size limit and returns an error if the limit
+// is exceeded or if the read operation fails
+func safeReadAll(r io.Reader, limit int64) ([]byte, error) {
+	limitedReader := io.LimitReader(r, limit+1)
+	data, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("response body exceeds maximum size of %d bytes", limit)
+	}
+	return data, nil
+}
 
 var (
 	workspaceDir             string
@@ -107,9 +120,10 @@ func builtinHTTPGet(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
-	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
-	body, _ := io.ReadAll(limitedReader)
+	body, err := safeReadAll(resp.Body, MaxResponseBodySize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	responseDict := starlark.NewDict(3)
 	_ = responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
@@ -164,9 +178,10 @@ func builtinHTTPPost(thread *starlark.Thread, b *starlark.Builtin, args starlark
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
-	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
-	resBody, _ := io.ReadAll(limitedReader)
+	resBody, err := safeReadAll(resp.Body, MaxResponseBodySize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	responseDict := starlark.NewDict(2)
 	_ = responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
@@ -221,9 +236,10 @@ func builtinHTTPPut(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
-	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
-	resBody, _ := io.ReadAll(limitedReader)
+	resBody, err := safeReadAll(resp.Body, MaxResponseBodySize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	responseDict := starlark.NewDict(2)
 	_ = responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))
@@ -277,9 +293,10 @@ func builtinHTTPDelete(thread *starlark.Thread, b *starlark.Builtin, args starla
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// CRITICAL FIX: Use MaxBytesReader to prevent DoS via large response bodies
-	limitedReader := http.MaxBytesReader(nil, resp.Body, maxHTTPResponseSize)
-	resBody, _ := io.ReadAll(limitedReader)
+	resBody, err := safeReadAll(resp.Body, MaxResponseBodySize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	responseDict := starlark.NewDict(2)
 	_ = responseDict.SetKey(starlark.String("status_code"), starlark.MakeInt(resp.StatusCode))

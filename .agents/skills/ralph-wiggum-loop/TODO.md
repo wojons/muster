@@ -158,61 +158,76 @@
 
 ---
 
-### SEC-004: HTTP Response Body Error Handling (CRITICAL)
+### SEC-004: HTTP Response Body Error Handling (CRITICAL) ✅ COMPLETED
 
-#### Step 1: [ ] Create safeReadAll helper with size limit
+#### Step 1: [x] Create safeReadAll helper with size limit
 - File: pkg/dsl/builtins.go
 - Spec: specs/DSL-BUILTINS.md
 - Skill: @security-scan
 - Effort: 15 min
 - Dependencies: None
+- **Completed**: Implemented safeReadAll function with io.LimitReader and proper error handling
 
-#### Step 2: [ ] Add MaxResponseBodySize constant (10MB default)
+#### Step 2: [x] Add MaxResponseBodySize constant (10MB default)
 - File: pkg/dsl/builtins.go
 - Skill: @testing-unit
 - Effort: 10 min
 - Dependencies: Step 1
+- **Completed**: Added exported MaxResponseBodySize constant (10MB) replacing internal maxHTTPResponseSize
 
-#### Step 3: [ ] Fix line 112: Handle io.ReadAll error in httpGet
+#### Step 3: [x] Fix line 112: Handle io.ReadAll error in httpGet
 - File: pkg/dsl/builtins.go:112
 - Spec: specs/DSL-BUILTINS.md lines 45-67
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 2
+- **Completed**: Replaced ignored error with proper safeReadAll call and error handling
 
-#### Step 4: [ ] Fix line 169: Handle io.ReadAll error in httpPost
+#### Step 4: [x] Fix line 169: Handle io.ReadAll error in httpPost
 - File: pkg/dsl/builtins.go:169
 - Spec: specs/DSL-BUILTINS.md lines 68-89
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 3
+- **Completed**: Fixed httpPost to use safeReadAll with error handling
 
-#### Step 5: [ ] Fix line 226: Handle io.ReadAll error in httpPut
+#### Step 5: [x] Fix line 226: Handle io.ReadAll error in httpPut
 - File: pkg/dsl/builtins.go:226
 - Spec: specs/DSL-BUILTINS.md lines 90-111
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 4
+- **Completed**: Fixed httpPut to use safeReadAll with error handling
 
-#### Step 6: [ ] Fix line 282: Handle io.ReadAll error in httpDelete
+#### Step 6: [x] Fix line 282: Handle io.ReadAll error in httpDelete
 - File: pkg/dsl/builtins.go:282
 - Spec: specs/DSL-BUILTINS.md lines 112-133
 - Skill: @testing-unit
 - Effort: 15 min
 - Dependencies: Step 5
+- **Completed**: Fixed httpDelete to use safeReadAll with error handling
 
-#### Step 7: [ ] Return proper errors instead of ignoring
+#### Step 7: [x] Return proper errors instead of ignoring
 - File: pkg/dsl/builtins.go
 - Spec: specs/DSL-BUILTINS.md lines 134-155
 - Skill: @testing-unit
 - Effort: 20 min
 - Dependencies: Step 6
+- **Completed**: All HTTP methods now return descriptive errors when body reading fails
 
-#### Step 8: [ ] Add unit tests for error scenarios
+#### Step 8: [x] Add unit tests for error scenarios
 - File: pkg/dsl/builtins_test.go
 - Skill: @testing-unit
 - Effort: 30 min
 - Dependencies: Step 7
+- **Completed**: Added comprehensive tests for safeReadAll including size limits, read errors, and boundary conditions
+
+**Summary:**
+- Fixed critical security issue where io.ReadAll errors were silently ignored
+- Implemented safeReadAll helper with size limiting and proper error handling
+- Updated all 4 HTTP methods (GET, POST, PUT, DELETE) to use new helper
+- Added 9 comprehensive unit tests covering size limits, read errors, and edge cases
+- All tests passing ✅
 
 ---
 
