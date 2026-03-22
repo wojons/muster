@@ -73,6 +73,38 @@ func (pm *ProfileManager) Current() (*Profile, error) {
 	return pm.GetDefault()
 }
 
+// SetProfile sets the active profile by name and returns the profile configuration.
+// This applies the profile as the default and returns it so settings can be
+// merged into viper or other configuration systems.
+//
+// Example:
+//
+//	profile, err := profileManager.SetProfile("production")
+//	if err != nil {
+//	    return err
+//	}
+//	// Apply profile settings to viper
+//	viper.Set("host", profile.BaseURL)
+//	viper.Set("timeout", profile.Timeout)
+func (pm *ProfileManager) SetProfile(name string) (*Profile, error) {
+	if name == "" {
+		return nil, fmt.Errorf("profile name cannot be empty")
+	}
+
+	// Get the profile first to verify it exists
+	profile, err := pm.Get(name)
+	if err != nil {
+		return nil, fmt.Errorf("profile '%s' not found: %w", name, err)
+	}
+
+	// Set it as the default profile
+	if err := pm.SetDefault(name); err != nil {
+		return nil, fmt.Errorf("failed to set profile '%s' as default: %w", name, err)
+	}
+
+	return profile, nil
+}
+
 func (p *Profile) MergeWith(other *Profile) *Profile {
 	merged := &Profile{
 		BaseURL:      p.BaseURL,

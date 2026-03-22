@@ -985,12 +985,27 @@
 - **Tests**: 8 test functions covering WatchConfig, Stop, GetConfig, concurrent access, and multiple file changes
 - **All tests passing**: 8/8 ✅
 
-#### Step 3: [ ] Implement SetProfile() for profile switching
+#### Step 3: [x] Implement SetProfile() for profile switching
 - File: pkg/config/profiles.go
 - Spec: specs/VIPER-INTEGRATION.md lines 86-115
 - Skill: @testing-unit
 - Effort: 35 min
 - Dependencies: Step 2
+- **Completed**: Implemented SetProfile method in ProfileManager
+- **Implementation**:
+  - Added `SetProfile(name string) (*Profile, error)` method
+  - Validates profile name is not empty
+  - Verifies profile exists in configuration
+  - Sets profile as default using SetDefault()
+  - Returns the profile configuration for application to viper
+  - Comprehensive error handling with descriptive messages
+- **Tests**: Created 4 test functions with 11 test cases:
+  - `TestProfileManager_SetProfile`: Tests basic functionality including existing profiles, non-existent profiles, and empty names
+  - `TestProfileManager_SetProfile_Persistence`: Verifies profile change is persisted to config file
+  - `TestProfileManager_SetProfile_Concurrent`: Tests thread-safety with concurrent SetProfile calls
+  - `TestProfileManager_SetProfile_ReturnsCorrectProfile`: Validates all profile fields are returned correctly
+- **All tests passing**: 11/11 ✅
+- **Lint**: 0 issues ✅
 
 #### Step 4: [ ] Add validation layer with go-playground/validator
 - File: pkg/config/validator.go
