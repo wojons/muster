@@ -1668,11 +1668,24 @@
 - **Lines**: 541 lines of comprehensive test code
 - **All tests passing**: 14 test functions, 40+ sub-tests ✅
 
-#### Step 2: [ ] Create pkg/mcp/handlers/prompts_test.go
+#### Step 2: [x] Create pkg/mcp/handlers/prompts_test.go
 - File: pkg/mcp/handlers/prompts_test.go
 - Skill: @testing-unit
 - Effort: 40 min
 - Dependencies: None
+- **Completed**: Created comprehensive unit tests for prompts handler
+- **Tests Added**: 22 test functions covering:
+  - Handler constructors (NewListPromptsHandler, NewGetPromptHandler)
+  - ListPromptsHandler success scenarios (with prompts, empty list, with cursor)
+  - GetPromptHandler success scenarios (with args, no args)
+  - Error handling (invalid params, provider errors)
+  - Struct serialization/deserialization (Prompt, PromptArgument, all request/result types)
+  - Interface compliance verification
+  - Concurrent access safety (10 concurrent goroutines)
+  - Context cancellation behavior
+- **Total**: 22 test functions, ~500 lines of test code
+- **All tests passing**: ✅
+- **Lint**: 0 issues in new file ✅
 
 #### Step 3: [ ] Create pkg/mcp/handlers/tools_test.go
 - File: pkg/mcp/handlers/tools_test.go
