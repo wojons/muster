@@ -139,11 +139,22 @@
 - **Tests**: 10 test functions, 100% passing
 - **Coverage**: Token generation (32 bytes base64), file permissions (0600), Bearer header validation, constant-time comparison, concurrent safety
 
-#### Step 8: [ ] Add integration test for authenticated socket communication
+#### Step 8: [x] Add integration test for authenticated socket communication
 - File: pkg/daemon/proxy_integration_test.go
 - Skill: @testing-integration
 - Effort: 45 min
 - Dependencies: Step 7
+- **Completed**: Created comprehensive integration tests for authenticated socket communication
+- **Tests**: 8 integration test functions covering full lifecycle, concurrent connections, token rotation, multiple endpoints, invalid tokens, connection persistence, and cleanup
+- **Coverage**: 579 lines of test code, all tests passing ✅
+- **Features Tested**:
+  - Full token lifecycle (generation → save → load → validate → cleanup)
+  - 50 concurrent authenticated connections
+  - Token rotation behavior (old tokens rejected after rotation)
+  - Multiple endpoints with authentication
+  - Invalid token scenarios (empty, missing Bearer, wrong prefix, etc.)
+  - Connection persistence and reuse
+  - Cleanup verification on server stop
 
 ---
 
