@@ -144,21 +144,57 @@ func (s *CommandStore) Commands() ([]CommandMetadata, error) {
 
 // UpdateBaseURL updates the base URL in stored metadata
 func (s *CommandStore) UpdateBaseURL(baseURL string) error {
-	meta, err := s.Load()
-	if err != nil {
-		return err
-	}
-	if meta == nil {
-		return fmt.Errorf("no stored data")
-	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	meta.BaseURL = baseURL
-	for i := range meta.Commands {
-		meta.Commands[i].BaseURL = baseURL
+	if s.data == nil {
+		if data, err := s.loadInternal(); err != nil {
+			return err
+		} else if data == nil {
+			return fmt.Errorf("no stored data")
+		} else {
+			s.data = data
+		}
 	}
 
-	return s.Save(meta)
+	s.data.BaseURL = baseURL
+	for i := range s.data.Commands {
+		s.data.Commands[i].BaseURL = baseURL
+	}
+
+	return s.saveInternal(s.data)
+}
+
+func (s *CommandStore) loadInternal() (*StoredData, error) {
+	data, err := os.ReadFile(s.dataPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read file: %w", err)
+	}
+
+	var metadata StoredData
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("unmarshal metadata: %w", err)
+	}
+
+	return &metadata, nil
+}
+
+func (s *CommandStore) saveInternal(metadata *StoredData) error {
+	if err := os.MkdirAll(filepath.Dir(s.dataPath), 0755); err != nil {
+		return fmt.Errorf("create directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal metadata: %w", err)
+	}
+
+	if err := os.WriteFile(s.dataPath, data, 0644); err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+
+	return nil
 }

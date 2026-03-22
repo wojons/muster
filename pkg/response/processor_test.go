@@ -111,16 +111,28 @@ func TestProcessor_ProcessResponse_Raw(t *testing.T) {
 	}
 }
 
-func TestProcessor_ProcessStream_NotImplemented(t *testing.T) {
+func TestProcessor_ProcessStream_NilResponse(t *testing.T) {
+	config := Config{}
+
+	handler := NewHandler(config)
+
+	err := handler.ProcessStream(nil, func(interface{}) error { return nil })
+
+	if err == nil {
+		t.Error("expected error for nil response")
+	}
+}
+
+func TestProcessor_ProcessStream_NilHandler(t *testing.T) {
 	config := Config{}
 
 	handler := NewHandler(config)
 	resp := &http.Response{}
 
-	err := handler.ProcessStream(resp, func(interface{}) error { return nil })
+	err := handler.ProcessStream(resp, nil)
 
 	if err == nil {
-		t.Error("expected not implemented error")
+		t.Error("expected error for nil handler")
 	}
 }
 
