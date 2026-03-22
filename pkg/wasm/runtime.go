@@ -67,8 +67,18 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 	engine := wasmtime.NewEngine()
 
 	// Note: Memory limits enforced via MaxFileSize check (line 59-64), context timeout (line 25-29),
-	// and runtime validation during execution. Future improvement: Add fuel-based limiting via AddFuel().
+	// store limiter below, and runtime validation during execution.
+	// Future improvement: Add fuel-based limiting via AddFuel().
 	store := wasmtime.NewStore(engine)
+
+	// Set maximum memory allocation (default 256MB, override via limits.MaxMemory)
+	maxMemory := int64(256 * 1024 * 1024) // 256MB default
+	if r.limits != nil && r.limits.MaxMemory > 0 {
+		maxMemory = int64(r.limits.MaxMemory)
+	}
+	// Limiter(memorySize, tableElements, instances, tables, memories)
+	// Use -1 for default values on limits we don't want to change
+	store.Limiter(maxMemory, -1, -1, -1, -1)
 
 	// Validate module compiles within limits before execution
 	module, err := wasmtime.NewModule(engine, moduleBytes)

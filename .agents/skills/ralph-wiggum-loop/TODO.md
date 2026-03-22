@@ -1641,12 +1641,17 @@
 
 ### SEC-006: WASM Sandbox Hardening (CRITICAL - From Security Audit)
 
-#### Step 1: [ ] Add wasmtime.WithMaxMemory(256 * 1024 * 1024) limit
+#### Step 1: [x] Add wasmtime.WithMaxMemory(256 * 1024 * 1024) limit
 - File: pkg/wasm/runtime.go
 - Spec: specs/WASM-SANDBOX.md lines 45-60
 - Skill: @security-scan
 - Effort: 15 min
 - Dependencies: None
+- **Completed**: Implemented memory limit enforcement using wasmtime Store.Limiter()
+- **Implementation**: Added `store.Limiter(maxMemory, -1, -1, -1, -1)` after store creation in ExecuteWithContext()
+- **Default**: 256MB (configurable via SandboxLimits.MaxMemory)
+- **Tests**: Added 3 test cases for default, custom, and enforcement scenarios
+- **All tests passing**: ✅
 
 #### Step 2: [ ] Add wasmtime.WithFuel for CPU time limits
 - File: pkg/wasm/runtime.go
