@@ -2,6 +2,8 @@ package httputil
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -279,7 +281,7 @@ func TestCanonicalizeRequest(t *testing.T) {
 			setupReq: func() *http.Request {
 				return nil
 			},
-			wantErr:  false,
+			wantErr:  true,
 			checkURL: "",
 		},
 		{
@@ -487,5 +489,361 @@ func TestCanonicalizeURLEdgeCases(t *testing.T) {
 				t.Errorf("CanonicalizeURL() = %v, want %v", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestCanonicalizeRequest_NilRequest(t *testing.T) {
+	req := (*http.Request)(nil)
+	got, err := CanonicalizeRequest(req)
+
+	if got != nil {
+		t.Errorf("CanonicalizeRequest() with nil request should return nil, got %v", got)
+	}
+
+	if err == nil {
+		t.Error("CanonicalizeRequest() with nil request should return error")
+	}
+
+	if err != nil && err.Error() != "request cannot be nil" {
+		t.Errorf("CanonicalizeRequest() error = %v, want 'request cannot be nil'", err)
+	}
+}
+
+func TestCanonicalValidator_NewValidator(t *testing.T) {
+	v := NewCanonicalValidator()
+	if v == nil {
+		t.Fatal("NewCanonicalValidator() returned nil")
+	}
+	if !v.IsEnabled() {
+		t.Error("NewCanonicalValidator() should create enabled validator by default")
+	}
+	if v.GetViolationCount() != 0 {
+		t.Error("NewCanonicalValidator() should start with zero violations")
+	}
+}
+
+func TestCanonicalValidator_WithOptions(t *testing.T) {
+	v := NewCanonicalValidator(WithStrictMode(true))
+	if !v.IsEnabled() {
+		t.Error("Validator should be enabled")
+	}
+	if !v.strictMode {
+		t.Error("Validator should be in strict mode")
+	}
+}
+
+func TestCanonicalValidator_ValidateRequest(t *testing.T) {
+	tests := []struct {
+		name     string
+		setupReq func() *http.Request
+		strict   bool
+		wantErr  bool
+		checkErr string
+	}{
+		{
+			name: "valid request",
+			setupReq: func() *http.Request {
+				req, _ := http.NewRequest("GET", "http://example.com/path", nil)
+				req.Header.Set("content-type", "application/json")
+				return req
+			},
+			wantErr: false,
+		},
+		{
+			name: "nil request",
+			setupReq: func() *http.Request {
+				return nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "request with nil URL",
+			setupReq: func() *http.Request {
+				req, _ := http.NewRequest("GET", "http://example.com/", nil)
+				req.URL = nil
+				return req
+			},
+			strict:   true,
+			wantErr:  true,
+			checkErr: "request URL is nil",
+		},
+		{
+			name: "request with empty method",
+			setupReq: func() *http.Request {
+				req := &http.Request{
+					URL: &url.URL{Scheme: "http", Host: "example.com"},
+				}
+				return req
+			},
+			strict:   true,
+			wantErr:  true,
+			checkErr: "request method is empty",
+		},
+		{
+			name: "request with non-canonical headers",
+			setupReq: func() *http.Request {
+				req, _ := http.NewRequest("GET", "http://example.com/", nil)
+				req.Header.Set("Content-Type", "application/json")
+				return req
+			},
+			strict:   true,
+			wantErr:  true,
+			checkErr: "header key not canonicalized",
+		},
+		{
+			name: "strict mode with violations",
+			setupReq: func() *http.Request {
+				req, _ := http.NewRequest("GET", "http://example.com/", nil)
+				req.Header.Set("Content-Type", "application/json")
+				return req
+			},
+			strict:   true,
+			wantErr:  true,
+			checkErr: "header key not canonicalized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := NewCanonicalValidator(WithStrictMode(tt.strict))
+			req := tt.setupReq()
+			err := v.ValidateRequest(req)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateRequest() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.checkErr != "" && err != nil {
+				if !strings.Contains(err.Error(), tt.checkErr) {
+					t.Errorf("ValidateRequest() error = %v, should contain %q", err, tt.checkErr)
+				}
+			}
+		})
+	}
+}
+
+func TestCanonicalValidator_ValidateResponse(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupResp func() *http.Response
+		strict    bool
+		wantErr   bool
+		checkErr  string
+	}{
+		{
+			name: "valid response",
+			setupResp: func() *http.Response {
+				return &http.Response{
+					StatusCode: 200,
+					Header:     http.Header{"content-type": []string{"application/json"}},
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "nil response",
+			setupResp: func() *http.Response {
+				return nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid status code",
+			setupResp: func() *http.Response {
+				return &http.Response{
+					StatusCode: 999,
+					Header:     http.Header{},
+				}
+			},
+			strict:   true,
+			wantErr:  true,
+			checkErr: "invalid status code",
+		},
+		{
+			name: "non-canonical headers",
+			setupResp: func() *http.Response {
+				return &http.Response{
+					StatusCode: 200,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}
+			},
+			strict:   true,
+			wantErr:  true,
+			checkErr: "response header key not canonicalized",
+		},
+		{
+			name: "strict mode with violations",
+			setupResp: func() *http.Response {
+				return &http.Response{
+					StatusCode: 200,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+				}
+			},
+			strict:   true,
+			wantErr:  true,
+			checkErr: "response header key not canonicalized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := NewCanonicalValidator(WithStrictMode(tt.strict))
+			resp := tt.setupResp()
+			err := v.ValidateResponse(resp)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateResponse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.checkErr != "" && err != nil {
+				if !strings.Contains(err.Error(), tt.checkErr) {
+					t.Errorf("ValidateResponse() error = %v, should contain %q", err, tt.checkErr)
+				}
+			}
+		})
+	}
+}
+
+func TestCanonicalValidator_ViolationCount(t *testing.T) {
+	v := NewCanonicalValidator()
+
+	req, _ := http.NewRequest("GET", "http://example.com/", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	_ = v.ValidateRequest(req)
+	if v.GetViolationCount() != 1 {
+		t.Errorf("GetViolationCount() = %d, want 1", v.GetViolationCount())
+	}
+
+	_ = v.ValidateRequest(req)
+	if v.GetViolationCount() != 2 {
+		t.Errorf("GetViolationCount() = %d, want 2", v.GetViolationCount())
+	}
+
+	lastErr := v.GetLastViolation()
+	if lastErr == nil {
+		t.Error("GetLastViolation() should return last violation")
+	}
+}
+
+func TestCanonicalValidator_SetEnabled(t *testing.T) {
+	v := NewCanonicalValidator()
+	if !v.IsEnabled() {
+		t.Error("Validator should be enabled by default")
+	}
+
+	v.SetEnabled(false)
+	if v.IsEnabled() {
+		t.Error("Validator should be disabled after SetEnabled(false)")
+	}
+
+	v.SetEnabled(true)
+	if !v.IsEnabled() {
+		t.Error("Validator should be enabled after SetEnabled(true)")
+	}
+}
+
+func TestCanonicalValidator_DisabledValidation(t *testing.T) {
+	v := NewCanonicalValidator()
+	v.SetEnabled(false)
+
+	req, _ := http.NewRequest("GET", "http://example.com/", nil)
+	req.Header.Set("Content-Type", "application/json")
+	req.URL = nil
+
+	err := v.ValidateRequest(req)
+	if err != nil {
+		t.Errorf("ValidateRequest() should not error when disabled, got %v", err)
+	}
+
+	if v.GetViolationCount() != 0 {
+		t.Errorf("GetViolationCount() = %d, want 0", v.GetViolationCount())
+	}
+}
+
+func TestEnforcementError(t *testing.T) {
+	err := &EnforcementError{
+		Component: "TestComponent",
+		Field:     "test_field",
+		Expected:  "expected_value",
+		Actual:    "actual_value",
+	}
+
+	expectedMsg := "interface enforcement violation in TestComponent: test_field expected expected_value, got actual_value"
+	if err.Error() != expectedMsg {
+		t.Errorf("EnforcementError.Error() = %q, want %q", err.Error(), expectedMsg)
+	}
+}
+
+func TestValidateInterface(t *testing.T) {
+	tests := []struct {
+		name      string
+		component string
+		iface     string
+		impl      interface{}
+		wantErr   bool
+	}{
+		{
+			name:      "nil implementation",
+			component: "TestComponent",
+			iface:     "TestInterface",
+			impl:      nil,
+			wantErr:   true,
+		},
+		{
+			name:      "non-nil implementation",
+			component: "TestComponent",
+			iface:     "TestInterface",
+			impl:      &struct{}{},
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateInterface(tt.component, tt.iface, tt.impl)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateInterface() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr {
+				enfErr, ok := err.(*EnforcementError)
+				if !ok {
+					t.Error("Error should be *EnforcementError")
+				}
+				if enfErr.Component != tt.component {
+					t.Errorf("EnforcementError.Component = %q, want %q", enfErr.Component, tt.component)
+				}
+			}
+		})
+	}
+}
+
+func TestCanonicalValidator_NonStrictVsStrictMode(t *testing.T) {
+	req, _ := http.NewRequest("GET", "http://example.com/", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	vNonStrict := NewCanonicalValidator(WithStrictMode(false))
+	errNonStrict := vNonStrict.ValidateRequest(req)
+
+	if errNonStrict != nil {
+		t.Errorf("Non-strict mode should not return error, got %v", errNonStrict)
+	}
+
+	vStrict := NewCanonicalValidator(WithStrictMode(true))
+	errStrict := vStrict.ValidateRequest(req)
+
+	if errStrict == nil {
+		t.Error("Strict mode should return error for non-canonical headers")
+	}
+
+	if vNonStrict.GetViolationCount() != 1 {
+		t.Errorf("Non-strict violation count = %d, want 1", vNonStrict.GetViolationCount())
+	}
+
+	if vStrict.GetViolationCount() != 1 {
+		t.Errorf("Strict violation count = %d, want 1", vStrict.GetViolationCount())
 	}
 }

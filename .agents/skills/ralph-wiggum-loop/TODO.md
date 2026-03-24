@@ -210,14 +210,16 @@
 - **Impact**: Clients can now discover server capabilities through standardized inventory protocol
 - **Completed**: 2026-03-24 - Implemented complete API inventory protocol with ProtocolClient, ProtocolCache, error types, signature verification, compression support, ETag caching, redirect handling, and comprehensive unit tests
 
-### ADV-005: Canonical Interfaces - INCOMPLETE
-- [ ] Step 1: Implement `CanonicalizeRequest()` in `pkg/httputil/canonical.go`
-- [ ] Step 2: Add deterministic HTTP client interface
-- [ ] Step 3: Add interface enforcement validation
-- [ ] Step 4: Add unit tests
-- **File**: `pkg/httputil/canonical.go:149`
+### ADV-005: Canonical Interfaces - COMPLETE
+- [x] Step 1: Implement `CanonicalizeRequest()` in `pkg/httputil/canonical.go` - Fixed to return error for nil request instead of `nil, nil`
+- [x] Step 2: Add deterministic HTTP client interface - Added `CanonicalClient` interface with Do, Get, Post, Put, Patch, Delete, Head, Options methods plus SetCanonicalize, SetValidator, Close
+- [x] Step 3: Add interface enforcement validation - Implemented `CanonicalValidator` with ValidateRequest/ValidateResponse, strict/non-strict modes, violation counting, and `EnforcementError` type
+- [x] Step 4: Add unit tests - Created 17 comprehensive test functions covering CanonicalizeRequest nil handling, CanonicalValidator creation/options, request/response validation, violation counting, enabled/disabled states, EnforcementError, ValidateInterface, and strict vs non-strict mode behavior
+- **File**: `pkg/httputil/canonical.go` (353 lines), `pkg/httputil/canonical_test.go` (849 lines)
 - **Spec**: `specs/CANONICAL-INTERFACES.md` - "All components MUST use this exact interface"
+- **Tests**: All 17 tests passing, zero lint errors
 - **Effort**: 2-3 days
+- **Completed**: 2026-03-24 - Implemented complete canonical interfaces with CanonicalClient interface, CanonicalValidator for enforcement, strict/non-strict validation modes, violation tracking, and comprehensive unit tests. All tests pass with zero lint errors.
 
 ---
 
