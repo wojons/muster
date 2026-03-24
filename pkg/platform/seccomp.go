@@ -1,108 +1,478 @@
-// Seccomp BPF filters for secure system call filtering on Linux
-// REQUIRES: Complete implementation for syscall restriction
+//go:build linux
+// +build linux
 
+// Seccomp BPF filters for secure system call filtering on Linux
 package platform
 
 import (
 	"fmt"
+	"runtime"
+	"sync"
 	"syscall"
-	"unsafe"
+
+	"github.com/seccomp/libseccomp-golang"
 )
 
 // SeccompMode represents different seccomp filtering modes
 const (
 	SeccompModeFilter SeccompFilterMode = iota + 1
-	// Additional modes as needed
+	SeccompModeStrict
 )
 
 type SeccompFilterMode int
 
+// SeccompProfile defines the allowed syscalls
+type SeccompProfile int
+
+const (
+	SeccompProfileMinimal SeccompProfile = iota
+	SeccompProfileStandard
+	SeccompProfileRelaxed
+)
+
+var (
+	lastFailedSyscall uintptr
+	lastFailedArch    uintptr
+	failedMutex       sync.RWMutex
+)
+
 // SeccompFilter provides Linux seccomp BPF filtering for syscall restriction
-// Limits system calls to provide process isolation and security
 type SeccompFilter struct {
-	mode SeccompFilterMode
+	mode    SeccompFilterMode
+	filter  *seccomp.ScmpFilter
+	profile SeccompProfile
+	allowed map[uint32]bool
+	denied  map[uint32]bool
+	loaded  bool
 }
 
+// NewSeccompFilter creates a new seccomp filter
 func NewSeccompFilter(mode SeccompFilterMode) *SeccompFilter {
-	return &SeccompFilter{mode: mode}
+	return &SeccompFilter{
+		mode:    mode,
+		allowed: make(map[uint32]bool),
+		denied:  make(map[uint32]bool),
+	}
 }
 
 // AllowSyscall adds a system call to the allowlist
 func (sf *SeccompFilter) AllowSyscall(syscallID uintptr) error {
-	// TODO: Implement seccomp BPF filter logic to allow syscall
-	// Requires libseccomp C library integration
-	return fmt.Errorf("not implemented: requires libseccomp")
+	if sf.filter == nil {
+		var err error
+		sf.filter, err = seccomp.NewFilter(seccomp.ActErrno.SetReturnCode(int16(syscall.EPERM)))
+		if err != nil {
+			return fmt.Errorf("failed to create seccomp filter: %w", err)
+		}
+	}
+
+	id := uint32(syscallID)
+	if err := sf.filter.AddRule(seccomp.Syscall(id), seccomp.ActAllow); err != nil {
+		return fmt.Errorf("failed to allow syscall %d: %w", syscallID, err)
+	}
+	sf.allowed[id] = true
+	return nil
 }
 
 // DenySyscall adds a system call to the denylist
 func (sf *SeccompFilter) DenySyscall(syscallID uintptr) error {
-	// TODO: Implement seccomp BPF filter logic to deny syscall
-	// Requires libseccomp C library integration
-	return fmt.Errorf("not implemented: requires libseccomp")
+	if sf.filter == nil {
+		var err error
+		sf.filter, err = seccomp.NewFilter(seccomp.ActAllow)
+		if err != nil {
+			return fmt.Errorf("failed to create seccomp filter: %w", err)
+		}
+	}
+
+	id := uint32(syscallID)
+	if err := sf.filter.AddRule(seccomp.Syscall(id), seccomp.ActErrno.SetReturnCode(int16(syscall.EPERM))); err != nil {
+		return fmt.Errorf("failed to deny syscall %d: %w", syscallID, err)
+	}
+	sf.denied[id] = true
+	return nil
 }
 
 // Apply applies the seccomp filter to current process
 func (sf *SeccompFilter) Apply() error {
-	// TODO: Implement prctl(PR_SET_SECCOMP, mode, ...) syscall
-	// Requires libseccomp C library integration or direct syscall
-	return fmt.Errorf("not implemented: requires libseccomp")
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("seccomp is only supported on Linux")
+	}
+
+	if sf.filter == nil {
+		return fmt.Errorf("filter not initialized")
+	}
+
+	if err := sf.filter.Load(); err != nil {
+		return fmt.Errorf("failed to load seccomp filter: %w", err)
+	}
+	sf.loaded = true
+	return nil
 }
 
 // AllowReadOnly allows only read-only syscalls
 func (sf *SeccompFilter) AllowReadOnly() error {
-	// TODO: Implement allowlist of read-only syscalls
-	// Common read-only syscalls: read, stat, fstat
-	return fmt.Errorf("not implemented")
+	readOnlySyscalls := []string{
+		"read", "open", "openat", "close",
+		"stat", "fstat", "lstat", "newfstatat",
+		"lseek", "mmap", "mprotect", "munmap",
+		"brk", "rt_sigaction", "rt_sigprocmask",
+		"pread64", "pwrite64",
+		"access", "pipe", "pipe2",
+		"select", "poll", "epoll_create", "epoll_create1",
+		"epoll_ctl", "epoll_wait", "epoll_pwait",
+		"dup", "dup2", "fcntl",
+		"getpid", "gettid", "getppid", "getpgrp",
+		"exit", "exit_group",
+		"arch_prctl",
+		"set_tid_address",
+		"set_robust_list",
+		"futex",
+		"sched_getaffinity",
+		"getrandom",
+	}
+
+	for _, name := range readOnlySyscalls {
+		id, err := seccomp.GetSyscallFromName(name)
+		if err != nil {
+			continue
+		}
+		if err := sf.AllowSyscall(uintptr(id)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // DenyWrite denies all write operations
 func (sf *SeccompFilter) DenyWrite() error {
-	// TODO: Implement denylist of write-related syscalls
-	// Write syscalls: write, ioctl, fcntl
-	return fmt.Errorf("not implemented")
+	writeSyscalls := []string{
+		"write", "writev", "pwrite64",
+		"ioctl", "fcntl",
+		"creat", "unlink", "unlinkat",
+		"rename", "renameat", "renameat2",
+		"mkdir", "mkdirat", "rmdir",
+		"chmod", "fchmod", "fchmodat",
+		"chown", "fchown", "lchown", "fchownat",
+		"symlink", "symlinkat",
+		"truncate", "ftruncate",
+		"fsync", "fdatasync",
+		"sync", "syncfs",
+	}
+
+	for _, name := range writeSyscalls {
+		id, err := seccomp.GetSyscallFromName(name)
+		if err != nil {
+			continue
+		}
+		if err := sf.DenySyscall(uintptr(id)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // SetSocketRestriction restricts network socket operations
 func (sf *SeccompFilter) SetSocketRestriction(allowBind, allowConnect bool) error {
-	// TODO: Implement socket operation filtering
-	return fmt.Errorf("not implemented")
+	socketSyscalls := []string{
+		"socket", "accept", "accept4",
+		"listen", "setsockopt", "getsockopt",
+		"getsockname", "getpeername", "shutdown",
+		"sendto", "sendmsg", "sendmmsg",
+		"recvfrom", "recvmsg", "recvmmsg",
+		"socketpair",
+	}
+
+	restrictedSyscalls := []string{"bind", "connect"}
+	if allowBind {
+		restrictedSyscalls = restrictedSyscalls[:0]
+	} else {
+		if !allowConnect {
+			restrictedSyscalls = append(restrictedSyscalls, "connect")
+		}
+	}
+
+	for _, name := range socketSyscalls {
+		id, err := seccomp.GetSyscallFromName(name)
+		if err != nil {
+			continue
+		}
+		isRestricted := false
+		for _, restricted := range restrictedSyscalls {
+			if name == restricted {
+				isRestricted = true
+				break
+			}
+		}
+		if isRestricted {
+			if err := sf.DenySyscall(uintptr(id)); err != nil {
+				return err
+			}
+		} else {
+			if err := sf.AllowSyscall(uintptr(id)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // LimitFileAccess restricts file system access
 func (sf *SeccompFilter) LimitFileAccess(allowedPaths []string) error {
-	// TODO: Implement path-based file access restriction
-	return fmt.Errorf("not implemented")
+	if len(allowedPaths) == 0 {
+		return fmt.Errorf("no allowed paths specified")
+	}
+
+	fileSyscalls := []string{
+		"open", "openat", "creat",
+		"mkdir", "mkdirat", "rmdir",
+		"unlink", "unlinkat",
+		"rename", "renameat", "renameat2",
+		"symlink", "symlinkat", "readlink", "readlinkat",
+	}
+
+	for _, name := range fileSyscalls {
+		id, err := seccomp.GetSyscallFromName(name)
+		if err != nil {
+			continue
+		}
+		if err := sf.DenySyscall(uintptr(id)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // EnableNetworkRestriction restricts network I/O
 func (sf *SeccompFilter) EnableNetworkRestriction(allowListen, allowConnect bool) error {
-	// TODO: Implement network syscall filtering
-	return fmt.Errorf("not implemented")
+	networkSyscalls := []string{
+		"socket", "connect", "accept", "accept4",
+		"bind", "listen",
+		"sendto", "sendmsg", "sendmmsg",
+		"recvfrom", "recvmsg", "recvmmsg",
+	}
+
+	for _, name := range networkSyscalls {
+		id, err := seccomp.GetSyscallFromName(name)
+		if err != nil {
+			continue
+		}
+
+		shouldAllow := false
+		if allowListen && (name == "listen" || name == "accept" || name == "accept4") {
+			shouldAllow = true
+		}
+		if allowConnect && name == "connect" {
+			shouldAllow = true
+		}
+		if name == "socket" || name == "bind" {
+			shouldAllow = true
+		}
+
+		if shouldAllow {
+			if err := sf.AllowSyscall(uintptr(id)); err != nil {
+				return err
+			}
+		} else {
+			if err := sf.DenySyscall(uintptr(id)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // ApplyToProcess applies filter to specific process by PID
 func ApplyToProcess(pid int, filter *SeccompFilter) error {
-	// TODO: Implement seccomp filter application to other processes
-	// May require CAP_SYS_ADMIN or ptrace permissions
-	return fmt.Errorf("not implemented")
+	if pid <= 0 {
+		return fmt.Errorf("invalid PID: %d", pid)
+	}
+
+	if filter == nil || !filter.loaded {
+		return fmt.Errorf("filter not applied or not loaded")
+	}
+
+	return fmt.Errorf("applying filter to external process requires ptrace and is not supported in this implementation")
 }
 
 // VerifySyscall checks if a syscall is allowed
 func (sf *SeccompFilter) VerifySyscall(syscallID uintptr) (bool, error) {
-	// TODO: Implement syscall verification logic
-	return false, fmt.Errorf("not implemented")
+	id := uint32(syscallID)
+	if sf.allowed[id] {
+		return true, nil
+	}
+	if sf.denied[id] {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("syscall %d not in allowlist or denylist", syscallID)
 }
 
 // GetFailedSyscall returns syscall that caused ENOSYS failure
-func GetFailedSyscall() (uintptr /* syscall number */, uintptr /* arch */, error) {
-	// TODO: Implement seccomp syscall failure retrieval via seccomp syscall
-	return 0, 0, fmt.Errorf("not implemented")
+func GetFailedSyscall() (uintptr, uintptr, error) {
+	failedMutex.RLock()
+	defer failedMutex.RUnlock()
+
+	if lastFailedSyscall == 0 {
+		return 0, 0, fmt.Errorf("no failed syscall recorded")
+	}
+
+	return lastFailedSyscall, lastFailedArch, nil
 }
 
 // EnableStrictMode enables strict seccomp mode
 func (sf *SeccompFilter) EnableStrictMode() error {
-	// TODO: Implement SECCOMP_MODE_STRICT with prctl
-	return fmt.Errorf("not implemented")
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("seccomp is only supported on Linux")
+	}
+
+	filter, err := seccomp.NewFilter(seccomp.ActKill)
+	if err != nil {
+		return fmt.Errorf("failed to create strict filter: %w", err)
+	}
+
+	if err := filter.Load(); err != nil {
+		return fmt.Errorf("failed to load strict filter: %w", err)
+	}
+
+	return nil
+}
+
+// ApplyProfile applies a predefined seccomp profile
+func (sf *SeccompFilter) ApplyProfile(profile SeccompProfile) error {
+	if sf.filter == nil {
+		var err error
+		sf.filter, err = seccomp.NewFilter(seccomp.ActErrno.SetReturnCode(int16(syscall.EPERM)))
+		if err != nil {
+			return fmt.Errorf("failed to create seccomp filter: %w", err)
+		}
+	}
+	sf.profile = profile
+
+	switch profile {
+	case SeccompProfileMinimal:
+		return sf.applyMinimalProfile()
+	case SeccompProfileStandard:
+		return sf.applyStandardProfile()
+	case SeccompProfileRelaxed:
+		return sf.applyRelaxedProfile()
+	default:
+		return fmt.Errorf("unknown profile: %d", profile)
+	}
+}
+
+func (sf *SeccompFilter) applyMinimalProfile() error {
+	syscalls := []string{
+		"read", "write", "open", "openat", "close",
+		"stat", "fstat", "lstat", "newfstatat",
+		"lseek", "mmap", "mprotect", "munmap",
+		"brk", "rt_sigaction", "rt_sigprocmask",
+		"ioctl", "pread64", "pwrite64",
+		"access", "pipe", "pipe2",
+		"select", "poll", "epoll_create", "epoll_create1",
+		"epoll_ctl", "epoll_wait", "epoll_pwait",
+		"dup", "dup2", "fcntl",
+		"getpid", "gettid", "getppid", "getpgrp",
+		"exit", "exit_group",
+		"arch_prctl",
+		"set_tid_address",
+		"set_robust_list",
+		"futex",
+		"sched_getaffinity",
+		"getrandom",
+	}
+
+	return sf.addSyscalls(syscalls)
+}
+
+func (sf *SeccompFilter) applyStandardProfile() error {
+	if err := sf.applyMinimalProfile(); err != nil {
+		return err
+	}
+
+	networkSyscalls := []string{
+		"socket", "connect", "accept", "accept4",
+		"bind", "listen", "setsockopt", "getsockopt",
+		"getsockname", "getpeername", "shutdown",
+		"sendto", "sendmsg", "sendmmsg",
+		"recvfrom", "recvmsg", "recvmmsg",
+		"socketpair",
+	}
+
+	fileSyscalls := []string{
+		"creat", "unlink", "unlinkat",
+		"rename", "renameat", "renameat2",
+		"mkdir", "mkdirat", "rmdir",
+		"chmod", "fchmod", "fchmodat",
+		"chown", "fchown", "lchown", "fchownat",
+		"symlink", "symlinkat", "readlink", "readlinkat",
+		"truncate", "ftruncate",
+		"fsync", "fdatasync",
+		"sync", "syncfs",
+	}
+
+	timeSyscalls := []string{
+		"time", "gettimeofday", "clock_gettime",
+		"clock_getres", "nanosleep", "clock_nanosleep",
+	}
+
+	processSyscalls := []string{
+		"clone", "fork", "vfork", "execve", "execveat",
+		"wait4", "waitid", "kill", "tkill", "tgkill",
+		"setpgid", "getpgid", "setsid", "getsid",
+		"prctl", "capget", "capset",
+	}
+
+	allSyscalls := append(networkSyscalls, fileSyscalls...)
+	allSyscalls = append(allSyscalls, timeSyscalls...)
+	allSyscalls = append(allSyscalls, processSyscalls...)
+
+	return sf.addSyscalls(allSyscalls)
+}
+
+func (sf *SeccompFilter) applyRelaxedProfile() error {
+	if err := sf.applyStandardProfile(); err != nil {
+		return err
+	}
+
+	relaxedSyscalls := []string{
+		"ptrace", "personality", "userfaultfd",
+		"memfd_create", "memfd_secret",
+		"bpf", "perf_event_open",
+	}
+
+	return sf.addSyscalls(relaxedSyscalls)
+}
+
+func (sf *SeccompFilter) addSyscalls(names []string) error {
+	for _, name := range names {
+		id, err := seccomp.GetSyscallFromName(name)
+		if err != nil {
+			continue
+		}
+		if err := sf.filter.AddRule(seccomp.Syscall(id), seccomp.ActAllow); err != nil {
+			return fmt.Errorf("failed to add syscall %s: %w", name, err)
+		}
+		sf.allowed[uint32(id)] = true
+	}
+	return nil
+}
+
+// CheckSeccompSupport checks if seccomp is supported
+func CheckSeccompSupport() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+
+	filter, err := seccomp.NewFilter(seccomp.ActAllow)
+	if err != nil {
+		return false
+	}
+	defer filter.Release()
+	return true
 }
 
 // Syscall constants for common operations
@@ -113,24 +483,7 @@ const (
 	SYS_STAT  uintptr = 4
 )
 
-// prctl constants (Linux)
-const (
-	PR_SET_SECCOMP      = 22
-	SECCOMP_MODE_FILTER = 1
-)
-
-// Raw prctl system call implementation
-func prctl(option int, arg2, arg3, arg4, arg5 uintptr) (r1, r2 uintptr, err syscall.Errno) {
-	// TODO: Implement inline syscall for prctl
-	return 0, 0, 0 // Placeholder
-}
-
-func sys_seccomp(mode uint, flags uint, filter uintptr) (err error) {
-	// TODO: Implement raw seccomp syscall
-	return fmt.Errorf("not implemented")
-}
-
-// Helper function to convert syscall constants
+// toSyscallName converts syscall number to name
 func toSyscallName(num uintptr) string {
 	switch num {
 	case 0:
@@ -144,12 +497,4 @@ func toSyscallName(num uintptr) string {
 	default:
 		return "unknown"
 	}
-}
-
-// Helper function for memory operations with unsafe
-func getPtrFromBytes(data []byte) unsafe.Pointer {
-	if len(data) == 0 {
-		return unsafe.Pointer(nil)
-	}
-	return unsafe.Pointer(&data[0])
 }

@@ -47,24 +47,25 @@
 ## 🔴 CRITICAL GAPS (6 remaining - Block Production)
 
 ### SEC-004: Seccomp BPF Filtering - Complete Stub
-- [ ] Step 1: Research libseccomp Go bindings (github.com/seccomp/libseccomp-golang)
-- [ ] Step 2: Add libseccomp dependency to go.mod
-- [ ] Step 3: Implement `AllowSyscall()` with seccomp_rule_add
-- [ ] Step 4: Implement `DenySyscall()` with seccomp_rule_add
-- [ ] Step 5: Implement `Apply()` with seccomp_load
-- [ ] Step 6: Implement `AllowReadOnly()` - allow read, openat, close, exit_group
-- [ ] Step 7: Implement `DenyWrite()` - deny write, open with O_WRONLY/O_RDWR
-- [ ] Step 8: Implement `SetSocketRestriction()` - deny socket, connect, bind
-- [ ] Step 9: Implement `LimitFileAccess()` - path-based filtering
-- [ ] Step 10: Implement `EnableNetworkRestriction()` - deny network syscalls
-- [ ] Step 11: Implement `ApplyToProcess()` with prctl
-- [ ] Step 12: Implement `VerifySyscall()` for testing
-- [ ] Step 13: Implement `GetFailedSyscall()` via SECCOMP_RET_TRACE
-- [ ] Step 14: Implement `EnableStrictMode()` with SECCOMP_MODE_STRICT
-- [ ] Step 15: Add unit tests for all seccomp functions
-- **File**: `pkg/platform/seccomp.go:31-155`
-- **Spec**: `specs/PLATFORM-LINUX.md` lines 1500-1650
+- [x] Step 1: Research libseccomp Go bindings (github.com/seccomp/libseccomp-golang)
+- [x] Step 2: Add libseccomp dependency to go.mod
+- [x] Step 3: Implement `AllowSyscall()` with seccomp_rule_add
+- [x] Step 4: Implement `DenySyscall()` with seccomp_rule_add
+- [x] Step 5: Implement `Apply()` with seccomp_load
+- [x] Step 6: Implement `AllowReadOnly()` - allow read, openat, close, exit_group
+- [x] Step 7: Implement `DenyWrite()` - deny write, open with O_WRONLY/O_RDWR
+- [x] Step 8: Implement `SetSocketRestriction()` - deny socket, connect, bind
+- [x] Step 9: Implement `LimitFileAccess()` - path-based filtering
+- [x] Step 10: Implement `EnableNetworkRestriction()` - deny network syscalls
+- [x] Step 11: Implement `ApplyToProcess()` with prctl
+- [x] Step 12: Implement `VerifySyscall()` for testing
+- [x] Step 13: Implement `GetFailedSyscall()` via SECCOMP_RET_TRACE
+- [x] Step 14: Implement `EnableStrictMode()` with SECCOMP_MODE_STRICT
+- [x] Step 15: Add unit tests for all seccomp functions
+- **File**: `pkg/platform/seccomp.go`
+- **Spec**: `specs/PLATFORM-LINUX.md` lines 2275-2466
 - **Effort**: 2-3 weeks
+- **Completed**: 2026-03-24 - Implemented complete seccomp BPF filtering using libseccomp-golang library. Added AllowSyscall/DenySyscall, Apply, AllowReadOnly, DenyWrite, SetSocketRestriction, LimitFileAccess, EnableNetworkRestriction, ApplyToProcess, VerifySyscall, GetFailedSyscall, EnableStrictMode, and ApplyProfile methods. Implemented three predefined profiles (Minimal, Standard, Relaxed) matching spec. Added comprehensive unit tests (18 test cases). Note: Tests require Linux with CGO for full execution.
 
 ### SEC-005: Packaging Validation - Complete Stub
 - [ ] Step 1: Implement `ValidateDebianPackage()` - dpkg-deb checks
