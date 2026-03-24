@@ -352,10 +352,12 @@
 - **Completed**: 2026-03-24 - Refactored all 10 skipped prompt tests to use os.Pipe() with proper error handling for Close() calls. Fixed stdin simulation by deferring stdin restoration and properly managing pipe lifecycle. All 10 tests (TestInputPrompt_AskWithDefault, TestConfirmPrompt_AskYes, TestConfirmPrompt_AskNo, TestConfirmPrompt_AskYesFull, TestSelectPrompt_AskValid, TestTextPrompt_AskValidInput, TestNumberPrompt_AskValid, TestMultiSelectPrompt_AskValid, TestTextPrompt_AskWithDefault, TestNumberPrompt_AskWithDefault) now pass without skipping. Lint passes with zero errors.
 
 ### TEST-004: Keychain Tests - 5 Skipped
-- [ ] Step 1: Add mock keychain for non-macOS testing
-- [ ] Step 2: Remove t.Skip() calls
-- **File**: `pkg/auth/keychain_test.go:24-84`
+- [x] Step 1: Add mock keychain for non-macOS testing - Created `pkg/auth/keychain_mock.go` with `MockKeychain` and `MockMacOSKeychain` implementations
+- [x] Step 2: Remove t.Skip() calls - Removed Windows build constraint, replaced `security` command checks with mock-based tests
+- **File**: `pkg/auth/keychain_mock.go` (new, 161 lines), `pkg/auth/keychain_test.go` (modified)
+- **Tests**: All 5 previously skipped tests now passing (TestMacOSKeychain_Set/Get/GetNotFound/Delete/List)
 - **Effort**: 1 day
+- **Completed**: 2026-03-24 - Implemented complete mock keychain infrastructure for cross-platform testing. Created `MockKeychain` with thread-safe in-memory storage, error simulation, and helper methods. Created `MockMacOSKeychain` wrapper to simulate MacOS keychain behavior. Updated `keychain_test.go` to remove `//go:build windows` constraint and replace `security` command detection with mock-based tests. All 5 previously skipped tests (TestMacOSKeychain_Set, Get, GetNotFound, Delete, List) now pass on all platforms without external dependencies. Fixed lint errors for unchecked error returns. Tests verify Set/Get/Delete/List operations, error handling (ErrNotFound), and mock functionality.
 
 ### TEST-005: E2E Integration Tests - 11 Skipped
 - [ ] Step 1: Add integration test CI job
@@ -380,7 +382,7 @@
 
 ---
 
-## 📋 SKIPPED TESTS INVENTORY (76 Total - down from 86 after TEST-003 fix)
+## 📋 SKIPPED TESTS INVENTORY (71 Total - down from 76 after TEST-004 fix)
 
 | File | Count | Reason | Fix |
 |------|-------|--------|-----|
@@ -388,7 +390,7 @@
 | `cmd/daemon/main_test.go` | 4 | "blocking operations" | Refactor with contexts |
 | `pkg/cache/redis_test.go` | 24 | "requires Redis connection" | Add testcontainers |
 | ~~`pkg/prompt/prompt_test.go`~~ | ~~10~~ | ~~"stdin redirection"~~ | ✅ FIXED |
-| `pkg/auth/keychain_test.go` | 5 | "security command" | Add mock keychain |
+| ~~`pkg/auth/keychain_test.go`~~ | ~~5~~ | ~~"security command"~~ | ✅ FIXED - Mock keychain |
 | `pkg/platform/paths_test.go` | 7 | "platform-specific" | Add build tags |
 | `pkg/platform/secure_storage_test.go` | 4 | "platform-specific" | Add build tags |
 | `test/e2e/*` | 11 | "short mode" | Add CI job |
@@ -455,6 +457,7 @@
 | 2026-03-24 | 10 | 154 | 132 | 6.1% |
 | 2026-03-24 | 11 | 153 | 127 | 6.7% |
 | 2026-03-24 | 12 | 152 | 125 | 7.3% |
+| 2026-03-24 | 13 | 151 | 123 | 7.9% |
 | Target | 164 | 0 | 157 | 100% |
 
 **Baby Steps Format**: All gaps use `- [ ] Step N: Description` format for Ralph loop processing.

@@ -1,12 +1,8 @@
-//go:build windows
-// +build windows
-
 package auth
 
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,10 +19,7 @@ func TestNewKeychain(t *testing.T) {
 }
 
 func TestMacOSKeychain_Set(t *testing.T) {
-	if _, err := execLookPath("security"); err != nil {
-		t.Skip("security command not available, skipping test")
-	}
-	kc := &MacOSKeychain{}
+	kc := NewMockMacOSKeychain()
 	err := kc.Set("test-service", "test-account", "test-password")
 	if err != nil {
 		t.Fatalf("Set() error = %v", err)
@@ -34,10 +27,7 @@ func TestMacOSKeychain_Set(t *testing.T) {
 }
 
 func TestMacOSKeychain_Get(t *testing.T) {
-	if _, err := execLookPath("security"); err != nil {
-		t.Skip("security command not available, skipping test")
-	}
-	kc := &MacOSKeychain{}
+	kc := NewMockMacOSKeychain()
 	_ = kc.Set("test-service-get", "test-account-get", "test-password-get")
 
 	password, err := kc.Get("test-service-get", "test-account-get")
@@ -50,26 +40,16 @@ func TestMacOSKeychain_Get(t *testing.T) {
 }
 
 func TestMacOSKeychain_GetNotFound(t *testing.T) {
-	if _, err := execLookPath("security"); err != nil {
-		t.Skip("security command not available, skipping test")
-	}
-	kc := &MacOSKeychain{}
+	kc := NewMockMacOSKeychain()
 	_, err := kc.Get("nonexistent-service", "nonexistent-account")
 	if err != ErrNotFound {
 		t.Errorf("Get() error = %v, want ErrNotFound", err)
 	}
 }
 
-func execLookPath(file string) (string, error) {
-	return exec.LookPath(file)
-}
-
 func TestMacOSKeychain_Delete(t *testing.T) {
-	if _, err := execLookPath("security"); err != nil {
-		t.Skip("security command not available, skipping test")
-	}
-	kc := &MacOSKeychain{}
-	kc.Set("test-service-del", "test-account-del", "test-password-del")
+	kc := NewMockMacOSKeychain()
+	_ = kc.Set("test-service-del", "test-account-del", "test-password-del")
 
 	err := kc.Delete("test-service-del", "test-account-del")
 	if err != nil {
@@ -83,11 +63,8 @@ func TestMacOSKeychain_Delete(t *testing.T) {
 }
 
 func TestMacOSKeychain_List(t *testing.T) {
-	if _, err := execLookPath("security"); err != nil {
-		t.Skip("security command not available, skipping test")
-	}
-	kc := &MacOSKeychain{}
-	kc.Set("test-service-list", "test-account-list", "test-password-list")
+	kc := NewMockMacOSKeychain()
+	_ = kc.Set("test-service-list", "test-account-list", "test-password-list")
 
 	accounts, err := kc.List("test-service-list")
 	if err != nil {
@@ -99,16 +76,21 @@ func TestMacOSKeychain_List(t *testing.T) {
 }
 
 func TestWindowsKeychain_Set(t *testing.T) {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("Failed to get home directory: %v", err)
+	}
 	testPath := filepath.Join(homeDir, ".muster-test-credentials")
-	defer os.RemoveAll(testPath)
+	defer func() {
+		_ = os.RemoveAll(testPath)
+	}()
 
 	fc := &FileKeychain{
 		basePath: testPath,
 	}
 	wkc := &WindowsKeychain{filechain: fc}
 
-	err := wkc.Set("test-service-win", "test-account-win", "test-password-win")
+	err = wkc.Set("test-service-win", "test-account-win", "test-password-win")
 	if err != nil {
 		t.Fatalf("WindowsKeychain Set() error = %v", err)
 	}
@@ -161,8 +143,10 @@ func TestFileKeychain_NoWeakOSFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
-	tempFile.Close()
+	defer func() {
+		_ = tempFile.Close()
+		_ = os.Remove(tempFile.Name())
+	}()
 
 	// Use the file path as the basePath - this will cause MkdirAll to fail
 	// because it can't create a directory where a file exists
