@@ -209,13 +209,14 @@
 ## 🟠 UNDOCUMENTED STUBS (Found by @adversary)
 
 ### STUB-001: Linux Proxy Detection - Returns nil
-- [ ] Step 1: Read environment variables HTTP_PROXY, HTTPS_PROXY, NO_PROXY
-- [ ] Step 2: Parse proxy URL and return structured ProxyConfig
-- [ ] Step 3: Add unit tests for environment parsing
-- [ ] Step 4: Add integration test with real environment
+- [x] Step 1: Read environment variables HTTP_PROXY, HTTPS_PROXY, NO_PROXY
+- [x] Step 2: Parse proxy URL and return structured ProxyConfig
+- [x] Step 3: Add unit tests for environment parsing
+- [x] Step 4: Add integration test with real environment
 - **File**: `internal/platform/linux/proxy.go:35`
 - **Function**: `GetSystemProxy()` returns `nil, nil`
 - **Effort**: 1 day
+- **Completed**: 2026-03-24 - Implemented GetSystemProxy() that reads proxy environment variables, parses URL, detects SOCKS proxies, with comprehensive unit tests (20 test cases)
 
 ### STUB-002: Linux PAC File Parsing - Returns nil
 - [ ] Step 1: Add JavaScript engine dependency (goja or otto)

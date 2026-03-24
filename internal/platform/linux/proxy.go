@@ -91,6 +91,32 @@ func ShouldUseProxy(targetURL string, noProxyHosts []string) bool {
 	return true
 }
 
+// ProxyConfig contains proxy configuration
+type ProxyConfig struct {
+	URL    string
+	SOCKS5 bool
+}
+
+// GetSystemProxy retrieves system proxy settings from environment variables
+func GetSystemProxy() (*ProxyConfig, error) {
+	proxyURL, err := GetProxyFromEnvironment()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if proxyURL == nil {
+		return nil, nil
+	}
+
+	config := &ProxyConfig{
+		URL:    proxyURL.String(),
+		SOCKS5: strings.HasPrefix(proxyURL.Scheme, "socks"),
+	}
+
+	return config, nil
+}
+
 // parsePAC parses a PAC (proxy auto-config) URL
 // This is a simplified implementation - real PAC parsing requires JavaScript engine
 func parsePAC(pacURL string) (*url.URL, error) {
