@@ -52,9 +52,13 @@ type HandlerInfo struct {
 	// A zero or negative value means no timeout.
 	Timeout time.Duration
 
-	// MaxRetries is the number of times to retry failed executions.
-	// A zero or negative value means no retries.
-	MaxRetries int
+	// RetryConfig defines retry behavior with exponential backoff.
+	// If nil, DefaultRetryConfig is used.
+	RetryConfig *RetryConfig
+
+	// CircuitBreaker enables circuit breaker pattern for the handler.
+	// If nil, circuit breaker is disabled.
+	CircuitBreaker *CircuitBreaker
 
 	// OnError is an optional callback for custom error handling.
 	OnError ErrorHandler

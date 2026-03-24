@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 )
@@ -135,7 +136,7 @@ func (r *HandlerRegistry) Execute(ctx context.Context, event *Event) []HandlerRe
 }
 
 // executeSingle executes a single handler for an event.
-// This method applies middleware, timeout, and retry logic as configured.
+// This method applies middleware, timeout, retry logic, and circuit breaker as configured.
 func (r *HandlerRegistry) executeSingle(ctx context.Context, info *HandlerInfo, event *Event) HandlerResult {
 	start := time.Now()
 	result := HandlerResult{
@@ -144,12 +145,40 @@ func (r *HandlerRegistry) executeSingle(ctx context.Context, info *HandlerInfo, 
 		ProcessedAt: time.Now(),
 	}
 
+	// Check circuit breaker before execution
+	if info.CircuitBreaker != nil && !info.CircuitBreaker.Allow() {
+		err := fmt.Errorf("circuit breaker is open")
+		result.Error = err
+		result.Duration = time.Since(start)
+
+		if r.logger != nil {
+			r.logger.Error("circuit breaker open",
+				"handler", info.Name,
+				"event_id", event.ID,
+				"state", info.CircuitBreaker.State().String(),
+			)
+		}
+		return result
+	}
+
 	// Combine handler-specific middleware with registry-wide middleware
 	allMiddleware := append(r.middlewares, info.Middleware...)
 
 	handler := r.wrapWithMiddleware(info.Handler.Handle, allMiddleware)
 	handler = r.wrapWithTimeout(handler, info.Timeout)
-	handler = r.wrapWithRetry(handler, info.MaxRetries)
+
+	retryConfig := info.RetryConfig
+	if retryConfig == nil {
+		retryConfig = &RetryConfig{}
+		*retryConfig = DefaultRetryConfig()
+	}
+	if retryConfig.MaxRetries > 0 {
+		handler = r.wrapWithRetry(handler, retryConfig)
+	}
+
+	if info.CircuitBreaker != nil {
+		handler = r.wrapWithCircuitBreaker(handler, info.CircuitBreaker)
+	}
 
 	err := handler(ctx, event)
 	if err != nil && info.OnError != nil {
@@ -200,24 +229,86 @@ func (r *HandlerRegistry) wrapWithTimeout(handler HandlerFunc, timeout time.Dura
 	}
 }
 
-// wrapWithRetry wraps a handler function with retry logic.
-// If maxRetries is zero or negative, no retry logic is applied.
-func (r *HandlerRegistry) wrapWithRetry(handler HandlerFunc, maxRetries int) HandlerFunc {
-	if maxRetries <= 0 {
+// wrapWithRetry wraps a handler function with retry logic using exponential backoff.
+// If config is nil or MaxRetries is zero or negative, no retry logic is applied.
+func (r *HandlerRegistry) wrapWithRetry(handler HandlerFunc, config *RetryConfig) HandlerFunc {
+	if config == nil || config.MaxRetries <= 0 {
 		return handler
+	}
+
+	initialDelay := config.InitialDelay
+	if initialDelay <= 0 {
+		initialDelay = 100 * time.Millisecond
+	}
+
+	maxDelay := config.MaxDelay
+	if maxDelay <= 0 {
+		maxDelay = 30 * time.Second
+	}
+
+	multiplier := config.Multiplier
+	if multiplier <= 0 {
+		multiplier = 2.0
+	}
+
+	randomization := config.Randomization
+	if randomization <= 0 {
+		randomization = 0.5
 	}
 
 	return func(ctx context.Context, event *Event) error {
 		var err error
-		for i := 0; i <= maxRetries; i++ {
+		delay := initialDelay
+
+		for attempt := 0; attempt <= config.MaxRetries; attempt++ {
 			err = handler(ctx, event)
 			if err == nil {
 				return nil
 			}
-			if i < maxRetries {
-				time.Sleep(time.Second * time.Duration(i+1))
+
+			if attempt < config.MaxRetries {
+				if config.Exponential {
+					delay = time.Duration(float64(delay) * multiplier)
+				} else {
+					delay += initialDelay
+				}
+
+				if delay > maxDelay {
+					delay = maxDelay
+				}
+
+				if randomization > 0 {
+					jitter := time.Duration(rand.Float64() * float64(delay) * randomization)
+					delay += jitter
+				}
+
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(delay):
+				}
 			}
 		}
+		return err
+	}
+}
+
+// wrapWithCircuitBreaker wraps a handler function with circuit breaker logic.
+// If circuit breaker is nil, no circuit breaker logic is applied.
+func (r *HandlerRegistry) wrapWithCircuitBreaker(handler HandlerFunc, cb *CircuitBreaker) HandlerFunc {
+	if cb == nil {
+		return handler
+	}
+
+	return func(ctx context.Context, event *Event) error {
+		err := handler(ctx, event)
+
+		if err != nil {
+			cb.RecordFailure()
+		} else {
+			cb.RecordSuccess()
+		}
+
 		return err
 	}
 }

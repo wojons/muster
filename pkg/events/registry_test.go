@@ -514,7 +514,7 @@ func TestHandlerRegistry_Timeout(t *testing.T) {
 }
 
 func TestHandlerRegistry_Retry(t *testing.T) {
-	t.Run("retries on failure", func(t *testing.T) {
+	t.Run("retries on failure with RetryConfig", func(t *testing.T) {
 		registry := NewHandlerRegistry(nil)
 		attemptCount := 0
 
@@ -533,7 +533,12 @@ func TestHandlerRegistry_Retry(t *testing.T) {
 			Name:       "test-handler",
 			EventTypes: []EventType{EventTypeRequest},
 			Handler:    handler,
-			MaxRetries: 3,
+			RetryConfig: &RetryConfig{
+				MaxRetries:    3,
+				InitialDelay:  10 * time.Millisecond,
+				Exponential:   false,
+				Randomization: 0,
+			},
 		})
 		require.NoError(t, err)
 
@@ -543,6 +548,53 @@ func TestHandlerRegistry_Retry(t *testing.T) {
 		results := registry.Execute(context.Background(), event)
 		assert.True(t, results[0].IsSuccess())
 		assert.Equal(t, 3, attemptCount)
+	})
+
+	t.Run("retries with exponential backoff", func(t *testing.T) {
+		registry := NewHandlerRegistry(nil)
+		attemptCount := 0
+		delays := []time.Duration{}
+		lastAttempt := time.Now()
+
+		handler := &mockHandler{
+			name: "test-handler",
+			handleFunc: func(ctx context.Context, event *Event) error {
+				now := time.Now()
+				if attemptCount > 0 {
+					delays = append(delays, now.Sub(lastAttempt))
+				}
+				lastAttempt = now
+				attemptCount++
+				if attemptCount < 3 {
+					return errors.New("temporary error")
+				}
+				return nil
+			},
+		}
+
+		err := registry.Register(&HandlerInfo{
+			Name:       "test-handler",
+			EventTypes: []EventType{EventTypeRequest},
+			Handler:    handler,
+			RetryConfig: &RetryConfig{
+				MaxRetries:    3,
+				InitialDelay:  10 * time.Millisecond,
+				Exponential:   true,
+				Multiplier:    2.0,
+				Randomization: 0,
+			},
+		})
+		require.NoError(t, err)
+
+		event, err := NewEvent(EventTypeRequest, "test-source", nil)
+		require.NoError(t, err)
+
+		results := registry.Execute(context.Background(), event)
+		assert.True(t, results[0].IsSuccess())
+		assert.Equal(t, 3, attemptCount)
+		if len(delays) >= 2 {
+			assert.Greater(t, delays[1], delays[0], "second delay should be greater than first with exponential backoff")
+		}
 	})
 
 	t.Run("returns error after max retries exceeded", func(t *testing.T) {
@@ -562,7 +614,9 @@ func TestHandlerRegistry_Retry(t *testing.T) {
 			Name:       "test-handler",
 			EventTypes: []EventType{EventTypeRequest},
 			Handler:    handler,
-			MaxRetries: 2,
+			RetryConfig: &RetryConfig{
+				MaxRetries: 2,
+			},
 		})
 		require.NoError(t, err)
 
@@ -572,10 +626,41 @@ func TestHandlerRegistry_Retry(t *testing.T) {
 		results := registry.Execute(context.Background(), event)
 		assert.False(t, results[0].IsSuccess())
 		assert.Equal(t, expectedErr, results[0].Error)
-		assert.Equal(t, 3, attemptCount) // Initial + 2 retries
+		assert.Equal(t, 3, attemptCount)
 	})
 
-	t.Run("no retry when zero", func(t *testing.T) {
+	t.Run("uses default config when nil", func(t *testing.T) {
+		registry := NewHandlerRegistry(nil)
+		attemptCount := 0
+
+		handler := &mockHandler{
+			name: "test-handler",
+			handleFunc: func(ctx context.Context, event *Event) error {
+				attemptCount++
+				if attemptCount >= 4 {
+					return nil
+				}
+				return errors.New("error")
+			},
+		}
+
+		err := registry.Register(&HandlerInfo{
+			Name:        "test-handler",
+			EventTypes:  []EventType{EventTypeRequest},
+			Handler:     handler,
+			RetryConfig: nil,
+		})
+		require.NoError(t, err)
+
+		event, err := NewEvent(EventTypeRequest, "test-source", nil)
+		require.NoError(t, err)
+
+		results := registry.Execute(context.Background(), event)
+		assert.True(t, results[0].IsSuccess())
+		assert.Equal(t, 4, attemptCount)
+	})
+
+	t.Run("respects context cancellation during retry", func(t *testing.T) {
 		registry := NewHandlerRegistry(nil)
 		attemptCount := 0
 
@@ -591,16 +676,27 @@ func TestHandlerRegistry_Retry(t *testing.T) {
 			Name:       "test-handler",
 			EventTypes: []EventType{EventTypeRequest},
 			Handler:    handler,
-			MaxRetries: 0,
+			RetryConfig: &RetryConfig{
+				MaxRetries:   5,
+				InitialDelay: 100 * time.Millisecond,
+				Exponential:  false,
+			},
 		})
 		require.NoError(t, err)
 
 		event, err := NewEvent(EventTypeRequest, "test-source", nil)
 		require.NoError(t, err)
 
-		results := registry.Execute(context.Background(), event)
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		start := time.Now()
+		results := registry.Execute(ctx, event)
+		duration := time.Since(start)
+
 		assert.False(t, results[0].IsSuccess())
-		assert.Equal(t, 1, attemptCount) // Only initial attempt
+		assert.Less(t, duration, 200*time.Millisecond)
+		assert.Less(t, attemptCount, 3)
 	})
 }
 
@@ -797,6 +893,178 @@ func TestHandlerRegistry_Count(t *testing.T) {
 
 		registry.Unregister("handler1")
 		assert.Equal(t, 1, registry.Count())
+	})
+}
+
+func TestHandlerRegistry_CircuitBreaker(t *testing.T) {
+	t.Run("opens circuit after max failures", func(t *testing.T) {
+		registry := NewHandlerRegistry(nil)
+		attemptCount := 0
+
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    3,
+			Timeout:        100 * time.Millisecond,
+			HalfOpenMaxReq: 1,
+		})
+
+		handler := &mockHandler{
+			name: "test-handler",
+			handleFunc: func(ctx context.Context, event *Event) error {
+				attemptCount++
+				return errors.New("persistent error")
+			},
+		}
+
+		err := registry.Register(&HandlerInfo{
+			Name:           "test-handler",
+			EventTypes:     []EventType{EventTypeRequest},
+			Handler:        handler,
+			CircuitBreaker: cb,
+		})
+		require.NoError(t, err)
+
+		event, err := NewEvent(EventTypeRequest, "test-source", nil)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			results := registry.Execute(context.Background(), event)
+			assert.False(t, results[0].IsSuccess())
+		}
+
+		assert.Equal(t, CircuitOpen, cb.State())
+	})
+
+	t.Run("fails fast when circuit is open", func(t *testing.T) {
+		registry := NewHandlerRegistry(nil)
+
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    1,
+			Timeout:        1 * time.Second,
+			HalfOpenMaxReq: 1,
+		})
+		cb.RecordFailure()
+		cb.RecordFailure()
+		assert.Equal(t, CircuitOpen, cb.State())
+
+		handler := &mockHandler{
+			name: "test-handler",
+			handleFunc: func(ctx context.Context, event *Event) error {
+				return nil
+			},
+		}
+
+		err := registry.Register(&HandlerInfo{
+			Name:           "test-handler",
+			EventTypes:     []EventType{EventTypeRequest},
+			Handler:        handler,
+			CircuitBreaker: cb,
+		})
+		require.NoError(t, err)
+
+		event, err := NewEvent(EventTypeRequest, "test-source", nil)
+		require.NoError(t, err)
+
+		results := registry.Execute(context.Background(), event)
+		assert.False(t, results[0].IsSuccess())
+		assert.Contains(t, results[0].Error.Error(), "circuit breaker is open")
+	})
+
+	t.Run("closes circuit after successful requests in half-open state", func(t *testing.T) {
+		registry := NewHandlerRegistry(nil)
+		callCount := 0
+
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    2,
+			Timeout:        50 * time.Millisecond,
+			HalfOpenMaxReq: 2,
+		})
+
+		handler := &mockHandler{
+			name: "test-handler",
+			handleFunc: func(ctx context.Context, event *Event) error {
+				callCount++
+				return nil
+			},
+		}
+
+		err := registry.Register(&HandlerInfo{
+			Name:           "test-handler",
+			EventTypes:     []EventType{EventTypeRequest},
+			Handler:        handler,
+			CircuitBreaker: cb,
+		})
+		require.NoError(t, err)
+
+		event, err := NewEvent(EventTypeRequest, "test-source", nil)
+		require.NoError(t, err)
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		assert.Equal(t, CircuitOpen, cb.State())
+
+		time.Sleep(60 * time.Millisecond)
+
+		results := registry.Execute(context.Background(), event)
+		assert.True(t, results[0].IsSuccess())
+		assert.Equal(t, CircuitHalfOpen, cb.State())
+
+		results = registry.Execute(context.Background(), event)
+		assert.True(t, results[0].IsSuccess())
+		assert.Equal(t, CircuitClosed, cb.State())
+	})
+
+	t.Run("records success and failure with circuit breaker", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    3,
+			Timeout:        100 * time.Millisecond,
+			HalfOpenMaxReq: 2,
+		})
+
+		assert.Equal(t, CircuitClosed, cb.State())
+
+		cb.RecordFailure()
+		assert.Equal(t, CircuitClosed, cb.State())
+		assert.Equal(t, 1, cb.failureCount)
+
+		cb.RecordFailure()
+		assert.Equal(t, CircuitClosed, cb.State())
+		assert.Equal(t, 2, cb.failureCount)
+
+		cb.RecordSuccess()
+		assert.Equal(t, 0, cb.failureCount)
+	})
+
+	t.Run("transitions to half-open after timeout", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    2,
+			Timeout:        50 * time.Millisecond,
+			HalfOpenMaxReq: 1,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		assert.Equal(t, CircuitOpen, cb.State())
+
+		time.Sleep(60 * time.Millisecond)
+
+		assert.True(t, cb.Allow())
+		assert.Equal(t, CircuitHalfOpen, cb.State())
+	})
+
+	t.Run("resets circuit breaker", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    2,
+			Timeout:        1 * time.Second,
+			HalfOpenMaxReq: 1,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		assert.Equal(t, CircuitOpen, cb.State())
+
+		cb.Reset()
+		assert.Equal(t, CircuitClosed, cb.State())
+		assert.Equal(t, 0, cb.failureCount)
 	})
 }
 

@@ -2,6 +2,7 @@ package events
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 )
 
@@ -104,4 +105,169 @@ func (e *Event) UnmarshalData(target interface{}) error {
 // String returns a string representation of the event type.
 func (et EventType) String() string {
 	return string(et)
+}
+
+// RetryConfig defines retry behavior for event handlers.
+type RetryConfig struct {
+	MaxRetries    int           `json:"max_retries"`
+	InitialDelay  time.Duration `json:"initial_delay"`
+	MaxDelay      time.Duration `json:"max_delay"`
+	Exponential   bool          `json:"exponential"`
+	Multiplier    float64       `json:"multiplier"`
+	Randomization float64       `json:"randomization"`
+}
+
+// DefaultRetryConfig provides sensible defaults for retry behavior.
+func DefaultRetryConfig() RetryConfig {
+	return RetryConfig{
+		MaxRetries:    3,
+		InitialDelay:  100 * time.Millisecond,
+		MaxDelay:      30 * time.Second,
+		Exponential:   true,
+		Multiplier:    2.0,
+		Randomization: 0.5,
+	}
+}
+
+// CircuitState represents the state of a circuit breaker.
+type CircuitState int
+
+const (
+	// CircuitClosed - normal operation, requests flow through
+	CircuitClosed CircuitState = iota
+	// CircuitOpen - circuit is tripped, requests fail immediately
+	CircuitOpen
+	// CircuitHalfOpen - testing if service recovered
+	CircuitHalfOpen
+)
+
+// String returns a string representation of the circuit state.
+func (s CircuitState) String() string {
+	switch s {
+	case CircuitClosed:
+		return "closed"
+	case CircuitOpen:
+		return "open"
+	case CircuitHalfOpen:
+		return "half-open"
+	default:
+		return "unknown"
+	}
+}
+
+// CircuitBreakerConfig defines circuit breaker behavior.
+type CircuitBreakerConfig struct {
+	MaxFailures    int           `json:"max_failures"`
+	Timeout        time.Duration `json:"timeout"`
+	HalfOpenMaxReq int           `json:"half_open_max_requests"`
+}
+
+// DefaultCircuitBreakerConfig provides sensible defaults.
+func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
+	return CircuitBreakerConfig{
+		MaxFailures:    5,
+		Timeout:        30 * time.Second,
+		HalfOpenMaxReq: 3,
+	}
+}
+
+// CircuitBreaker implements the circuit breaker pattern.
+// It prevents cascading failures by failing fast when a service is unhealthy.
+type CircuitBreaker struct {
+	mu sync.RWMutex
+
+	state           CircuitState
+	failureCount    int
+	successCount    int
+	lastFailureTime time.Time
+	halfOpenReqs    int
+
+	config CircuitBreakerConfig
+}
+
+// NewCircuitBreaker creates a new circuit breaker with the given config.
+func NewCircuitBreaker(config CircuitBreakerConfig) *CircuitBreaker {
+	return &CircuitBreaker{
+		state:  CircuitClosed,
+		config: config,
+	}
+}
+
+// Allow checks if a request should be allowed through.
+func (cb *CircuitBreaker) Allow() bool {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	switch cb.state {
+	case CircuitClosed:
+		return true
+	case CircuitOpen:
+		if time.Since(cb.lastFailureTime) > cb.config.Timeout {
+			cb.state = CircuitHalfOpen
+			cb.halfOpenReqs = 0
+			cb.successCount = 0
+			return true
+		}
+		return false
+	case CircuitHalfOpen:
+		if cb.halfOpenReqs < cb.config.HalfOpenMaxReq {
+			cb.halfOpenReqs++
+			return true
+		}
+		return false
+	}
+	return false
+}
+
+// RecordSuccess records a successful request.
+func (cb *CircuitBreaker) RecordSuccess() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.failureCount = 0
+
+	if cb.state == CircuitHalfOpen {
+		cb.successCount++
+		cb.halfOpenReqs++
+		if cb.successCount >= cb.config.HalfOpenMaxReq {
+			cb.state = CircuitClosed
+			cb.successCount = 0
+			cb.halfOpenReqs = 0
+		}
+	}
+}
+
+// RecordFailure records a failed request.
+func (cb *CircuitBreaker) RecordFailure() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.failureCount++
+	cb.lastFailureTime = time.Now()
+
+	if cb.state == CircuitHalfOpen {
+		cb.state = CircuitOpen
+		cb.halfOpenReqs = 0
+		cb.successCount = 0
+	} else if cb.failureCount >= cb.config.MaxFailures {
+		cb.state = CircuitOpen
+	}
+}
+
+// State returns the current circuit state.
+func (cb *CircuitBreaker) State() CircuitState {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	return cb.state
+}
+
+// Reset resets the circuit breaker to closed state.
+func (cb *CircuitBreaker) Reset() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.state = CircuitClosed
+	cb.failureCount = 0
+	cb.successCount = 0
+	cb.halfOpenReqs = 0
 }

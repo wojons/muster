@@ -151,7 +151,9 @@ func TestHandlerInfo(t *testing.T) {
 		EventTypes: []EventType{EventTypeRequest, EventTypeResponse},
 		Handler:    handler,
 		Timeout:    5 * time.Second,
-		MaxRetries: 3,
+		RetryConfig: &RetryConfig{
+			MaxRetries: 3,
+		},
 		OnError: func(ctx context.Context, event *Event, err error) error {
 			return nil // Suppress error.
 		},
@@ -170,8 +172,8 @@ func TestHandlerInfo(t *testing.T) {
 	if info.Timeout != 5*time.Second {
 		t.Errorf("expected timeout 5s, got %v", info.Timeout)
 	}
-	if info.MaxRetries != 3 {
-		t.Errorf("expected max retries 3, got %d", info.MaxRetries)
+	if info.RetryConfig == nil || info.RetryConfig.MaxRetries != 3 {
+		t.Errorf("expected max retries 3")
 	}
 	if info.OnError == nil {
 		t.Error("expected OnError to be set")
@@ -396,5 +398,273 @@ func TestValidationError(t *testing.T) {
 	expected := "TestField: test message"
 	if err.Error() != expected {
 		t.Errorf("expected error '%s', got '%s'", expected, err.Error())
+	}
+}
+
+// TestRetryConfig tests the RetryConfig struct.
+func TestRetryConfig(t *testing.T) {
+	t.Run("default config", func(t *testing.T) {
+		config := DefaultRetryConfig()
+
+		if config.MaxRetries != 3 {
+			t.Errorf("expected MaxRetries=3, got %d", config.MaxRetries)
+		}
+		if config.InitialDelay != 100*time.Millisecond {
+			t.Errorf("expected InitialDelay=100ms, got %v", config.InitialDelay)
+		}
+		if config.MaxDelay != 30*time.Second {
+			t.Errorf("expected MaxDelay=30s, got %v", config.MaxDelay)
+		}
+		if !config.Exponential {
+			t.Error("expected Exponential=true")
+		}
+		if config.Multiplier != 2.0 {
+			t.Errorf("expected Multiplier=2.0, got %f", config.Multiplier)
+		}
+		if config.Randomization != 0.5 {
+			t.Errorf("expected Randomization=0.5, got %f", config.Randomization)
+		}
+	})
+
+	t.Run("custom config", func(t *testing.T) {
+		config := RetryConfig{
+			MaxRetries:    5,
+			InitialDelay:  50 * time.Millisecond,
+			MaxDelay:      10 * time.Second,
+			Exponential:   false,
+			Multiplier:    1.5,
+			Randomization: 0.2,
+		}
+
+		if config.MaxRetries != 5 {
+			t.Errorf("expected MaxRetries=5, got %d", config.MaxRetries)
+		}
+		if config.InitialDelay != 50*time.Millisecond {
+			t.Errorf("expected InitialDelay=50ms, got %v", config.InitialDelay)
+		}
+		if config.MaxDelay != 10*time.Second {
+			t.Errorf("expected MaxDelay=10s, got %v", config.MaxDelay)
+		}
+		if config.Exponential {
+			t.Error("expected Exponential=false")
+		}
+		if config.Multiplier != 1.5 {
+			t.Errorf("expected Multiplier=1.5, got %f", config.Multiplier)
+		}
+		if config.Randomization != 0.2 {
+			t.Errorf("expected Randomization=0.2, got %f", config.Randomization)
+		}
+	})
+}
+
+// TestCircuitState tests the CircuitState enum and String method.
+func TestCircuitState(t *testing.T) {
+	t.Run("circuit closed string", func(t *testing.T) {
+		if CircuitClosed.String() != "closed" {
+			t.Errorf("expected 'closed', got '%s'", CircuitClosed.String())
+		}
+	})
+
+	t.Run("circuit open string", func(t *testing.T) {
+		if CircuitOpen.String() != "open" {
+			t.Errorf("expected 'open', got '%s'", CircuitOpen.String())
+		}
+	})
+
+	t.Run("circuit half-open string", func(t *testing.T) {
+		if CircuitHalfOpen.String() != "half-open" {
+			t.Errorf("expected 'half-open', got '%s'", CircuitHalfOpen.String())
+		}
+	})
+}
+
+// TestCircuitBreakerConfig tests the CircuitBreakerConfig struct.
+func TestCircuitBreakerConfig(t *testing.T) {
+	t.Run("default config", func(t *testing.T) {
+		config := DefaultCircuitBreakerConfig()
+
+		if config.MaxFailures != 5 {
+			t.Errorf("expected MaxFailures=5, got %d", config.MaxFailures)
+		}
+		if config.Timeout != 30*time.Second {
+			t.Errorf("expected Timeout=30s, got %v", config.Timeout)
+		}
+		if config.HalfOpenMaxReq != 3 {
+			t.Errorf("expected HalfOpenMaxReq=3, got %d", config.HalfOpenMaxReq)
+		}
+	})
+
+	t.Run("custom config", func(t *testing.T) {
+		config := CircuitBreakerConfig{
+			MaxFailures:    10,
+			Timeout:        1 * time.Minute,
+			HalfOpenMaxReq: 5,
+		}
+
+		if config.MaxFailures != 10 {
+			t.Errorf("expected MaxFailures=10, got %d", config.MaxFailures)
+		}
+		if config.Timeout != 1*time.Minute {
+			t.Errorf("expected Timeout=1m, got %v", config.Timeout)
+		}
+		if config.HalfOpenMaxReq != 5 {
+			t.Errorf("expected HalfOpenMaxReq=5, got %d", config.HalfOpenMaxReq)
+		}
+	})
+}
+
+// TestCircuitBreaker tests the CircuitBreaker implementation.
+func TestCircuitBreaker(t *testing.T) {
+	t.Run("new circuit breaker starts closed", func(t *testing.T) {
+		cb := NewCircuitBreaker(DefaultCircuitBreakerConfig())
+		if cb.State() != CircuitClosed {
+			t.Errorf("expected CircuitClosed, got %v", cb.State())
+		}
+	})
+
+	t.Run("allows requests when closed", func(t *testing.T) {
+		cb := NewCircuitBreaker(DefaultCircuitBreakerConfig())
+		if !cb.Allow() {
+			t.Error("expected Allow() to return true when closed")
+		}
+	})
+
+	t.Run("opens after max failures", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    3,
+			Timeout:        100 * time.Millisecond,
+			HalfOpenMaxReq: 1,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		assertEqualState(t, cb, CircuitClosed, "should be closed after 2 failures")
+
+		cb.RecordFailure()
+		assertEqualState(t, cb, CircuitOpen, "should be open after 3 failures")
+	})
+
+	t.Run("transitions to half-open after timeout", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    2,
+			Timeout:        50 * time.Millisecond,
+			HalfOpenMaxReq: 1,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		assertEqualState(t, cb, CircuitOpen, "should be open")
+
+		time.Sleep(60 * time.Millisecond)
+
+		if !cb.Allow() {
+			t.Error("expected Allow() to return true after timeout")
+		}
+		assertEqualState(t, cb, CircuitHalfOpen, "should be half-open after timeout")
+	})
+
+	t.Run("closes after successful requests in half-open", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    2,
+			Timeout:        10 * time.Millisecond,
+			HalfOpenMaxReq: 2,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		time.Sleep(20 * time.Millisecond)
+		cb.Allow()
+		assertEqualState(t, cb, CircuitHalfOpen, "should be half-open")
+
+		cb.RecordSuccess()
+		assertEqualState(t, cb, CircuitHalfOpen, "should still be half-open after 1 success")
+
+		cb.RecordSuccess()
+		assertEqualState(t, cb, CircuitClosed, "should be closed after 2 successes")
+	})
+
+	t.Run("opens immediately on failure in half-open", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    2,
+			Timeout:        10 * time.Millisecond,
+			HalfOpenMaxReq: 2,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		time.Sleep(20 * time.Millisecond)
+		cb.Allow()
+		assertEqualState(t, cb, CircuitHalfOpen, "should be half-open")
+
+		cb.RecordFailure()
+		assertEqualState(t, cb, CircuitOpen, "should open immediately on failure in half-open")
+	})
+
+	t.Run("resets to closed state", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    2,
+			Timeout:        1 * time.Second,
+			HalfOpenMaxReq: 1,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		assertEqualState(t, cb, CircuitOpen, "should be open")
+
+		cb.Reset()
+		assertEqualState(t, cb, CircuitClosed, "should be closed after reset")
+	})
+
+	t.Run("limits requests in half-open state", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    2,
+			Timeout:        10 * time.Millisecond,
+			HalfOpenMaxReq: 2,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		time.Sleep(20 * time.Millisecond)
+
+		if !cb.Allow() {
+			t.Error("expected Allow() to return true")
+		}
+		if !cb.Allow() {
+			t.Error("expected Allow() to return true for second request")
+		}
+
+		cb.Allow()
+		if cb.Allow() {
+			t.Error("expected Allow() to return false after max requests")
+		}
+	})
+
+	t.Run("clears failure count on success", func(t *testing.T) {
+		cb := NewCircuitBreaker(CircuitBreakerConfig{
+			MaxFailures:    5,
+			Timeout:        100 * time.Millisecond,
+			HalfOpenMaxReq: 1,
+		})
+
+		cb.RecordFailure()
+		cb.RecordFailure()
+		assertEqual(t, cb.failureCount, 2, "failure count should be 2")
+
+		cb.RecordSuccess()
+		assertEqual(t, cb.failureCount, 0, "failure count should be 0 after success")
+	})
+}
+
+func assertEqualState(t *testing.T, cb *CircuitBreaker, expected CircuitState, msg string) {
+	t.Helper()
+	if cb.State() != expected {
+		t.Errorf("%s: expected %v, got %v", msg, expected, cb.State())
+	}
+}
+
+func assertEqual(t *testing.T, actual, expected int, msg string) {
+	t.Helper()
+	if actual != expected {
+		t.Errorf("%s: expected %d, got %d", msg, expected, actual)
 	}
 }
