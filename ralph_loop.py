@@ -45,7 +45,7 @@ SCRIPT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = SCRIPT_DIR
 RALPH_DIR = PROJECT_ROOT / ".ralph"
 MEMORY_BANK = PROJECT_ROOT / ".memory-bank"
-TODO_FILE = PROJECT_ROOT / ".agents" / "skills" / "ralph-wiggum-loop" / "TODO.md"
+TODO_FILE = PROJECT_ROOT / "TODO.md"
 LOOP_STATE = RALPH_DIR / "loop-state.yaml"
 LOGS_DIR = RALPH_DIR / "logs"
 
