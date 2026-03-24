@@ -6,6 +6,8 @@ package platform
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 )
 
 // SELinuxInterface provides Linux SELinux context management
@@ -27,26 +29,65 @@ func (s *SELinuxInterface) GetContext() (string, error) {
 	if !s.enabled {
 		return "unconfined_u:unconfined_r:unconfined_t:s0", nil
 	}
-	// TODO: Implement selinux context retrieval via /proc/self/attr/current
-	return "", fmt.Errorf("not implemented")
+
+	data, err := os.ReadFile("/proc/self/attr/current")
+	if err != nil {
+		return "", fmt.Errorf("failed to read SELinux context: %w", err)
+	}
+
+	context := strings.TrimSpace(string(data))
+	if context == "" {
+		return "", fmt.Errorf("empty SELinux context")
+	}
+
+	return context, nil
 }
 
 // SetContext sets process SELinux context
 func (s *SELinuxInterface) SetContext(context string) error {
 	if !s.enabled {
-		return nil // No-op if SELinux not available
+		return nil
 	}
-	// TODO: Implement context setting via /proc/self/attr/current
-	return fmt.Errorf("not implemented")
+
+	f, err := os.OpenFile("/proc/self/attr/current", os.O_WRONLY, 0)
+	if err != nil {
+		return fmt.Errorf("failed to open SELinux interface: %w", err)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	_, err = f.WriteString(context)
+	if err != nil {
+		return fmt.Errorf("failed to set SELinux context: %w", err)
+	}
+
+	return nil
 }
 
 // GetFileContext retrieves file/directory SELinux context
 func (s *SELinuxInterface) GetFileContext(path string) (string, error) {
 	if !s.enabled {
-		return "", nil // Return empty if unknown
+		return "", nil
 	}
-	// TODO: Implement file context retrieval via getfilecon system call
-	return "", fmt.Errorf("not implemented")
+
+	cmd := exec.Command("ls", "-Z", path)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get file context: %w", err)
+	}
+
+	parts := strings.Fields(string(output))
+	if len(parts) < 1 {
+		return "", fmt.Errorf("no SELinux context found for path: %s", path)
+	}
+
+	context := strings.TrimSpace(parts[0])
+	if context == "" || context == "?" {
+		return "", fmt.Errorf("invalid SELinux context for path: %s", path)
+	}
+
+	return context, nil
 }
 
 // SetFileContext sets file/directory SELinux context
@@ -54,8 +95,14 @@ func (s *SELinuxInterface) SetFileContext(path, context string) error {
 	if !s.enabled {
 		return nil
 	}
-	// TODO: Implement file context setting via setfilecon system call
-	return fmt.Errorf("not implemented")
+
+	cmd := exec.Command("chcon", context, path)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to set file context: %w, output: %s", err, string(output))
+	}
+
+	return nil
 }
 
 // Enabled returns whether SELinux is available on system
@@ -68,6 +115,12 @@ func (s *SELinuxInterface) RestoreContext(path string) error {
 	if !s.enabled {
 		return nil
 	}
-	// TODO: Implement restorecon functionality
-	return fmt.Errorf("not implemented")
+
+	cmd := exec.Command("restorecon", "-v", path)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to restore context: %w, output: %s", err, string(output))
+	}
+
+	return nil
 }
