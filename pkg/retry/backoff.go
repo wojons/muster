@@ -23,6 +23,9 @@ func (bc *BackoffCalculator) CalculateDelay(attempt int) time.Duration {
 	var delay time.Duration
 
 	switch bc.config.BackoffStrategy {
+	case BackoffConstant:
+		delay = bc.constantBackoff(attempt)
+
 	case BackoffLinear:
 		delay = bc.linearBackoff(attempt)
 
@@ -50,6 +53,11 @@ func (bc *BackoffCalculator) CalculateDelay(attempt int) time.Duration {
 // linearBackoff calculates linear backoff: delay = attempt * initialDelay
 func (bc *BackoffCalculator) linearBackoff(attempt int) time.Duration {
 	return time.Duration(attempt) * bc.config.InitialDelay
+}
+
+// constantBackoff calculates constant backoff: delay = initialDelay (unchanged)
+func (bc *BackoffCalculator) constantBackoff(attempt int) time.Duration {
+	return bc.config.InitialDelay
 }
 
 // exponentialBackoff calculates exponential backoff: delay = initialDelay * 2^(attempt-1)

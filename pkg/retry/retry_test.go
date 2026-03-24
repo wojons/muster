@@ -3,6 +3,7 @@ package retry
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 	"time"
 
@@ -209,6 +210,22 @@ func TestBackoffCalculator_LinearBackoff(t *testing.T) {
 	assert.Equal(t, 100*time.Millisecond, calc.CalculateDelay(1))
 	assert.Equal(t, 200*time.Millisecond, calc.CalculateDelay(2))
 	assert.Equal(t, 300*time.Millisecond, calc.CalculateDelay(3))
+}
+
+func TestBackoffCalculator_ConstantBackoff(t *testing.T) {
+	config := RetryConfig{
+		InitialDelay:    100 * time.Millisecond,
+		MaxDelay:        1 * time.Second,
+		BackoffStrategy: BackoffConstant,
+		JitterStrategy:  JitterNone,
+	}
+	jitter := NewJitter(12345)
+	calc := NewBackoffCalculator(config, jitter)
+
+	assert.Equal(t, 100*time.Millisecond, calc.CalculateDelay(1))
+	assert.Equal(t, 100*time.Millisecond, calc.CalculateDelay(2))
+	assert.Equal(t, 100*time.Millisecond, calc.CalculateDelay(3))
+	assert.Equal(t, 100*time.Millisecond, calc.CalculateDelay(10))
 }
 
 func TestBackoffCalculator_ExponentialBackoff(t *testing.T) {
@@ -421,3 +438,57 @@ func TestRateLimitError(t *testing.T) {
 	assert.Contains(t, err.Error(), "rate limit exceeded")
 	assert.Contains(t, err.Error(), "5s")
 }
+
+func TestIsUnavailable(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "net.OpError with timeout",
+			err:      &net.OpError{Op: "dial", Net: "tcp", Err: &timeoutError{}},
+			expected: true,
+		},
+		{
+			name:     "net.OpError without timeout",
+			err:      &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")},
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "generic error",
+			err:      errors.New("generic error"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isUnavailable(tt.err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestErrorClassifier_IsUnavailable(t *testing.T) {
+	classifier := DefaultClassifier()
+
+	// Test with a network timeout error - should be classified as ErrTimeout
+	// because isTimeout matcher runs before isUnavailable
+	netErr := &net.OpError{Op: "dial", Net: "tcp", Err: &timeoutError{}}
+	result := classifier.Classify(netErr)
+	assert.Equal(t, ErrTimeout, result)
+}
+
+// Helper types for network error testing
+
+type timeoutError struct{}
+
+func (e *timeoutError) Error() string   { return "timeout error" }
+func (e *timeoutError) Timeout() bool   { return true }
+func (e *timeoutError) Temporary() bool { return true }

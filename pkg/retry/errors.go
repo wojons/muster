@@ -101,9 +101,9 @@ func isTemporary(err error) bool {
 }
 
 func isUnavailable(err error) bool {
-	var he net.Error
-	if errors.As(err, &he) {
-		return he.Timeout()
+	var ne net.Error
+	if errors.As(err, &ne) {
+		return ne.Timeout()
 	}
 	return false
 }
