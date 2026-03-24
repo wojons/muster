@@ -328,12 +328,13 @@
 ## 🟡 MEDIUM PRIORITY - SKIPPED TESTS (86 instances)
 
 ### TEST-001: Redis Tests - 24 Skipped
-- [ ] Step 1: Add testcontainers-go dependency
-- [ ] Step 2: Create Redis container helper in test/util/
-- [ ] Step 3: Update redis_test.go to use testcontainers
-- [ ] Step 4: Remove t.Skip() calls
+- [x] Step 1: Add testcontainers-go dependency
+- [x] Step 2: Create Redis container helper in test/util/
+- [x] Step 3: Update redis_test.go to use testcontainers
+- [x] Step 4: Remove t.Skip() calls
 - **File**: `pkg/cache/redis_test.go:11-335`
 - **Effort**: 1 day
+- **Completed**: 2026-03-24 - Implemented testcontainers-go integration for Redis tests. Added `github.com/testcontainers/testcontainers-go v0.38.0` and `github.com/testcontainers/testcontainers-go/modules/redis v0.38.0` dependencies. Created `test/util/redis.go` helper with `NewTestRedisContainer()` function that spins up ephemeral Redis containers for tests. Updated all 12 test functions in `pkg/cache/redis_test.go` to use testcontainers, removing all `t.Skip()` calls. All 12 Redis tests now pass with proper container lifecycle management. Tests verify Get, Set, Delete, Has, Keys, Stats, Serialize, Close, Prefix operations with real Redis instances.
 
 ### TEST-002: Daemon Tests - 16 Skipped
 - [ ] Step 1: Refactor daemon tests for non-blocking operation
