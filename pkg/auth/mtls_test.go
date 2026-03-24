@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"testing"
@@ -166,9 +167,123 @@ func TestCreateMTLSClient_FileNotFound(t *testing.T) {
 }
 
 func TestGenerateSelfSignedCert(t *testing.T) {
-	_, err := GenerateSelfSignedCert("test.example.com")
-	if err == nil {
-		t.Fatal("GenerateSelfSignedCert() expected not implemented error")
+	cert, err := GenerateSelfSignedCert("test.example.com")
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCert() error = %v", err)
+	}
+
+	if cert == nil {
+		t.Fatal("GenerateSelfSignedCert() returned nil certificate")
+	}
+
+	if cert.Cert == nil {
+		t.Error("Certificate.Cert is nil")
+	}
+
+	if cert.PrivateKey == nil {
+		t.Error("Certificate.PrivateKey is nil")
+	}
+
+	if len(cert.PEM) == 0 {
+		t.Error("Certificate.PEM is empty")
+	}
+}
+
+func TestGenerateSelfSignedCert_CommonName(t *testing.T) {
+	commonName := "my-test.example.com"
+	cert, err := GenerateSelfSignedCert(commonName)
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCert() error = %v", err)
+	}
+
+	if cert.Cert.Subject.CommonName != commonName {
+		t.Errorf("CommonName = %v, want %v", cert.Cert.Subject.CommonName, commonName)
+	}
+}
+
+func TestGenerateSelfSignedCert_KeyType(t *testing.T) {
+	cert, err := GenerateSelfSignedCert("test.example.com")
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCert() error = %v", err)
+	}
+
+	if _, ok := cert.PrivateKey.(*rsa.PrivateKey); !ok {
+		t.Error("PrivateKey is not an RSA key")
+	}
+}
+
+func TestGenerateSelfSignedCert_Validity(t *testing.T) {
+	cert, err := GenerateSelfSignedCert("test.example.com")
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCert() error = %v", err)
+	}
+
+	now := time.Now()
+	if cert.Cert.NotBefore.After(now) {
+		t.Errorf("NotBefore is in the future: %v", cert.Cert.NotBefore)
+	}
+
+	expectedNotAfter := now.Add(365 * 24 * time.Hour)
+	diff := cert.Cert.NotAfter.Sub(expectedNotAfter)
+	if diff < -time.Minute || diff > time.Minute {
+		t.Errorf("NotAfter = %v, want approximately %v", cert.Cert.NotAfter, expectedNotAfter)
+	}
+}
+
+func TestGenerateSelfSignedCert_KeyUsage(t *testing.T) {
+	cert, err := GenerateSelfSignedCert("test.example.com")
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCert() error = %v", err)
+	}
+
+	if cert.Cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
+		t.Error("Missing KeyUsageDigitalSignature")
+	}
+
+	if cert.Cert.KeyUsage&x509.KeyUsageKeyEncipherment == 0 {
+		t.Error("Missing KeyUsageKeyEncipherment")
+	}
+}
+
+func TestGenerateSelfSignedCert_ExtKeyUsage(t *testing.T) {
+	cert, err := GenerateSelfSignedCert("test.example.com")
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCert() error = %v", err)
+	}
+
+	hasServerAuth := false
+	hasClientAuth := false
+	for _, usage := range cert.Cert.ExtKeyUsage {
+		if usage == x509.ExtKeyUsageServerAuth {
+			hasServerAuth = true
+		}
+		if usage == x509.ExtKeyUsageClientAuth {
+			hasClientAuth = true
+		}
+	}
+
+	if !hasServerAuth {
+		t.Error("Missing ExtKeyUsageServerAuth")
+	}
+
+	if !hasClientAuth {
+		t.Error("Missing ExtKeyUsageClientAuth")
+	}
+}
+
+func TestGenerateSelfSignedCert_SerialNumber(t *testing.T) {
+	cert1, err := GenerateSelfSignedCert("test1.example.com")
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCert() error = %v", err)
+	}
+
+	cert2, err := GenerateSelfSignedCert("test2.example.com")
+	if err != nil {
+		t.Fatalf("GenerateSelfSignedCert() error = %v", err)
+	}
+
+	if cert1.Cert.SerialNumber.Cmp(cert2.Cert.SerialNumber) == 0 {
+		t.Error("Serial numbers are identical, expected unique values")
 	}
 }
 

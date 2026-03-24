@@ -31,7 +31,7 @@
 
 ---
 
-## ✅ COMPLETED (6 items)
+## ✅ COMPLETED (7 items)
 
 - [x] SEC-001: Audit credential redaction → Added `redactIfSensitive()`, `SensitiveString`
 - [x] SEC-002: Linux Secret Service → Created adapter in `pkg/auth/keychain_secret_service_linux.go`
@@ -39,6 +39,7 @@
 - [x] SEC-006: MCP registry silent failure → Returns error instead of `nil, nil`
 - [x] SEC-008: cmdstore deadlock → Added `loadInternal()`/`saveInternal()` methods
 - [x] IMPL-007: Basic Auth Header Generation → Implemented base64 encoding in `basicAuth()`
+- [x] IMPL-015: Certificate Self-Signed Generation → Implemented RSA 2048-bit key generation, serial number, 1-year validity
 
 ---
 
@@ -284,12 +285,13 @@
 - **Completed**: 2026-03-24 - Implemented base64 encoding of username:password credentials
 
 ### IMPL-015: Certificate Self-Signed Generation
-- [ ] Step 1: Implement `GenerateSelfSignedCert()` with crypto/x509
-- [ ] Step 2: Add RSA 2048/4096 key generation
-- [ ] Step 3: Add certificate serial number generation
-- [ ] Step 4: Add unit tests
+- [x] Step 1: Implement `GenerateSelfSignedCert()` with crypto/x509
+- [x] Step 2: Add RSA 2048/4096 key generation
+- [x] Step 3: Add certificate serial number generation
+- [x] Step 4: Add unit tests
 - **File**: `pkg/auth/mtls.go:128-130`
 - **Effort**: 1 day
+- **Completed**: 2026-03-24 - Implemented RSA 2048-bit key generation, serial number generation, 1-year validity, proper key usage and extended key usage, with comprehensive unit tests
 
 ---
 
@@ -414,7 +416,7 @@
 | Date | Completed | Remaining | Baby Steps | Coverage |
 |------|-----------|-----------|------------|----------|
 | 2026-03-22 | 0 | 164 | 0 | 0% |
-| 2026-03-24 | 6 | 158 | 157 | 3.7% |
+| 2026-03-24 | 7 | 157 | 157 | 4.3% |
 | Target | 164 | 0 | 157 | 100% |
 
 **Baby Steps Format**: All gaps use `- [ ] Step N: Description` format for Ralph loop processing.
