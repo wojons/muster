@@ -25,10 +25,6 @@ import (
 //
 // This is NOT a toy test - it traces actual auth flow.
 func TestRealAuthIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -302,10 +298,6 @@ func TestRealAuthIntegration(t *testing.T) {
 
 // TestOAUth2ErrorHandling tests error scenarios in auth flow
 func TestOAuth2ErrorHandling(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = ctx

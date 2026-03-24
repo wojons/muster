@@ -16,10 +16,6 @@ import (
 )
 
 func TestDaemon_StartStop(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping daemon test in short mode")
-	}
-
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 
@@ -164,7 +160,7 @@ func TestDaemon_RequestProxy(t *testing.T) {
 	defer func() { _ = conn.Close() }()
 
 	go func() {
-_, _ = io.Copy(io.Discard, conn)
+		_, _ = io.Copy(io.Discard, conn)
 	}()
 
 	_, err = conn.Write([]byte(`{"method":"GET","path":"/api/test"}`))
