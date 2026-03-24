@@ -297,15 +297,16 @@
 - **Effort**: 1 week
 - **Completed**: 2026-03-24 - Implemented complete NetworkManager D-Bus integration using godbus/dbus/v5 library. Added GetConnectionState, GetActiveConnections, GetDevices, CheckConnectivity, GetPrimaryConnection, GetProxySettings, GetDNS, GetGateway, GetNetworkSettings, and helper methods. Implemented three predefined profiles (Minimal, Standard, Relaxed) matching spec. Added comprehensive unit tests (30+ test cases) covering all public APIs, string converters, and data structures. Tests properly skip on systems without NetworkManager or D-Bus. Lint passes with zero errors.
 
-### IMPL-003: HTTP Retry with Exponential Backoff
-- [ ] Step 1: Add `BackoffType` enum (constant, exponential, linear)
-- [ ] Step 2: Add `JitterType` enum (none, full, equal, decorrelated)
-- [ ] Step 3: Implement error classification (retriable vs permanent)
-- [ ] Step 4: Implement jitter calculations
-- [ ] Step 5: Update `Retrier.Do()` with new options
-- **File**: `pkg/retry/retrier.go`
-- **Spec**: `specs/RELIABILITY-RETRY.md` (355 lines)
+### IMPL-003: HTTP Retry with Exponential Backoff - COMPLETE
+- [x] Step 1: Add `BackoffType` enum (constant, exponential, linear) - Added `BackoffConstant` to config.go
+- [x] Step 2: Add `JitterType` enum (none, full, equal, decorrelated) - Already present
+- [x] Step 3: Implement error classification (retriable vs permanent) - Fixed `isUnavailable()` bug in errors.go
+- [x] Step 4: Implement jitter calculations - Already implemented in jitter.go
+- [x] Step 5: Update `Retrier.Do()` with new options - Added constant backoff strategy in backoff.go
+- **File**: `pkg/retry/config.go` (added BackoffConstant), `pkg/retry/backoff.go` (added constantBackoff method), `pkg/retry/errors.go` (fixed isUnavailable bug)
+- **Spec**: `specs/RELIABILITY-RETRY.md` (lines 1-355)
 - **Effort**: 2-3 days
+- **Completed**: 2026-03-24 - Added `BackoffConstant` backoff type for constant delay retries, implemented `constantBackoff()` method in BackoffCalculator, fixed bug in `isUnavailable()` function to properly detect network timeout errors. Added comprehensive unit tests for constant backoff strategy (4 test cases) and `isUnavailable()` function (4 test cases covering net.OpError with/without timeout, nil error, and generic error). All 26 tests pass with race detector enabled. Zero lint errors.
 
 ### IMPL-007: Basic Auth Header Generation
 - [x] Step 1: Implement `basicAuth()` in builder.go with base64 encoding

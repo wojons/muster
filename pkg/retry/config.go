@@ -20,6 +20,7 @@ type RetryConfig struct {
 type BackoffType string
 
 const (
+	BackoffConstant     BackoffType = "constant"
 	BackoffLinear       BackoffType = "linear"
 	BackoffExponential  BackoffType = "exponential"
 	BackoffDecorrelated BackoffType = "decorrelated"
