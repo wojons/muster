@@ -150,27 +150,51 @@ func (k *LinuxKeychain) List(service string) ([]Account, error) {
 }
 
 type WindowsKeychain struct {
+	native    *windowsKeychainNative
 	filechain *FileKeychain
 }
 
 func NewWindowsKeychain() *WindowsKeychain {
-	return &WindowsKeychain{filechain: NewFileKeychain()}
+	return &WindowsKeychain{
+		native:    NewWindowsKeychainNative(),
+		filechain: NewFileKeychain(),
+	}
 }
 
 func (k *WindowsKeychain) Set(service, account, password string) error {
+	// Use native Windows Credential Manager if available
+	if k.native != nil {
+		return k.native.Set(service, account, password)
+	}
+	// Fallback to file keychain
 	return k.filechain.Set(service, account, password)
 }
 
 func (k *WindowsKeychain) Get(service, account string) (string, error) {
+	// Use native Windows Credential Manager if available
+	if k.native != nil {
+		return k.native.Get(service, account)
+	}
+	// Fallback to file keychain
 	return k.filechain.Get(service, account)
 }
 
 func (k *WindowsKeychain) Delete(service, account string) error {
+	// Use native Windows Credential Manager if available
+	if k.native != nil {
+		return k.native.Delete(service, account)
+	}
+	// Fallback to file keychain
 	return k.filechain.Delete(service, account)
 }
 
 func (k *WindowsKeychain) List(service string) ([]Account, error) {
-	return nil, nil
+	// Use native Windows Credential Manager if available
+	if k.native != nil {
+		return k.native.List(service)
+	}
+	// Fallback to file keychain
+	return k.filechain.List(service)
 }
 
 type FileKeychain struct {
@@ -337,7 +361,26 @@ func (k *FileKeychain) getMasterKeyFromLinuxKeychain() ([]byte, error) {
 
 func (k *FileKeychain) getMasterKeyFromWindowsKeychain() ([]byte, error) {
 	// Use Windows Credential Manager
-	return nil, fmt.Errorf("windows credential manager not yet implemented")
+	winKC := NewWindowsKeychainNative()
+	password, err := winKC.Get("muster-master-key", "master-key")
+	if err != nil {
+		if err == ErrNotFound {
+			// Generate and store new master key
+			newKey := make([]byte, 32)
+			if _, err := io.ReadFull(rand.Reader, newKey); err != nil {
+				return nil, fmt.Errorf("generate master key: %w", err)
+			}
+
+			if err := winKC.Set("muster-master-key", "master-key", string(newKey)); err != nil {
+				return nil, fmt.Errorf("store master key: %w", err)
+			}
+
+			return newKey, nil
+		}
+		return nil, fmt.Errorf("read master key: %w", err)
+	}
+
+	return []byte(password), nil
 }
 
 func (k *FileKeychain) getMasterKeyFromFile() ([]byte, error) {
