@@ -16,7 +16,7 @@
 |----------|----------|------|--------|-----|-------|
 | Security | 4 | 8 | 5 | 2 | 19 |
 | Platform (Linux/Windows) | 3 | 6 | 4 | 2 | 15 |
-| Events System | 1 | 3 | 2 | 1 | 7 |
+| Events System | 1 | 2 | 2 | 1 | 6 |
 | Test Coverage | 1 | 8 | 6 | 4 | 19 |
 | CLI/Commands | 0 | 5 | 8 | 5 | 18 |
 | Daemon | 0 | 4 | 5 | 3 | 12 |
@@ -26,11 +26,11 @@
 | WASM/Runtime | 0 | 3 | 5 | 2 | 10 |
 | Packaging | 0 | 0 | 4 | 2 | 6 |
 | **Adversary-Found** | **5** | **7** | **7** | **3** | **22** |
-| **TOTAL** | **11** | **51** | **65** | **35** | **162** |
+| **TOTAL** | **11** | **50** | **65** | **35** | **161** |
 
 ---
 
-## ✅ COMPLETED (8 items)
+## ✅ COMPLETED (9 items)
 
 - [x] SEC-001: Audit credential redaction → Added `redactIfSensitive()`, `SensitiveString`
 - [x] SEC-002: Linux Secret Service → Created adapter in `pkg/auth/keychain_secret_service_linux.go`
@@ -38,6 +38,7 @@
 - [x] SEC-006: MCP registry silent failure → Returns error instead of `nil, nil`
 - [x] SEC-008: cmdstore deadlock → Added `loadInternal()`/`saveInternal()` methods
 - [x] SEC-009: Events Dispatcher → Implemented complete event bus with async publishing, retry logic, dead letter queue, priority subscriptions, filtering, and integration with HandlerRegistry
+- [x] SEC-010: Event Handler Middleware Retry → Implemented RetryConfig with exponential backoff, CircuitBreaker pattern with state management
 - [x] IMPL-007: Basic Auth Header Generation → Implemented base64 encoding in `basicAuth()`
 - [x] IMPL-015: Certificate Self-Signed Generation → Implemented RSA 2048-bit key generation, serial number, 1-year validity
 
@@ -109,14 +110,15 @@
 - **Completed**: 2026-03-24 - Implemented complete event dispatcher with async publishing, subscription management, retry logic, dead letter queue, priority-based sorting, filtering, and comprehensive integration tests with HandlerRegistry. All 22 test cases passing.
 
 ### SEC-010: Event Handler Middleware - Missing Retry Logic
-- [ ] Step 1: Implement `wrapWithMiddleware()` in registry.go
-- [ ] Step 2: Implement `wrapWithRetry()` with exponential backoff
-- [ ] Step 3: Add retry configuration to HandlerConfig
-- [ ] Step 4: Add circuit breaker pattern
-- [ ] Step 5: Add unit tests for retry logic
+- [x] Step 1: Implement `wrapWithMiddleware()` in registry.go
+- [x] Step 2: Implement `wrapWithRetry()` with exponential backoff
+- [x] Step 3: Add retry configuration to HandlerConfig
+- [x] Step 4: Add circuit breaker pattern
+- [x] Step 5: Add unit tests for retry logic
 - **File**: `pkg/events/registry.go:194-238`
 - **Spec**: `specs/EVENTS-HANDLERS.md` lines 194-238
 - **Effort**: 2-3 days
+- **Completed**: 2026-03-24 - Implemented RetryConfig with exponential backoff, jitter, and configurable delays. Added CircuitBreaker pattern with closed/open/half-open states, automatic state transitions, and failure counting. Updated HandlerInfo to use RetryConfig and CircuitBreaker. Added comprehensive unit tests (20+ test cases) covering retry logic, circuit breaker state transitions, and integration with HandlerRegistry. All tests passing.
 
 ### SEC-011: internal/builtin - 0% Test Coverage
 - [ ] Step 1: Create `internal/builtin/help_test.go`
@@ -420,6 +422,7 @@
 | 2026-03-22 | 0 | 164 | 0 | 0% |
 | 2026-03-24 | 7 | 157 | 157 | 4.3% |
 | 2026-03-24 | 8 | 156 | 145 | 4.9% |
+| 2026-03-24 | 9 | 155 | 140 | 5.5% |
 | Target | 164 | 0 | 157 | 100% |
 
 **Baby Steps Format**: All gaps use `- [ ] Step N: Description` format for Ralph loop processing.
