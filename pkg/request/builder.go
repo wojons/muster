@@ -3,6 +3,7 @@ package request
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -95,7 +96,8 @@ func (b *Builder) WithAPIKey(key, value string) *Builder {
 }
 
 func (b *Builder) basicAuth(username, password string) string {
-	return ""
+	credentials := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(credentials))
 }
 
 func (b *Builder) JSONBody(data interface{}) *Builder {
