@@ -198,15 +198,17 @@
 - **Effort**: 1 week
 - **Completed**: 2026-03-24 - Implemented complete cryptographic toolkit including RSA-OAEP (4096-bit minimum), ECDSA P-384 signatures, AES-256-GCM encryption, ChaCha20-Poly1305 AEAD, PBKDF2 and Argon2id key derivation, key rotation with policies, algorithm negotiation, HMAC, HKDF, ECDH shared secret derivation, and encrypted data encoding. Added comprehensive unit tests (35+ functions) covering encryption/decryption, signing/verification, key derivation, password hashing, key storage, rotation, and algorithm negotiation. All tests pass with zero lint errors.
 
-### ADV-004: API Inventory Protocol - NOT IMPLEMENTED
-- [ ] Step 1: Create `pkg/inventory/protocol.go`
-- [ ] Step 2: Implement inventory protocol endpoint
-- [ ] Step 3: Add request/response handling
-- [ ] Step 4: Implement inventory synchronization
-- [ ] Step 5: Add unit tests
+### ADV-004: API Inventory Protocol - COMPLETE
+- [x] Step 1: Create `pkg/inventory/protocol.go` - Implemented complete protocol client with ETag caching, compression support, and error handling
+- [x] Step 2: Implement inventory protocol endpoint - Added `/_inventory.json` endpoint support with proper request headers (X-Client-Version, X-Fingerprint, Authorization)
+- [x] Step 3: Add request/response handling - Implemented full request/response handling with version negotiation, signature verification, and content negotiation
+- [x] Step 4: Implement inventory synchronization - Added ProtocolCache with TTL-based caching, ETag support, and 304 Not Modified handling
+- [x] Step 5: Add unit tests - Created comprehensive test suite (40+ test functions) covering caching, error handling, redirects, signature verification, compression, and retry logic
+- **Files**: `pkg/inventory/protocol.go` (630 lines), `pkg/inventory/protocol_test.go` (688 lines)
 - **Spec**: `specs/API-INVENTORY-PROTOCOL.md`
-- **Impact**: Cannot sync API inventories
-- **Effort**: 1 week
+- **Tests**: All 40+ tests passing, zero lint errors
+- **Impact**: Clients can now discover server capabilities through standardized inventory protocol
+- **Completed**: 2026-03-24 - Implemented complete API inventory protocol with ProtocolClient, ProtocolCache, error types, signature verification, compression support, ETag caching, redirect handling, and comprehensive unit tests
 
 ### ADV-005: Canonical Interfaces - INCOMPLETE
 - [ ] Step 1: Implement `CanonicalizeRequest()` in `pkg/httputil/canonical.go`
