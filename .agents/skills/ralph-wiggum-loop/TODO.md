@@ -184,17 +184,19 @@
 - **Effort**: 1-2 weeks
 - **Completed**: 2026-03-24 - Implemented complete tenant isolation system in `pkg/tenant/context.go` with context propagation, tenant resolvers (Header, Subdomain, JWT, Chain), middleware, in-memory store, rate limiting with token bucket, access control permissions, security enforcer with isolation levels, caching with namespace isolation, storage isolation, database schema management, quota management, and tenant lifecycle provisioning. Added comprehensive unit tests (30+ test functions) covering all components including validation, context management, resolvers, middleware, stores, rate limiting, caching, quotas, storage, database, and provisioner. All tests pass with zero lint errors.
 
-### ADV-003: Crypto Implementation Gaps
-- [ ] Step 1: Add RSA encryption/decryption in `pkg/auth/crypto.go`
-- [ ] Step 2: Add ECDSA signature verification
-- [ ] Step 3: Implement key rotation mechanism
-- [ ] Step 4: Add PBKDF2 key derivation
-- [ ] Step 5: Add Argon2 key derivation (optional)
-- [ ] Step 6: Add crypto algorithm negotiation
-- [ ] Step 7: Add unit tests
+### ADV-003: Crypto Implementation Gaps - COMPLETE
+- [x] Step 1: Add RSA encryption/decryption in `pkg/auth/crypto.go` - Implemented RSA-OAEP encryption/decryption with SHA-256
+- [x] Step 2: Add ECDSA signature verification - Implemented ECDSA P-384 signing and verification with SHA-384
+- [x] Step 3: Implement key rotation mechanism - Implemented KeyRotator with policy-based rotation, emergency rotation, and operation counting
+- [x] Step 4: Add PBKDF2 key derivation - Implemented PBKDF2-HMAC-SHA256 with configurable iterations and key length
+- [x] Step 5: Add Argon2 key derivation - Implemented Argon2id with default and custom parameters, plus password hashing/verification
+- [x] Step 6: Add crypto algorithm negotiation - Implemented NegotiateAlgorithm() for client/server algorithm matching
+- [x] Step 7: Add comprehensive unit tests - Created crypto_test.go with 35+ test functions covering all cryptographic operations
 - **Spec**: `specs/CRYPTO-IMPLEMENTATION.md`
-- **Current**: Only AES-GCM in keychain.go
+- **Files**: `pkg/auth/crypto.go` (807 lines), `pkg/auth/crypto_test.go` (844 lines)
+- **Tests**: All 35+ tests passing, zero lint errors
 - **Effort**: 1 week
+- **Completed**: 2026-03-24 - Implemented complete cryptographic toolkit including RSA-OAEP (4096-bit minimum), ECDSA P-384 signatures, AES-256-GCM encryption, ChaCha20-Poly1305 AEAD, PBKDF2 and Argon2id key derivation, key rotation with policies, algorithm negotiation, HMAC, HKDF, ECDH shared secret derivation, and encrypted data encoding. Added comprehensive unit tests (35+ functions) covering encryption/decryption, signing/verification, key derivation, password hashing, key storage, rotation, and algorithm negotiation. All tests pass with zero lint errors.
 
 ### ADV-004: API Inventory Protocol - NOT IMPLEMENTED
 - [ ] Step 1: Create `pkg/inventory/protocol.go`
