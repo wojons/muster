@@ -82,16 +82,17 @@
 - **Completed**: 2026-03-24 - Implemented complete packaging validation for Debian (.deb), RPM, Alpine (.apk), and Arch (.pkg.tar.*) formats. Added ValidateDebianPackage with dpkg-deb checks, ValidateRPM with rpm/rpmlint integration, ValidateAlpine with apk verification, ValidateArch with namcap and tar validation. Implemented VerifySignature for GPG signature verification across all formats, ValidateBinary for ELF header validation, and ValidateAll orchestrator. Added comprehensive unit tests (28 test cases) covering error handling, validation result structure, command detection, architecture validation, and output parsing. Tests verify missing file errors, unknown formats, and platform-specific validation. Note: Full integration tests require dpkg-deb, rpm, apk, and namcap tools installed.
 
 ### SEC-007: Windows Credential Manager - Not Implemented
-- [ ] Step 1: Add golang.org/x/sys/windows dependency
-- [ ] Step 2: Implement `getMasterKeyFromWindowsKeychain()` with windows.CredentialRead
-- [ ] Step 3: Implement `WindowsKeychain.Set()` with CredWrite
-- [ ] Step 4: Implement `WindowsKeychain.Get()` with CredRead
-- [ ] Step 5: Implement `WindowsKeychain.Delete()` with CredDelete
-- [ ] Step 6: Implement `WindowsKeychain.List()` with CredEnumerate
-- [ ] Step 7: Add build tags for Windows-only compilation
-- [ ] Step 8: Add unit tests (skip on non-Windows)
+- [x] Step 1: Add golang.org/x/sys/windows dependency
+- [x] Step 2: Implement `getMasterKeyFromWindowsKeychain()` with windows.CredentialRead
+- [x] Step 3: Implement `WindowsKeychain.Set()` with CredWrite
+- [x] Step 4: Implement `WindowsKeychain.Get()` with CredRead
+- [x] Step 5: Implement `WindowsKeychain.Delete()` with CredDelete
+- [x] Step 6: Implement `WindowsKeychain.List()` with CredEnumerate
+- [x] Step 7: Add build tags for Windows-only compilation
+- [x] Step 8: Add unit tests (skip on non-Windows)
 - **File**: `pkg/auth/keychain.go:372-375`
 - **Effort**: 1 week
+- **Completed**: 2026-03-24 - Implemented complete Windows Credential Manager integration using Windows API calls (CredWrite, CredRead, CredDelete, CredEnumerate) via syscall to advapi32.dll. Created `pkg/auth/keychain_windows.go` with native implementation using CREDENTIAL struct and proper UTF-16 string handling. Updated `WindowsKeychain` to use native implementation with file-based fallback. Implemented `getMasterKeyFromWindowsKeychain()` for secure master key storage. Added comprehensive unit tests in `pkg/auth/keychain_test.go` covering Set/Get/Delete/List operations, error handling, password overwrites, empty passwords, long passwords, and Unicode support. All tests pass with race detector enabled.
 
 ### SEC-009: Events Dispatcher - Missing Implementation
 - [x] Step 1: Create `pkg/events/dispatcher.go`
