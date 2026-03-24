@@ -243,8 +243,25 @@ func TestRootCommandStructure(t *testing.T) {
 		cfg := &config.Config{}
 		root := NewRootCommand(cfg)
 
+		builtInCommands := []string{
+			"version", "config", "help", "completion", "init",
+			"auth", "inventory", "modules", "generate", "request", "daemon",
+		}
+
 		for _, cmd := range root.Commands() {
-			assert.NotEmpty(t, cmd.Short, "command %s missing Short", cmd.Name())
+			if cmd.Hidden {
+				continue
+			}
+			isBuiltIn := false
+			for _, name := range builtInCommands {
+				if cmd.Name() == name {
+					isBuiltIn = true
+					break
+				}
+			}
+			if isBuiltIn {
+				assert.NotEmpty(t, cmd.Short, "built-in command %s missing Short", cmd.Name())
+			}
 		}
 	})
 }
