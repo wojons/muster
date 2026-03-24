@@ -1,7 +1,7 @@
 completed_tasks: []
 current_task: null
 failed_attempts: 0
-iteration: 2
+iteration: 3
 last_failure: null
 last_task: null
 phase: build
