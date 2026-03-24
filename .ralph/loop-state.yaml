@@ -1,8 +1,8 @@
 completed_tasks: []
 current_task: null
 failed_attempts: 0
-iteration: 0
+iteration: 1
 last_failure: null
 last_task: null
-phase: idle
+phase: build
 started_at: '2026-03-24T00:00:00.000000+00:00'
