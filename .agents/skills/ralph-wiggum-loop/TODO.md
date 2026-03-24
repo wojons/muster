@@ -235,15 +235,16 @@
 - **Effort**: 1 day
 - **Completed**: 2026-03-24 - Implemented GetSystemProxy() that reads proxy environment variables, parses URL, detects SOCKS proxies, with comprehensive unit tests (20 test cases)
 
-### STUB-002: Linux PAC File Parsing - Returns nil
-- [ ] Step 1: Add JavaScript engine dependency (goja or otto)
-- [ ] Step 2: Implement PAC file parser with FindProxyForURL function
-- [ ] Step 3: Add PAC result interpretation (DIRECT, PROXY, SOCKS)
-- [ ] Step 4: Add caching for PAC evaluation results
-- [ ] Step 5: Add unit tests with sample PAC files
-- **File**: `internal/platform/linux/proxy.go:104`
-- **Function**: `ParsePACFile()` returns `nil, nil`
-- **Effort**: 2-3 days
+### STUB-002: Linux PAC File Parsing - COMPLETE
+- [x] Step 1: Add JavaScript engine dependency (otto) - Added github.com/robertkrimen/otto v0.5.1
+- [x] Step 2: Implement PAC file parser with FindProxyForURL function - Implemented ParsePACFile(), PACEvaluator.Initialize(), PACEvaluator.FindProxyForURL()
+- [x] Step 3: Add PAC result interpretation (DIRECT, PROXY, SOCKS) - Implemented parseResult() handling DIRECT, PROXY, SOCKS, SOCKS4, SOCKS5, HTTPS with both colon and space separators
+- [x] Step 4: Add caching for PAC evaluation results - Implemented PACCache with TTL-based caching, Get/Set/Clear methods, concurrent access support
+- [x] Step 5: Add unit tests with sample PAC files - Created pac_test.go with 30 comprehensive test functions covering all proxy types, caching, concurrency, and complex PAC scripts
+- **File**: `internal/platform/linux/proxy.go` (511 lines), `internal/platform/linux/pac_test.go` (483 lines)
+- **Tests**: All 49 tests passing (30 PAC tests + 19 proxy tests)
+- **Effort**: 1 day
+- **Completed**: 2026-03-24 - Implemented complete PAC file parsing using otto JavaScript engine. Added ParsePACFile() function, PACEvaluator with Initialize() and FindProxyForURL() methods, PACResult struct with proxy type detection, PACCache with TTL-based caching and concurrent access support. Implemented parseResult() handling DIRECT, PROXY, SOCKS, SOCKS4, SOCKS5, HTTPS formats with both colon and space separators, plus semicolon stripping for multiple proxy fallbacks. Added comprehensive unit tests (30 test functions) covering basic PAC parsing, all proxy types, caching, expiration, concurrent access, and complex PAC scripts with JavaScript functions (isPlainHostName, dnsDomainLevels, shExpMatch, etc.). All tests pass with zero critical lint errors.
 
 ### STUB-003: Linux SELinux GetFileContext - Returns nil
 - [ ] Step 1: Call getfilecon syscall via unix.Getfilecon
