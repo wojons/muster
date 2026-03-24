@@ -55,3 +55,7 @@ config.local.yaml
 
 # Cache
 .cache/
+
+# Merged specifications (generated files)
+merged-specs/
+
