@@ -29,6 +29,11 @@ type AuditFilter struct {
 	ResourceType string
 	Action       string
 	Success      *bool
+	// Pagination fields
+	Page     int // Page number (1-indexed, default: 1)
+	PageSize int // Items per page (default: 0 = no limit)
+	// Sorting
+	SortByTime string // "asc" or "desc" (default: "asc")
 }
 
 // AuditLogger provides secure, tamper-resistant audit logging with buffering,

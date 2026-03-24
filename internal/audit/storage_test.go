@@ -553,6 +553,310 @@ func TestFileStorage_Permissions(t *testing.T) {
 	assert.Equal(t, os.FileMode(0600), mode, "File should have 0600 permissions")
 }
 
+// TestMemoryStorage_Query_Pagination_Basic tests basic pagination.
+func TestMemoryStorage_Query_Pagination_Basic(t *testing.T) {
+	storage := NewMemoryStorage()
+	defer storage.Close()
+
+	// Add 10 events
+	for i := 0; i < 10; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		event.ID = string(rune('a' + i))
+		require.NoError(t, storage.Write(event))
+	}
+
+	// Test page 1 with page size 3
+	filter := AuditFilter{
+		Page:     1,
+		PageSize: 3,
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+	assert.Equal(t, "a", results[0].ID)
+	assert.Equal(t, "c", results[2].ID)
+
+	// Test page 2
+	filter.Page = 2
+	results, err = storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+	assert.Equal(t, "d", results[0].ID)
+	assert.Equal(t, "f", results[2].ID)
+
+	// Test page 4 (last partial page)
+	filter.Page = 4
+	results, err = storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "j", results[0].ID)
+}
+
+// TestMemoryStorage_Query_Pagination_EmptyPage tests pagination beyond available data.
+func TestMemoryStorage_Query_Pagination_EmptyPage(t *testing.T) {
+	storage := NewMemoryStorage()
+	defer storage.Close()
+
+	// Add 5 events
+	for i := 0; i < 5; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		require.NoError(t, storage.Write(event))
+	}
+
+	// Test page beyond available data
+	filter := AuditFilter{
+		Page:     10,
+		PageSize: 5,
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	assert.Empty(t, results)
+}
+
+// TestMemoryStorage_Query_Pagination_DefaultPage tests default page handling.
+func TestMemoryStorage_Query_Pagination_DefaultPage(t *testing.T) {
+	storage := NewMemoryStorage()
+	defer storage.Close()
+
+	// Add 5 events
+	for i := 0; i < 5; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		require.NoError(t, storage.Write(event))
+	}
+
+	// Test with page size but no page (should default to 1)
+	filter := AuditFilter{
+		PageSize: 3,
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+}
+
+// TestMemoryStorage_Query_Pagination_NoLimit tests no pagination when PageSize is 0.
+func TestMemoryStorage_Query_Pagination_NoLimit(t *testing.T) {
+	storage := NewMemoryStorage()
+	defer storage.Close()
+
+	// Add 10 events
+	for i := 0; i < 10; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		require.NoError(t, storage.Write(event))
+	}
+
+	// Test with PageSize = 0 (no pagination)
+	filter := AuditFilter{
+		Page:     1,
+		PageSize: 0,
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 10)
+}
+
+// TestMemoryStorage_Query_Sort_Ascending tests ascending sort order.
+func TestMemoryStorage_Query_Sort_Ascending(t *testing.T) {
+	storage := NewMemoryStorage()
+	defer storage.Close()
+
+	now := time.Now()
+	// Add events in reverse chronological order
+	for i := 4; i >= 0; i-- {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		event.ID = string(rune('a' + i))
+		event.Timestamp = now.Add(time.Duration(i) * time.Hour)
+		require.NoError(t, storage.Write(event))
+	}
+
+	// Test ascending sort (oldest first)
+	filter := AuditFilter{
+		SortByTime: "asc",
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 5)
+	// Should be in chronological order (oldest first)
+	assert.Equal(t, "e", results[0].ID)
+	assert.Equal(t, "a", results[4].ID)
+}
+
+// TestMemoryStorage_Query_Sort_Descending tests descending sort order.
+func TestMemoryStorage_Query_Sort_Descending(t *testing.T) {
+	storage := NewMemoryStorage()
+	defer storage.Close()
+
+	now := time.Now()
+	// Add events in chronological order
+	for i := 0; i < 5; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		event.ID = string(rune('a' + i))
+		event.Timestamp = now.Add(time.Duration(i) * time.Hour)
+		require.NoError(t, storage.Write(event))
+	}
+
+	// Test descending sort (newest first)
+	filter := AuditFilter{
+		SortByTime: "desc",
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 5)
+	// Should be in reverse chronological order (newest first)
+	assert.Equal(t, "e", results[0].ID)
+	assert.Equal(t, "a", results[4].ID)
+}
+
+// TestMemoryStorage_Query_Pagination_WithSort tests pagination with sorting.
+func TestMemoryStorage_Query_Pagination_WithSort(t *testing.T) {
+	storage := NewMemoryStorage()
+	defer storage.Close()
+
+	now := time.Now()
+	// Add 10 events
+	for i := 0; i < 10; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		event.ID = string(rune('a' + i))
+		event.Timestamp = now.Add(time.Duration(i) * time.Hour)
+		require.NoError(t, storage.Write(event))
+	}
+
+	// Test descending sort with pagination
+	filter := AuditFilter{
+		Page:       1,
+		PageSize:   3,
+		SortByTime: "desc",
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+	// Should get newest 3 events
+	assert.Equal(t, "j", results[0].ID)
+	assert.Equal(t, "h", results[2].ID)
+}
+
+// TestFileStorage_Query_Pagination tests pagination for file storage.
+func TestFileStorage_Query_Pagination(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "audit.log")
+
+	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
+	require.NoError(t, err)
+	defer storage.Close()
+
+	// Add 10 events
+	for i := 0; i < 10; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		event.ID = string(rune('a' + i))
+		err := storage.Write(event)
+		require.NoError(t, err)
+	}
+
+	// Test page 1
+	filter := AuditFilter{
+		Page:     1,
+		PageSize: 3,
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+	assert.Equal(t, "a", results[0].ID)
+
+	// Test page 2
+	filter.Page = 2
+	results, err = storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+	assert.Equal(t, "d", results[0].ID)
+}
+
+// TestFileStorage_Query_Sort tests sorting for file storage.
+func TestFileStorage_Query_Sort(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "audit.log")
+
+	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
+	require.NoError(t, err)
+	defer storage.Close()
+
+	now := time.Now()
+	// Add 5 events
+	for i := 0; i < 5; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		event.ID = string(rune('a' + i))
+		event.Timestamp = now.Add(time.Duration(i) * time.Hour)
+		err := storage.Write(event)
+		require.NoError(t, err)
+	}
+
+	// Test descending sort
+	filter := AuditFilter{
+		SortByTime: "desc",
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 5)
+	assert.Equal(t, "e", results[0].ID)
+	assert.Equal(t, "a", results[4].ID)
+}
+
+// TestMemoryStorage_Query_Pagination_InvalidPage tests invalid page number handling.
+func TestMemoryStorage_Query_Pagination_InvalidPage(t *testing.T) {
+	storage := NewMemoryStorage()
+	defer storage.Close()
+
+	// Add 5 events
+	for i := 0; i < 5; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		require.NoError(t, storage.Write(event))
+	}
+
+	// Test with page 0 (should default to 1)
+	filter := AuditFilter{
+		Page:     0,
+		PageSize: 3,
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+
+	// Test with negative page (should default to 1)
+	filter.Page = -1
+	results, err = storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+}
+
+// TestFileStorage_Query_Pagination_WithRotation tests pagination across rotated files.
+func TestFileStorage_Query_Pagination_WithRotation(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "audit.log")
+
+	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
+	require.NoError(t, err)
+	defer storage.Close()
+
+	// Add events and rotate
+	for i := 0; i < 5; i++ {
+		event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
+		event.ID = string(rune('a' + i))
+		err := storage.Write(event)
+		require.NoError(t, err)
+		if i == 2 {
+			err = storage.Rotate()
+			require.NoError(t, err)
+		}
+	}
+
+	// Query with pagination
+	filter := AuditFilter{
+		Page:     1,
+		PageSize: 3,
+	}
+	results, err := storage.Query(filter)
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+}
+
 // createTestEvent creates a test audit event with the given parameters.
 func createTestEvent(action string, level AuditLevel, category AuditCategory) *AuditEvent {
 	return &AuditEvent{

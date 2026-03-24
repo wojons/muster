@@ -41,7 +41,8 @@ func (m *MemoryStorage) Write(event *AuditEvent) error {
 }
 
 // Query retrieves audit events matching the filter criteria.
-// Returns events in chronological order (oldest first).
+// Returns events in chronological order (oldest first) by default.
+// Supports pagination via Page and PageSize fields.
 func (m *MemoryStorage) Query(filter AuditFilter) ([]*AuditEvent, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -58,7 +59,46 @@ func (m *MemoryStorage) Query(filter AuditFilter) ([]*AuditEvent, error) {
 		}
 	}
 
-	return results, nil
+	// Sort results
+	m.sortResults(results, filter)
+
+	// Apply pagination
+	return m.paginateResults(results, filter), nil
+}
+
+// sortResults sorts the results based on the filter's SortByTime field.
+func (m *MemoryStorage) sortResults(results []*AuditEvent, filter AuditFilter) {
+	if filter.SortByTime == "desc" {
+		// Sort descending (newest first)
+		for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
+			results[i], results[j] = results[j], results[i]
+		}
+	}
+	// Default is ascending (oldest first) - no action needed
+}
+
+// paginateResults applies pagination to the results.
+func (m *MemoryStorage) paginateResults(results []*AuditEvent, filter AuditFilter) []*AuditEvent {
+	if filter.PageSize <= 0 {
+		return results // No pagination
+	}
+
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+
+	startIdx := (page - 1) * filter.PageSize
+	if startIdx >= len(results) {
+		return []*AuditEvent{} // Empty page
+	}
+
+	endIdx := startIdx + filter.PageSize
+	if endIdx > len(results) {
+		endIdx = len(results)
+	}
+
+	return results[startIdx:endIdx]
 }
 
 // matchesFilter checks if an event matches the given filter criteria.
@@ -294,6 +334,7 @@ func (f *FileStorage) rotate() error {
 
 // Query retrieves audit events matching the filter criteria.
 // This reads from all log files including rotated ones.
+// Supports pagination via Page and PageSize fields.
 func (f *FileStorage) Query(filter AuditFilter) ([]*AuditEvent, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -326,7 +367,46 @@ func (f *FileStorage) Query(filter AuditFilter) ([]*AuditEvent, error) {
 		results = append(results, events...)
 	}
 
-	return results, nil
+	// Sort results
+	f.sortResults(results, filter)
+
+	// Apply pagination
+	return f.paginateResults(results, filter), nil
+}
+
+// sortResults sorts the results based on the filter's SortByTime field.
+func (f *FileStorage) sortResults(results []*AuditEvent, filter AuditFilter) {
+	if filter.SortByTime == "desc" {
+		// Sort descending (newest first)
+		for i, j := 0, len(results)-1; i < j; i, j = i+1, j-1 {
+			results[i], results[j] = results[j], results[i]
+		}
+	}
+	// Default is ascending (oldest first) - no action needed
+}
+
+// paginateResults applies pagination to the results.
+func (f *FileStorage) paginateResults(results []*AuditEvent, filter AuditFilter) []*AuditEvent {
+	if filter.PageSize <= 0 {
+		return results // No pagination
+	}
+
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+
+	startIdx := (page - 1) * filter.PageSize
+	if startIdx >= len(results) {
+		return []*AuditEvent{} // Empty page
+	}
+
+	endIdx := startIdx + filter.PageSize
+	if endIdx > len(results) {
+		endIdx = len(results)
+	}
+
+	return results[startIdx:endIdx]
 }
 
 // queryFile reads and filters events from a single file.
