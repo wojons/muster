@@ -4,24 +4,24 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/openapi-cli/openapi-cli/test/util"
 )
 
 func TestRedisCache_Get(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
-	ctx := context.Background()
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 	defer func() { _ = cache.Close() }()
 
+	ctx := context.Background()
 	value := Value{
 		Data:      []byte("test-data"),
 		CreatedAt: time.Now(),
@@ -44,21 +44,19 @@ func TestRedisCache_Get(t *testing.T) {
 }
 
 func TestRedisCache_Get_NotFound(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
-	ctx := context.Background()
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 	defer func() { _ = cache.Close() }()
 
+	ctx := context.Background()
 	_, err = cache.Get(ctx, "non-existent-key")
 	if err != ErrNotFound {
 		t.Errorf("Get() error = %v, want ErrNotFound", err)
@@ -66,25 +64,22 @@ func TestRedisCache_Get_NotFound(t *testing.T) {
 }
 
 func TestRedisCache_Set(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
-	ctx := context.Background()
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 	defer func() { _ = cache.Close() }()
 
+	ctx := context.Background()
 	value := Value{
 		Data:      []byte("test-data"),
 		CreatedAt: time.Now(),
-		TTL:       time.Hour,
 	}
 
 	err = cache.Set(ctx, "test-key", value)
@@ -103,21 +98,19 @@ func TestRedisCache_Set(t *testing.T) {
 }
 
 func TestRedisCache_Set_WithTTL(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
-	ctx := context.Background()
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 	defer func() { _ = cache.Close() }()
 
+	ctx := context.Background()
 	value := Value{
 		Data:      []byte("test-data"),
 		CreatedAt: time.Now(),
@@ -137,21 +130,19 @@ func TestRedisCache_Set_WithTTL(t *testing.T) {
 }
 
 func TestRedisCache_Delete(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
-	ctx := context.Background()
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 	defer func() { _ = cache.Close() }()
 
+	ctx := context.Background()
 	value := Value{
 		Data:      []byte("test-data"),
 		CreatedAt: time.Now(),
@@ -172,21 +163,19 @@ func TestRedisCache_Delete(t *testing.T) {
 }
 
 func TestRedisCache_Has(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
-	ctx := context.Background()
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 	defer func() { _ = cache.Close() }()
 
+	ctx := context.Background()
 	value := Value{
 		Data:      []byte("test-data"),
 		CreatedAt: time.Now(),
@@ -213,21 +202,19 @@ func TestRedisCache_Has(t *testing.T) {
 }
 
 func TestRedisCache_Keys(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
-	ctx := context.Background()
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 	defer func() { _ = cache.Close() }()
 
+	ctx := context.Background()
 	value := Value{
 		Data:      []byte("test-data"),
 		CreatedAt: time.Now(),
@@ -248,21 +235,19 @@ func TestRedisCache_Keys(t *testing.T) {
 }
 
 func TestRedisCache_Stats(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
-	ctx := context.Background()
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 	defer func() { _ = cache.Close() }()
 
+	ctx := context.Background()
 	stats, err := cache.Stats(ctx)
 	if err != nil {
 		t.Fatalf("Stats() error = %v", err)
@@ -322,17 +307,15 @@ func TestRedisCache_Serialize(t *testing.T) {
 }
 
 func TestRedisCache_Close(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping Redis test in short mode")
-	}
+	redisContainer := testutil.NewTestRedisContainer(t)
 
 	cache, err := NewRedisCache(RedisConfig{
-		Addr:    "localhost:6379",
-		DB:      1,
+		Addr:    redisContainer.ConnectionString(),
+		DB:      0,
 		Timeout: 5 * time.Second,
 	})
 	if err != nil {
-		t.Skip("Redis not available:", err)
+		t.Fatalf("NewRedisCache() error = %v", err)
 	}
 
 	err = cache.Close()
