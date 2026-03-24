@@ -182,7 +182,7 @@ func extractOperationFromCommandAndSpec(cmd *cobra.Command, doc *openapi3.T) (pa
 
 // extractPathParamsFromPath extracts parameter names from a path template
 func extractPathParamsFromPath(path string) []string {
-	var params []string
+	params := make([]string, 0)
 	parts := strings.Split(path, "/")
 	for _, part := range parts {
 		if strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}") {
@@ -238,6 +238,9 @@ func toKebabCase(s string) string {
 
 // pluralize converts singular to plural (simple version)
 func pluralize(s string) string {
+	if s == "" {
+		return ""
+	}
 	return s + "s"
 }
 

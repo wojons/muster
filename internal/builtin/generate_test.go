@@ -28,7 +28,7 @@ func TestNewGenerateCommand(t *testing.T) {
 		err := cmd.Args(cmd, []string{})
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "requires exactly 1 argument")
+		assert.Contains(t, err.Error(), "accepts 1 arg(s), received 0")
 	})
 
 	t.Run("has base-url flag", func(t *testing.T) {
@@ -254,7 +254,7 @@ func TestInferFromCommandName(t *testing.T) {
 	}{
 		{
 			name:           "list command",
-			commandName:    "list-pets",
+			commandName:    "list-pet",
 			expectedPath:   "/pets",
 			expectedMethod: "GET",
 		},

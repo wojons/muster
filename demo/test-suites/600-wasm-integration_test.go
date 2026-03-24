@@ -93,6 +93,7 @@ func TestWASM_RuntimeIntegration(t *testing.T) {
 			MaxFileDescriptors:   32,
 			MaxFileSize:          5 * 1024 * 1024,
 			MaxConcurrentThreads: 2,
+			MaxFuel:              1_000_000_000, // 1 billion instructions
 		}
 
 		if err := limits.Validate(); err != nil {
