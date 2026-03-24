@@ -1,11 +1,17 @@
 package auth
 
 import (
+	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
+	"math/big"
 	"net/http"
 	"os"
 	"time"
@@ -126,7 +132,53 @@ func CreateMTLSClient(certManager *CertificateManager) (*http.Client, error) {
 }
 
 func GenerateSelfSignedCert(commonName string) (*Certificate, error) {
-	return nil, errors.New("self-signed cert generation not yet implemented")
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate RSA key: %w", err)
+	}
+
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate serial number: %w", err)
+	}
+
+	now := time.Now()
+	template := &x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			CommonName: commonName,
+		},
+		NotBefore:             now,
+		NotAfter:              now.Add(365 * 24 * time.Hour),
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create certificate: %w", err)
+	}
+
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	var certPEM bytes.Buffer
+	err = pem.Encode(&certPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode certificate PEM: %w", err)
+	}
+
+	return &Certificate{
+		Cert:       cert,
+		PrivateKey: priv,
+		PEM:        certPEM.Bytes(),
+	}, nil
 }
 
 func LoadCertificate(path string) (*Certificate, error) {
