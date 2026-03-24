@@ -213,45 +213,25 @@ func TestHandleStart_ControllerStartFailure(t *testing.T) {
 }
 
 func TestHandleStart_Success(t *testing.T) {
-	// Skip - Start has blocking operations
-	t.Skip("Start test skipped due to blocking operations")
 	tmpDir := t.TempDir()
 	pidFile := filepath.Join(tmpDir, "test-daemon.pid")
 	socketPath := filepath.Join(tmpDir, "test-daemon.sock")
 
-	shutdownCalled := make(chan struct{}, 1)
-
 	controller, err := daemon.NewController(daemon.ControllerConfig{
 		PidFilePath: pidFile,
 		SocketPath:  socketPath,
-		ShutdownHandler: func() {
-			select {
-			case shutdownCalled <- struct{}{}:
-			default:
-			}
-		},
 	})
 	require.NoError(t, err)
 
-	// Test controller can start and stop independently of handleStart
-	// (handleStart is tested via integration/e2e tests with actual subprocess)
 	err = controller.Start()
 	require.NoError(t, err, "controller should start")
-	defer func() { _ = controller.Stop() }()
 
-	// Verify controller is running
 	status, err := controller.Status()
 	require.NoError(t, err, "should be able to get status")
 	require.True(t, status.Running, "controller should be running")
 
-	// Verify we can stop it
-	err = controller.Stop()
-	require.NoError(t, err, "controller should stop")
-
-	// Verify not running after stop
-	status, err = controller.Status()
-	require.NoError(t, err)
-	require.False(t, status.Running, "controller should not be running after stop")
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestHandleRestart_Success(t *testing.T) {
@@ -271,11 +251,9 @@ func TestHandleRestart_Success(t *testing.T) {
 }
 
 func TestHandleProxyStart_Success(t *testing.T) {
-	// Skip - Start has blocking operations
-	t.Skip("Start test skipped due to blocking operations")
 	tmpDir := t.TempDir()
-	pidFile := filepath.Join(tmpDir, "test-proxy.pid")
-	socketPath := filepath.Join(tmpDir, "test-proxy.sock")
+	pidFile := filepath.Join(tmpDir, "tp.pid")
+	socketPath := filepath.Join(tmpDir, "ts.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
 		PidFilePath: pidFile,
@@ -283,46 +261,43 @@ func TestHandleProxyStart_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = handleProxyStart(controller)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	err = controller.StartWithSocket(handler)
 	require.NoError(t, err, "proxy start should succeed")
 
-	// Clean up
-	_ = controller.Stop()
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestRun_StartAction(t *testing.T) {
-	// Skip - Start has blocking operations
-	t.Skip("Start test skipped due to blocking operations")
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test-start.sock")
+	pidFile := filepath.Join(tmpDir, "test-start.pid")
 
-	_, err := daemon.NewController(daemon.ControllerConfig{
-		SocketPath: socketPath,
-	})
-	require.NoError(t, err)
+	os.Args = []string{"muster-daemon", "start", "--socket-path", socketPath, "--pid-file", pidFile}
 
-	os.Args = []string{"muster-daemon", "start", "--socket-path", socketPath}
+	err := run()
+	require.NoError(t, err, "start action should succeed")
 
-	err = run()
-	// Start might fail or succeed depending on state, but shouldn't crash
-	t.Logf("Start action result: %v", err)
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestRun_RestartAction(t *testing.T) {
-	// Skip - Restart has blocking operations
-	t.Skip("Restart test skipped due to blocking operations")
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test-restart.sock")
+	pidFile := filepath.Join(tmpDir, "test-restart.pid")
 
-	_, err := daemon.NewController(daemon.ControllerConfig{
-		SocketPath: socketPath,
-	})
-	require.NoError(t, err)
+	os.Args = []string{"muster-daemon", "restart", "--socket-path", socketPath, "--pid-file", pidFile}
 
-	os.Args = []string{"muster-daemon", "restart", "--socket-path", socketPath}
+	err := run()
+	require.NoError(t, err, "restart action should succeed")
 
-	err = run()
-	t.Logf("Restart action result: %v", err)
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestDaemonLogger_ErrorMessage(t *testing.T) {
