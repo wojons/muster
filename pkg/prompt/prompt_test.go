@@ -3,7 +3,6 @@ package prompt
 import (
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -146,28 +145,26 @@ func TestInputPrompt_AskValid(t *testing.T) {
 }
 
 func TestInputPrompt_AskWithDefault(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "\n"
 	go func() {
-		_, _ = w.WriteString("\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	prompt := NewInputPrompt("Enter name:")
 	prompt.Options.Default = "default value"
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -178,27 +175,29 @@ func TestInputPrompt_AskWithDefault(t *testing.T) {
 }
 
 func TestConfirmPrompt_AskYes(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "y\n"
+	writeDone := make(chan struct{})
 	go func() {
-		_, _ = w.WriteString("y\n")
-		_ = w.Close()
+		_, _ = w.Write([]byte(input))
+		close(writeDone)
 	}()
 
 	prompt := NewConfirmPrompt("Continue?")
 	result, err := prompt.Ask()
 
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
+	<-writeDone
+	_ = w.Close()
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -209,27 +208,25 @@ func TestConfirmPrompt_AskYes(t *testing.T) {
 }
 
 func TestConfirmPrompt_AskNo(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "n\n"
 	go func() {
-		_, _ = w.WriteString("n\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	prompt := NewConfirmPrompt("Continue?")
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -240,27 +237,25 @@ func TestConfirmPrompt_AskNo(t *testing.T) {
 }
 
 func TestConfirmPrompt_AskYesFull(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "yes\n"
 	go func() {
-		_, _ = w.WriteString("yes\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	prompt := NewConfirmPrompt("Continue?")
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -271,28 +266,26 @@ func TestConfirmPrompt_AskYesFull(t *testing.T) {
 }
 
 func TestSelectPrompt_AskValid(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "2\n"
 	go func() {
-		_, _ = w.WriteString("2\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	choices := []string{"Option A", "Option B", "Option C"}
 	prompt := NewSelectPrompt("Choose option:", choices)
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -303,27 +296,25 @@ func TestSelectPrompt_AskValid(t *testing.T) {
 }
 
 func TestTextPrompt_AskValidInput(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "test value\n"
 	go func() {
-		_, _ = w.WriteString("test value\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	prompt := NewTextPrompt("Name")
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -334,27 +325,25 @@ func TestTextPrompt_AskValidInput(t *testing.T) {
 }
 
 func TestNumberPrompt_AskValid(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "42\n"
 	go func() {
-		_, _ = w.WriteString("42\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	prompt := NewNumberPrompt("Age")
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -365,28 +354,26 @@ func TestNumberPrompt_AskValid(t *testing.T) {
 }
 
 func TestMultiSelectPrompt_AskValid(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "1, 3\n"
 	go func() {
-		_, _ = w.WriteString("1, 3\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	options := []string{"Option A", "Option B", "Option C"}
 	prompt := NewMultiSelectPrompt("Select options:", options)
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -397,28 +384,26 @@ func TestMultiSelectPrompt_AskValid(t *testing.T) {
 }
 
 func TestTextPrompt_AskWithDefault(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "\n"
 	go func() {
-		_, _ = w.WriteString("\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	prompt := NewTextPrompt("Name")
 	prompt.Default = "default value"
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
@@ -429,28 +414,26 @@ func TestTextPrompt_AskWithDefault(t *testing.T) {
 }
 
 func TestNumberPrompt_AskWithDefault(t *testing.T) {
+	oldStdin := os.Stdin
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	stdin := os.Stdin
 	os.Stdin = r
-	defer func() { os.Stdin = stdin }()
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
 
+	input := "\n"
 	go func() {
-		_, _ = w.WriteString("\n")
+		_, _ = w.Write([]byte(input))
 		_ = w.Close()
 	}()
 
 	prompt := NewNumberPrompt("Age")
 	prompt.Default = 10
 	result, err := prompt.Ask()
-
-	if serr, ok := err.(*os.PathError); ok && strings.Contains(serr.Error(), "bad file descriptor") {
-		t.Skip("Skipping test due to stdin redirection limitations")
-		return
-	}
 
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
