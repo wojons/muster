@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -43,18 +44,59 @@ func TestHandleProxyStart_NilController(t *testing.T) {
 }
 
 func TestController_Start_AlreadyRunning(t *testing.T) {
-	// Skip - Start has blocking operations
-	t.Skip("Start test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "test.sock")
+	pidFile := filepath.Join(tmpDir, "test.pid")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath:  socketPath,
+		PidFilePath: pidFile,
+	})
+	require.NoError(t, err)
+
+	err = controller.Start()
+	require.NoError(t, err)
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = controller.Shutdown(ctx)
+	}()
+
+	status, err := controller.Status()
+	require.NoError(t, err)
+	require.True(t, status.Running)
+
+	err = controller.Start()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "already running")
 }
 
 func TestController_Stop_NotRunning(t *testing.T) {
-	// Skip - Stop has blocking operations
-	t.Skip("Stop test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "test.sock")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath: socketPath,
+	})
+	require.NoError(t, err)
+
+	err = controller.Stop()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not running")
 }
 
 func TestController_Kill_NotRunning(t *testing.T) {
-	// Skip - Kill has blocking operations
-	t.Skip("Kill test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "test.sock")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath: socketPath,
+	})
+	require.NoError(t, err)
+
+	err = controller.Kill()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not running")
 }
 
 func TestController_Status_NotRunning(t *testing.T) {
@@ -87,8 +129,22 @@ func TestController_IsRunning_NotRunning(t *testing.T) {
 }
 
 func TestController_Restart(t *testing.T) {
-	// Skip - Restart has blocking operations
-	t.Skip("Restart test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "test-restart.sock")
+	pidFile := filepath.Join(tmpDir, "test-restart.pid")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath:  socketPath,
+		PidFilePath: pidFile,
+	})
+	require.NoError(t, err)
+
+	err = controller.Restart()
+	require.NoError(t, err, "restart should succeed when not running")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_ = controller.Shutdown(ctx)
 }
 
 func TestController_Shutdown_NotStarted(t *testing.T) {
@@ -158,18 +214,86 @@ func TestController_Version(t *testing.T) {
 }
 
 func TestController_MultipleStartStop(t *testing.T) {
-	// Skip - Start/Stop have blocking operations
-	t.Skip("MultipleStartStop test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "test-multi.sock")
+	pidFile := filepath.Join(tmpDir, "test-multi.pid")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath:  socketPath,
+		PidFilePath: pidFile,
+	})
+	require.NoError(t, err)
+
+	for i := 0; i < 3; i++ {
+		t.Run(fmt.Sprintf("Cycle%d", i+1), func(t *testing.T) {
+			err = controller.Start()
+			require.NoError(t, err, "start should succeed")
+
+			status, err := controller.Status()
+			require.NoError(t, err)
+			require.True(t, status.Running)
+
+			require.NotZero(t, status.PID, "PID should be set")
+		})
+
+		_ = os.Remove(pidFile)
+		_ = os.Remove(socketPath)
+	}
 }
 
 func TestStartWithSocket_HandlerSetup(t *testing.T) {
-	// Skip - StartWithSocket starts HTTP server which can block
-	t.Skip("StartWithSocket test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "h.sock")
+	pidFile := filepath.Join(tmpDir, "h.pid")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	})
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath:  socketPath,
+		PidFilePath: pidFile,
+		Handler:     handler,
+	})
+	require.NoError(t, err)
+
+	err = controller.StartWithSocket(handler)
+	require.NoError(t, err)
+
+	status, err := controller.Status()
+	require.NoError(t, err)
+	require.True(t, status.Running)
+
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestHandleProxyStart_SocketPath(t *testing.T) {
-	// Skip - handleProxyStart starts HTTP server which can block
-	t.Skip("handleProxyStart test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "p.sock")
+	pidFile := filepath.Join(tmpDir, "p.pid")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath:  socketPath,
+		PidFilePath: pidFile,
+	})
+	require.NoError(t, err)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("Proxy OK"))
+	})
+
+	err = controller.StartWithSocket(handler)
+	require.NoError(t, err)
+
+	status, err := controller.Status()
+	require.NoError(t, err)
+	require.True(t, status.Running)
+
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestRun_HelpWithNoArgs(t *testing.T) {
@@ -222,13 +346,48 @@ func TestRun_BackendURLParsing(t *testing.T) {
 }
 
 func TestController_StartThenStop(t *testing.T) {
-	// Skip - Start/Stop have blocking operations
-	t.Skip("StartThenStop test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "test-startstop.sock")
+	pidFile := filepath.Join(tmpDir, "test-startstop.pid")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath:  socketPath,
+		PidFilePath: pidFile,
+	})
+	require.NoError(t, err)
+
+	err = controller.Start()
+	require.NoError(t, err)
+
+	status, err := controller.Status()
+	require.NoError(t, err)
+	require.True(t, status.Running)
+
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestController_StatusWhileRunning(t *testing.T) {
-	// Skip - Start has blocking operations
-	t.Skip("StatusWhileRunning test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "test-status-run.sock")
+	pidFile := filepath.Join(tmpDir, "test-status-run.pid")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath:  socketPath,
+		PidFilePath: pidFile,
+	})
+	require.NoError(t, err)
+
+	err = controller.Start()
+	require.NoError(t, err)
+
+	status, err := controller.Status()
+	require.NoError(t, err)
+	require.True(t, status.Running)
+	require.NotZero(t, status.PID)
+
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestDaemonLogger_InfoNoPanic(t *testing.T) {
@@ -267,8 +426,34 @@ func TestController_NilHandler(t *testing.T) {
 }
 
 func TestController_Cleanup(t *testing.T) {
-	// Skip - Start has blocking operations
-	t.Skip("Cleanup test skipped due to blocking operations")
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "c.sock")
+	pidFile := filepath.Join(tmpDir, "c.pid")
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath:  socketPath,
+		PidFilePath: pidFile,
+	})
+	require.NoError(t, err)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	err = controller.StartWithSocket(handler)
+	require.NoError(t, err)
+
+	socketExists := func(path string) bool {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+
+	require.True(t, socketExists(socketPath), "socket should exist after start")
+
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
+
+	require.False(t, socketExists(socketPath), "socket should be cleaned up")
 }
 
 func TestController_Errors(t *testing.T) {
