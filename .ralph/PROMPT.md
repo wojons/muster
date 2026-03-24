@@ -54,6 +54,20 @@ searxng_searxng_web_search(query="golang sqlite transaction best practice")
 searxng_web_url_read(url="https://...")
 ```
 
+### Testing with Docker (Locally Installed):
+```bash
+# Run integration tests using Docker
+docker-compose up -d
+make test-integration
+
+# Run full demo
+make demo
+
+# Build and test Docker images
+docker build -t muster-cli:latest .
+docker run --rm muster-cli:latest ./openapi-cli version
+```
+
 ---
 
 ## 🚀 VERIFICATION RESULTS (2026-03-08)
