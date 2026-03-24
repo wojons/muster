@@ -14,7 +14,7 @@
 
 | Category | Critical | High | Medium | Low | Total |
 |----------|----------|------|--------|-----|-------|
-| Security | 4 | 8 | 5 | 2 | 19 |
+| Security | 3 | 8 | 5 | 2 | 18 |
 | Platform (Linux/Windows) | 3 | 6 | 4 | 2 | 15 |
 | Events System | 1 | 2 | 2 | 1 | 6 |
 | Test Coverage | 1 | 8 | 6 | 4 | 19 |
@@ -26,11 +26,11 @@
 | WASM/Runtime | 0 | 3 | 5 | 2 | 10 |
 | Packaging | 0 | 0 | 4 | 2 | 6 |
 | **Adversary-Found** | **5** | **7** | **7** | **3** | **22** |
-| **TOTAL** | **11** | **50** | **65** | **35** | **161** |
+| **TOTAL** | **10** | **50** | **65** | **35** | **160** |
 
 ---
 
-## ✅ COMPLETED (9 items)
+## ✅ COMPLETED (10 items)
 
 - [x] SEC-001: Audit credential redaction → Added `redactIfSensitive()`, `SensitiveString`
 - [x] SEC-002: Linux Secret Service → Created adapter in `pkg/auth/keychain_secret_service_linux.go`
@@ -44,7 +44,7 @@
 
 ---
 
-## 🔴 CRITICAL GAPS (6 remaining - Block Production)
+## 🔴 CRITICAL GAPS (5 remaining - Block Production)
 
 ### SEC-004: Seccomp BPF Filtering - Complete Stub
 - [x] Step 1: Research libseccomp Go bindings (github.com/seccomp/libseccomp-golang)
@@ -426,6 +426,7 @@
 | 2026-03-24 | 7 | 157 | 157 | 4.3% |
 | 2026-03-24 | 8 | 156 | 145 | 4.9% |
 | 2026-03-24 | 9 | 155 | 140 | 5.5% |
+| 2026-03-24 | 10 | 154 | 132 | 6.1% |
 | Target | 164 | 0 | 157 | 100% |
 
 **Baby Steps Format**: All gaps use `- [ ] Step N: Description` format for Ralph loop processing.
