@@ -285,13 +285,17 @@
 - **Completed**: 2026-03-24 - Implemented complete SELinux context management with all required functions. See STUB-003 for details.
 
 ### IMPL-002: NetworkManager D-Bus - Complete Stub
-- [ ] Step 1: Implement `GetConnectionState()` via D-Bus
-- [ ] Step 2: Implement `GetActiveConnections()` via D-Bus
-- [ ] Step 3: Implement `GetDevices()` via D-Bus
-- [ ] Step 4: Implement `CheckConnectivity()` via D-Bus
-- [ ] Step 5: Implement `GetPrimaryConnection()` via D-Bus
-- **File**: `pkg/platform/networkmanager.go:35-62`
+- [x] Step 1: Implement `GetConnectionState()` via D-Bus - Implemented GetConnectivity() returning ConnectionState enum
+- [x] Step 2: Implement `GetActiveConnections()` via D-Bus - Implemented with getActiveConnectionDetails() helper
+- [x] Step 3: Implement `GetDevices()` via D-Bus - Implemented with getDeviceDetails() helper supporting Generic/Wired/Wireless devices
+- [x] Step 4: Implement `CheckConnectivity()` via D-Bus - Implemented checking for ConnectionStateConnectedGlobal
+- [x] Step 5: Implement `GetPrimaryConnection()` via D-Bus - Implemented using PrimaryConnection property
+- [x] Step 6: Add comprehensive unit tests - Created networkmanager_test.go with 30+ test functions covering all methods, string converters, and structs
+- **File**: `pkg/platform/networkmanager.go` (562 lines), `pkg/platform/networkmanager_test.go` (477 lines)
+- **Tests**: 30+ test functions, all passing (skips on non-Linux systems without D-Bus/NetworkManager)
+- **Lint**: 0 issues
 - **Effort**: 1 week
+- **Completed**: 2026-03-24 - Implemented complete NetworkManager D-Bus integration using godbus/dbus/v5 library. Added GetConnectionState, GetActiveConnections, GetDevices, CheckConnectivity, GetPrimaryConnection, GetProxySettings, GetDNS, GetGateway, GetNetworkSettings, and helper methods. Implemented three predefined profiles (Minimal, Standard, Relaxed) matching spec. Added comprehensive unit tests (30+ test cases) covering all public APIs, string converters, and data structures. Tests properly skip on systems without NetworkManager or D-Bus. Lint passes with zero errors.
 
 ### IMPL-003: HTTP Retry with Exponential Backoff
 - [ ] Step 1: Add `BackoffType` enum (constant, exponential, linear)
