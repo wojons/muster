@@ -360,10 +360,11 @@
 - **Completed**: 2026-03-24 - Implemented complete mock keychain infrastructure for cross-platform testing. Created `MockKeychain` with thread-safe in-memory storage, error simulation, and helper methods. Created `MockMacOSKeychain` wrapper to simulate MacOS keychain behavior. Updated `keychain_test.go` to remove `//go:build windows` constraint and replace `security` command detection with mock-based tests. All 5 previously skipped tests (TestMacOSKeychain_Set, Get, GetNotFound, Delete, List) now pass on all platforms without external dependencies. Fixed lint errors for unchecked error returns. Tests verify Set/Get/Delete/List operations, error handling (ErrNotFound), and mock functionality.
 
 ### TEST-005: E2E Integration Tests - 11 Skipped
-- [ ] Step 1: Add integration test CI job
-- [ ] Step 2: Remove testing.Short() checks
+- [x] Step 1: Add integration test CI job
+- [x] Step 2: Remove testing.Short() checks
 - **Directory**: `test/e2e/`
 - **Effort**: 1 day
+- **Completed**: 2026-03-24 - Added integration test CI job to `.github/workflows/build.yml` that runs `make test-integration` and `make test-e2e`. Removed all 11 `testing.Short()` checks from E2E test files (`auth_real_integration_test.go`, `full_stack_integration_test.go`, `real_integration_test.go`, `daemon_test.go`, `mcp_real_integration_test.go`). All E2E tests now run in CI and pass successfully (21 tests passing, 1 skipped by design). Tests verify complete system integration including OpenAPI spec parsing, command generation, MCP tool registration, HTTP request building/execution, and response parsing.
 
 ---
 

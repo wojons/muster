@@ -36,10 +36,6 @@ import (
 //
 // This is NOT a toy test - it proves the ENTIRE STACK integrates.
 func TestFullStackIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -227,10 +223,6 @@ func TestFullStackIntegration(t *testing.T) {
 // TestCompleteWorkflow traces a real user workflow end-to-end:
 // User loads spec → Gets commands → Makes MCP calls → Gets results
 func TestCompleteWorkflow(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	t.Log("Complete workflow test: OpenAPI → CLI → MCP → HTTP → Response")
 
 	// This would be a more expensive end-to-end test

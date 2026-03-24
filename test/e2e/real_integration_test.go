@@ -27,10 +27,6 @@ import (
 //
 // This is NOT a toy test - it traces actual data flow through the system.
 func TestRealCLIIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	ctx := context.Background()
 
 	// Step 1: Load and parse OpenAPI spec
@@ -252,10 +248,6 @@ func findOperation(ops []*openapi.Operation, path, method string) *openapi.Opera
 // that validates the complete system workflow:
 // OpenAPI Spec → Parse → Generate Commands → Execute Request → Handle Response
 func TestRealEndToEndFlow(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

@@ -27,10 +27,6 @@ import (
 //
 // This is NOT a toy test - it traces actual MCP protocol flow.
 func TestRealMCPIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -138,10 +134,6 @@ func TestRealMCPIntegration(t *testing.T) {
 
 // TestMCPJSONRPCProtocol tests MCP JSON-RPC protocol handling
 func TestMCPJSONRPCProtocol(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -195,10 +187,6 @@ func TestMCPJSONRPCProtocol(t *testing.T) {
 // 4. Execute tool via tools/call
 // 5. Get HTTP response
 func TestMCPEndToEndFlow(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
