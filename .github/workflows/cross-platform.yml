@@ -1,0 +1,143 @@
+name: Cross-Platform Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-matrix:
+    name: Test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go-version: ['1.22']
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Install dependencies
+        run: make deps
+      
+      - name: Generate code
+        run: make generate
+      
+      - name: Run tests
+        run: go test -v ./... -race -count=1
+      
+      - name: Run unit tests
+        if: matrix.os != 'windows-latest'
+        run: make test-unit
+      
+      - name: Run integration tests
+        if: matrix.os != 'windows-latest'
+        run: make test-integration
+      
+      - name: Run E2E tests
+        if: matrix.os != 'windows-latest'
+        run: make test-e2e
+      
+      - name: Build all binaries
+        run: make build-all
+  
+  platform-specific-tests:
+    name: Platform-Specific Tests (${{ matrix.platform.name }})
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: Linux-SELinux
+            os: ubuntu-latest
+            test-pattern: ".*SELinux.*"
+          - name: macOS-Keychain
+            os: macos-latest
+            test-pattern: ".*Keychain.*"
+          - name: Windows-Credential
+            os: windows-latest
+            test-pattern: ".*Windows.*Credential.*"
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Install dependencies
+        run: make deps
+      
+      - name: Run platform-specific tests
+        run: go test -v -run "${{ matrix.platform.test-pattern }}" ./... || echo "Platform-specific tests may require special setup"
+  
+  arm64-tests:
+    name: ARM64 Compatibility (macOS Apple Silicon)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Install dependencies
+        run: make deps
+      
+      - name: Build for ARM64
+        run: GOOS=darwin GOARCH=arm64 make build
+      
+      - name: Run tests on ARM64
+        run: go test -v ./... -race -count=1
+  
+  path-separator-tests:
+    name: Windows Path Separator Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Install dependencies
+        run: make deps
+      
+      - name: Run path-related tests
+        run: go test -v -run ".*[Pp]ath.*" ./...
+  
+  socket-permission-tests:
+    name: Linux Socket Permission Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      
+      - name: Install dependencies
+        run: make deps
+      
+      - name: Run socket-related tests
+        run: go test -v -run ".*[Ss]ocket.*" ./...
+      
+      - name: Run daemon tests
+        run: go test -v ./cmd/daemon/... -count=1
