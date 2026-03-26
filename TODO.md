@@ -946,19 +946,24 @@
 
 ### Code Coverage Gaps (CRITICAL: 5)
 
-#### COV-001: Monitoring/Metrics System - COMPLETELY UNTESTED
+#### COV-001: Monitoring/Metrics System - ✅ COMPLETE
 - **Priority**: CRITICAL
 - **File**: `internal/monitoring/metrics.go` (128-291)
 - **Gap**: ALL 19 functions have 0% coverage
 - **Functions**: `NewMetricRecorder()`, `RecordCommandExecution()`, `RecordMCPRequest()`, `RecordCacheHit/Miss()`, `NewMetricsServer()`, `Start()`, `Shutdown()`, health endpoints
 - **Impact**: Production observability blind spot - cannot monitor system health, command execution rates, error rates, MCP connections, daemon performance
 - **Baby Steps**:
-  - [ ] Step 1: Test metric recorder initialization with different tenant IDs
-  - [ ] Step 2: Verify all recording methods correctly increment Prometheus metrics
-  - [ ] Step 3: Test metrics server startup/shutdown lifecycle
-  - [ ] Step 4: Validate health check endpoints return correct JSON responses
-  - [ ] Step 5: Test thread safety of concurrent metric recording
+  - [x] Step 1: Test metric recorder initialization with different tenant IDs - Implemented TestNewMetricRecorder_DifferentTenantIDs with 4 sub-tests
+  - [x] Step 2: Verify all recording methods correctly increment Prometheus metrics - Implemented 15+ test functions for all recording methods
+  - [x] Step 3: Test metrics server startup/shutdown lifecycle - Implemented TestMetricsServer_Start, TestMetricsServer_Shutdown, TestMetricsServer_Shutdown_NoServer
+  - [x] Step 4: Validate health check endpoints return correct JSON responses - Implemented TestMetricsServer_HealthEndpoints with 4 sub-tests, TestHealthHandler_ResponseFormat
+  - [x] Step 5: Test thread safety of concurrent metric recording - Implemented TestMetricRecorder_ConcurrentAccess with 100 goroutines, TestMetricsServer_ConcurrentHealthChecks with 50 goroutines
 - **Estimate**: 3-4 days
+- **Actual**: 1 day
+- **Completed**: 2026-03-26 - Implemented comprehensive unit tests for monitoring/metrics system. Added 45+ test functions covering metric recorder initialization, all recording methods (command execution, MCP requests, tool executions, proxy requests, cache hits/misses, gauge operations), metrics server lifecycle (start, shutdown, health endpoints), concurrent access safety with race detector, health endpoint response format validation, metrics endpoint content verification, and edge cases (nil logger, context cancellation, port conflicts). All tests pass with zero lint errors and race detector enabled. Fixed label cardinality bugs in production code (CommandDuration and MCPRequests metric definitions).
+- **Files**: `internal/monitoring/metrics_test.go` (716 lines, 45+ test functions)
+- **Tests**: All 45+ tests passing with race detector enabled
+- **Lint**: 0 issues
 
 #### COV-002: Command Store Loader - COMPLETELY UNTESTED
 - **Priority**: CRITICAL
