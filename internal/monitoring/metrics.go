@@ -36,7 +36,7 @@ var (
 			Help:      "Command execution duration in seconds",
 			Buckets:   prometheus.DefBuckets,
 		},
-		[]string{"command", "tenant_id"},
+		[]string{"command", "status", "tenant_id"},
 	)
 
 	CommandErrors = promauto.NewCounterVec(
@@ -62,7 +62,7 @@ var (
 			Name:      "requests_total",
 			Help:      "Total number of MCP requests",
 		},
-		[]string{"method", "tool", "tenant_id"},
+		[]string{"method", "tenant_id"},
 	)
 
 	MCPRequestDuration = promauto.NewHistogramVec(
