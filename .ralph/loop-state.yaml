@@ -2,10 +2,11 @@ completed_tasks:
 - 'Step 1: Research libseccomp Go bindings (github.com/seccomp/libseccomp-golang)'
 - 'Step 1: Create mock API server with pagination support (500+ items, cursor-based)'
 - 'Step 1: Add fuzzing test for OpenAPI spec parsing (malformed YAML/JSON)'
+- 'Step 1: Add tools/call test with required parameters'
 current_task: null
 failed_attempts: 0
-iteration: 42
+iteration: 43
 last_failure: null
-last_task: 'Step 1: Add fuzzing test for OpenAPI spec parsing (malformed YAML/JSON)'
+last_task: 'Step 1: Add tools/call test with required parameters'
 phase: build
 started_at: '2026-03-24T00:00:00.000000+00:00'
