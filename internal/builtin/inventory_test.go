@@ -2,6 +2,8 @@ package builtin
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,49 +98,67 @@ func TestNewInventoryFetchCommand(t *testing.T) {
 	})
 
 	t.Run("executes with host", func(t *testing.T) {
-		cmd := newInventoryFetchCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInventoryFetchCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Fetching inventory from")
 		assert.Contains(t, output, "api.example.com")
 	})
 
 	t.Run("supports json output", func(t *testing.T) {
-		cmd := newInventoryFetchCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInventoryFetchCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 		cmd.Flags().Set("output", "json")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Output format: JSON")
 	})
 
 	t.Run("supports yaml output", func(t *testing.T) {
-		cmd := newInventoryFetchCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInventoryFetchCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 		cmd.Flags().Set("output", "yaml")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Output format: YAML")
 	})
@@ -168,29 +188,42 @@ func TestNewInventoryListCommand(t *testing.T) {
 	})
 
 	t.Run("executes without cache-dir", func(t *testing.T) {
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		cmd := newInventoryListCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Cached inventories:")
 	})
 
 	t.Run("executes with cache-dir", func(t *testing.T) {
-		cmd := newInventoryListCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInventoryListCommand()
 		cmd.Flags().Set("cache-dir", "/tmp/cache")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Cache directory: /tmp/cache")
 	})
@@ -233,33 +266,45 @@ func TestNewInventoryValidateCommand(t *testing.T) {
 	})
 
 	t.Run("executes with host", func(t *testing.T) {
-		cmd := newInventoryValidateCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInventoryValidateCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Validating inventory from")
 		assert.Contains(t, output, "Inventory is valid")
 	})
 
 	t.Run("executes with verbose output", func(t *testing.T) {
-		cmd := newInventoryValidateCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInventoryValidateCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 		cmd.Flags().Set("verbose", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Validating resources...")
 		assert.Contains(t, output, "Validating operations...")
