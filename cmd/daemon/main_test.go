@@ -277,10 +277,19 @@ func TestRun_StartAction(t *testing.T) {
 	socketPath := filepath.Join(tmpDir, "test-start.sock")
 	pidFile := filepath.Join(tmpDir, "test-start.pid")
 
-	os.Args = []string{"muster-daemon", "start", "--socket-path", socketPath, "--pid-file", pidFile}
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		PidFilePath: pidFile,
+		SocketPath:  socketPath,
+		Logger:      &daemonLogger{},
+	})
+	require.NoError(t, err, "should create controller")
 
-	err := run()
-	require.NoError(t, err, "start action should succeed")
+	err = controller.Start()
+	require.NoError(t, err, "start should succeed")
+
+	status, err := controller.Status()
+	require.NoError(t, err, "should get status")
+	require.True(t, status.Running, "controller should be running")
 
 	_ = os.Remove(pidFile)
 	_ = os.Remove(socketPath)
@@ -291,10 +300,19 @@ func TestRun_RestartAction(t *testing.T) {
 	socketPath := filepath.Join(tmpDir, "test-restart.sock")
 	pidFile := filepath.Join(tmpDir, "test-restart.pid")
 
-	os.Args = []string{"muster-daemon", "restart", "--socket-path", socketPath, "--pid-file", pidFile}
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		PidFilePath: pidFile,
+		SocketPath:  socketPath,
+		Logger:      &daemonLogger{},
+	})
+	require.NoError(t, err, "should create controller")
 
-	err := run()
-	require.NoError(t, err, "restart action should succeed")
+	err = handleRestart(controller)
+	require.NoError(t, err, "restart should succeed")
+
+	status, err := controller.Status()
+	require.NoError(t, err, "should get status after restart")
+	require.True(t, status.Running, "controller should be running after restart")
 
 	_ = os.Remove(pidFile)
 	_ = os.Remove(socketPath)
