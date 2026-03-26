@@ -3,10 +3,12 @@ completed_tasks:
 - 'Step 1: Create mock API server with pagination support (500+ items, cursor-based)'
 - 'Step 1: Add fuzzing test for OpenAPI spec parsing (malformed YAML/JSON)'
 - 'Step 1: Add tools/call test with required parameters'
+- 'Step 1: Add cache miss test (first request, verify fetch)'
+- 'Step 1: Add test for 401 Unauthorized with token refresh'
 current_task: null
 failed_attempts: 0
-iteration: 43
+iteration: 45
 last_failure: null
-last_task: 'Step 1: Add tools/call test with required parameters'
+last_task: 'Step 1: Add test for 401 Unauthorized with token refresh'
 phase: build
 started_at: '2026-03-24T00:00:00.000000+00:00'
