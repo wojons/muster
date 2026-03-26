@@ -2,6 +2,8 @@ package builtin
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,7 +75,7 @@ func TestNewModulesInstallCommand(t *testing.T) {
 		err := cmd.Args(cmd, []string{})
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "requires exactly 1 argument")
+		assert.Contains(t, err.Error(), "accepts 1 arg")
 	})
 
 	t.Run("has name flag", func(t *testing.T) {
@@ -100,60 +102,85 @@ func TestNewModulesInstallCommand(t *testing.T) {
 	})
 
 	t.Run("executes with module path", func(t *testing.T) {
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		cmd := newModulesInstallCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
 
 		err := cmd.RunE(cmd, []string{"./modules/test.wasm"})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Installing module from")
 		assert.Contains(t, output, "./modules/test.wasm")
 	})
 
 	t.Run("executes with custom name", func(t *testing.T) {
-		cmd := newModulesInstallCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newModulesInstallCommand()
 		cmd.Flags().Set("name", "custom-module")
 
 		err := cmd.RunE(cmd, []string{"./modules/test.wasm"})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Module name: custom-module")
 	})
 
 	t.Run("executes with validate enabled", func(t *testing.T) {
-		cmd := newModulesInstallCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newModulesInstallCommand()
 		cmd.Flags().Set("validate", "true")
 
 		err := cmd.RunE(cmd, []string{"./modules/test.wasm"})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Validating module...")
 	})
 
 	t.Run("executes with overwrite enabled", func(t *testing.T) {
-		cmd := newModulesInstallCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newModulesInstallCommand()
 		cmd.Flags().Set("overwrite", "true")
 
 		err := cmd.RunE(cmd, []string{"./modules/test.wasm"})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Overwriting existing module...")
 	})
@@ -193,29 +220,42 @@ func TestNewModulesListCommand(t *testing.T) {
 	})
 
 	t.Run("executes without verbose", func(t *testing.T) {
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		cmd := newModulesListCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Installed modules:")
 	})
 
 	t.Run("executes with verbose", func(t *testing.T) {
-		cmd := newModulesListCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newModulesListCommand()
 		cmd.Flags().Set("verbose", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "No modules installed")
 	})
@@ -244,7 +284,7 @@ func TestNewModulesRemoveCommand(t *testing.T) {
 		err := cmd.Args(cmd, []string{})
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "requires exactly 1 argument")
+		assert.Contains(t, err.Error(), "accepts 1 arg")
 	})
 
 	t.Run("has force flag", func(t *testing.T) {
@@ -256,29 +296,42 @@ func TestNewModulesRemoveCommand(t *testing.T) {
 	})
 
 	t.Run("executes without force", func(t *testing.T) {
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
 		cmd := newModulesRemoveCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
 
 		err := cmd.RunE(cmd, []string{"test-module"})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Remove module 'test-module'?")
 	})
 
 	t.Run("executes with force", func(t *testing.T) {
-		cmd := newModulesRemoveCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newModulesRemoveCommand()
 		cmd.Flags().Set("force", "true")
 
 		err := cmd.RunE(cmd, []string{"test-module"})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Removing module 'test-module'...")
 		assert.Contains(t, output, "Module 'test-module' removed successfully")

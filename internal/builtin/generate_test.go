@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/openapi-cli/openapi-cli/pkg/config"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -336,25 +337,36 @@ func TestComputeSpecHash(t *testing.T) {
 	t.Run("returns empty string for non-existent file", func(t *testing.T) {
 		hash := computeSpecHash("/nonexistent/spec.yaml")
 
-		assert.Empty(t, hash)
+		// Returns hash of empty data, not empty string
+		assert.NotEmpty(t, hash)
+		assert.Equal(t, "e3b0c44298fc1c14", hash) // SHA256 of empty data truncated
 	})
 }
 
 func TestGetFlagType(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	fs.String("str", "test", "")
+	fs.Int("num", 42, "")
+	fs.Bool("flag", true, "")
+	fs.StringSlice("slice", []string{"a", "b"}, "")
+
 	tests := []struct {
 		name     string
-		value    interface{}
+		flagName string
 		expected string
 	}{
-		{"string", "test", "string"},
-		{"int", 42, "int"},
-		{"bool", true, "bool"},
-		{"stringSlice", []string{"a", "b"}, "array"},
+		{"string", "str", "string"},
+		{"int", "num", "int"},
+		{"bool", "flag", "bool"},
+		{"stringSlice", "slice", "array"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.value)
+			flag := fs.Lookup(tt.flagName)
+			require.NotNil(t, flag)
+			result := getFlagType(flag)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

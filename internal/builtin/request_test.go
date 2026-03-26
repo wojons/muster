@@ -26,7 +26,7 @@ func TestNewRequestCommand(t *testing.T) {
 		err := cmd.Args(cmd, []string{})
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "requires exactly 2 arguments")
+		assert.Contains(t, err.Error(), "accepts 2 arg")
 	})
 
 	t.Run("has header flag", func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestHandleRequest(t *testing.T) {
 		err := handleRequest("GET", server.URL, []string{}, []string{}, "json", false, 30*time.Second, "")
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "request failed with status 404")
+		assert.Contains(t, err.Error(), "Not Found")
 	})
 
 	t.Run("handles 5xx error", func(t *testing.T) {
@@ -178,7 +178,7 @@ func TestHandleRequest(t *testing.T) {
 		err := handleRequest("GET", server.URL, []string{}, []string{}, "json", false, 30*time.Second, "")
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "request failed with status 500")
+		assert.Contains(t, err.Error(), "Internal Server Error")
 	})
 
 	t.Run("handles invalid URL", func(t *testing.T) {

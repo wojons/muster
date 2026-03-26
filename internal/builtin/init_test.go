@@ -2,6 +2,8 @@ package builtin
 
 import (
 	"bytes"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -86,65 +88,89 @@ func TestNewInitCommand(t *testing.T) {
 	})
 
 	t.Run("executes with host", func(t *testing.T) {
-		cmd := newInitCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInitCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Initializing new connection...")
 		assert.Contains(t, output, "Host: https://api.example.com")
 	})
 
 	t.Run("executes with overwrite", func(t *testing.T) {
-		cmd := newInitCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInitCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 		cmd.Flags().Set("overwrite", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Overwriting existing configuration...")
 	})
 
 	t.Run("executes with custom timeout", func(t *testing.T) {
-		cmd := newInitCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInitCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 		cmd.Flags().Set("timeout", "60")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Timeout: 60s")
 	})
 
 	t.Run("executes with custom retry", func(t *testing.T) {
-		cmd := newInitCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInitCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 		cmd.Flags().Set("retry", "5")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Retry attempts: 5")
 	})
@@ -164,33 +190,45 @@ func TestNewInitCommand(t *testing.T) {
 	})
 
 	t.Run("executes with oauth2", func(t *testing.T) {
-		cmd := newInitCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInitCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 		cmd.Flags().Set("oauth2", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "OAuth2: enabled")
 	})
 
 	t.Run("executes with mtls", func(t *testing.T) {
-		cmd := newInitCommand()
-		buf := new(bytes.Buffer)
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
 
+		cmd := newInitCommand()
 		cmd.Flags().Set("host", "https://api.example.com")
 		cmd.Flags().Set("mtls", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
+		w.Close()
+		os.Stdout = oldStdout
+
 		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "mTLS: enabled")
 	})
