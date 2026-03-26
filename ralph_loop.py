@@ -193,12 +193,13 @@ class TaskManager:
         if not self.todo_file.exists():
             return False
         content = self.todo_file.read_text()
-        # Check for various task formats
+        # Check for various task formats (including indented)
         patterns = [
-            r'^- \[ \]',  # Standard markdown checkbox
+            r'^\s*- \[ \]',  # Standard markdown checkbox (with indentation)
             r'^## \[IDLE SWEEP',  # Sweep tasks
             r'^### \*\*[^*]+\*\*.*Priority:',  # Priority tasks
             r'^### \[ACTIONS REQUIRED\]',  # Action items
+            r'^\s*- \[ \] Step \d+:',  # Baby steps format (with indentation)
         ]
         return any(re.search(p, content, re.MULTILINE) for p in patterns)
     
@@ -229,6 +230,12 @@ class TaskManager:
                 count += 1
             # Pattern 5: Baby step format "#### Step X: [ ]"
             elif re.match(r'^#{2,4}\s+Step\s+\d+:\s*\[\s*\]', stripped):
+                count += 1
+            # Pattern 6: Baby step in list "- [ ] Step X: description" (may be indented)
+            elif re.match(r'^-\s*\[\s*\]\s*Step\s+\d+:', stripped):
+                count += 1
+            # Pattern 6: Baby step in list "- [ ] Step X: description"
+            elif re.match(r'^-\s*\[\s*\]\s*Step\s+\d+:', stripped):
                 count += 1
         
         return count
@@ -264,6 +271,11 @@ class TaskManager:
         if match:
             return f"STEP {match.group(1)}: {match.group(2)}"
         
+        # Try baby step in list format "- [ ] Step X: description" (may be indented)
+        match = re.search(r'^\s*-\s*\[\s*\]\s*Step\s+(\d+):\s*(.+)$', content, re.MULTILINE)
+        if match:
+            return f"STEP {match.group(1)}: {match.group(2)}"
+        
         return None
     
     def mark_complete(self, task_description: str) -> bool:
@@ -295,6 +307,13 @@ class TaskManager:
             step_match = re.match(r'^(\s*#{2,4}\s+Step\s+\d+:\s*)\[\s*\](.*)$', line)
             if step_match and task_description in line:
                 lines[i] = f"{step_match.group(1)}[x]{step_match.group(2)}"
+                modified = True
+                break
+            
+            # Pattern 4: Baby step in list "- [ ] Step X: description" (may be indented)
+            baby_step_match = re.match(r'^(\s*-\s*\[\s*\]\s*Step\s+\d+:)\s*(.*)$', line)
+            if baby_step_match and task_description in line:
+                lines[i] = re.sub(r'-\s*\[\s*\]', '- [x]', line, count=1)
                 modified = True
                 break
         
