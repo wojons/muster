@@ -844,3 +844,105 @@ func TestManager_FullLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, cached)
 }
+
+// TestCalculateSHA256_VerifiesHashChangesWithContent verifies that SHA-256 hash changes when content changes (SEC-ADV-011 Step 2)
+func TestCalculateSHA256_VerifiesHashChangesWithContent(t *testing.T) {
+	content1 := []byte(`{"info": {"title": "API", "version": "1.0.0"}}`)
+	content2 := []byte(`{"info": {"title": "API", "version": "2.0.0"}}`)
+	content3 := []byte(`{"info": {"title": "Modified API", "version": "1.0.0"}}`)
+
+	hash1 := calculateSHA256(content1)
+	hash2 := calculateSHA256(content2)
+	hash3 := calculateSHA256(content3)
+
+	assert.NotEmpty(t, hash1, "Hash should not be empty")
+	assert.NotEmpty(t, hash2, "Hash should not be empty")
+	assert.NotEmpty(t, hash3, "Hash should not be empty")
+
+	assert.Len(t, hash1, 64, "SHA-256 hash should be 64 hex characters")
+	assert.Len(t, hash2, 64, "SHA-256 hash should be 64 hex characters")
+	assert.Len(t, hash3, 64, "SHA-256 hash should be 64 hex characters")
+
+	assert.NotEqual(t, hash1, hash2, "Hash should change when version changes")
+	assert.NotEqual(t, hash1, hash3, "Hash should change when title changes")
+	assert.NotEqual(t, hash2, hash3, "Hash should be different for different content")
+}
+
+// TestCalculateSHA256_VerifiesSameContentProducesSameHash verifies that identical content produces identical hash (SEC-ADV-011 Step 3)
+func TestCalculateSHA256_VerifiesSameContentProducesSameHash(t *testing.T) {
+	content := []byte(`{"info": {"title": "API", "version": "1.0.0"}, "paths": {"/users": {"get": {"responses": {"200": {"description": "OK"}}}}}}`)
+
+	hash1 := calculateSHA256(content)
+	hash2 := calculateSHA256(content)
+	hash3 := calculateSHA256(content)
+
+	assert.Equal(t, hash1, hash2, "Same content should produce identical hash")
+	assert.Equal(t, hash2, hash3, "Hash should be deterministic across multiple calls")
+
+	// Verify it's a valid hex string
+	for _, c := range hash1 {
+		assert.Contains(t, "0123456789abcdef", string(c), "Hash should be valid hex")
+	}
+}
+
+// TestCalculateSHA256_EdgeCases tests edge cases for SHA-256 calculation (SEC-ADV-011)
+func TestCalculateSHA256_EdgeCases(t *testing.T) {
+	t.Run("empty content", func(t *testing.T) {
+		hash := calculateSHA256([]byte{})
+		assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hash, "Empty content should produce known SHA-256 hash")
+	})
+
+	t.Run("large content", func(t *testing.T) {
+		largeContent := make([]byte, 1<<20) // 1 MB
+		for i := range largeContent {
+			largeContent[i] = byte(i % 256)
+		}
+		hash := calculateSHA256(largeContent)
+		assert.Len(t, hash, 64, "Large content should still produce 64-char hash")
+		assert.NotEmpty(t, hash)
+	})
+
+	t.Run("binary content", func(t *testing.T) {
+		binary := []byte{0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD}
+		hash := calculateSHA256(binary)
+		assert.Len(t, hash, 64, "Binary content should produce valid hash")
+	})
+
+	t.Run("unicode content", func(t *testing.T) {
+		unicode := []byte("Hello 世界 🌍 مرحبا")
+		hash := calculateSHA256(unicode)
+		assert.Len(t, hash, 64, "Unicode content should produce valid hash")
+	})
+
+	t.Run("whitespace variations", func(t *testing.T) {
+		json1 := []byte(`{"key":"value"}`)
+		json2 := []byte(`{ "key" : "value" }`)
+		json3 := []byte("{\n  \"key\": \"value\"\n}")
+
+		hash1 := calculateSHA256(json1)
+		hash2 := calculateSHA256(json2)
+		hash3 := calculateSHA256(json3)
+
+		assert.NotEqual(t, hash1, hash2, "Whitespace changes should affect hash")
+		assert.NotEqual(t, hash1, hash3, "Newlines should affect hash")
+	})
+}
+
+// TestCalculateSHA256_PreventsLengthBasedAttack verifies the fix for SEC-ADV-011 length-based bypass
+func TestCalculateSHA256_PreventsLengthBasedAttack(t *testing.T) {
+	content1 := []byte(`{"valid": "content", "version": "1"}`)
+	content2 := []byte(`{"MALICIOUS": "DATA!", "version": "2"}`)
+
+	// Ensure both have same length
+	for len(content2) < len(content1) {
+		content2 = append(content2, ' ')
+	}
+	content2 = content2[:len(content1)]
+
+	require.Len(t, content1, len(content2), "Test setup: contents should have same length")
+
+	hash1 := calculateSHA256(content1)
+	hash2 := calculateSHA256(content2)
+
+	assert.NotEqual(t, hash1, hash2, "Different content with same length should produce different hashes - this proves SEC-ADV-011 is fixed")
+}
