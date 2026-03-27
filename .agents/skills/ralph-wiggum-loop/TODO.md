@@ -439,28 +439,28 @@ See individual sections below for completion details.
 - **Impact**: Ensures all error returns are properly handled; prevents silent failures
 
 ### LINT-002: staticcheck Errors - 23 Issues - PRIORITY: HIGH
-- [ ] Step 1: Fix SA5011 (nil pointer dereference) in pkg/wasm/sandbox_test.go
-- [ ] Step 2: Fix SA9003 (empty branch) in pkg/platform/platform_test.go (4 instances)
-- [ ] Step 3: Fix SA9003 (empty branch) in pkg/dsl/builtins_coverage_test.go (2 instances)
-- [ ] Step 4: Fix SA9003 (empty branch) in pkg/dsl/engine_test.go
-- [ ] Step 5: Fix SA1019 (deprecated function) in pkg/mcp/handlers/tracing_test.go
-- [ ] Step 6: Fix SA1029 (built-in type as key) in pkg/mcp/handlers/tracing_test.go
+- [x] Step 1: Fix SA5011 (nil pointer dereference) in pkg/wasm/sandbox_test.go
+- [x] Step 2: Fix SA9003 (empty branch) in pkg/platform/platform_test.go (4 instances)
+- [x] Step 3: Fix SA9003 (empty branch) in pkg/dsl/builtins_coverage_test.go (2 instances)
+- [x] Step 4: Fix SA9003 (empty branch) in pkg/dsl/engine_test.go
+- [x] Step 5: Fix SA1019 (deprecated function) in pkg/mcp/handlers/tracing_test.go
+- [x] Step 6: Fix SA1029 (built-in type as key) in pkg/mcp/handlers/tracing_test.go
 - **Spec**: `CONTRIBUTING.md` - Code quality standards
 - **Effort**: 1 day
 - **Impact**: Eliminates deprecated API usage, potential nil panics, and code quality issues
 
 ### LINT-003: unused Code - 10 Issues - PRIORITY: MEDIUM
-- [ ] Step 1: Remove unused type mockReadCloser in pkg/response/test_helpers.go
-- [ ] Step 2: Remove unused func newMockReadCloser in pkg/response/test_helpers.go
-- [ ] Step 3: Remove unused field 'started' in pkg/mcp/server.go
-- [ ] Step 4: Remove unused type/funcs in pkg/mcp/handlers/handlers_extended_test.go
-- [ ] Step 5: Remove unused const dummyWASM in pkg/wasm/limits_enforcement_test.go
+- [x] Step 1: Remove unused type mockReadCloser in pkg/response/test_helpers.go
+- [x] Step 2: Remove unused func newMockReadCloser in pkg/response/test_helpers.go
+- [x] Step 3: Remove unused field 'started' in pkg/mcp/server.go
+- [x] Step 4: Remove unused type/funcs in pkg/mcp/handlers/handlers_extended_test.go
+- [x] Step 5: Remove unused const dummyWASM in pkg/wasm/limits_enforcement_test.go
 - **Spec**: `CONTRIBUTING.md` - Code cleanliness
 - **Effort**: 2-3 hours
 - **Impact**: Reduces code clutter, improves maintainability
 
 ### LINT-004: ineffassign Errors - 4 Issues - PRIORITY: MEDIUM
-- [ ] Step 1: Identify and fix ineffective assignments (run `make lint` for details)
+- [x] Step 1: Identify and fix ineffective assignments (run `make lint` for details)
 - **Spec**: `CONTRIBUTING.md` - Code efficiency
 - **Effort**: 1-2 hours
 - **Impact**: Eliminates dead code, improves clarity
