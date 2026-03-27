@@ -80,7 +80,7 @@ func TestHandleRequest(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "GET", r.Method)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status": "ok"}`))
+			_, _ = w.Write([]byte(`{"status": "ok"}`))
 		}))
 		defer server.Close()
 
@@ -120,7 +120,7 @@ func TestHandleRequest(t *testing.T) {
 	t.Run("handles verbose output", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status": "ok"}`))
+			_, _ = w.Write([]byte(`{"status": "ok"}`))
 		}))
 		defer server.Close()
 
@@ -243,7 +243,7 @@ func TestRequestCommandIntegration(t *testing.T) {
 	t.Run("full request command execution", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"result": "success"}`))
+			_, _ = w.Write([]byte(`{"result": "success"}`))
 		}))
 		defer server.Close()
 
@@ -252,8 +252,8 @@ func TestRequestCommandIntegration(t *testing.T) {
 		cmd.SetOut(buf)
 		cmd.SetErr(buf)
 
-		cmd.Flags().Set("output", "json")
-		cmd.Flags().Set("timeout", "30s")
+		_ = cmd.Flags().Set("output", "json")
+		_ = cmd.Flags().Set("timeout", "30s")
 
 		err := cmd.RunE(cmd, []string{"GET", server.URL})
 
@@ -272,7 +272,7 @@ func TestRequestCommandIntegration(t *testing.T) {
 		cmd.SetOut(buf)
 		cmd.SetErr(buf)
 
-		cmd.Flags().Set("timeout", "5s")
+		_ = cmd.Flags().Set("timeout", "5s")
 
 		err := cmd.RunE(cmd, []string{"GET", server.URL})
 

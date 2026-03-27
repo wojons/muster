@@ -173,7 +173,7 @@ func (r *StabilityTestRunner) waitForSocketReady(timeout time.Duration) error {
 				}
 				resp, err := client.Get("http://unix/health")
 				if err == nil {
-					resp.Body.Close()
+					_ = resp.Body.Close()
 					// Update socket path if we found it at a different location
 					r.socketPath = socketPath
 					return nil
@@ -198,7 +198,7 @@ func (r *StabilityTestRunner) performHealthCheck(t *testing.T) (*DaemonMetrics, 
 		// Get memory stats from /proc or ps
 		cmd := exec.Command("ps", "-o", "rss=,vsz=", "-p", fmt.Sprintf("%d", r.daemonPid))
 		if output, err := cmd.Output(); err == nil {
-			fmt.Sscanf(string(output), "%d %d", &metrics.MemoryRSS, &metrics.MemoryVMS)
+			_, _ = fmt.Sscanf(string(output), "%d %d", &metrics.MemoryRSS, &metrics.MemoryVMS)
 			metrics.MemoryRSS *= 1024 // Convert KB to bytes
 			metrics.MemoryVMS *= 1024
 		}
@@ -239,7 +239,7 @@ func (r *StabilityTestRunner) performHealthCheck(t *testing.T) (*DaemonMetrics, 
 	if err != nil {
 		metrics.HealthStatus = "unhealthy"
 	} else {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode == http.StatusOK {
 			metrics.HealthStatus = "healthy"
 			body, err := io.ReadAll(resp.Body)
@@ -260,7 +260,7 @@ func (r *StabilityTestRunner) performHealthCheck(t *testing.T) (*DaemonMetrics, 
 	testReqStart := time.Now()
 	testResp, err := client.Get("http://unix/list")
 	if err == nil {
-		testResp.Body.Close()
+		_ = testResp.Body.Close()
 		atomic.AddInt64(&r.requestCount, 1)
 		metrics.RequestsHandled = atomic.LoadInt64(&r.requestCount)
 	}
@@ -427,7 +427,7 @@ func (r *StabilityTestRunner) Cleanup(t *testing.T) {
 		t.Logf("Stopping daemon (PID %d)...", r.daemonPid)
 
 		// Try graceful shutdown first
-		r.daemonCmd.Process.Signal(syscall.SIGTERM)
+		_ = r.daemonCmd.Process.Signal(syscall.SIGTERM)
 
 		// Wait for process to exit
 		done := make(chan error, 1)
@@ -438,7 +438,7 @@ func (r *StabilityTestRunner) Cleanup(t *testing.T) {
 		select {
 		case <-time.After(5 * time.Second):
 			t.Log("Graceful shutdown timed out, forcing kill")
-			r.daemonCmd.Process.Kill()
+			_ = r.daemonCmd.Process.Kill()
 		case err := <-done:
 			if err != nil {
 				t.Logf("Daemon exited with: %v", err)
@@ -448,7 +448,7 @@ func (r *StabilityTestRunner) Cleanup(t *testing.T) {
 
 	// Clean up temp directory
 	if r.tempDir != "" {
-		os.RemoveAll(r.tempDir)
+		_ = os.RemoveAll(r.tempDir)
 		t.Logf("Cleaned up temp directory: %s", r.tempDir)
 	}
 }
@@ -659,7 +659,7 @@ func TestDaemon_SignalHandling_SIGTERM(t *testing.T) {
 	if err := runner.Setup(t); err != nil {
 		t.Fatalf("Setup failed: %v", err)
 	}
-	defer os.RemoveAll(runner.tempDir)
+	defer func() { _ = os.RemoveAll(runner.tempDir) }()
 
 	if err := runner.StartDaemon(t); err != nil {
 		t.Fatalf("Failed to start daemon: %v", err)
@@ -671,7 +671,7 @@ func TestDaemon_SignalHandling_SIGTERM(t *testing.T) {
 	// Send SIGTERM
 	t.Log("Sending SIGTERM to daemon...")
 	startTime := time.Now()
-	runner.daemonCmd.Process.Signal(syscall.SIGTERM)
+	_ = runner.daemonCmd.Process.Signal(syscall.SIGTERM)
 
 	// Wait for graceful shutdown
 	done := make(chan error, 1)
@@ -688,7 +688,7 @@ func TestDaemon_SignalHandling_SIGTERM(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Error("Daemon did not shut down within 10 seconds")
-		runner.daemonCmd.Process.Kill()
+		_ = runner.daemonCmd.Process.Kill()
 	}
 }
 
@@ -700,7 +700,7 @@ func TestDaemon_SignalHandling_SIGINT(t *testing.T) {
 	if err := runner.Setup(t); err != nil {
 		t.Fatalf("Setup failed: %v", err)
 	}
-	defer os.RemoveAll(runner.tempDir)
+	defer func() { _ = os.RemoveAll(runner.tempDir) }()
 
 	if err := runner.StartDaemon(t); err != nil {
 		t.Fatalf("Failed to start daemon: %v", err)
@@ -712,7 +712,7 @@ func TestDaemon_SignalHandling_SIGINT(t *testing.T) {
 	// Send SIGINT
 	t.Log("Sending SIGINT to daemon...")
 	startTime := time.Now()
-	runner.daemonCmd.Process.Signal(syscall.SIGINT)
+	_ = runner.daemonCmd.Process.Signal(syscall.SIGINT)
 
 	// Wait for graceful shutdown
 	done := make(chan error, 1)
@@ -729,7 +729,7 @@ func TestDaemon_SignalHandling_SIGINT(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Error("Daemon did not shut down within 10 seconds")
-		runner.daemonCmd.Process.Kill()
+		_ = runner.daemonCmd.Process.Kill()
 	}
 }
 
@@ -748,7 +748,7 @@ func TestDaemon_LogRotation(t *testing.T) {
 
 	// Create a log file watcher
 	logDir := filepath.Join(runner.tempDir, "logs")
-	os.MkdirAll(logDir, 0755)
+	_ = os.MkdirAll(logDir, 0755)
 
 	if err := runner.StartDaemon(t); err != nil {
 		t.Fatalf("Failed to start daemon: %v", err)
@@ -802,7 +802,7 @@ func TestDaemon_ConfigHotReload(t *testing.T) {
 
 	// Send SIGHUP
 	t.Log("Sending SIGHUP to daemon...")
-	runner.daemonCmd.Process.Signal(syscall.SIGHUP)
+	_ = runner.daemonCmd.Process.Signal(syscall.SIGHUP)
 
 	// Wait for config reload
 	time.Sleep(1 * time.Second)
@@ -865,7 +865,7 @@ func TestDaemon_ConcurrentHealthChecks(t *testing.T) {
 			for j := 0; j < requestsPerWorker; j++ {
 				resp, err := client.Get("http://unix/health")
 				if err == nil {
-					resp.Body.Close()
+					_ = resp.Body.Close()
 					atomic.AddInt64(&runner.requestCount, 1)
 				}
 				time.Sleep(50 * time.Millisecond)

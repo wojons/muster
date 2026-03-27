@@ -389,7 +389,7 @@ func TestInMemoryKeyStore(t *testing.T) {
 
 	t.Run("deletes key", func(t *testing.T) {
 		ks := NewInMemoryKeyStore()
-		ks.Store("test-id", []byte("key"), KeyTypeSymmetric)
+		_ = ks.Store("test-id", []byte("key"), KeyTypeSymmetric)
 
 		err := ks.Delete("test-id")
 		if err != nil {
@@ -404,8 +404,8 @@ func TestInMemoryKeyStore(t *testing.T) {
 
 	t.Run("lists keys", func(t *testing.T) {
 		ks := NewInMemoryKeyStore()
-		ks.Store("key1", []byte("k1"), KeyTypeSymmetric)
-		ks.Store("key2", []byte("k2"), KeyTypeAsymmetric)
+		_ = ks.Store("key1", []byte("k1"), KeyTypeSymmetric)
+		_ = ks.Store("key2", []byte("k2"), KeyTypeAsymmetric)
 
 		keys, err := ks.List()
 		if err != nil {
@@ -424,7 +424,7 @@ func TestKeyRotator(t *testing.T) {
 		kr := NewKeyRotator(ks, nil)
 
 		initialKey := []byte("initial-key")
-		ks.Store("test-key", initialKey, KeyTypeSymmetric)
+		_ = ks.Store("test-key", initialKey, KeyTypeSymmetric)
 
 		generator := func() ([]byte, error) {
 			return GenerateSecureRandom(32)
@@ -811,7 +811,7 @@ func TestTimeBasedExpiration(t *testing.T) {
 			MaxOperations: 1000000,
 		})
 
-		ks.Store("expiring-key", []byte("key"), KeyTypeSymmetric)
+		_ = ks.Store("expiring-key", []byte("key"), KeyTypeSymmetric)
 
 		time.Sleep(150 * time.Millisecond)
 
@@ -830,7 +830,7 @@ func TestEmergencyRotation(t *testing.T) {
 			Emergency: true,
 		})
 
-		ks.Store("key", []byte("key-data"), KeyTypeSymmetric)
+		_ = ks.Store("key", []byte("key-data"), KeyTypeSymmetric)
 
 		shouldRotate, err := kr.ShouldRotate("key")
 		if err != nil {

@@ -82,7 +82,7 @@ func TestNewDaemonStartCommand(t *testing.T) {
 
 	t.Run("accepts custom socket flag", func(t *testing.T) {
 		cmd := newDaemonStartCommand()
-		cmd.Flags().Set("socket", "/tmp/test.sock")
+		_ = cmd.Flags().Set("socket", "/tmp/test.sock")
 
 		socketFlag := cmd.Flags().Lookup("socket")
 		assert.NotNil(t, socketFlag)

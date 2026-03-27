@@ -108,7 +108,7 @@ paths:
 
 		cfg := &config.Config{}
 		cmd := newGenerateCommand(cfg)
-		cmd.Flags().Set("base-url", "https://api.test.com")
+		_ = cmd.Flags().Set("base-url", "https://api.test.com")
 
 		err = cmd.RunE(cmd, []string{specPath})
 

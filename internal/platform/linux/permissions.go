@@ -28,8 +28,8 @@ func SecureFile(path string) (*os.File, error) {
 
 	// Ensure permissions are correct (umask might have affected them)
 	if err := os.Chmod(path, SecureFileMode); err != nil {
-		f.Close()
-		os.Remove(path)
+		_ = f.Close()
+		_ = os.Remove(path)
 		return nil, err
 	}
 
@@ -112,8 +112,8 @@ func SecureTempFile(dir, pattern string) (*os.File, error) {
 	}
 
 	if err := os.Chmod(f.Name(), SecureFileMode); err != nil {
-		f.Close()
-		os.Remove(f.Name())
+		_ = f.Close()
+		_ = os.Remove(f.Name())
 		return nil, err
 	}
 

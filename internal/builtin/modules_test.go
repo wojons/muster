@@ -110,13 +110,13 @@ func TestNewModulesInstallCommand(t *testing.T) {
 
 		err := cmd.RunE(cmd, []string{"./modules/test.wasm"})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Installing module from")
 		assert.Contains(t, output, "./modules/test.wasm")
@@ -128,17 +128,17 @@ func TestNewModulesInstallCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newModulesInstallCommand()
-		cmd.Flags().Set("name", "custom-module")
+		_ = cmd.Flags().Set("name", "custom-module")
 
 		err := cmd.RunE(cmd, []string{"./modules/test.wasm"})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Module name: custom-module")
 	})
@@ -149,17 +149,17 @@ func TestNewModulesInstallCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newModulesInstallCommand()
-		cmd.Flags().Set("validate", "true")
+		_ = cmd.Flags().Set("validate", "true")
 
 		err := cmd.RunE(cmd, []string{"./modules/test.wasm"})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Validating module...")
 	})
@@ -170,17 +170,17 @@ func TestNewModulesInstallCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newModulesInstallCommand()
-		cmd.Flags().Set("overwrite", "true")
+		_ = cmd.Flags().Set("overwrite", "true")
 
 		err := cmd.RunE(cmd, []string{"./modules/test.wasm"})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Overwriting existing module...")
 	})
@@ -228,13 +228,13 @@ func TestNewModulesListCommand(t *testing.T) {
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Installed modules:")
 	})
@@ -245,17 +245,17 @@ func TestNewModulesListCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newModulesListCommand()
-		cmd.Flags().Set("verbose", "true")
+		_ = cmd.Flags().Set("verbose", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "No modules installed")
 	})
@@ -304,13 +304,13 @@ func TestNewModulesRemoveCommand(t *testing.T) {
 
 		err := cmd.RunE(cmd, []string{"test-module"})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Remove module 'test-module'?")
 	})
@@ -321,17 +321,17 @@ func TestNewModulesRemoveCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newModulesRemoveCommand()
-		cmd.Flags().Set("force", "true")
+		_ = cmd.Flags().Set("force", "true")
 
 		err := cmd.RunE(cmd, []string{"test-module"})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Removing module 'test-module'...")
 		assert.Contains(t, output, "Module 'test-module' removed successfully")

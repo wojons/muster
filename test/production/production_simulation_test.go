@@ -96,12 +96,12 @@ func TestProductionSimulation(t *testing.T) {
 					"auth_methods": []string{"bearer", "oauth2"},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(inventory)
+				_ = json.NewEncoder(w).Encode(inventory)
 
 			case strings.Contains(r.URL.Path, "/openapi.yaml"):
 				// Return OpenAPI spec
 				w.Header().Set("Content-Type", "application/x-yaml")
-				fmt.Fprintln(w, getOpenAPISpec(baseURL))
+				_, _ = fmt.Fprintln(w, getOpenAPISpec(baseURL))
 
 			case strings.Contains(r.URL.Path, "/users"):
 				// Handle users endpoint
@@ -111,14 +111,14 @@ func TestProductionSimulation(t *testing.T) {
 						{"id": 2, "name": "Bob", "email": "bob@example.com"},
 					}
 					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(users)
+					_ = json.NewEncoder(w).Encode(users)
 				} else if r.Method == "POST" {
 					var user map[string]interface{}
-					json.NewDecoder(r.Body).Decode(&user)
+					_ = json.NewDecoder(r.Body).Decode(&user)
 					user["id"] = 3
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusCreated)
-					json.NewEncoder(w).Encode(user)
+					_ = json.NewEncoder(w).Encode(user)
 				}
 
 			case strings.Contains(r.URL.Path, "/users/") && r.Method == "GET":
@@ -129,7 +129,7 @@ func TestProductionSimulation(t *testing.T) {
 					"email": "alice@example.com",
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(user)
+				_ = json.NewEncoder(w).Encode(user)
 
 			case strings.Contains(r.URL.Path, "/posts"):
 				// Handle posts endpoint
@@ -138,7 +138,7 @@ func TestProductionSimulation(t *testing.T) {
 					{"id": 2, "title": "Second Post", "author_id": 1},
 				}
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(posts)
+				_ = json.NewEncoder(w).Encode(posts)
 
 			default:
 				http.NotFound(w, r)
@@ -229,7 +229,7 @@ func TestProductionSimulation(t *testing.T) {
 		// Test users endpoint
 		resp, err := http.Get(baseURL + "/users")
 		requireNoErr(t, err, "Failed to GET /users")
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		body, err := io.ReadAll(resp.Body)
 		requireNoErr(t, err, "Failed to read response")

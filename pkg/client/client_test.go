@@ -60,7 +60,7 @@ func TestClient_Get(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/test", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "success"}`))
+		_, _ = w.Write([]byte(`{"message": "success"}`))
 	}))
 	defer server.Close()
 
@@ -69,7 +69,8 @@ func TestClient_Get(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 }
 
 func TestClient_Get_WithBaseURL(t *testing.T) {
@@ -84,7 +85,8 @@ func TestClient_Get_WithBaseURL(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 }
 
 func TestClient_Post(t *testing.T) {
@@ -103,7 +105,8 @@ func TestClient_Post(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 }
 
 func TestClient_HTTPMethods(t *testing.T) {
@@ -132,31 +135,32 @@ func TestClient_HTTPMethods(t *testing.T) {
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Test POST
 	resp, err = client.Post(ctx, server.URL+"/test", "application/json", nil)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Test PUT
 	resp, err = client.Put(ctx, server.URL+"/test", "application/json", nil)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Test DELETE
 	resp, err = client.Delete(ctx, server.URL+"/test")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	// Test PATCH
 	resp, err = client.Patch(ctx, server.URL+"/test", "application/json", nil)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 }
 
 func TestClient_DefaultHeaders(t *testing.T) {
@@ -177,14 +181,15 @@ func TestClient_DefaultHeaders(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 }
 
 func TestClient_Do_WithTracer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"data": "test"}`))
+		_, _ = w.Write([]byte(`{"data": "test"}`))
 	}))
 	defer server.Close()
 
@@ -196,13 +201,14 @@ func TestClient_Do_WithTracer(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 }
 
 func TestClient_Do_ErrorResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "internal server error"}`))
+		_, _ = w.Write([]byte(`{"error": "internal server error"}`))
 	}))
 	defer server.Close()
 
@@ -214,13 +220,14 @@ func TestClient_Do_ErrorResponse(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 }
 
 func TestClient_Do_ClientError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "bad request"}`))
+		_, _ = w.Write([]byte(`{"error": "bad request"}`))
 	}))
 	defer server.Close()
 
@@ -231,7 +238,8 @@ func TestClient_Do_ClientError(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 }
 
 func TestClient_Do_NetworkError(t *testing.T) {
@@ -303,7 +311,8 @@ func TestClient_ConcurrentRequests(t *testing.T) {
 			if resp.StatusCode != http.StatusOK {
 				errors <- fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
+
 		}()
 	}
 

@@ -302,7 +302,7 @@ func sanitizePath(path string) string {
 				hexStr := path[i+1 : i+3]
 				if decodedByte, err := fmt.Sscanf(hexStr, "%02x", new(byte)); err == nil && decodedByte == 1 {
 					var b byte
-					fmt.Sscanf(hexStr, "%02x", &b)
+					_, _ = fmt.Sscanf(hexStr, "%02x", &b)
 					decoded.WriteByte(b)
 					i += 2
 				} else {

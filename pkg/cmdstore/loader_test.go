@@ -411,7 +411,7 @@ func TestLoader_createRunHandler(t *testing.T) {
 			assert.Equal(t, "/pets/123", r.URL.Path)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(responseBody))
+			_, _ = w.Write([]byte(responseBody))
 		}))
 		defer server.Close()
 
@@ -473,7 +473,7 @@ func TestLoader_createRunHandler(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, "limit=50&offset=100", r.URL.RawQuery)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("ok"))
+			_, _ = w.Write([]byte("ok"))
 		}))
 		defer server.Close()
 
@@ -504,7 +504,7 @@ func TestLoader_createRunHandler(t *testing.T) {
 	t.Run("HTTP error response", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, "Not found")
+			_, _ = fmt.Fprint(w, "Not found")
 		}))
 		defer server.Close()
 
@@ -535,7 +535,7 @@ func TestLoader_createRunHandler(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(responseBody))
+			_, _ = w.Write([]byte(responseBody))
 		}))
 		defer server.Close()
 
@@ -569,14 +569,14 @@ func TestLoader_createRunHandler(t *testing.T) {
 func TestLoader_createRunHandler_BaseURLOverride(t *testing.T) {
 	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "server1")
+		_, _ = fmt.Fprint(w, "server1")
 	}))
 	defer server1.Close()
 
 	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"server": "server2"}`)
+		_, _ = fmt.Fprint(w, `{"server": "server2"}`)
 	}))
 	defer server2.Close()
 
