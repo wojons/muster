@@ -1788,10 +1788,11 @@ func calculateSHA256(data []byte) string {
 ### **IMMEDIATE (TODAY) - CRITICAL BUGS** 🔴
 1. **SEC-ADV-011**: Fix SHA-256 calculation bug (1 day) - `pkg/inventory/manager.go:255-257`
    - Baby Steps:
-     - [ ] Step 1: Replace `return fmt.Sprintf("%x", len(data))` with proper SHA-256
-     - [ ] Step 2: Import "crypto/sha256" if not already
-     - [ ] Step 3: Add test: same content = same hash, different content = different hash
-     - [ ] Step 4: Run existing inventory tests to verify no regressions
+     - [x] Step 1: Replace `return fmt.Sprintf("%x", len(data))` with proper SHA-256
+     - [x] Step 2: Import "crypto/sha256" if not already
+     - [x] Step 3: Add test: same content = same hash, different content = different hash
+     - [x] Step 4: Run existing inventory tests to verify no regressions
+   - **Status**: ✅ FIXED (2026-03-27) - Replaced length calculation with `sha256.Sum256(data)`, added `crypto/sha256` import, all tests pass with zero lint errors
 
 2. **CONC-006**: Fix audit log hash chain race (1 day) - `internal/audit/logger.go:80-81`
    - Baby Steps:
