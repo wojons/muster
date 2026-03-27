@@ -42,7 +42,7 @@ func TestNewMemoryCache_Constructor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := NewMemoryCache(tt.maxSize, tt.eviction)
 			require.NotNil(t, mc)
-			defer mc.Close()
+			defer func() { require.NoError(t, mc.Close()) }()
 
 			assert.Equal(t, tt.wantMaxSize, mc.maxSize)
 			assert.NotNil(t, mc.data)
@@ -57,7 +57,7 @@ func TestNewMemoryCache_Constructor(t *testing.T) {
 func TestMemoryCache_SetEmptyKey(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	err := mc.Set(ctx, "", Value{Data: []byte("value")})
 	assert.ErrorIs(t, err, ErrInvalidKey)
@@ -67,7 +67,7 @@ func TestMemoryCache_SetEmptyKey(t *testing.T) {
 func TestMemoryCache_SetWithOptions(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	t.Run("WithTTL overrides value TTL", func(t *testing.T) {
 		value := Value{
@@ -126,7 +126,7 @@ func TestMemoryCache_SetWithOptions(t *testing.T) {
 func TestMemoryCache_GetMissingKey(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	_, err := mc.Get(ctx, "non-existent-key")
 	assert.ErrorIs(t, err, ErrNotFound)
@@ -136,7 +136,7 @@ func TestMemoryCache_GetMissingKey(t *testing.T) {
 func TestMemoryCache_GetExpired(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	// Set a value with short TTL
 	value := Value{
@@ -158,7 +158,7 @@ func TestMemoryCache_GetExpired(t *testing.T) {
 func TestMemoryCache_GetUpdatesAccessTracking(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	err := mc.Set(ctx, "track-key", Value{Data: []byte("data")})
 	require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestMemoryCache_GetUpdatesAccessTracking(t *testing.T) {
 func TestMemoryCache_DeleteNonExistent(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	// Delete non-existent key should not error
 	err := mc.Delete(ctx, "non-existent")
@@ -201,7 +201,7 @@ func TestMemoryCache_DeleteNonExistent(t *testing.T) {
 func TestMemoryCache_DeleteSizeTracking(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	data := make([]byte, 1000)
 	err := mc.Set(ctx, "size-key", Value{Data: data})
@@ -227,7 +227,7 @@ func TestMemoryCache_DeleteSizeTracking(t *testing.T) {
 func TestMemoryCache_KeysPatternMatching(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	// Add test keys
 	testKeys := []string{
@@ -267,7 +267,7 @@ func TestMemoryCache_KeysPatternMatching(t *testing.T) {
 func TestMemoryCache_StatsCalculations(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	// Initial stats
 	stats, err := mc.Stats(ctx)
@@ -364,7 +364,7 @@ func TestMemoryCache_EvictionPolicies(t *testing.T) {
 			ctx := context.Background()
 			// Small cache to trigger eviction
 			mc := NewMemoryCache(500, tt.policy)
-			defer mc.Close()
+			defer func() { require.NoError(t, mc.Close()) }()
 
 			// Fill cache beyond capacity
 			for i := 0; i < 10; i++ {
@@ -387,7 +387,7 @@ func TestMemoryCache_EvictionPolicies(t *testing.T) {
 func TestMemoryCache_ConcurrentOperations(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	var wg sync.WaitGroup
 	numGoroutines := 50
@@ -400,7 +400,7 @@ func TestMemoryCache_ConcurrentOperations(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < operationsPerGoroutine; j++ {
 				key := string(rune('a' + (id % 26)))
-				mc.Set(ctx, key, Value{Data: []byte("data")})
+				_ = mc.Set(ctx, key, Value{Data: []byte("data")})
 			}
 		}(i)
 	}
@@ -412,7 +412,7 @@ func TestMemoryCache_ConcurrentOperations(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < operationsPerGoroutine; j++ {
 				key := string(rune('a' + (id % 26)))
-				mc.Get(ctx, key)
+				_, _ = mc.Get(ctx, key)
 			}
 		}(i)
 	}
@@ -424,7 +424,7 @@ func TestMemoryCache_ConcurrentOperations(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < operationsPerGoroutine/2; j++ {
 				key := string(rune('a' + (id % 26)))
-				mc.Delete(ctx, key)
+				_ = mc.Delete(ctx, key)
 			}
 		}(i)
 	}
@@ -441,7 +441,7 @@ func TestMemoryCache_ConcurrentOperations(t *testing.T) {
 func TestMemoryCache_TTLLifecycle(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	key := "ttl-test"
 	ttl := 200 * time.Millisecond
@@ -475,7 +475,7 @@ func TestMemoryCache_TTLLifecycle(t *testing.T) {
 func TestMemoryCache_NoTTLNeverExpires(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	err := mc.Set(ctx, "no-ttl", Value{
 		Data: []byte("value"),
@@ -496,7 +496,7 @@ func TestMemoryCache_NoTTLNeverExpires(t *testing.T) {
 func TestMemoryCache_OverwriteUpdatesSize(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	// Set initial value
 	err := mc.Set(ctx, "key", Value{Data: make([]byte, 100)})
@@ -530,7 +530,7 @@ func TestMemoryCache_OverwriteUpdatesSize(t *testing.T) {
 func TestMemoryCache_VersionIncrement(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	key := "version-test"
 
@@ -560,7 +560,7 @@ func TestMemoryCache_VersionIncrement(t *testing.T) {
 func TestMemoryCache_ClearResetsEverything(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	// Add data
 	for i := 0; i < 5; i++ {
@@ -597,7 +597,7 @@ func TestMemoryCache_ClearResetsEverything(t *testing.T) {
 func TestMemoryCache_HasExpiredKey(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	// Set value with short TTL
 	value := Value{
@@ -620,7 +620,7 @@ func TestMemoryCache_HasExpiredKey(t *testing.T) {
 func TestMemoryCache_CreatedAtSetOnSet(t *testing.T) {
 	ctx := context.Background()
 	mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
-	defer mc.Close()
+	defer func() { require.NoError(t, mc.Close()) }()
 
 	beforeSet := time.Now()
 
