@@ -1031,7 +1031,7 @@
 - **Impact**: Token revocation works in-memory; database persistence optional for CLI use case
 - **Baby Steps**:
   - [x] Step 1: Create migration for `fingerprints` table (client fingerprinting) - EXISTS
-  - [ ] Step 2: Create migration for `revocation_cache` table (token revocation) - PENDING
+  - [x] Step 2: Create migration for `revocation_cache` table (token revocation) - CREATED (00007_revocation_cache.sql)
   - [x] Step 3: Create migration for `rate_limit_state` table (persistent rate limiting) - EXISTS as `rate_limits`
   - [ ] Step 4: Update repository layer to use new tables - PENDING
   - [ ] Step 5: Add integration tests for all three tables - PENDING
