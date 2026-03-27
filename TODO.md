@@ -1825,11 +1825,11 @@
    - **Status**: ✅ FIXED (2026-03-27) - Replaced length calculation with `sha256.Sum256(data)`, added `crypto/sha256` import, all tests pass with zero lint errors
 
 2. **CONC-006**: Fix audit log hash chain race (1 day) - `internal/audit/logger.go:80-81`
-   - Baby Steps:
-     - [ ] Step 1: Add `al.mu.Lock()` before reading `lastHash`
-     - [ ] Step 2: Add `defer al.mu.Unlock()` after lock
-     - [ ] Step 3: Run `go test -race ./internal/audit/...` to verify fix
-     - [ ] Step 4: Add concurrent logging test
+    - Baby Steps:
+      - [x] Step 1: Add `al.mu.Lock()` before reading `lastHash` - Moved hash chain operations (PreviousHash assignment, Hash calculation, lastHash update) inside mutex lock
+      - [x] Step 2: Add `defer al.mu.Unlock()` after lock - Used explicit Unlock() calls to minimize lock duration
+      - [x] Step 3: Run `go test -race ./internal/audit/...` to verify fix - All tests pass with race detector
+      - [x] Step 4: Add concurrent logging test - Created TestIntegration_AuditLogger_ConcurrentHashChain with 20 goroutines logging 50 events each (1000 total), verifying hash chain integrity under concurrent access
 
 3. **INPUT-003**: Fix header injection (1 day) - `pkg/request/builder.go:58-60`
    - Baby Steps:

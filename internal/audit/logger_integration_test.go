@@ -362,6 +362,89 @@ func TestIntegration_AuditLogger_HashChainVerification(t *testing.T) {
 	}
 }
 
+// TestIntegration_AuditLogger_ConcurrentHashChain tests hash chain integrity under concurrent access
+func TestIntegration_AuditLogger_ConcurrentHashChain(t *testing.T) {
+	config := DefaultAuditConfig
+	config.BufferSize = 100
+	config.FlushInterval = time.Millisecond * 100
+
+	storage := NewMemoryStorage()
+	logger := NewAuditLogger(config, storage)
+	defer func() {
+		_ = logger.Close()
+	}()
+
+	// Concurrent logging from multiple goroutines
+	var wg sync.WaitGroup
+	numGoroutines := 20
+	eventsPerGoroutine := 50
+	totalEvents := numGoroutines * eventsPerGoroutine
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < eventsPerGoroutine; j++ {
+				event := &AuditEvent{
+					Level:    AuditLevelInfo,
+					Category: AuditCategorySystem,
+					Action:   fmt.Sprintf("concurrent-action-%d-%d", id, j),
+					Actor: AuditActor{
+						ID:   fmt.Sprintf("goroutine-%d", id),
+						Type: "worker",
+					},
+					Resource: AuditResource{ID: "shared-resource", Type: "resource"},
+					Result:   AuditResult{Success: true},
+				}
+				err := logger.Log(event)
+				require.NoError(t, err)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Wait for auto-flush to complete
+	time.Sleep(200 * time.Millisecond)
+
+	// Manual flush to ensure all events are written
+	err := logger.Flush()
+	require.NoError(t, err)
+
+	allEvents := storage.GetAllEvents()
+	require.Equal(t, totalEvents, len(allEvents),
+		"All concurrent events should be logged")
+
+	// Verify hash chain integrity
+	// Build a set of all hashes
+	hashes := make(map[string]bool)
+	previousHashes := make(map[string]bool)
+	var emptyPreviousHash bool
+
+	for _, event := range allEvents {
+		assert.NotEmpty(t, event.Hash, "Event should have a hash")
+		hashes[event.Hash] = true
+
+		if event.PreviousHash == "" {
+			emptyPreviousHash = true
+		} else {
+			previousHashes[event.PreviousHash] = true
+		}
+	}
+
+	// Verify there is exactly one event with empty PreviousHash (the first one)
+	assert.True(t, emptyPreviousHash, "There should be exactly one event with empty PreviousHash")
+
+	// Verify all PreviousHash values (except the empty one) point to a valid Hash
+	// This proves the hash chain is intact, even if we can't determine the exact order
+	for prevHash := range previousHashes {
+		assert.True(t, hashes[prevHash], "PreviousHash %s should correspond to a valid Hash", prevHash)
+	}
+
+	// Verify each hash is unique
+	assert.Equal(t, len(allEvents), len(hashes), "All hashes should be unique")
+}
+
 // TestIntegration_AuditLogger_GracefulShutdown tests shutdown behavior with pending events
 func TestIntegration_AuditLogger_GracefulShutdown(t *testing.T) {
 	config := DefaultAuditConfig

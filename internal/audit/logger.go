@@ -76,9 +76,12 @@ func (al *AuditLogger) Log(event *AuditEvent) error {
 
 	event.ID = generateID()
 	event.Timestamp = time.Now()
-	event.Hash = al.calculateHash(event)
+
+	al.mu.Lock()
 	event.PreviousHash = al.lastHash
+	event.Hash = al.calculateHash(event)
 	al.lastHash = event.Hash
+	al.mu.Unlock()
 
 	// Apply redaction to sensitive fields
 	if err := al.redactor.RedactEvent(event); err != nil {
