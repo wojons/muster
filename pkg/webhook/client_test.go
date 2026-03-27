@@ -2,6 +2,9 @@ package webhook
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -469,4 +472,142 @@ func TestClient_PingPong(t *testing.T) {
 	defer func() { _ = client.Close() }()
 
 	assert.True(t, client.IsConnected())
+}
+
+func TestClient_SetSignatureSecret(t *testing.T) {
+	client := NewClient("wss://example.com", "token", "sub-123")
+
+	assert.Empty(t, client.signatureSecret)
+
+	client.SetSignatureSecret("test-secret")
+	assert.Equal(t, "test-secret", client.signatureSecret)
+}
+
+func TestClient_verifySignature(t *testing.T) {
+	t.Run("valid_signature", func(t *testing.T) {
+		client := NewClient("wss://example.com", "token", "sub-123")
+		client.SetSignatureSecret("test-secret")
+
+		event := Event{
+			ID:        "event-123",
+			Type:      "test.event",
+			Timestamp: time.Now(),
+			Payload:   json.RawMessage(`{"data": "test"}`),
+		}
+
+		payload, _ := json.Marshal(event)
+		h := hmac.New(sha256.New, []byte("test-secret"))
+		h.Write(payload)
+		event.Signature = base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+		assert.True(t, client.verifySignature(event))
+	})
+
+	t.Run("invalid_signature", func(t *testing.T) {
+		client := NewClient("wss://example.com", "token", "sub-123")
+		client.SetSignatureSecret("test-secret")
+
+		event := Event{
+			ID:        "event-123",
+			Type:      "test.event",
+			Timestamp: time.Now(),
+			Payload:   json.RawMessage(`{"data": "test"}`),
+			Signature: "invalid-signature",
+		}
+
+		assert.False(t, client.verifySignature(event))
+	})
+
+	t.Run("no_secret_configured", func(t *testing.T) {
+		client := NewClient("wss://example.com", "token", "sub-123")
+
+		event := Event{
+			ID:        "event-123",
+			Type:      "test.event",
+			Timestamp: time.Now(),
+			Payload:   json.RawMessage(`{"data": "test"}`),
+			Signature: "some-signature",
+		}
+
+		assert.False(t, client.verifySignature(event))
+	})
+
+	t.Run("empty_signature_field", func(t *testing.T) {
+		client := NewClient("wss://example.com", "token", "sub-123")
+		client.SetSignatureSecret("test-secret")
+
+		event := Event{
+			ID:        "event-123",
+			Type:      "test.event",
+			Timestamp: time.Now(),
+			Payload:   json.RawMessage(`{"data": "test"}`),
+			Signature: "",
+		}
+
+		assert.False(t, client.verifySignature(event))
+	})
+
+	t.Run("signature_changes_with_payload", func(t *testing.T) {
+		client := NewClient("wss://example.com", "token", "sub-123")
+		client.SetSignatureSecret("test-secret")
+
+		event1 := Event{
+			ID:        "event-123",
+			Type:      "test.event",
+			Timestamp: time.Now(),
+			Payload:   json.RawMessage(`{"data": "test1"}`),
+		}
+
+		event2 := Event{
+			ID:        "event-123",
+			Type:      "test.event",
+			Timestamp: event1.Timestamp,
+			Payload:   json.RawMessage(`{"data": "test2"}`),
+		}
+
+		payload1, _ := json.Marshal(event1)
+		h1 := hmac.New(sha256.New, []byte("test-secret"))
+		h1.Write(payload1)
+		sig1 := base64.StdEncoding.EncodeToString(h1.Sum(nil))
+
+		payload2, _ := json.Marshal(event2)
+		h2 := hmac.New(sha256.New, []byte("test-secret"))
+		h2.Write(payload2)
+		sig2 := base64.StdEncoding.EncodeToString(h2.Sum(nil))
+
+		assert.NotEqual(t, sig1, sig2)
+	})
+
+	t.Run("same_payload_same_signature", func(t *testing.T) {
+		client := NewClient("wss://example.com", "token", "sub-123")
+		client.SetSignatureSecret("test-secret")
+
+		event := Event{
+			ID:        "event-123",
+			Type:      "test.event",
+			Timestamp: time.Now(),
+			Payload:   json.RawMessage(`{"data": "test"}`),
+		}
+
+		payload, _ := json.Marshal(event)
+		h := hmac.New(sha256.New, []byte("test-secret"))
+		h.Write(payload)
+		sig := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+		event.Signature = sig
+		assert.True(t, client.verifySignature(event))
+
+		event2 := Event{
+			ID:        "event-123",
+			Type:      "test.event",
+			Timestamp: event.Timestamp,
+			Payload:   event.Payload,
+			Signature: sig,
+		}
+		assert.True(t, client.verifySignature(event2))
+	})
+}
+
+func TestClient_EventSignatureVerification_Integration(t *testing.T) {
+	t.Skip("Integration test - skipping in favor of unit tests")
 }

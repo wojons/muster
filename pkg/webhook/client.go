@@ -2,6 +2,9 @@ package webhook
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -15,10 +18,11 @@ import (
 )
 
 type Client struct {
-	url            string
-	token          string
-	clientID       string
-	subscriptionID string
+	url             string
+	token           string
+	clientID        string
+	subscriptionID  string
+	signatureSecret string
 
 	conn   *websocket.Conn
 	config *ReconnectConfig
@@ -43,6 +47,7 @@ type Event struct {
 	Type      string          `json:"type"`
 	Timestamp time.Time       `json:"timestamp"`
 	Payload   json.RawMessage `json:"payload"`
+	Signature string          `json:"signature,omitempty"`
 }
 
 type AckMessage struct {
@@ -119,6 +124,10 @@ func NewClient(url, token, subscriptionID string) *Client {
 		eventHandler:   func(e Event) error { return nil },
 		errorHandler:   func(e error) {},
 	}
+}
+
+func (c *Client) SetSignatureSecret(secret string) {
+	c.signatureSecret = secret
 }
 
 func (c *Client) SetEventHandler(handler func(Event) error) {
@@ -216,6 +225,13 @@ func (c *Client) readLoop() {
 
 		switch msg.Type {
 		case "event":
+			if c.signatureSecret != "" && msg.Signature != "" {
+				if !c.verifySignature(msg) {
+					c.errorHandler(fmt.Errorf("signature verification failed for event %s", msg.ID))
+					continue
+				}
+			}
+
 			c.ackMu.Lock()
 			c.pendingAcks[msg.ID] = time.Now()
 			c.ackMu.Unlock()
@@ -356,6 +372,26 @@ func (c *Client) resumeSubscription() error {
 	}
 
 	return c.conn.WriteJSON(resume)
+}
+
+func (c *Client) verifySignature(event Event) bool {
+	if c.signatureSecret == "" || event.Signature == "" {
+		return false
+	}
+
+	signature := event.Signature
+	event.Signature = ""
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return false
+	}
+
+	h := hmac.New(sha256.New, []byte(c.signatureSecret))
+	h.Write(payload)
+	expectedSig := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	return hmac.Equal([]byte(expectedSig), []byte(signature))
 }
 
 func (c *Client) UpdateSubscription(config SubscriptionConfig) error {
