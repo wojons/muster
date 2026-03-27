@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -262,10 +263,52 @@ func NewProxyHandler(backendURL string) *ProxyHandler {
 
 // ServeHTTP implements http.Handler
 func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Create target URL
-	targetURL := h.backendURL + r.URL.Path
+	// Parse backend URL
+	backend, err := url.Parse(h.backendURL)
+	if err != nil {
+		http.Error(w, "Invalid backend URL", http.StatusInternalServerError)
+		return
+	}
+
+	// Sanitize and validate path components
+	cleanedPath := sanitizeProxyPath(r.URL.Path)
+	if cleanedPath == "" {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+
+	// Use url.JoinPath for proper path joining (Go 1.20+)
+	// This handles path separators, escaping, and prevents smuggling
+	targetURL, err := url.JoinPath(h.backendURL, cleanedPath)
+	if err != nil {
+		http.Error(w, "Failed to build target URL", http.StatusBadGateway)
+		return
+	}
+
+	// Append query string if present
 	if r.URL.RawQuery != "" {
-		targetURL += "?" + r.URL.RawQuery
+		if !strings.Contains(targetURL, "?") {
+			targetURL += "?" + r.URL.RawQuery
+		} else {
+			targetURL += "&" + r.URL.RawQuery
+		}
+	}
+
+	// Validate final URL to prevent scheme/host changes
+	targetParsed, err := url.Parse(targetURL)
+	if err != nil {
+		http.Error(w, "Invalid target URL", http.StatusBadGateway)
+		return
+	}
+
+	// Ensure target URL maintains the same scheme and host as backend
+	if targetParsed.Scheme != "" && targetParsed.Scheme != backend.Scheme {
+		http.Error(w, "Invalid target URL scheme", http.StatusBadGateway)
+		return
+	}
+	if targetParsed.Host != "" && targetParsed.Host != backend.Host {
+		http.Error(w, "Invalid target URL host", http.StatusBadGateway)
+		return
 	}
 
 	// Create proxy request
@@ -316,6 +359,49 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Copy response body
 	_, _ = io.Copy(w, resp.Body)
+}
+
+// sanitizeProxyPath sanitizes and validates a path component for proxying
+// Prevents path traversal, request smuggling, and other attacks
+func sanitizeProxyPath(path string) string {
+	// Reject empty paths
+	if path == "" {
+		return "/"
+	}
+
+	// Reject null bytes (could be used for path truncation)
+	if strings.Contains(path, "\x00") {
+		return ""
+	}
+
+	// Reject paths with newlines or carriage returns (HTTP smuggling)
+	if strings.ContainsAny(path, "\r\n") {
+		return ""
+	}
+
+	// Check for path traversal attempts BEFORE cleaning
+	// Split by / and check each component
+	parts := strings.Split(path, "/")
+	for _, part := range parts {
+		if part == ".." {
+			return ""
+		}
+	}
+
+	// Clean the path to resolve . and normalize separators
+	cleaned := filepath.Clean(path)
+
+	// Double-check after cleaning (belt and suspenders)
+	if strings.Contains(cleaned, "..") {
+		return ""
+	}
+
+	// Ensure path starts with /
+	if !strings.HasPrefix(cleaned, "/") {
+		cleaned = "/" + cleaned
+	}
+
+	return cleaned
 }
 
 // isHopHeader checks if a header is hop-by-hop

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -24,11 +26,75 @@ type AuthorizationCodeFlow struct {
 	State        string
 	PKCE         bool
 	codeVerifier string
+	stateStore   *stateStore
+}
+
+type stateStore struct {
+	mu     sync.RWMutex
+	states map[string]*stateEntry
+}
+
+type stateEntry struct {
+	state     string
+	expiresAt time.Time
+}
+
+func newStateStore() *stateStore {
+	s := &stateStore{
+		states: make(map[string]*stateEntry),
+	}
+	// Start cleanup goroutine
+	go s.cleanupExpired()
+	return s
+}
+
+func (s *stateStore) Set(requestID, state string, expiresIn time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.states[requestID] = &stateEntry{
+		state:     state,
+		expiresAt: time.Now().Add(expiresIn),
+	}
+}
+
+func (s *stateStore) Get(requestID string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	entry, ok := s.states[requestID]
+	if !ok {
+		return "", false
+	}
+	if time.Now().After(entry.expiresAt) {
+		return "", false
+	}
+	return entry.state, true
+}
+
+func (s *stateStore) Delete(requestID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.states, requestID)
+}
+
+func (s *stateStore) cleanupExpired() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		s.mu.Lock()
+		now := time.Now()
+		for id, entry := range s.states {
+			if now.After(entry.expiresAt) {
+				delete(s.states, id)
+			}
+		}
+		s.mu.Unlock()
+	}
 }
 
 type AuthRequest struct {
-	URL   string
-	State string
+	URL       string
+	State     string
+	RequestID string
 }
 
 type DeviceAuthResponse struct {
@@ -66,8 +132,17 @@ func generateCodeChallenge(verifier string) string {
 }
 
 func (f *AuthorizationCodeFlow) Start() (*AuthRequest, error) {
+	// Initialize state store if not already done
+	if f.stateStore == nil {
+		f.stateStore = newStateStore()
+	}
+
+	// Generate unique request ID and state
+	requestID := generateSecureState()
 	state := generateSecureState()
-	f.State = state
+
+	// Store state with 10 minute expiry
+	f.stateStore.Set(requestID, state, 10*time.Minute)
 
 	params := url.Values{
 		"client_id":     {f.ClientID},
@@ -87,17 +162,40 @@ func (f *AuthorizationCodeFlow) Start() (*AuthRequest, error) {
 	authURL := f.AuthURL + "?" + params.Encode()
 
 	return &AuthRequest{
-		URL:   authURL,
-		State: state,
+		URL:       authURL,
+		State:     state,
+		RequestID: requestID,
 	}, nil
 }
 
 // Exchange exchanges the authorization code for tokens and validates the state parameter.
 // The state parameter must match the state returned from the authorization server
-// to prevent CSRF attacks.
-func (f *AuthorizationCodeFlow) Exchange(code, state string) (*TokenResponse, error) {
+// to prevent CSRF attacks. Uses constant-time comparison to prevent timing attacks.
+func (f *AuthorizationCodeFlow) Exchange(code, state string, requestID string) (*TokenResponse, error) {
 	// Validate state parameter to prevent CSRF attacks
-	if state != f.State {
+	if requestID == "" {
+		return nil, fmt.Errorf("oauth2: request ID required")
+	}
+
+	expectedState, exists := f.stateStore.Get(requestID)
+	if !exists {
+		return nil, fmt.Errorf("oauth2: state expired or invalid - possible CSRF attack")
+	}
+
+	// Delete the state after first use (one-time use)
+	f.stateStore.Delete(requestID)
+
+	// Use constant-time comparison to prevent timing attacks
+	stateBytes := []byte(state)
+	expectedBytes := []byte(expectedState)
+
+	// Length check first (timing-safe)
+	if len(stateBytes) != len(expectedBytes) {
+		return nil, fmt.Errorf("oauth2: state mismatch - possible CSRF attack")
+	}
+
+	// Constant-time comparison
+	if subtle.ConstantTimeCompare(stateBytes, expectedBytes) != 1 {
 		return nil, fmt.Errorf("oauth2: state mismatch - possible CSRF attack")
 	}
 
@@ -302,42 +400,37 @@ func (tm *TokenManager) Refresh(token *Token) (*Token, error) {
 }
 
 type CallbackServer struct {
-	port     int
-	state    string
-	codeChan chan string
-	errChan  chan error
+	port       int
+	stateStore *stateStore
+	codeChan   chan string
+	errChan    chan error
 }
 
-func NewCallbackServer(port int) *CallbackServer {
+func NewCallbackServer(port int, stateStore *stateStore) *CallbackServer {
 	return &CallbackServer{
-		port:     port,
-		codeChan: make(chan string, 1),
-		errChan:  make(chan error, 1),
+		port:       port,
+		stateStore: stateStore,
+		codeChan:   make(chan string, 1),
+		errChan:    make(chan error, 1),
 	}
 }
 
-func (s *CallbackServer) Start() string {
+func (s *CallbackServer) Start(requestID string) string {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", s.handleCallback)
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		// Add requestID to query params for state lookup
+		q := r.URL.Query()
+		if requestID != "" {
+			q.Set("request_id", requestID)
+			r.URL.RawQuery = q.Encode()
+		}
+		s.handleCallback(w, r)
+	})
 
 	addr := fmt.Sprintf("localhost:%d", s.port)
 	go func() { _ = http.ListenAndServe(addr, mux) }()
 
 	return fmt.Sprintf("http://%s/callback", addr)
-}
-
-func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	state := r.URL.Query().Get("state")
-
-	if state != s.state {
-		s.errChan <- fmt.Errorf("invalid state")
-		http.Error(w, "Invalid state", 400)
-		return
-	}
-
-	s.codeChan <- code
-	_, _ = fmt.Fprintln(w, "Authorization successful. You can close this window.")
 }
 
 func (s *CallbackServer) WaitCode(ctx context.Context) (string, error) {
@@ -349,4 +442,41 @@ func (s *CallbackServer) WaitCode(ctx context.Context) (string, error) {
 	case <-ctx.Done():
 		return "", ctx.Err()
 	}
+}
+
+func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	state := r.URL.Query().Get("state")
+	requestID := r.URL.Query().Get("request_id")
+
+	// Validate request ID
+	if requestID == "" {
+		s.errChan <- fmt.Errorf("request ID missing")
+		http.Error(w, "Request ID required", 400)
+		return
+	}
+
+	// Get expected state from store
+	expectedState, exists := s.stateStore.Get(requestID)
+	if !exists {
+		s.errChan <- fmt.Errorf("state expired or invalid")
+		http.Error(w, "Invalid or expired state", 400)
+		return
+	}
+
+	// Use constant-time comparison
+	stateBytes := []byte(state)
+	expectedBytes := []byte(expectedState)
+
+	if len(stateBytes) != len(expectedBytes) || subtle.ConstantTimeCompare(stateBytes, expectedBytes) != 1 {
+		s.errChan <- fmt.Errorf("state mismatch")
+		http.Error(w, "Invalid state", 400)
+		return
+	}
+
+	// Delete state after use (one-time use)
+	s.stateStore.Delete(requestID)
+
+	s.codeChan <- code
+	_, _ = fmt.Fprintln(w, "Authorization successful. You can close this window.")
 }

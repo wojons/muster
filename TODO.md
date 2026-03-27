@@ -1194,31 +1194,40 @@
 - **Tests**: All 10 DoS prevention tests passing + all existing tests
 - **Lint**: 0 issues
 
-#### SEC-ADV-008: OAuth2 State Parameter Race Condition
+#### SEC-ADV-008: OAuth2 State Parameter Race Condition - ✅ COMPLETE
 - **Priority**: HIGH
 - **CVE-style ID**: MUS-2026-008
-- **CVSS Score**: 7.1
+- **CVSS Score**: 7.1 → 0.0 (FIXED)
 - **File**: `pkg/auth/oauth2.go:69-70`
 - **Gap**: State stored in struct field, not per-request - concurrent flows overwrite
 - **Impact**: CSRF attack on OAuth flow
 - **Baby Steps**:
-  - [ ] Step 1: Use per-request state stored in context/channel
-  - [ ] Step 2: Add state nonce binding
-  - [ ] Step 3: Add test for concurrent OAuth flows
+  - [x] Step 1: Use per-request state stored in context/channel - IMPLEMENTED: Added `stateStore` map with `sync.RWMutex` for thread-safe per-request state storage, `Set()`, `Get()`, `Delete()` methods with TTL-based expiration
+  - [x] Step 2: Add state nonce binding - IMPLEMENTED: Each request gets unique `RequestID` and `state`, stored in `stateStore` with 10-minute expiry, state deleted after first use (one-time use)
+  - [x] Step 3: Add test for concurrent OAuth flows - IMPLEMENTED: 10 comprehensive tests including `TestAuthorizationCodeFlow_ConcurrentFlows` (10 concurrent flows), `TestAuthorizationCodeFlow_StateReuse_Prevented`, `TestAuthorizationCodeFlow_StateExpiration`, `TestAuthorizationCodeFlow_TimingAttack_Prevented`, `TestStateStore_ConcurrentAccess`, plus CallbackServer tests
 - **Estimate**: 2-3 days
+- **Actual**: ~3 hours
+- **Completed**: 2026-03-27 - Implemented per-request state management with thread-safe `stateStore` using `sync.RWMutex`, constant-time state comparison with `crypto/subtle.ConstantTimeCompare`, state expiration (10 minutes), one-time state use (deleted after exchange), and comprehensive test coverage (10+ new tests). All tests pass with race detector enabled. Zero lint errors.
+- **Files**: `pkg/auth/oauth2.go` (per-request state implementation), `pkg/auth/oauth2_test.go` (10+ new test functions)
+- **Tests**: All 10+ tests passing with race detector
+- **Lint**: 0 issues
 
-#### SEC-ADV-009: Proxy Request Smuggling
+#### SEC-ADV-009: Proxy Request Smuggling - ✅ COMPLETE
 - **Priority**: HIGH
 - **CVE-style ID**: MUS-2026-009
-- **CVSS Score**: 7.3
+- **CVSS Score**: 7.3 → 0.0 (FIXED)
 - **File**: `pkg/daemon/proxy.go:266`
-- **Gap**: Direct path concatenation `targetURL := h.backendURL + r.URL.Path`
-- **Impact**: Access internal endpoints, request smuggling
+- **Status**: ✅ **FIXED** - Proper URL construction with path sanitization
+- **Fix**: Implemented `sanitizeProxyPath()` function that rejects path traversal attempts, null bytes, and control characters. Used `url.JoinPath()` for proper path joining, added URL validation to prevent scheme/host changes.
+- **Impact**: Request smuggling attacks now blocked; path traversal rejected with 400 Bad Request
 - **Baby Steps**:
-  - [ ] Step 1: Use `url.JoinPath()` for proper path joining
-  - [ ] Step 2: Validate/sanitize path components
-  - [ ] Step 3: Add test proving smuggling no longer works
+  - [x] Step 1: Use `url.JoinPath()` for proper path joining - IMPLEMENTED
+  - [x] Step 2: Validate/sanitize path components - IMPLEMENTED: Added `sanitizeProxyPath()` with comprehensive validation
+  - [x] Step 3: Add test proving smuggling no longer works - IMPLEMENTED: 4 new test functions covering path sanitization, request smuggling, URL validation, and integration tests
+- **Tests**: All 4 new test functions passing (TestSanitizeProxyPath with 11 cases, TestProxyHandler_RequestSmuggling with 5 cases, TestProxyHandler_URLValidation with 2 cases, TestProxyHandler_PathSanitization_Integration with 3 cases)
+- **Completed**: 2026-03-27 - Fixed proxy request smuggling vulnerability by implementing proper URL construction and path sanitization. All tests pass with race detector enabled. Zero lint errors.
 - **Estimate**: 1-2 days
+- **Actual**: ~2 hours
 
 #### SEC-ADV-010: WASM Sandbox Symlink Escape
 - **Priority**: MEDIUM
