@@ -22,8 +22,8 @@ func TestAuthenticatedSocket_FullLifecycle(t *testing.T) {
 	tokenPath := filepath.Join("/tmp", "muster-lifecycle-"+generateTestID(8)+".token")
 
 	defer func() {
-		os.Remove(socketPath)
-		os.Remove(tokenPath)
+		_ = os.Remove(socketPath)
+		_ = os.Remove(tokenPath)
 	}()
 
 	// Step 1: Create and generate token
@@ -80,7 +80,7 @@ func TestAuthenticatedSocket_FullLifecycle(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Expected status 401 for unauthorized request, got %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Step 6: Test authorized request
 	req, _ = http.NewRequest("GET", "http://localhost/protected", nil)
@@ -93,7 +93,7 @@ func TestAuthenticatedSocket_FullLifecycle(t *testing.T) {
 		body, _ := io.ReadAll(resp.Body)
 		t.Errorf("Expected status 200 for authorized request, got %d. Body: %s", resp.StatusCode, string(body))
 	}
-	resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Step 7: Stop server and cleanup
 	if err := server.Stop(); err != nil {
@@ -119,8 +119,8 @@ func TestAuthenticatedSocket_ConcurrentConnections(t *testing.T) {
 	tokenPath := filepath.Join("/tmp", "muster-concurrent-"+generateTestID(8)+".token")
 
 	defer func() {
-		os.Remove(socketPath)
-		os.Remove(tokenPath)
+		_ = os.Remove(socketPath)
+		_ = os.Remove(tokenPath)
 	}()
 
 	tokenManager := NewTokenManager(tokenPath)
@@ -143,7 +143,7 @@ func TestAuthenticatedSocket_ConcurrentConnections(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -165,7 +165,7 @@ func TestAuthenticatedSocket_ConcurrentConnections(t *testing.T) {
 				errors <- fmt.Errorf("request %d failed: %v", id, err)
 				return
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
@@ -194,8 +194,8 @@ func TestAuthenticatedSocket_TokenRotation(t *testing.T) {
 	tokenPath := filepath.Join("/tmp", "muster-rotation-"+generateTestID(8)+".token")
 
 	defer func() {
-		os.Remove(socketPath)
-		os.Remove(tokenPath)
+		_ = os.Remove(socketPath)
+		_ = os.Remove(tokenPath)
 	}()
 
 	tokenManager := NewTokenManager(tokenPath)
@@ -218,7 +218,7 @@ func TestAuthenticatedSocket_TokenRotation(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -233,7 +233,7 @@ func TestAuthenticatedSocket_TokenRotation(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200 with original token, got %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Rotate token - this invalidates the old token
 	if err := tokenManager.Generate(); err != nil {
@@ -251,7 +251,7 @@ func TestAuthenticatedSocket_TokenRotation(t *testing.T) {
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Original token should be rejected after rotation, got status %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// New token should work
 	req, _ = http.NewRequest("GET", "http://localhost/test", nil)
@@ -263,7 +263,7 @@ func TestAuthenticatedSocket_TokenRotation(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("New token should work, got status %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 }
 
 // TestAuthenticatedSocket_MultipleEndpoints tests authentication across different endpoints
@@ -272,8 +272,8 @@ func TestAuthenticatedSocket_MultipleEndpoints(t *testing.T) {
 	tokenPath := filepath.Join("/tmp", "muster-multi-"+generateTestID(8)+".token")
 
 	defer func() {
-		os.Remove(socketPath)
-		os.Remove(tokenPath)
+		_ = os.Remove(socketPath)
+		_ = os.Remove(tokenPath)
 	}()
 
 	tokenManager := NewTokenManager(tokenPath)
@@ -302,7 +302,7 @@ func TestAuthenticatedSocket_MultipleEndpoints(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -320,7 +320,7 @@ func TestAuthenticatedSocket_MultipleEndpoints(t *testing.T) {
 			if resp.StatusCode != http.StatusUnauthorized {
 				t.Errorf("Expected 401 without token, got %d", resp.StatusCode)
 			}
-			resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// With token - should succeed
 			req, _ = http.NewRequest("GET", "http://localhost"+endpoint, nil)
@@ -333,7 +333,7 @@ func TestAuthenticatedSocket_MultipleEndpoints(t *testing.T) {
 				body, _ := io.ReadAll(resp.Body)
 				t.Errorf("Expected 200 with token, got %d. Body: %s", resp.StatusCode, string(body))
 			}
-			resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 		})
 	}
 }
@@ -344,8 +344,8 @@ func TestAuthenticatedSocket_InvalidTokens(t *testing.T) {
 	tokenPath := filepath.Join("/tmp", "muster-invalid-"+generateTestID(8)+".token")
 
 	defer func() {
-		os.Remove(socketPath)
-		os.Remove(tokenPath)
+		_ = os.Remove(socketPath)
+		_ = os.Remove(tokenPath)
 	}()
 
 	tokenManager := NewTokenManager(tokenPath)
@@ -365,7 +365,7 @@ func TestAuthenticatedSocket_InvalidTokens(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -423,7 +423,7 @@ func TestAuthenticatedSocket_InvalidTokens(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tc.expectCode {
 				t.Errorf("Expected status %d, got %d", tc.expectCode, resp.StatusCode)
@@ -438,8 +438,8 @@ func TestAuthenticatedSocket_ConnectionPersistence(t *testing.T) {
 	tokenPath := filepath.Join("/tmp", "muster-persist-"+generateTestID(8)+".token")
 
 	defer func() {
-		os.Remove(socketPath)
-		os.Remove(tokenPath)
+		_ = os.Remove(socketPath)
+		_ = os.Remove(tokenPath)
 	}()
 
 	tokenManager := NewTokenManager(tokenPath)
@@ -461,14 +461,14 @@ func TestAuthenticatedSocket_ConnectionPersistence(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"request":%d}`, count)))
+		_, _ = fmt.Fprintf(w, `{"request":%d}`, count)
 	})
 
 	server := NewAuthenticatedProxyServer(socketPath, handler, tokenManager)
 	if err := server.Start(); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer server.Stop()
+	defer func() { _ = server.Stop() }()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -485,7 +485,7 @@ func TestAuthenticatedSocket_ConnectionPersistence(t *testing.T) {
 		}
 
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Request %d: expected status 200, got %d. Body: %s", i, resp.StatusCode, string(body))
@@ -507,8 +507,8 @@ func TestAuthenticatedSocket_CleanupOnStop(t *testing.T) {
 	tokenPath := filepath.Join("/tmp", "muster-cleanup-"+generateTestID(8)+".token")
 
 	defer func() {
-		os.Remove(socketPath)
-		os.Remove(tokenPath)
+		_ = os.Remove(socketPath)
+		_ = os.Remove(tokenPath)
 	}()
 
 	tokenManager := NewTokenManager(tokenPath)
