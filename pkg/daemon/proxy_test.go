@@ -267,8 +267,8 @@ func TestProxyServer_Authentication_Integration(t *testing.T) {
 
 	// Cleanup after test
 	defer func() {
-		os.Remove(socketPath)
-		os.Remove(tokenPath)
+		_ = os.Remove(socketPath)
+		_ = os.Remove(tokenPath)
 	}()
 
 	tokenManager := NewTokenManager(tokenPath)
@@ -290,7 +290,9 @@ func TestProxyServer_Authentication_Integration(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer server.Stop()
+	defer func() {
+		_ = server.Stop()
+	}()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -302,7 +304,9 @@ func TestProxyServer_Authentication_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Request failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Errorf("Expected status %d, got %d", http.StatusUnauthorized, resp.StatusCode)
@@ -318,7 +322,9 @@ func TestProxyServer_Authentication_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Request failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -334,7 +340,9 @@ func TestProxyServer_Authentication_Integration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Request failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected status %d, got %d", http.StatusOK, resp.StatusCode)
@@ -356,7 +364,9 @@ func TestNewProxyServer_WithoutAuth(t *testing.T) {
 	if err := server.Start(); err != nil {
 		t.Fatalf("Failed to start server: %v", err)
 	}
-	defer server.Stop()
+	defer func() {
+		_ = server.Stop()
+	}()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -367,7 +377,9 @@ func TestNewProxyServer_WithoutAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, resp.StatusCode)
