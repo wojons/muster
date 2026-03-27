@@ -5,19 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewSandboxedFS(t *testing.T) {
 	tmpDir := t.TempDir()
 	fs := NewSandboxedFS(tmpDir)
 
-	if fs == nil {
-		t.Error("NewSandboxedFS returned nil")
-	}
-
-	if fs.root != filepath.Clean(tmpDir) {
-		t.Errorf("expected root %s, got %s", filepath.Clean(tmpDir), fs.root)
-	}
+	require.NotNil(t, fs, "NewSandboxedFS returned nil")
+	require.Equal(t, filepath.Clean(tmpDir), fs.root, "root path mismatch")
 }
 
 func TestSandboxedFS_AllowDirectory(t *testing.T) {

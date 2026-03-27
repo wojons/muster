@@ -13,7 +13,7 @@ import (
 // TestMemoryStorage_Write tests writing events to memory storage.
 func TestMemoryStorage_Write(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	event := createTestEvent("test-action", AuditLevelInfo, AuditCategorySystem)
 
@@ -29,7 +29,7 @@ func TestMemoryStorage_Write(t *testing.T) {
 // TestMemoryStorage_Write_Closed tests writing to closed storage fails.
 func TestMemoryStorage_Write_Closed(t *testing.T) {
 	storage := NewMemoryStorage()
-	storage.Close()
+	_ = storage.Close()
 
 	event := createTestEvent("test-action", AuditLevelInfo, AuditCategorySystem)
 	err := storage.Write(event)
@@ -41,7 +41,7 @@ func TestMemoryStorage_Write_Closed(t *testing.T) {
 // TestMemoryStorage_Query_TimeRange tests querying by time range.
 func TestMemoryStorage_Query_TimeRange(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	now := time.Now()
 
@@ -69,7 +69,7 @@ func TestMemoryStorage_Query_TimeRange(t *testing.T) {
 // TestMemoryStorage_Query_Category tests querying by category.
 func TestMemoryStorage_Query_Category(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	authEvent := createTestEvent("login", AuditLevelInfo, AuditCategoryAuth)
 	require.NoError(t, storage.Write(authEvent))
@@ -90,7 +90,7 @@ func TestMemoryStorage_Query_Category(t *testing.T) {
 // TestMemoryStorage_Query_Level tests querying by level.
 func TestMemoryStorage_Query_Level(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	infoEvent := createTestEvent("info-action", AuditLevelInfo, AuditCategorySystem)
 	require.NoError(t, storage.Write(infoEvent))
@@ -111,7 +111,7 @@ func TestMemoryStorage_Query_Level(t *testing.T) {
 // TestMemoryStorage_Query_ActorID tests querying by actor ID.
 func TestMemoryStorage_Query_ActorID(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	event1 := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
 	event1.Actor.ID = "actor-1"
@@ -134,7 +134,7 @@ func TestMemoryStorage_Query_ActorID(t *testing.T) {
 // TestMemoryStorage_Query_ResourceType tests querying by resource type.
 func TestMemoryStorage_Query_ResourceType(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	event1 := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
 	event1.Resource.Type = "user"
@@ -157,7 +157,7 @@ func TestMemoryStorage_Query_ResourceType(t *testing.T) {
 // TestMemoryStorage_Query_Action tests querying by action.
 func TestMemoryStorage_Query_Action(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	createEvent := createTestEvent("create", AuditLevelInfo, AuditCategorySystem)
 	require.NoError(t, storage.Write(createEvent))
@@ -178,7 +178,7 @@ func TestMemoryStorage_Query_Action(t *testing.T) {
 // TestMemoryStorage_Query_Success tests querying by success status.
 func TestMemoryStorage_Query_Success(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	successEvent := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
 	successEvent.Result.Success = true
@@ -202,7 +202,7 @@ func TestMemoryStorage_Query_Success(t *testing.T) {
 // TestMemoryStorage_Query_CombinedFilters tests querying with multiple filters.
 func TestMemoryStorage_Query_CombinedFilters(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	now := time.Now()
 
@@ -247,7 +247,7 @@ func TestMemoryStorage_Query_CombinedFilters(t *testing.T) {
 // TestMemoryStorage_Query_EmptyStorage tests querying empty storage.
 func TestMemoryStorage_Query_EmptyStorage(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	results, err := storage.Query(AuditFilter{})
 	require.NoError(t, err)
@@ -257,7 +257,7 @@ func TestMemoryStorage_Query_EmptyStorage(t *testing.T) {
 // TestMemoryStorage_Query_Closed tests querying closed storage fails.
 func TestMemoryStorage_Query_Closed(t *testing.T) {
 	storage := NewMemoryStorage()
-	storage.Close()
+	_ = storage.Close()
 
 	_, err := storage.Query(AuditFilter{})
 	assert.Error(t, err)
@@ -281,7 +281,7 @@ func TestMemoryStorage_Close(t *testing.T) {
 // TestMemoryStorage_ConcurrentAccess tests concurrent write and read operations.
 func TestMemoryStorage_ConcurrentAccess(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	done := make(chan bool)
 
@@ -290,7 +290,7 @@ func TestMemoryStorage_ConcurrentAccess(t *testing.T) {
 		go func(idx int) {
 			event := createTestEvent("action", AuditLevelInfo, AuditCategorySystem)
 			event.ID = string(rune('a' + idx))
-			storage.Write(event)
+			_ = storage.Write(event)
 			done <- true
 		}(i)
 	}
@@ -311,7 +311,7 @@ func TestFileStorage_Write(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	event := createTestEvent("test-action", AuditLevelInfo, AuditCategorySystem)
 	err = storage.Write(event)
@@ -329,7 +329,7 @@ func TestFileStorage_Write_Closed(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	storage.Close()
+	_ = storage.Close()
 
 	event := createTestEvent("test", AuditLevelInfo, AuditCategorySystem)
 	err = storage.Write(event)
@@ -344,7 +344,7 @@ func TestFileStorage_Query(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Write events
 	for i := 0; i < 5; i++ {
@@ -367,7 +367,7 @@ func TestFileStorage_Query_WithFilter(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Write different types of events
 	authEvent := createTestEvent("login", AuditLevelInfo, AuditCategoryAuth)
@@ -401,7 +401,7 @@ func TestFileStorage_Rotation(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, opts)
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Write enough data to trigger rotation
 	for i := 0; i < 20; i++ {
@@ -425,7 +425,7 @@ func TestFileStorage_Rotate_Manual(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	event := createTestEvent("test", AuditLevelInfo, AuditCategorySystem)
 	require.NoError(t, storage.Write(event))
@@ -450,7 +450,7 @@ func TestFileStorage_Rotate_Closed(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	storage.Close()
+	_ = storage.Close()
 
 	err = storage.Rotate()
 	assert.Error(t, err)
@@ -485,7 +485,7 @@ func TestFileStorage_Query_NonExistentFile(t *testing.T) {
 	// Create storage (should create parent directory)
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Query should return empty results
 	results, err := storage.Query(AuditFilter{})
@@ -500,7 +500,7 @@ func TestFileStorage_MultipleRotatedFiles(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Write and rotate multiple times
 	for i := 0; i < 3; i++ {
@@ -526,7 +526,7 @@ func TestFileStorage_CreateDirectory(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	event := createTestEvent("test", AuditLevelInfo, AuditCategorySystem)
 	err = storage.Write(event)
@@ -544,7 +544,7 @@ func TestFileStorage_Permissions(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Check file permissions (should be 0600)
 	info, err := os.Stat(logPath)
@@ -556,7 +556,7 @@ func TestFileStorage_Permissions(t *testing.T) {
 // TestMemoryStorage_Query_Pagination_Basic tests basic pagination.
 func TestMemoryStorage_Query_Pagination_Basic(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Add 10 events
 	for i := 0; i < 10; i++ {
@@ -595,7 +595,7 @@ func TestMemoryStorage_Query_Pagination_Basic(t *testing.T) {
 // TestMemoryStorage_Query_Pagination_EmptyPage tests pagination beyond available data.
 func TestMemoryStorage_Query_Pagination_EmptyPage(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Add 5 events
 	for i := 0; i < 5; i++ {
@@ -616,7 +616,7 @@ func TestMemoryStorage_Query_Pagination_EmptyPage(t *testing.T) {
 // TestMemoryStorage_Query_Pagination_DefaultPage tests default page handling.
 func TestMemoryStorage_Query_Pagination_DefaultPage(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Add 5 events
 	for i := 0; i < 5; i++ {
@@ -636,7 +636,7 @@ func TestMemoryStorage_Query_Pagination_DefaultPage(t *testing.T) {
 // TestMemoryStorage_Query_Pagination_NoLimit tests no pagination when PageSize is 0.
 func TestMemoryStorage_Query_Pagination_NoLimit(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Add 10 events
 	for i := 0; i < 10; i++ {
@@ -657,7 +657,7 @@ func TestMemoryStorage_Query_Pagination_NoLimit(t *testing.T) {
 // TestMemoryStorage_Query_Sort_Ascending tests ascending sort order.
 func TestMemoryStorage_Query_Sort_Ascending(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	now := time.Now()
 	// Add events in reverse chronological order
@@ -683,7 +683,7 @@ func TestMemoryStorage_Query_Sort_Ascending(t *testing.T) {
 // TestMemoryStorage_Query_Sort_Descending tests descending sort order.
 func TestMemoryStorage_Query_Sort_Descending(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	now := time.Now()
 	// Add events in chronological order
@@ -709,7 +709,7 @@ func TestMemoryStorage_Query_Sort_Descending(t *testing.T) {
 // TestMemoryStorage_Query_Pagination_WithSort tests pagination with sorting.
 func TestMemoryStorage_Query_Pagination_WithSort(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	now := time.Now()
 	// Add 10 events
@@ -741,7 +741,7 @@ func TestFileStorage_Query_Pagination(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Add 10 events
 	for i := 0; i < 10; i++ {
@@ -776,7 +776,7 @@ func TestFileStorage_Query_Sort(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	now := time.Now()
 	// Add 5 events
@@ -802,7 +802,7 @@ func TestFileStorage_Query_Sort(t *testing.T) {
 // TestMemoryStorage_Query_Pagination_InvalidPage tests invalid page number handling.
 func TestMemoryStorage_Query_Pagination_InvalidPage(t *testing.T) {
 	storage := NewMemoryStorage()
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Add 5 events
 	for i := 0; i < 5; i++ {
@@ -833,7 +833,7 @@ func TestFileStorage_Query_Pagination_WithRotation(t *testing.T) {
 
 	storage, err := NewFileStorage(logPath, DefaultFileStorageOptions())
 	require.NoError(t, err)
-	defer storage.Close()
+	defer func() { require.NoError(t, storage.Close()) }()
 
 	// Add events and rotate
 	for i := 0; i < 5; i++ {
