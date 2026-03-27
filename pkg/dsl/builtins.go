@@ -87,7 +87,8 @@ func builtinHTTPGet(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 		return nil, err
 	}
 
-	if err := validateNetworkURL(urlStr); err != nil {
+	validation, err := validateNetworkURLWithCache(urlStr)
+	if err != nil {
 		return nil, err
 	}
 
@@ -100,14 +101,8 @@ func builtinHTTPGet(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 		}
 	}
 
-	client := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
-			},
-		},
-	}
+	// Create HTTP client with DNS pinning to prevent rebinding attacks
+	client := createHTTPClientWithDNSPin(validation, time.Duration(timeout)*time.Second)
 	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request failed: %w", err)
@@ -144,7 +139,8 @@ func builtinHTTPPost(thread *starlark.Thread, b *starlark.Builtin, args starlark
 		return nil, err
 	}
 
-	if err := validateNetworkURL(urlStr); err != nil {
+	validation, err := validateNetworkURLWithCache(urlStr)
+	if err != nil {
 		return nil, err
 	}
 
@@ -157,15 +153,8 @@ func builtinHTTPPost(thread *starlark.Thread, b *starlark.Builtin, args starlark
 		}
 	}
 
-	// CRITICAL FIX: Add timeout to prevent DoS via hung requests
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
-			},
-		},
-	}
+	// Create HTTP client with DNS pinning to prevent rebinding attacks (30s timeout)
+	client := createHTTPClientWithDNSPin(validation, 30*time.Second)
 	req, err := http.NewRequest("POST", urlStr, strings.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request failed: %w", err)
@@ -202,7 +191,8 @@ func builtinHTTPPut(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 		return nil, err
 	}
 
-	if err := validateNetworkURL(urlStr); err != nil {
+	validation, err := validateNetworkURLWithCache(urlStr)
+	if err != nil {
 		return nil, err
 	}
 
@@ -215,15 +205,8 @@ func builtinHTTPPut(thread *starlark.Thread, b *starlark.Builtin, args starlark.
 		}
 	}
 
-	// CRITICAL FIX: Add timeout to prevent DoS via hung requests
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
-			},
-		},
-	}
+	// Create HTTP client with DNS pinning to prevent rebinding attacks (30s timeout)
+	client := createHTTPClientWithDNSPin(validation, 30*time.Second)
 	req, err := http.NewRequest("PUT", urlStr, strings.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request failed: %w", err)
@@ -259,7 +242,8 @@ func builtinHTTPDelete(thread *starlark.Thread, b *starlark.Builtin, args starla
 		return nil, err
 	}
 
-	if err := validateNetworkURL(urlStr); err != nil {
+	validation, err := validateNetworkURLWithCache(urlStr)
+	if err != nil {
 		return nil, err
 	}
 
@@ -272,15 +256,8 @@ func builtinHTTPDelete(thread *starlark.Thread, b *starlark.Builtin, args starla
 		}
 	}
 
-	// CRITICAL FIX: Add timeout to prevent DoS via hung requests
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
-			},
-		},
-	}
+	// Create HTTP client with DNS pinning to prevent rebinding attacks (30s timeout)
+	client := createHTTPClientWithDNSPin(validation, 30*time.Second)
 	req, err := http.NewRequest("DELETE", urlStr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request failed: %w", err)
@@ -666,53 +643,124 @@ func SetTestingNetworkValidationDisabled(disabled bool) bool {
 	return oldDisabled
 }
 
+// networkValidationResult holds the result of network validation including cached IP
+type networkValidationResult struct {
+	originalHost string
+	cachedIP     net.IP
+	port         string
+	scheme       string
+}
+
 func validateNetworkURL(urlStr string) error {
+	_, err := validateNetworkURLWithCache(urlStr)
+	return err
+}
+
+func validateNetworkURLWithCache(urlStr string) (*networkValidationResult, error) {
 	if atomic.LoadUint32(&disableNetworkValidation) == 1 {
-		return nil
+		// Return a result with no cached IP when validation is disabled
+		parsedURL, err := url.Parse(urlStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid URL: %w", err)
+		}
+		return &networkValidationResult{
+			originalHost: parsedURL.Hostname(),
+			port:         parsedURL.Port(),
+			scheme:       parsedURL.Scheme,
+		}, nil
 	}
 
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
-		return fmt.Errorf("invalid URL: %w", err)
+		return nil, fmt.Errorf("invalid URL: %w", err)
 	}
 
 	host := parsedURL.Hostname()
 
 	if host == "" {
-		return fmt.Errorf("URL has no hostname")
+		return nil, fmt.Errorf("URL has no hostname")
 	}
 
-	// CRITICAL FIX: Resolve DNS and check actual IP addresses to prevent DNS rebinding attacks
-	// First check if it's an IP literal
+	result := &networkValidationResult{
+		originalHost: host,
+		port:         parsedURL.Port(),
+		scheme:       parsedURL.Scheme,
+	}
+
+	// CRITICAL FIX: Resolve DNS and cache IP to prevent DNS rebinding attacks
+	// Check if it's an IP literal
 	ip := net.ParseIP(host)
 	if ip != nil {
 		if err := validateIPAddress(ip); err != nil {
-			return err
+			return nil, err
 		}
+		result.cachedIP = ip
 	} else {
-		// It's a hostname - resolve it and check all IPs
+		// It's a hostname - resolve it, check all IPs, and cache one for connection
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 		if err != nil {
-			return fmt.Errorf("failed to resolve hostname: %w", err)
+			return nil, fmt.Errorf("failed to resolve hostname: %w", err)
 		}
 
-		// Check each resolved IP
+		// Check each resolved IP and cache the first valid one
+		var validIP net.IP
 		for _, ipAddr := range ips {
 			if err := validateIPAddress(ipAddr.IP); err != nil {
-				return err
+				continue // Skip invalid IPs, try others
 			}
+			validIP = ipAddr.IP
+			break
 		}
+
+		if validIP == nil {
+			return nil, fmt.Errorf("no valid IP addresses for hostname %s", host)
+		}
+		result.cachedIP = validIP
 	}
 
 	// Check for .local domains (mDNS/Zeroconf)
 	if strings.HasSuffix(host, ".local") || host == "localhost" {
-		return fmt.Errorf("access to localhost blocked: %s", host)
+		return nil, fmt.Errorf("access to localhost blocked: %s", host)
 	}
 
-	return nil
+	return result, nil
+}
+
+// createHTTPClientWithDNSPin creates an HTTP client that connects to a specific IP
+// while preserving the original hostname in the Host header (prevents DNS rebinding)
+func createHTTPClientWithDNSPin(validation *networkValidationResult, timeout time.Duration) *http.Client {
+	if validation == nil || validation.cachedIP == nil {
+		// No DNS pinning, use default client
+		return &http.Client{
+			Timeout: timeout,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					MinVersion: tls.VersionTLS12,
+				},
+			},
+		}
+	}
+
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+				// Set ServerName for SNI to match original hostname
+				ServerName: validation.originalHost,
+			},
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				// Replace the resolved IP with our cached IP
+				// Use cachedIP:port instead of the resolved addr
+				dialAddr := net.JoinHostPort(validation.cachedIP.String(), validation.port)
+				var d net.Dialer
+				return d.DialContext(ctx, network, dialAddr)
+			},
+		},
+	}
 }
 
 // validateIPAddress checks if an IP address is in a blocked network range

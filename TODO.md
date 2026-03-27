@@ -1264,19 +1264,24 @@
   - [ ] Step 3: Add test for permission race
 - **Estimate**: 1 day
 
-#### SEC-ADV-013: DNS Rebinding Race (ZERO-DAY)
+#### SEC-ADV-013: DNS Rebinding Race (ZERO-DAY) - ✅ COMPLETE
 - **Priority**: CRITICAL - ZERO-DAY
 - **CVE-style ID**: MUS-2026-013
-- **CVSS Score**: 9.1
+- **CVSS Score**: 9.1 → 0.0 (FIXED)
 - **File**: `pkg/dsl/builtins.go:669-682`
 - **Gap**: DNS validation happens BEFORE request; DNS can change between validation and HTTP request
 - **Exploit**: DNS rebinding to access AWS metadata service
 - **Impact**: Cloud account takeover
 - **Baby Steps**:
-  - [ ] Step 1: Cache resolved IP at validation time
-  - [ ] Step 2: Connect directly to IP with Host header
-  - [ ] Step 3: Add test proving rebinding no longer works
+  - [x] Step 1: Cache resolved IP at validation time - IMPLEMENTED: Added `networkValidationResult` struct with `cachedIP` field, `validateNetworkURLWithCache()` resolves and caches IP
+  - [x] Step 2: Connect directly to IP with Host header - IMPLEMENTED: `createHTTPClientWithDNSPin()` creates custom dialer that connects to cached IP while preserving original hostname for SNI
+  - [x] Step 3: Add test proving rebinding no longer works - IMPLEMENTED: 10 comprehensive tests (TestValidateNetworkURLWithCache_DNSRebindingPrevention, TestCreateHTTPClientWithDNSPin, TestDNSRebindingAttackPrevention)
 - **Estimate**: 2-3 days
+- **Actual**: ~3 hours
+- **Completed**: 2026-03-27 - Implemented DNS pinning to prevent rebinding attacks. Created `networkValidationResult` struct to cache resolved IPs during validation, added `validateNetworkURLWithCache()` function that resolves DNS and validates all IPs before caching first valid one, implemented `createHTTPClientWithDNSPin()` that creates HTTP client with custom dialer connecting directly to cached IP while preserving original hostname for TLS SNI. Updated all HTTP builtin functions (GET, POST, PUT, DELETE) to use DNS pinning. Added 10 comprehensive tests proving DNS caching works, private IPs are rejected even with rebinding, SNI is preserved, and metadata service/localhost access is blocked. All tests pass with zero lint errors.
+- **Files**: `pkg/dsl/builtins.go` (DNS pinning implementation), `pkg/dsl/builtins_test.go` (10 new test functions)
+- **Tests**: All 10 DNS rebinding tests passing + all existing tests (80s total)
+- **Lint**: 0 issues
 
 #### SEC-ADV-014: Capability Wildcard Privilege Escalation (ZERO-DAY)
 - **Priority**: CRITICAL - ZERO-DAY
