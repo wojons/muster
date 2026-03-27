@@ -1260,18 +1260,23 @@
 - **Tests**: All 8 SHA-256 tests passing + all existing tests
 - **Lint**: 0 issues
 
-#### SEC-ADV-012: Token File Permission Race
+#### SEC-ADV-012: Token File Permission Race - ✅ COMPLETE
 - **Priority**: MEDIUM
 - **CVE-style ID**: MUS-2026-012
-- **CVSS Score**: 5.5
+- **CVSS Score**: 5.5 → 0.0 (FIXED)
 - **File**: `pkg/daemon/token.go:76`
 - **Gap**: Directory created with 0750 (group readable), race window before file chmod
 - **Impact**: Token theft during creation
 - **Baby Steps**:
-  - [ ] Step 1: Create directory with 0700 permissions
-  - [ ] Step 2: Use atomic file creation
-  - [ ] Step 3: Add test for permission race
+  - [x] Step 1: Create directory with 0700 permissions - IMPLEMENTED: Changed `os.MkdirAll(dir, 0750)` to `os.MkdirAll(dir, 0700)`
+  - [x] Step 2: Use atomic file creation - IMPLEMENTED: Using `os.CreateTemp()` + `os.Rename()` pattern for atomic file creation
+  - [x] Step 3: Add test for permission race - IMPLEMENTED: Added 4 comprehensive tests (TestTokenManager_Save_SecurePermissions, TestTokenManager_Save_AtomicCreation, TestTokenManager_Save_GroupNotReadable, TestTokenManager_Save_CleanupTempOnFailure)
 - **Estimate**: 1 day
+- **Actual**: ~2 hours
+- **Completed**: 2026-03-27 - Implemented atomic file creation with secure permissions. Changed directory permissions from 0750 to 0700 (owner-only). Replaced `os.WriteFile()` with atomic temp file creation + rename pattern to eliminate race condition window. Added cleanup of temp files on error paths. Added 4 comprehensive unit tests verifying secure permissions (0700 directory, 0600 file), atomic creation (no temp files left behind), group readability prevention, and error cleanup. All tests pass with race detector enabled. Zero lint errors.
+- **Files**: `pkg/daemon/token.go` (atomic file creation), `pkg/daemon/token_test.go` (4 new test functions)
+- **Tests**: All 4 permission race tests passing + all existing daemon tests
+- **Lint**: 0 issues
 
 #### SEC-ADV-013: DNS Rebinding Race (ZERO-DAY) - ✅ COMPLETE
 - **Priority**: CRITICAL - ZERO-DAY
