@@ -71,15 +71,44 @@ func (tm *TokenManager) Save() error {
 		return fmt.Errorf("no token generated, call Generate() first")
 	}
 
-	// Ensure parent directory exists
+	// Ensure parent directory exists with 0700 permissions (owner only)
 	dir := filepath.Dir(tokenPath)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("failed to create token directory: %w", err)
 	}
 
-	// Write token with 0600 permissions (owner read/write only)
-	if err := os.WriteFile(tokenPath, []byte(token), 0600); err != nil {
-		return fmt.Errorf("failed to write token file: %w", err)
+	// Use atomic file creation to prevent race conditions
+	// Create temp file in same directory to ensure same filesystem
+	tmpFile, err := os.CreateTemp(dir, ".token.*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary token file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+
+	// Write token content
+	if _, err := tmpFile.Write([]byte(token)); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to write token content: %w", err)
+	}
+
+	// Set secure permissions before closing
+	if err := tmpFile.Chmod(0600); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to set token permissions: %w", err)
+	}
+
+	// Close file before rename (required on Windows)
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temporary file: %w", err)
+	}
+
+	// Atomic rename to final location
+	if err := os.Rename(tmpPath, tokenPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to rename token file: %w", err)
 	}
 
 	return nil

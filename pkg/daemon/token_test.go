@@ -330,3 +330,136 @@ func TestTokenManager_Load_WhitespaceFile(t *testing.T) {
 		t.Error("Load() should return error for whitespace-only file")
 	}
 }
+
+func TestTokenManager_Save_SecurePermissions(t *testing.T) {
+	baseTmp := t.TempDir()
+	// Create a subdirectory that will be created by TokenManager
+	tokenPath := filepath.Join(baseTmp, "secure", "token")
+	tm := NewTokenManager(tokenPath)
+
+	// Generate and save token
+	if err := tm.Generate(); err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := tm.Save(); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	// Verify token file permissions are 0600
+	info, err := os.Stat(tokenPath)
+	if err != nil {
+		t.Fatalf("Stat token file error = %v", err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Errorf("Token file permissions = %o, want 0600", info.Mode().Perm())
+	}
+
+	// Verify parent directory permissions are 0700 (created by Save)
+	createdDir := filepath.Join(baseTmp, "secure")
+	dirInfo, err := os.Stat(createdDir)
+	if err != nil {
+		t.Fatalf("Stat directory error = %v", err)
+	}
+	if dirInfo.Mode().Perm() != 0700 {
+		t.Errorf("Directory permissions = %o, want 0700", dirInfo.Mode().Perm())
+	}
+
+	// Verify token content is correct
+	content, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("ReadFile error = %v", err)
+	}
+	if string(content) != tm.GetToken() {
+		t.Error("Token file content does not match generated token")
+	}
+}
+
+func TestTokenManager_Save_AtomicCreation(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "token")
+	tm := NewTokenManager(tokenPath)
+
+	// Generate and save token
+	if err := tm.Generate(); err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := tm.Save(); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	// Verify no temp files left behind
+	files, err := os.ReadDir(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadDir error = %v", err)
+	}
+	if len(files) != 1 {
+		t.Errorf("Expected 1 file in directory, found %d", len(files))
+	}
+	if files[0].Name() != "token" {
+		t.Errorf("Expected file 'token', found '%s'", files[0].Name())
+	}
+}
+
+func TestTokenManager_Save_GroupNotReadable(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "token")
+	tm := NewTokenManager(tokenPath)
+
+	// Generate and save token
+	if err := tm.Generate(); err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := tm.Save(); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	// Verify group has no read permissions
+	info, err := os.Stat(tokenPath)
+	if err != nil {
+		t.Fatalf("Stat error = %v", err)
+	}
+
+	// Check that group read bit is NOT set
+	if info.Mode().Perm()&0040 != 0 {
+		t.Error("Group should not have read permission on token file")
+	}
+
+	// Check that others read bit is NOT set
+	if info.Mode().Perm()&0004 != 0 {
+		t.Error("Others should not have read permission on token file")
+	}
+}
+
+func TestTokenManager_Save_CleanupTempOnFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Create a file where we want to create a directory
+	conflictPath := filepath.Join(tmpDir, "conflict")
+	if err := os.WriteFile(conflictPath, []byte("test"), 0600); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	// Use a path that will cause MkdirAll to fail
+	tokenPath := filepath.Join(conflictPath, "token")
+	tm := NewTokenManager(tokenPath)
+
+	// Generate token
+	if err := tm.Generate(); err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	// Save should fail because conflictPath is a file, not directory
+	err := tm.Save()
+	if err == nil {
+		t.Fatal("Save() should fail when parent path is a file")
+	}
+
+	// Verify no temp files left behind
+	files, err := os.ReadDir(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadDir error = %v", err)
+	}
+	// Should only have the conflict file, no temp files
+	if len(files) != 1 {
+		t.Errorf("Temp files should be cleaned up on failure, found %d files", len(files))
+	}
+}
