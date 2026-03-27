@@ -106,6 +106,17 @@ type RateLimit struct {
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
+// RevocationCache represents a revoked token cache entry.
+type RevocationCache struct {
+	ID        int64     `db:"id" json:"id"`
+	TokenHash string    `db:"token_hash" json:"token_hash"`
+	Reason    string    `db:"reason" json:"reason"`
+	RevokedAt time.Time `db:"revoked_at" json:"revoked_at"`
+	ExpiresAt time.Time `db:"expires_at" json:"expires_at"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+}
+
 // ListOptions provides pagination and filtering options.
 type ListOptions struct {
 	Limit   int
