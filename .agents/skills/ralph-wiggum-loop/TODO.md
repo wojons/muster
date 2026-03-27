@@ -456,3 +456,37 @@ See individual sections below for completion details.
 *Total analysis: 280 specs, 168 Go files, 1,494 test functions, 65.9% coverage*
 *Final validation: make validate - ALL TESTS PASS ✓*
 *Latest fix: Blocking daemon tests (TestRun_StartAction, TestRun_RestartAction) refactored to test Controller methods directly*
+
+---
+
+## 🔄 NEXT PHASE: Test Coverage Gaps (Started 2026-03-26)
+
+**Priority**: Critical Test Coverage  
+**Total Gaps**: 5 critical coverage gaps remaining  
+**Completion**: 189/201 (94.0%)  
+
+### ✅ COMPLETED: Command Store Loader Tests
+
+**COV-002: Command Store Loader - COMPLETELY UNTESTED** - PRIORITY: CRITICAL  
+- [x] Step 1: Test command reconstruction with all flag types (string, int, bool, array)
+- [x] Step 2: Verify flag values correctly extracted from cobra.Command
+- [x] Step 3: Test BaseURL fallback logic (command-level vs global)
+- [x] Step 4: Test HTTP request building with path/query parameters
+- [x] Step 5: Test error handling for malformed metadata
+- **File**: `pkg/cmdstore/loader_test.go` (709 lines, 28 test functions)
+- **Functions Tested**: `NewLoader()`, `LoadCommands()`, `reconstructCommand()`, `createRunHandler()`, `getFlagValue()`, `GetBaseURL()`
+- **Coverage**: All flag types (string, int, bool, array), required flags, output flag, base URL override, HTTP request execution, query parameters, error responses, JSON output, concurrent access
+- **Tests**: All 28 tests passing with zero lint errors
+- **Impact**: Dynamically generated commands now fully tested; HTTP request building from metadata verified
+
+### Next Task: MCP Handlers Tests
+
+**COV-003: MCP Handlers - COMPLETELY UNTESTED** - PRIORITY: CRITICAL  
+- [ ] Step 1: Test initialize handler returns correct protocol version
+- [ ] Step 2: Test list tools generates valid JSON schemas
+- [ ] Step 3: Test call tool handler executes commands and formats output
+- [ ] Step 4: Test error handling in tool execution
+- [ ] Step 5: Test schema generation for complex types
+- **Files**: `pkg/mcp/handlers/lifecycle.go`, `pkg/mcp/handlers/tools.go`
+- **Estimate**: 3-4 days
+- **Impact**: MCP server core functionality untested; tool listing/calling may break
