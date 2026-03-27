@@ -1,13 +1,17 @@
 package auth
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
+	"hash"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,6 +29,73 @@ type TLSFingerprint struct {
 	JA4Hash      string
 	CipherSuites []uint16
 	Extensions   []uint16
+}
+
+var (
+	fingerprintSecret     []byte
+	fingerprintSecretInit sync.Once
+	trustedProxies        map[string]bool
+	trustedProxiesInit    sync.Once
+)
+
+func getFingerprintSecret() []byte {
+	fingerprintSecretInit.Do(func() {
+		secret, err := GenerateSecureRandom(32)
+		if err != nil {
+			secret = []byte("muster-fingerprint-secret-key-v1")
+		}
+		fingerprintSecret = secret
+	})
+	return fingerprintSecret
+}
+
+func newHMAC() hash.Hash {
+	return hmac.New(sha256.New, getFingerprintSecret())
+}
+
+func initTrustedProxies() {
+	trustedProxies = make(map[string]bool)
+	defaultProxies := []string{
+		"127.0.0.1",
+		"::1",
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+	}
+	for _, proxy := range defaultProxies {
+		trustedProxies[proxy] = true
+	}
+}
+
+func getTrustedProxies() map[string]bool {
+	trustedProxiesInit.Do(initTrustedProxies)
+	return trustedProxies
+}
+
+func IsTrustedProxy(ip string) bool {
+	proxies := getTrustedProxies()
+	if proxies[ip] {
+		return true
+	}
+	for cidr := range proxies {
+		if strings.Contains(cidr, "/") {
+			_, network, err := net.ParseCIDR(cidr)
+			if err == nil && network.Contains(net.ParseIP(ip)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func AddTrustedProxy(ipOrCIDR string) {
+	proxies := getTrustedProxies()
+	proxies[ipOrCIDR] = true
+}
+
+func RemoveTrustedProxy(ipOrCIDR string) {
+	proxies := getTrustedProxies()
+	delete(proxies, ipOrCIDR)
 }
 
 func CalculateJA3(tlsState *tls.ConnectionState) string {
@@ -103,19 +174,32 @@ func getClientIP(r *http.Request) string {
 		return ""
 	}
 
-	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
-		return strings.Split(ip, ",")[0]
+	clientIP := extractIP(r.RemoteAddr)
+	if IsTrustedProxy(clientIP) {
+		if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+			return strings.Split(ip, ",")[0]
+		}
 	}
 
 	if ip := r.Header.Get("X-Real-Ip"); ip != "" {
-		return ip
+		if IsTrustedProxy(clientIP) {
+			return ip
+		}
 	}
 
-	return r.RemoteAddr
+	return clientIP
+}
+
+func extractIP(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
 }
 
 func (fp *Fingerprint) calculateHash() string {
-	h := sha256.New()
+	h := newHMAC()
 	h.Write([]byte(fp.IP))
 	h.Write([]byte(fp.UserAgent))
 
@@ -166,7 +250,7 @@ func (fp1 *Fingerprint) Similarity(fp2 *Fingerprint) float64 {
 }
 
 func CalculateFingerprintHash(ip, userAgent string, headers map[string]string) string {
-	h := sha256.New()
+	h := newHMAC()
 	h.Write([]byte(ip))
 	h.Write([]byte(userAgent))
 

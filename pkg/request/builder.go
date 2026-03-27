@@ -19,27 +19,31 @@ import (
 )
 
 type Builder struct {
-	baseURL     string
-	path        string
-	method      string
-	pathParams  map[string]string
-	queryParams url.Values
-	headers     http.Header
-	body        io.Reader
-	contentType string
-	timeout     time.Duration
-	buildError  error
+	baseURL         string
+	path            string
+	method          string
+	pathParams      map[string]string
+	queryParams     url.Values
+	headers         http.Header
+	body            io.Reader
+	contentType     string
+	timeout         time.Duration
+	maxResponseBody int64
+	buildError      error
 }
+
+const defaultMaxResponseBody = 10 << 20 // 10 MB
 
 func NewBuilder(baseURL, path, method string) *Builder {
 	return &Builder{
-		baseURL:     strings.TrimRight(baseURL, "/"),
-		path:        path,
-		method:      strings.ToUpper(method),
-		pathParams:  make(map[string]string),
-		queryParams: make(url.Values),
-		headers:     make(http.Header),
-		timeout:     30 * time.Second,
+		baseURL:         strings.TrimRight(baseURL, "/"),
+		path:            path,
+		method:          strings.ToUpper(method),
+		pathParams:      make(map[string]string),
+		queryParams:     make(url.Values),
+		headers:         make(http.Header),
+		timeout:         30 * time.Second,
+		maxResponseBody: defaultMaxResponseBody,
 	}
 }
 
@@ -92,6 +96,11 @@ func (b *Builder) WithBasicAuth(username, password string) *Builder {
 
 func (b *Builder) WithAPIKey(key, value string) *Builder {
 	b.headers.Set(key, value)
+	return b
+}
+
+func (b *Builder) WithMaxResponseBody(maxBytes int64) *Builder {
+	b.maxResponseBody = maxBytes
 	return b
 }
 
@@ -278,9 +287,18 @@ func (b *Builder) ExecuteWithResult(ctx context.Context) (*ExecutionResult, erro
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	limitedReader := io.LimitReader(resp.Body, b.maxResponseBody)
+	body, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
+	}
+
+	if int64(len(body)) >= b.maxResponseBody {
+		buffer := make([]byte, 1)
+		n, _ := resp.Body.Read(buffer)
+		if n > 0 {
+			return nil, fmt.Errorf("response body exceeds max size of %d bytes", b.maxResponseBody)
+		}
 	}
 
 	return &ExecutionResult{

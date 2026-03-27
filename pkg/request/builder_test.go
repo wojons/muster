@@ -420,3 +420,29 @@ func TestBuilder_URLConstruction(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, req.URL.String(), "/users/123")
 }
+
+func TestBuilder_MaxResponseBody(t *testing.T) {
+	b := NewBuilder("https://api.example.com", "/users", "GET")
+
+	require.Equal(t, int64(10<<20), b.maxResponseBody)
+
+	b.WithMaxResponseBody(5 << 20)
+	require.Equal(t, int64(5<<20), b.maxResponseBody)
+
+	b.WithMaxResponseBody(100 << 20)
+	require.Equal(t, int64(100<<20), b.maxResponseBody)
+}
+
+func TestBuilder_MaxResponseBody_Zero(t *testing.T) {
+	b := NewBuilder("https://api.example.com", "/users", "GET")
+	b.WithMaxResponseBody(0)
+
+	require.Equal(t, int64(0), b.maxResponseBody)
+}
+
+func TestBuilder_MaxResponseBody_Chainable(t *testing.T) {
+	b := NewBuilder("https://api.example.com", "/users", "GET")
+
+	result := b.WithMaxResponseBody(5 << 20)
+	require.Same(t, b, result)
+}
