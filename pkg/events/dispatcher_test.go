@@ -68,7 +68,9 @@ func TestNewDispatcher(t *testing.T) {
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
 		require.NotNil(t, dispatcher)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 	})
 
 	t.Run("invalid buffer size", func(t *testing.T) {
@@ -111,7 +113,9 @@ func TestNewDispatcher(t *testing.T) {
 		dispatcher, err := NewDispatcher(config, WithLogger(logger))
 		require.NoError(t, err)
 		require.NotNil(t, dispatcher)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 	})
 }
 
@@ -119,7 +123,9 @@ func TestDispatcher_Subscribe(t *testing.T) {
 	config := DefaultDispatcherConfig
 	dispatcher, err := NewDispatcher(config)
 	require.NoError(t, err)
-	defer dispatcher.Stop()
+	defer func() {
+		require.NoError(t, dispatcher.Stop())
+	}()
 
 	handler := &testHandler{
 		name:       "test-handler",
@@ -135,7 +141,9 @@ func TestDispatcher_Unsubscribe(t *testing.T) {
 	config := DefaultDispatcherConfig
 	dispatcher, err := NewDispatcher(config)
 	require.NoError(t, err)
-	defer dispatcher.Stop()
+	defer func() {
+		require.NoError(t, dispatcher.Stop())
+	}()
 
 	handler := &testHandler{
 		name:       "test-handler",
@@ -157,7 +165,9 @@ func TestDispatcher_Publish(t *testing.T) {
 		config := DefaultDispatcherConfig
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		var receivedEvents []*Event
 		var mu sync.Mutex
@@ -197,13 +207,18 @@ func TestDispatcher_Publish(t *testing.T) {
 		config := DefaultDispatcherConfig
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		var receivedID string
+		var mu sync.Mutex
 		handler := &testHandler{
 			name:       "test-handler",
 			eventTypes: []EventType{EventTypeCustom},
 			handler: func(ctx context.Context, event *Event) error {
+				mu.Lock()
+				defer mu.Unlock()
 				receivedID = event.ID
 				return nil
 			},
@@ -222,6 +237,8 @@ func TestDispatcher_Publish(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
+		mu.Lock()
+		defer mu.Unlock()
 		assert.NotEmpty(t, receivedID)
 	})
 
@@ -233,7 +250,9 @@ func TestDispatcher_Publish(t *testing.T) {
 		}
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		event1 := &Event{
 			Type:   EventTypeCustom,
@@ -266,7 +285,9 @@ func TestDispatcher_PublishSync(t *testing.T) {
 		config := DefaultDispatcherConfig
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		var callCount int
 		handler := &testHandler{
@@ -298,7 +319,9 @@ func TestDispatcher_PublishSync(t *testing.T) {
 		config := DefaultDispatcherConfig
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		var callCount1, callCount2 int
 
@@ -341,7 +364,9 @@ func TestDispatcher_Priority(t *testing.T) {
 	config := DefaultDispatcherConfig
 	dispatcher, err := NewDispatcher(config)
 	require.NoError(t, err)
-	defer dispatcher.Stop()
+	defer func() {
+		require.NoError(t, dispatcher.Stop())
+	}()
 
 	executionOrder := []string{}
 	var mu sync.Mutex
@@ -390,7 +415,9 @@ func TestDispatcher_Filter(t *testing.T) {
 	config := DefaultDispatcherConfig
 	dispatcher, err := NewDispatcher(config)
 	require.NoError(t, err)
-	defer dispatcher.Stop()
+	defer func() {
+		require.NoError(t, dispatcher.Stop())
+	}()
 
 	var filteredCallCount, unfilteredCallCount int
 
@@ -440,7 +467,9 @@ func TestDispatcher_Once(t *testing.T) {
 	config := DefaultDispatcherConfig
 	dispatcher, err := NewDispatcher(config)
 	require.NoError(t, err)
-	defer dispatcher.Stop()
+	defer func() {
+		require.NoError(t, dispatcher.Stop())
+	}()
 
 	var callCount int
 
@@ -483,7 +512,9 @@ func TestDispatcher_Retry(t *testing.T) {
 		}
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		var callCount int
 		handler := &testHandler{
@@ -520,7 +551,9 @@ func TestDispatcher_Retry(t *testing.T) {
 		}
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		var callCount int
 		handler := &testHandler{
@@ -562,7 +595,9 @@ func TestDispatcher_Retry(t *testing.T) {
 		}
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		var callCount int
 		handler := &testHandler{
@@ -603,7 +638,9 @@ func TestDispatcher_DeadLetterQueue(t *testing.T) {
 		}
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		handler := &testHandler{
 			name:       "failing-handler",
@@ -637,7 +674,9 @@ func TestDispatcher_DeadLetterQueue(t *testing.T) {
 		}
 		dispatcher, err := NewDispatcher(config)
 		require.NoError(t, err)
-		defer dispatcher.Stop()
+		defer func() {
+			require.NoError(t, dispatcher.Stop())
+		}()
 
 		handler := &testHandler{
 			name:       "failing-handler",
@@ -675,7 +714,9 @@ func TestDispatcher_Integration_WithRegistry(t *testing.T) {
 	config := DefaultDispatcherConfig
 	dispatcher, err := NewDispatcher(config)
 	require.NoError(t, err)
-	defer dispatcher.Stop()
+	defer func() {
+		require.NoError(t, dispatcher.Stop())
+	}()
 
 	logger := &testLogger{}
 	registry := NewHandlerRegistry(logger)
