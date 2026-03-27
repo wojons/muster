@@ -278,6 +278,183 @@ func TestDeviceCodeFlow_Start(t *testing.T) {
 	}
 }
 
+func TestDeviceCodeFlow_Poll_Success(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"access_token": "test-access-token",
+			"token_type": "Bearer",
+			"expires_in": 3600,
+			"refresh_token": "test-refresh-token"
+		}`))
+	}))
+	defer mockServer.Close()
+
+	flow := &DeviceCodeFlow{
+		ClientID: "test-client-id",
+		TokenURL: mockServer.URL,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	token, err := flow.Poll(ctx, "test-device-code", 1)
+	if err != nil {
+		t.Fatalf("Poll() error = %v", err)
+	}
+
+	if token == nil {
+		t.Fatal("Poll() returned nil token")
+	}
+
+	if token.AccessToken != "test-access-token" {
+		t.Errorf("AccessToken = %v, want test-access-token", token.AccessToken)
+	}
+
+	if token.RefreshToken != "test-refresh-token" {
+		t.Errorf("RefreshToken = %v, want test-refresh-token", token.RefreshToken)
+	}
+}
+
+func TestDeviceCodeFlow_Poll_AuthorizationPending(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	callCount := 0
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		if callCount == 1 {
+			_, _ = w.Write([]byte(`{"error": "authorization_pending"}`))
+		} else {
+			_, _ = w.Write([]byte(`{
+				"access_token": "test-access-token",
+				"token_type": "Bearer",
+				"expires_in": 3600
+			}`))
+		}
+	}))
+	defer mockServer.Close()
+
+	flow := &DeviceCodeFlow{
+		ClientID: "test-client-id",
+		TokenURL: mockServer.URL,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	token, err := flow.Poll(ctx, "test-device-code", 1)
+	if err != nil {
+		t.Fatalf("Poll() error = %v", err)
+	}
+
+	if token == nil {
+		t.Fatal("Poll() returned nil token after retry")
+	}
+
+	if callCount < 2 {
+		t.Errorf("Expected at least 2 calls (retry), got %d", callCount)
+	}
+}
+
+func TestDeviceCodeFlow_Poll_SlowDown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	callCount := 0
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		if callCount <= 2 {
+			_, _ = w.Write([]byte(`{"error": "slow_down"}`))
+		} else {
+			_, _ = w.Write([]byte(`{
+				"access_token": "test-access-token",
+				"token_type": "Bearer",
+				"expires_in": 3600
+			}`))
+		}
+	}))
+	defer mockServer.Close()
+
+	flow := &DeviceCodeFlow{
+		ClientID: "test-client-id",
+		TokenURL: mockServer.URL,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	token, err := flow.Poll(ctx, "test-device-code", 1)
+	if err != nil {
+		t.Fatalf("Poll() error = %v", err)
+	}
+
+	if token == nil {
+		t.Fatal("Poll() returned nil token after slow_down")
+	}
+}
+
+func TestDeviceCodeFlow_Poll_ContextCancellation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error": "authorization_pending"}`))
+	}))
+	defer mockServer.Close()
+
+	flow := &DeviceCodeFlow{
+		ClientID: "test-client-id",
+		TokenURL: mockServer.URL,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	_, err := flow.Poll(ctx, "test-device-code", 1)
+	if err == nil {
+		t.Fatal("Poll() should have failed with context cancellation")
+	}
+
+	if err != context.DeadlineExceeded {
+		t.Errorf("Expected context.DeadlineExceeded, got %v", err)
+	}
+}
+
+func TestDeviceCodeFlow_Poll_NetworkError(t *testing.T) {
+	mockServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	mockServer.Close()
+
+	flow := &DeviceCodeFlow{
+		ClientID: "test-client-id",
+		TokenURL: mockServer.URL,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, err := flow.Poll(ctx, "test-device-code", 1)
+	if err == nil {
+		t.Fatal("Poll() should have failed with network error")
+	}
+}
+
 func TestTokenManager(t *testing.T) {
 	storage := &mockStorage{}
 	tm := NewTokenManager(storage, "https://example.com/token", "test-client-id", "test-client-secret")
@@ -302,6 +479,198 @@ func TestTokenManager(t *testing.T) {
 
 	if retrieved.AccessToken != token.AccessToken {
 		t.Errorf("Get() AccessToken = %v, want %v", retrieved.AccessToken, token.AccessToken)
+	}
+}
+
+func TestTokenManager_Refresh_Success(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"access_token": "new-access-token",
+			"token_type": "Bearer",
+			"expires_in": 3600,
+			"refresh_token": "new-refresh-token"
+		}`))
+	}))
+	defer mockServer.Close()
+
+	storage := &mockStorage{}
+	tm := NewTokenManager(storage, mockServer.URL, "test-client-id", "test-client-secret")
+
+	oldToken := &Token{
+		AccessToken:  "old-access-token",
+		RefreshToken: "old-refresh-token",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(-time.Hour),
+	}
+
+	newToken, err := tm.Refresh(oldToken)
+	if err != nil {
+		t.Fatalf("Refresh() error = %v", err)
+	}
+
+	if newToken == nil {
+		t.Fatal("Refresh() returned nil token")
+	}
+
+	if newToken.AccessToken != "new-access-token" {
+		t.Errorf("AccessToken = %v, want new-access-token", newToken.AccessToken)
+	}
+
+	if newToken.RefreshToken != "new-refresh-token" {
+		t.Errorf("RefreshToken = %v, want new-refresh-token", newToken.RefreshToken)
+	}
+
+	if newToken.ExpiresAt.Before(time.Now()) {
+		t.Error("Refresh() returned token with past expiry")
+	}
+}
+
+func TestTokenManager_Refresh_NoRefreshToken(t *testing.T) {
+	storage := &mockStorage{}
+	tm := NewTokenManager(storage, "https://example.com/token", "test-client-id", "test-client-secret")
+
+	oldToken := &Token{
+		AccessToken:  "old-access-token",
+		RefreshToken: "",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(time.Hour),
+	}
+
+	_, err := tm.Refresh(oldToken)
+	if err == nil {
+		t.Fatal("Refresh() should fail when no refresh token available")
+	}
+
+	if !contains(err.Error(), "no refresh token") {
+		t.Errorf("Expected 'no refresh token' error, got: %v", err)
+	}
+}
+
+func TestTokenManager_Refresh_ErrorResponse(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error": "invalid_grant"}`))
+	}))
+	defer mockServer.Close()
+
+	storage := &mockStorage{}
+	tm := NewTokenManager(storage, mockServer.URL, "test-client-id", "test-client-secret")
+
+	oldToken := &Token{
+		AccessToken:  "old-access-token",
+		RefreshToken: "invalid-refresh-token",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(-time.Hour),
+	}
+
+	_, err := tm.Refresh(oldToken)
+	if err == nil {
+		t.Fatal("Refresh() should fail with error response")
+	}
+
+	if !contains(err.Error(), "invalid_grant") {
+		t.Errorf("Expected 'invalid_grant' error, got: %v", err)
+	}
+}
+
+func TestTokenManager_Refresh_NetworkError(t *testing.T) {
+	mockServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	mockServer.Close()
+
+	storage := &mockStorage{}
+	tm := NewTokenManager(storage, mockServer.URL, "test-client-id", "test-client-secret")
+
+	oldToken := &Token{
+		AccessToken:  "old-access-token",
+		RefreshToken: "old-refresh-token",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(-time.Hour),
+	}
+
+	_, err := tm.Refresh(oldToken)
+	if err == nil {
+		t.Fatal("Refresh() should fail with network error")
+	}
+}
+
+func TestTokenManager_Get_AutoRefresh(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"access_token": "refreshed-access-token",
+			"token_type": "Bearer",
+			"expires_in": 3600,
+			"refresh_token": "refreshed-refresh-token"
+		}`))
+	}))
+	defer mockServer.Close()
+
+	storage := &mockStorage{}
+	tm := NewTokenManager(storage, mockServer.URL, "test-client-id", "test-client-secret")
+
+	expiredToken := &Token{
+		AccessToken:  "expired-access-token",
+		RefreshToken: "old-refresh-token",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(-time.Hour),
+	}
+	_ = storage.Save("test-service", expiredToken)
+
+	token, err := tm.Get("test-service")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+
+	if token == nil {
+		t.Fatal("Get() returned nil token")
+	}
+
+	if token.AccessToken != "refreshed-access-token" {
+		t.Errorf("AccessToken = %v, want refreshed-access-token", token.AccessToken)
+	}
+}
+
+func TestTokenManager_Get_NoAutoRefresh(t *testing.T) {
+	storage := &mockStorage{}
+	tm := NewTokenManager(storage, "https://example.com/token", "test-client-id", "test-client-secret")
+
+	validToken := &Token{
+		AccessToken:  "valid-access-token",
+		RefreshToken: "",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(time.Hour),
+	}
+	_ = storage.Save("test-service", validToken)
+
+	token, err := tm.Get("test-service")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+
+	if token == nil {
+		t.Fatal("Get() returned nil token")
+	}
+
+	if token.AccessToken != "valid-access-token" {
+		t.Errorf("AccessToken = %v, want valid-access-token", token.AccessToken)
 	}
 }
 
@@ -338,6 +707,108 @@ func TestCallbackServer_WaitCode(t *testing.T) {
 
 	if code != "test-code" {
 		t.Errorf("WaitCode() = %v, want test-code", code)
+	}
+}
+
+func TestCallbackServer_handleCallback_Success(t *testing.T) {
+	server := NewCallbackServer(18082)
+	server.state = "test-state-123"
+
+	req := httptest.NewRequest("GET", "/callback?code=test-auth-code&state=test-state-123", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("handleCallback() status = %v, want %v", resp.StatusCode, http.StatusOK)
+	}
+
+	select {
+	case code := <-server.codeChan:
+		if code != "test-auth-code" {
+			t.Errorf("handleCallback() code = %v, want test-auth-code", code)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("handleCallback() did not send code to channel")
+	}
+}
+
+func TestCallbackServer_handleCallback_InvalidState(t *testing.T) {
+	server := NewCallbackServer(18083)
+	server.state = "expected-state"
+
+	req := httptest.NewRequest("GET", "/callback?code=test-code&state=wrong-state", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("handleCallback() status = %v, want %v", resp.StatusCode, http.StatusBadRequest)
+	}
+
+	select {
+	case err := <-server.errChan:
+		if err == nil || !contains(err.Error(), "state") {
+			t.Errorf("handleCallback() error = %v, want 'state' error", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("handleCallback() did not send error to channel")
+	}
+}
+
+func TestCallbackServer_handleCallback_MissingCode(t *testing.T) {
+	server := NewCallbackServer(18084)
+	server.state = "test-state"
+
+	req := httptest.NewRequest("GET", "/callback?state=test-state", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("handleCallback() status = %v, want %v", resp.StatusCode, http.StatusOK)
+	}
+
+	select {
+	case code := <-server.codeChan:
+		if code != "" {
+			t.Errorf("handleCallback() code = %v, want empty string", code)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("handleCallback() did not send code to channel")
+	}
+}
+
+func TestCallbackServer_handleCallback_MissingState(t *testing.T) {
+	server := NewCallbackServer(18085)
+	server.state = "test-state"
+
+	req := httptest.NewRequest("GET", "/callback?code=test-code", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("handleCallback() status = %v, want %v", resp.StatusCode, http.StatusBadRequest)
+	}
+}
+
+func TestCallbackServer_handleCallback_ResponseMessage(t *testing.T) {
+	server := NewCallbackServer(18086)
+	server.state = "test-state"
+
+	req := httptest.NewRequest("GET", "/callback?code=test-code&state=test-state", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	body := w.Body.String()
+	if !contains(body, "Authorization successful") {
+		t.Errorf("handleCallback() response = %v, want 'Authorization successful'", body)
 	}
 }
 
