@@ -7,6 +7,7 @@ package platform
 
 import (
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -49,8 +50,8 @@ func TestMacOSKeychainIntegration(t *testing.T) {
 	output, err = cmd.Output()
 	if err != nil {
 		t.Errorf("Failed to find password: %v", err)
-	} else if string(output) != testPassword {
-		t.Errorf("Expected %s, got %s", testPassword, string(output))
+	} else if strings.TrimSpace(string(output)) != testPassword {
+		t.Errorf("Expected %s, got %s", testPassword, strings.TrimSpace(string(output)))
 	}
 
 	t.Log("macOS Keychain integration verified")
