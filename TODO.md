@@ -1233,23 +1233,23 @@
   - [ ] Step 3: Add test proving escape no longer works
 - **Estimate**: 2-3 days
 
-#### SEC-ADV-011: Inventory SHA-256 Verification BYPASS BUG
+#### SEC-ADV-011: Inventory SHA-256 Verification BYPASS BUG - ✅ COMPLETE
 - **Priority**: CRITICAL BUG
 - **CVE-style ID**: MUS-2026-011
-- **CVSS Score**: 6.3
-- **File**: `pkg/inventory/manager.go:255-257`
+- **CVSS Score**: 6.3 → 0.0 (FIXED)
+- **File**: `pkg/inventory/manager.go:256-259`
 - **Gap**: `calculateSHA256()` returns `hex(length)` NOT actual hash!
-```go
-func calculateSHA256(data []byte) string {
-    return fmt.Sprintf("%x", len(data))  // RETURNS LENGTH, NOT HASH!
-}
-```
 - **Impact**: Attacker modifies OpenAPI spec, keeps same length - verification passes
 - **Baby Steps**:
-  - [ ] Step 1: FIX BUG - implement actual SHA-256 calculation
-  - [ ] Step 2: Add test verifying hash changes with content
-  - [ ] Step 3: Add test verifying same content = same hash
+  - [x] Step 1: FIX BUG - implement actual SHA-256 calculation - ALREADY FIXED in commit ff54bba: `return fmt.Sprintf("%x", hash)`
+  - [x] Step 2: Add test verifying hash changes with content - IMPLEMENTED: TestCalculateSHA256_VerifiesHashChangesWithContent with assertions that version/title changes produce different hashes
+  - [x] Step 3: Add test verifying same content = same hash - IMPLEMENTED: TestCalculateSHA256_VerifiesSameContentProducesSameHash with deterministic hash verification
 - **Estimate**: 1 day (critical bug fix)
+- **Actual**: ~1 hour
+- **Completed**: 2026-03-27 - Bug was already fixed in commit ff54bba (changes `len(data)` to `hash`). Added comprehensive test coverage proving the fix: TestCalculateSHA256_VerifiesHashChangesWithContent validates different content produces different hashes, TestCalculateSHA256_VerifiesSameContentProducesSameHash validates deterministic hashing, TestCalculateSHA256_EdgeCases covers empty/large/binary/unicode/whitespace variations, TestCalculateSHA256_PreventsLengthBasedAttack specifically proves same-length different-content produces different hashes. All 8 tests pass with zero lint errors.
+- **Files**: `pkg/inventory/manager.go` (already fixed), `pkg/inventory/manager_test.go` (8 new test functions)
+- **Tests**: All 8 SHA-256 tests passing + all existing tests
+- **Lint**: 0 issues
 
 #### SEC-ADV-012: Token File Permission Race
 - **Priority**: MEDIUM
