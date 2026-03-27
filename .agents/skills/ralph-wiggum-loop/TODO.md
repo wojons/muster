@@ -431,7 +431,7 @@ See individual sections below for completion details.
 - [x] Step 4: Fix errcheck errors in pkg/cache/memory_test.go (22 instances) - Fixed all unchecked `mc.Close()` errors in defer statements using `defer func() { require.NoError(t, mc.Close()) }()` pattern. Also fixed 3 unchecked method calls in concurrent test goroutines (Set, Get, Delete) using `_ = mc.Set(...)`, `_, _ = mc.Get(...)`, and `_ = mc.Delete(...)` patterns. All 22 errcheck errors resolved. All 28 cache tests pass with race detector. Zero lint errors.
 - [x] Step 5: Fix lint errors in pkg/wasm/... (3 instances: 2 staticcheck, 1 unused) - Fixed staticcheck nil pointer dereference warnings in sandbox_test.go by using require.NotNil() instead of manual nil check followed by field access. Removed unused dummyWASM constant from limits_enforcement_test.go. All WASM package tests pass. Zero lint errors.
 - [x] Step 6: Fix errcheck errors in internal/audit/storage_test.go (36 instances) - Fixed all unchecked `storage.Close()` errors: 32 instances converted to `defer func() { require.NoError(t, storage.Close()) }()` pattern for defer statements, 1 concurrent Write call prefixed with `_ = `, and 3 intentional Close() calls in "closed storage" tests changed to `_ = storage.Close()` to explicitly ignore errors. All 36 errcheck errors resolved. All audit storage tests pass. Zero lint errors.
-- [ ] Step 7: Fix errcheck errors in internal/cli/flags/validators_test.go (29 instances)
+- [x] Step 7: Fix errcheck errors in internal/cli/flags/validators_test.go (29 instances) - Fixed all unchecked error returns: `os.Remove()` in cleanup defers (9 instances), `os.RemoveAll()` in cleanup defers (5 instances), `tempFile.Close()` calls (9 instances), `tempFile.WriteString()` calls (6 instances). Used `defer func() { _ = os.Remove/RemoveAll(...) }()` pattern for defer statements and `_ = ...` pattern for Close/WriteString calls. Fixed benchmark functions to check Validate() return values with `_ = validator.Validate(...)`. All 29 errcheck errors resolved. All 60+ tests pass. Zero lint errors.
 - [ ] Step 8: Fix errcheck errors in remaining test files (estimated 200+ instances)
 - **Spec**: `CONTRIBUTING.md` - Error handling requirements
 - **Effort**: 2-3 days
@@ -620,8 +620,8 @@ All test coverage gaps have been filled with comprehensive unit and integration 
 
 | Date | Completed | Remaining | Category | Notes |
 |------|-----------|-----------|----------|-------|
-| 2026-03-27 | 58/369 | 311 | All | Starting lint resolution phase |
-| 2026-03-27 | 58/332 | 274 | errcheck | Fixed: dispatcher_test.go (18), proxy_test.go (10), proxy_integration_test.go (29), memory_test.go (22), storage_test.go (36) |
+| 2026-03-27 | 87/369 | 282 | All | Starting lint resolution phase |
+| 2026-03-27 | 87/332 | 245 | errcheck | Fixed: dispatcher_test.go (18), proxy_test.go (10), proxy_integration_test.go (29), memory_test.go (22), storage_test.go (36), validators_test.go (29) |
 | 2026-03-27 | 3/23 | 20 | staticcheck | Fixed pkg/wasm/... (2 sandbox_test.go, 1 unrelated) |
 | 2026-03-27 | 1/10 | 9 | unused | Fixed pkg/wasm/limits_enforcement_test.go (dummyWASM) |
 | 2026-03-27 | 0/4 | 4 | ineffassign | Not started |
@@ -684,7 +684,7 @@ All test coverage gaps have been filled with comprehensive unit and integration 
 *Latest platform tests: COV-007 Platform Integration - 14 tests across 4 files (Linux/macOS/Windows/Cross-platform)*
 *Latest fix: TestMacOSKeychainIntegration - fixed whitespace trimming in security command output comparison*
 *Test Coverage: 201/201 gaps closed (100%) - 2026-03-26*
-*Current Phase: LINT RESOLUTION - 58/369 issues fixed (16%) - 2026-03-27*
-*Latest fix: LINT-001 Step 6 - Fixed 36 errcheck errors in internal/audit/storage_test.go*
-*Also fixed: LINT-001 Step 5 - Fixed 3 lint errors in pkg/wasm/... (2 staticcheck, 1 unused)*
-*Next Task: LINT-001 Step 7 - Fix errcheck errors in internal/cli/flags/validators_test.go (29 instances)*
+*Current Phase: LINT RESOLUTION - 87/369 issues fixed (24%) - 2026-03-27*
+*Latest fix: LINT-001 Step 7 - Fixed 29 errcheck errors in internal/cli/flags/validators_test.go*
+*Also fixed: LINT-001 Step 6 - Fixed 36 errcheck errors in internal/audit/storage_test.go*
+*Next Task: LINT-001 Step 8 - Fix errcheck errors in remaining test files (estimated 200+ instances)*

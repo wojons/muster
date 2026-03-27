@@ -519,15 +519,15 @@ func TestPathValidator_MustExist(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
-	tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	_ = tempFile.Close()
 
 	// Create a temp directory
 	tempDir, err := os.MkdirTemp("", "validator-test-dir-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	validator := &PathValidator{
 		MustExist:     true,
@@ -560,18 +560,18 @@ func TestPathValidator_MustBeFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() { _ = os.Remove(tempFile.Name()) }()
 
 	// Write some content to ensure it's a valid file
-	tempFile.WriteString("test content")
-	tempFile.Close()
+	_, _ = tempFile.WriteString("test content")
+	_ = tempFile.Close()
 
 	// Create a temp directory
 	tempDir, err := os.MkdirTemp("", "validator-test-dir-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	validator := &PathValidator{
 		MustExist:     true,
@@ -604,15 +604,15 @@ func TestPathValidator_MustBeDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
-	tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	_ = tempFile.Close()
 
 	// Create a temp directory
 	tempDir, err := os.MkdirTemp("", "validator-test-dir-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	validator := &PathValidator{
 		MustExist:     true,
@@ -645,9 +645,9 @@ func TestPathValidator_MustBeReadable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
-	tempFile.WriteString("test content")
-	tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	_, _ = tempFile.WriteString("test content")
+	_ = tempFile.Close()
 
 	validator := &PathValidator{
 		MustExist:      true,
@@ -667,8 +667,8 @@ func TestPathValidator_MustBeWritable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
-	tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	_ = tempFile.Close()
 
 	validator := &PathValidator{
 		MustBeWritable: true,
@@ -716,9 +716,9 @@ func TestPathValidator_ResolveSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
-	tempFile.WriteString("test content")
-	tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	_, _ = tempFile.WriteString("test content")
+	_ = tempFile.Close()
 
 	// Create a symlink to the temp file
 	symlinkPath := tempFile.Name() + "-link"
@@ -726,7 +726,7 @@ func TestPathValidator_ResolveSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create symlink: %v", err)
 	}
-	defer os.Remove(symlinkPath)
+	defer func() { _ = os.Remove(symlinkPath) }()
 
 	validator := &PathValidator{
 		MustExist:       true,
@@ -768,9 +768,9 @@ func TestExistingFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
-	tempFile.WriteString("test")
-	tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	_, _ = tempFile.WriteString("test")
+	_ = tempFile.Close()
 
 	// Should validate existing file
 	if err := validator.Validate(tempFile.Name()); err != nil {
@@ -794,7 +794,7 @@ func TestExistingDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Should validate existing directory
 	if err := validator.Validate(tempDir); err != nil {
@@ -818,8 +818,8 @@ func TestWritablePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
-	tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	_ = tempFile.Close()
 
 	// Should validate writable file
 	if err := validator.Validate(tempFile.Name()); err != nil {
@@ -962,7 +962,7 @@ func BenchmarkURLValidator_Validate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		validator.Validate(url)
+		_ = validator.Validate(url)
 	}
 }
 
@@ -972,7 +972,7 @@ func BenchmarkIPValidator_Validate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		validator.Validate(ip)
+		_ = validator.Validate(ip)
 	}
 }
 
@@ -982,7 +982,7 @@ func BenchmarkEmailValidator_Validate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		validator.Validate(email)
+		_ = validator.Validate(email)
 	}
 }
 
@@ -992,6 +992,6 @@ func BenchmarkPathValidator_Validate(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		validator.Validate(path)
+		_ = validator.Validate(path)
 	}
 }
