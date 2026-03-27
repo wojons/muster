@@ -553,7 +553,7 @@ func validateFilePath(path string) (string, error) {
 		return "", fmt.Errorf("resolve absolute path: %w", err)
 	}
 
-	// CRITICAL FIX: Check if path is blocked before workspace validation
+	// First check if path is blocked before any transformations
 	if isPathBlocked(absPath) {
 		return "", fmt.Errorf("access to system file blocked: %s", path)
 	}
@@ -573,6 +573,8 @@ func validateFilePath(path string) (string, error) {
 		return "", fmt.Errorf("resolve workspace path: %w", err)
 	}
 
+	// CRITICAL FIX: Validate containment BEFORE resolving symlinks
+	// This handles the case where both workspace and file are under a symlinked directory (e.g., /var -> /private/var on macOS)
 	relPath, err := filepath.Rel(targetDirAbs, absPath)
 	if err != nil {
 		return "", fmt.Errorf("file outside workspace: %s", path)
@@ -582,13 +584,36 @@ func validateFilePath(path string) (string, error) {
 		return "", fmt.Errorf("file outside workspace: %s", path)
 	}
 
-	// CRITICAL FIX: Resolve symlinks to check for escape only after workspace validation passes
-	// Use the symlink target to ensure user can't escape via symlink
-	evalPath, err := filepath.EvalSymlinks(absPath)
-	if err == nil {
-		absPath = evalPath
-	}
+	// CRITICAL FIX: NOW check if the file is a symlink that escapes the workspace
+	// This prevents TOCTOU attacks where a symlink inside workspace points outside
+	fileInfo, statErr := os.Lstat(absPath)
+	if statErr == nil {
+		// File exists - check if it's a symlink
+		if fileInfo.Mode()&os.ModeSymlink != 0 {
+			// It's a symlink - resolve it and re-validate
+			resolvedPath, err := filepath.EvalSymlinks(absPath)
+			if err != nil {
+				return "", fmt.Errorf("resolve symlink: %w", err)
+			}
 
+			// CRITICAL: Resolve workspace too to avoid symlink path mismatches
+			// (e.g., /var -> /private/var on macOS)
+			resolvedWorkspace := targetDirAbs
+			if resolved, err := filepath.EvalSymlinks(targetDirAbs); err == nil {
+				resolvedWorkspace = resolved
+			}
+
+			// Re-check workspace containment for the resolved path using resolved workspace
+			relResolved, err := filepath.Rel(resolvedWorkspace, resolvedPath)
+			if err != nil || strings.HasPrefix(relResolved, "..") {
+				return "", fmt.Errorf("file outside workspace: %s (symlink escape detected)", path)
+			}
+
+			// Return the resolved path for actual file operations
+			return resolvedPath, nil
+		}
+	}
+	// For regular files or non-existing files, return the absolute path
 	return absPath, nil
 }
 

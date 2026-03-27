@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.starlark.net/starlark"
 )
 
@@ -378,6 +380,137 @@ func TestValidateFilePath(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateFilePath_TOCTOU_PreventsSymlinkEscape(t *testing.T) {
+	oldWorkspace := workspaceDir
+	defer func() { workspaceDir = oldWorkspace }()
+
+	tempDir := t.TempDir()
+	workspaceDir = tempDir
+
+	outsideFile := filepath.Join(os.TempDir(), "outside_workspace.txt")
+	err := os.WriteFile(outsideFile, []byte("secret data"), 0644)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(outsideFile) }()
+
+	symlinkPath := filepath.Join(tempDir, "escape_symlink")
+	err = os.Symlink(outsideFile, symlinkPath)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(symlinkPath) }()
+
+	result, err := validateFilePath(symlinkPath)
+	assert.Error(t, err, "validateFilePath should reject symlinks pointing outside workspace")
+	assert.Empty(t, result, "should not return resolved path for escaped symlink")
+	assert.Contains(t, err.Error(), "outside workspace", "error should mention workspace escape")
+}
+
+func TestValidateFilePath_SymlinkInsideWorkspace_Allowed(t *testing.T) {
+	oldWorkspace := workspaceDir
+	defer func() { workspaceDir = oldWorkspace }()
+
+	tempDir := t.TempDir()
+	workspaceDir = tempDir
+
+	insideFile := filepath.Join(tempDir, "inside.txt")
+	err := os.WriteFile(insideFile, []byte("safe data"), 0644)
+	require.NoError(t, err)
+
+	symlinkPath := filepath.Join(tempDir, "internal_symlink")
+	err = os.Symlink(insideFile, symlinkPath)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(symlinkPath) }()
+
+	result, err := validateFilePath(symlinkPath)
+	assert.NoError(t, err, "symlinks inside workspace should be allowed")
+	// The result should be the resolved path (may differ due to macOS /var -> /private/var symlink)
+	assert.NotEmpty(t, result, "should return resolved absolute path")
+	assert.True(t, filepath.IsAbs(result), "result should be absolute")
+}
+
+func TestValidateFilePath_SymlinkChain_EscapesWorkspace(t *testing.T) {
+	oldWorkspace := workspaceDir
+	defer func() { workspaceDir = oldWorkspace }()
+
+	tempDir := t.TempDir()
+	workspaceDir = tempDir
+
+	outsideDir := t.TempDir()
+	outsideFile := filepath.Join(outsideDir, "secret.txt")
+	err := os.WriteFile(outsideFile, []byte("secret"), 0644)
+	require.NoError(t, err)
+
+	symlink1 := filepath.Join(tempDir, "symlink1")
+	symlink2 := filepath.Join(tempDir, "symlink2")
+
+	err = os.Symlink(outsideFile, symlink1)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(symlink1) }()
+
+	err = os.Symlink(symlink1, symlink2)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(symlink2) }()
+
+	result, err := validateFilePath(symlink2)
+	assert.Error(t, err, "symlink chains escaping workspace should be rejected")
+	assert.Empty(t, result)
+	assert.Contains(t, err.Error(), "outside workspace")
+}
+
+func TestValidateFilePath_RelativePathWithSymlink(t *testing.T) {
+	oldWorkspace := workspaceDir
+	defer func() { workspaceDir = oldWorkspace }()
+
+	tempDir := t.TempDir()
+	workspaceDir = tempDir
+
+	subdir := filepath.Join(tempDir, "sub")
+	err := os.MkdirAll(subdir, 0755)
+	require.NoError(t, err)
+
+	outsideFile := filepath.Join(os.TempDir(), "relative_escape.txt")
+	err = os.WriteFile(outsideFile, []byte("secret"), 0644)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(outsideFile) }()
+
+	symlinkPath := filepath.Join(subdir, "escape")
+	err = os.Symlink(outsideFile, symlinkPath)
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(symlinkPath) }()
+
+	result, err := validateFilePath(symlinkPath)
+	assert.Error(t, err, "relative symlinks escaping workspace should be rejected")
+	assert.Empty(t, result)
+}
+
+func TestValidateFilePath_NonExistentFile_AllowedForCreation(t *testing.T) {
+	oldWorkspace := workspaceDir
+	defer func() { workspaceDir = oldWorkspace }()
+
+	tempDir := t.TempDir()
+	workspaceDir = tempDir
+
+	nonExistentPath := filepath.Join(tempDir, "does_not_exist_yet.txt")
+
+	result, err := validateFilePath(nonExistentPath)
+	assert.NoError(t, err, "non-existent files inside workspace should be allowed for creation")
+	assert.NotEmpty(t, result, "should return cleaned absolute path")
+	assert.True(t, filepath.IsAbs(result))
+}
+
+func TestValidateFilePath_NonExistentOutsideWorkspace_Rejected(t *testing.T) {
+	oldWorkspace := workspaceDir
+	defer func() { workspaceDir = oldWorkspace }()
+
+	tempDir := t.TempDir()
+	workspaceDir = tempDir
+
+	nonExistentPath := filepath.Join(os.TempDir(), "outside_escape.txt")
+
+	result, err := validateFilePath(nonExistentPath)
+	assert.Error(t, err, "non-existent files outside workspace should be rejected")
+	assert.Empty(t, result)
+	assert.Contains(t, err.Error(), "outside workspace")
 }
 
 func TestValidateNetworkURL(t *testing.T) {
