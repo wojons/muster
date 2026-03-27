@@ -93,17 +93,17 @@ func TestNewInitCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInitCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Initializing new connection...")
 		assert.Contains(t, output, "Host: https://api.example.com")
@@ -115,18 +115,18 @@ func TestNewInitCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInitCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("overwrite", "true")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("overwrite", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Overwriting existing configuration...")
 	})
@@ -137,18 +137,18 @@ func TestNewInitCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInitCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("timeout", "60")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("timeout", "60")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Timeout: 60s")
 	})
@@ -159,18 +159,18 @@ func TestNewInitCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInitCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("retry", "5")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("retry", "5")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Retry attempts: 5")
 	})
@@ -181,8 +181,8 @@ func TestNewInitCommand(t *testing.T) {
 		cmd.SetOut(buf)
 		cmd.SetErr(buf)
 
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("api-key", "test-api-key")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("api-key", "test-api-key")
 
 		err := cmd.RunE(cmd, []string{})
 
@@ -195,18 +195,18 @@ func TestNewInitCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInitCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("oauth2", "true")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("oauth2", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "OAuth2: enabled")
 	})
@@ -217,18 +217,18 @@ func TestNewInitCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInitCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("mtls", "true")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("mtls", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "mTLS: enabled")
 	})

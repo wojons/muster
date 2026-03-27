@@ -51,7 +51,7 @@ func TestClient_Retry_SuccessOnFirstAttempt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attemptCount++
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 	defer server.Close()
 
@@ -69,7 +69,7 @@ func TestClient_Retry_SuccessOnFirstAttempt(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 1, attemptCount) // Should only try once for success
@@ -85,7 +85,7 @@ func TestClient_Retry_RetriesOn5xxStatusCodes(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 	defer server.Close()
 
@@ -103,7 +103,7 @@ func TestClient_Retry_RetriesOn5xxStatusCodes(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 3, attemptCount) // Should retry 2 times before success
@@ -119,7 +119,7 @@ func TestClient_Retry_RetriesOn429StatusCode(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 	defer server.Close()
 
@@ -137,7 +137,7 @@ func TestClient_Retry_RetriesOn429StatusCode(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 2, attemptCount)
@@ -179,7 +179,7 @@ func TestClient_Retry_NoRetryOn4xxStatusCodes(t *testing.T) {
 			ctx := context.Background()
 			resp, err := client.Get(ctx, server.URL+"/test")
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
 			assert.Equal(t, 1, attemptCount) // Should not retry
@@ -247,7 +247,7 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 	defer server.Close()
 
@@ -267,35 +267,40 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 	attemptCount = 0
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 	assert.Equal(t, 2, attemptCount)
 
 	// Test POST
 	attemptCount = 0
 	resp, err = client.Post(ctx, server.URL+"/test", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 	assert.Equal(t, 2, attemptCount)
 
 	// Test PUT
 	attemptCount = 0
 	resp, err = client.Put(ctx, server.URL+"/test", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 	assert.Equal(t, 2, attemptCount)
 
 	// Test DELETE
 	attemptCount = 0
 	resp, err = client.Delete(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 	assert.Equal(t, 2, attemptCount)
 
 	// Test PATCH
 	attemptCount = 0
 	resp, err = client.Patch(ctx, server.URL+"/test", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
-	resp.Body.Close()
+	_ = resp.Body.Close()
+
 	assert.Equal(t, 2, attemptCount)
 }
 
@@ -309,7 +314,7 @@ func TestClient_Retry_WithTracing(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 	defer server.Close()
 
@@ -318,7 +323,7 @@ func TestClient_Retry_WithTracing(t *testing.T) {
 	config.Enabled = false // Use no-op tracer for testing
 	provider, err := telemetry.NewTracerProvider(context.Background(), config)
 	require.NoError(t, err)
-	defer provider.Shutdown(context.Background())
+	defer func() { _ = provider.Shutdown(context.Background()) }()
 
 	tracer := telemetry.NewTracer(provider.Tracer())
 
@@ -336,7 +341,7 @@ func TestClient_Retry_WithTracing(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 2, attemptCount)
@@ -357,7 +362,7 @@ func TestClient_Retry_WithoutRetry(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 	assert.Equal(t, 1, attemptCount) // No retry, single attempt
@@ -404,7 +409,7 @@ func TestClient_Retry_ResponseBodyPreserved(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message":"success"}`))
+		_, _ = w.Write([]byte(`{"message":"success"}`))
 	}))
 	defer server.Close()
 
@@ -422,7 +427,7 @@ func TestClient_Retry_ResponseBodyPreserved(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -439,7 +444,7 @@ func TestClient_Retry_ConcurrentRequests(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 	defer server.Close()
 
@@ -459,7 +464,8 @@ func TestClient_Retry_ConcurrentRequests(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		resp, err := client.Get(ctx, server.URL+fmt.Sprintf("/test%d", i))
 		require.NoError(t, err)
-		resp.Body.Close()
+		_ = resp.Body.Close()
+
 	}
 }
 
@@ -537,7 +543,7 @@ func TestClient_Retry_WithCustomHTTPClient(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 2, attemptCount)
@@ -579,7 +585,7 @@ func TestClient_Retry_IntegrationWithHeaders(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 2, attemptCount)
@@ -617,7 +623,7 @@ func TestClient_Retry_WithBaseURL(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, "/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 2, attemptCount)
@@ -653,7 +659,7 @@ func TestClient_Retry_DoMethodDirectly(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Do(ctx, req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 2, attemptCount)

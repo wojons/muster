@@ -103,17 +103,17 @@ func TestNewInventoryFetchCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInventoryFetchCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Fetching inventory from")
 		assert.Contains(t, output, "api.example.com")
@@ -125,18 +125,18 @@ func TestNewInventoryFetchCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInventoryFetchCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("output", "json")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("output", "json")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Output format: JSON")
 	})
@@ -147,18 +147,18 @@ func TestNewInventoryFetchCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInventoryFetchCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("output", "yaml")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("output", "yaml")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Output format: YAML")
 	})
@@ -196,13 +196,13 @@ func TestNewInventoryListCommand(t *testing.T) {
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Cached inventories:")
 	})
@@ -213,17 +213,17 @@ func TestNewInventoryListCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInventoryListCommand()
-		cmd.Flags().Set("cache-dir", "/tmp/cache")
+		_ = cmd.Flags().Set("cache-dir", "/tmp/cache")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Cache directory: /tmp/cache")
 	})
@@ -271,17 +271,17 @@ func TestNewInventoryValidateCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInventoryValidateCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Validating inventory from")
 		assert.Contains(t, output, "Inventory is valid")
@@ -293,18 +293,18 @@ func TestNewInventoryValidateCommand(t *testing.T) {
 		os.Stdout = w
 
 		cmd := newInventoryValidateCommand()
-		cmd.Flags().Set("host", "https://api.example.com")
-		cmd.Flags().Set("verbose", "true")
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("verbose", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
-		w.Close()
+		_ = w.Close()
 		os.Stdout = oldStdout
 
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 		assert.Contains(t, output, "Validating resources...")
 		assert.Contains(t, output, "Validating operations...")

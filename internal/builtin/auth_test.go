@@ -111,7 +111,7 @@ func TestNewAuthLoginCommand(t *testing.T) {
 
 	t.Run("handles oauth2 flag", func(t *testing.T) {
 		cmd := newAuthLoginCommand()
-		cmd.Flags().Set("oauth2", "true")
+		_ = cmd.Flags().Set("oauth2", "true")
 
 		err := cmd.RunE(cmd, []string{})
 
@@ -120,7 +120,7 @@ func TestNewAuthLoginCommand(t *testing.T) {
 
 	t.Run("handles token flag", func(t *testing.T) {
 		cmd := newAuthLoginCommand()
-		cmd.Flags().Set("token", "test-token")
+		_ = cmd.Flags().Set("token", "test-token")
 
 		err := cmd.RunE(cmd, []string{})
 
@@ -129,8 +129,8 @@ func TestNewAuthLoginCommand(t *testing.T) {
 
 	t.Run("handles username flag", func(t *testing.T) {
 		cmd := newAuthLoginCommand()
-		cmd.Flags().Set("username", "testuser")
-		cmd.Flags().Set("password", "testpass")
+		_ = cmd.Flags().Set("username", "testuser")
+		_ = cmd.Flags().Set("password", "testpass")
 
 		err := cmd.RunE(cmd, []string{})
 

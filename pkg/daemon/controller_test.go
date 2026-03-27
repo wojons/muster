@@ -134,7 +134,7 @@ func TestNewController_WithHandler(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test"))
+		_, _ = w.Write([]byte("test"))
 	})
 
 	cfg := ControllerConfig{
@@ -197,7 +197,7 @@ func TestControllerStartWithSocket_Success(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello from daemon"))
+		_, _ = w.Write([]byte("Hello from daemon"))
 	}
 
 	cfg := ControllerConfig{
@@ -231,7 +231,7 @@ func TestControllerStartWithSocket_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// Cleanup
-	controller.Shutdown(context.Background())
+	defer func() { _ = controller.Shutdown(context.Background()) }()
 	_ = controller.pidManager.Release()
 	_ = controller.GetTokenManager().Cleanup()
 }
@@ -244,7 +244,7 @@ func TestControllerStartWithSocket_TokenGenerationFailure(t *testing.T) {
 	readOnlyDir := filepath.Join(tmpDir, "readonly")
 	err := os.MkdirAll(readOnlyDir, 0755)
 	require.NoError(t, err)
-	defer os.Chmod(readOnlyDir, 0755) // Restore permissions for cleanup
+	defer func() { _ = os.Chmod(readOnlyDir, 0755) }() // Restore permissions for cleanup
 
 	err = os.Chmod(readOnlyDir, 0000)
 	require.NoError(t, err)
@@ -536,7 +536,7 @@ func TestControllerServeHTTP(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 
 	cfg := ControllerConfig{
@@ -591,7 +591,7 @@ func TestControllerSetupSignalHandlers(t *testing.T) {
 	controller.SetupSignalHandlers()
 
 	// Send signal to ourselves
-	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+	_ = syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 
 	// Wait for signal handler to run
 	select {
@@ -630,7 +630,7 @@ func TestControllerConcurrentAccess(t *testing.T) {
 	done := make(chan bool, 4)
 
 	go func() {
-		controller.Status()
+		_, _ = controller.Status()
 		done <- true
 	}()
 
@@ -707,7 +707,7 @@ func TestControllerFullLifecycle(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("pong"))
+		_, _ = w.Write([]byte("pong"))
 	}
 
 	cfg := ControllerConfig{
@@ -937,7 +937,7 @@ func TestControllerSocketPermissions(t *testing.T) {
 	assert.Equal(t, os.FileMode(0600), mode.Perm(), "Socket should have 0600 permissions")
 
 	// Cleanup
-	controller.Shutdown(context.Background())
+	defer func() { _ = controller.Shutdown(context.Background()) }()
 	_ = controller.pidManager.Release()
 	_ = controller.GetTokenManager().Cleanup()
 }
@@ -1047,7 +1047,7 @@ func TestControllerStartWithSocket_CreatesDirectories(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Cleanup
-	controller.Shutdown(context.Background())
+	defer func() { _ = controller.Shutdown(context.Background()) }()
 	_ = controller.pidManager.Release()
 	_ = controller.GetTokenManager().Cleanup()
 }
