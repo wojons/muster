@@ -37,7 +37,50 @@ type Keychain interface {
 
 type MacOSKeychain struct{}
 
+// sanitizeKeychainParam validates and sanitizes service/account parameters
+// to prevent command injection attacks. It rejects shell metacharacters
+// and other dangerous input patterns.
+func sanitizeKeychainParam(param, paramName string) error {
+	if param == "" {
+		return fmt.Errorf("%s cannot be empty", paramName)
+	}
+
+	// Reject shell metacharacters that could enable injection
+	dangerousChars := []string{
+		"$", "`", "(", ")", "|", "&", ";", "<", ">", "\\",
+		"\"", "'", "*", "?", "[", "]", "{", "}", "!", "#", "~",
+	}
+
+	for _, char := range dangerousChars {
+		if strings.Contains(param, char) {
+			return fmt.Errorf("%s contains invalid character: %s", paramName, char)
+		}
+	}
+
+	// Reject newline/carriage return (could enable command separation)
+	if strings.ContainsAny(param, "\n\r\t") {
+		return fmt.Errorf("%s cannot contain whitespace", paramName)
+	}
+
+	// Reject common injection patterns
+	injectionPatterns := []string{"../", "..\\", "$((", "$(("}
+	for _, pattern := range injectionPatterns {
+		if strings.Contains(param, pattern) {
+			return fmt.Errorf("%s contains suspicious pattern", paramName)
+		}
+	}
+
+	return nil
+}
+
 func (k *MacOSKeychain) Set(service, account, password string) error {
+	if err := sanitizeKeychainParam(service, "service"); err != nil {
+		return err
+	}
+	if err := sanitizeKeychainParam(account, "account"); err != nil {
+		return err
+	}
+
 	cmd := exec.Command("security", "add-generic-password",
 		"-s", service,
 		"-a", account,
@@ -48,6 +91,13 @@ func (k *MacOSKeychain) Set(service, account, password string) error {
 }
 
 func (k *MacOSKeychain) Get(service, account string) (string, error) {
+	if err := sanitizeKeychainParam(service, "service"); err != nil {
+		return "", err
+	}
+	if err := sanitizeKeychainParam(account, "account"); err != nil {
+		return "", err
+	}
+
 	cmd := exec.Command("security", "find-generic-password",
 		"-s", service,
 		"-a", account,
@@ -66,6 +116,13 @@ func (k *MacOSKeychain) Get(service, account string) (string, error) {
 }
 
 func (k *MacOSKeychain) Delete(service, account string) error {
+	if err := sanitizeKeychainParam(service, "service"); err != nil {
+		return err
+	}
+	if err := sanitizeKeychainParam(account, "account"); err != nil {
+		return err
+	}
+
 	cmd := exec.Command("security", "delete-generic-password",
 		"-s", service,
 		"-a", account,
@@ -75,6 +132,10 @@ func (k *MacOSKeychain) Delete(service, account string) error {
 }
 
 func (k *MacOSKeychain) List(service string) ([]Account, error) {
+	if err := sanitizeKeychainParam(service, "service"); err != nil {
+		return nil, err
+	}
+
 	cmd := exec.Command("security", "dump-keychain")
 	output, err := cmd.Output()
 	if err != nil {

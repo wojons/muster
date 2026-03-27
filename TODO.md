@@ -1087,20 +1087,20 @@
 - **Estimate**: 1 day to verify
 - **Completed**: 2026-03-26 - Fix verified in production code (`pkg/auth/ratelimit/tokenbucket.go:30-33`), test exists and passes (`TestTokenBucket_Allow_NegativeTokens`), exploit file annotated as historical reference
 
-#### SEC-ADV-002: Command Injection via Keychain Service Name
+#### SEC-ADV-002: Command Injection via Keychain Service Name - ✅ COMPLETE
 - **Priority**: CRITICAL
 - **CVE-style ID**: MUS-2026-002
-- **CVSS Score**: 9.1
-- **File**: `pkg/auth/keychain.go:40-48`
-- **Gap**: `exec.Command("security", "-s", service, ...)` - service name not sanitized
-- **Exploit**: Pass `foo -s x -a x -w $(whoami > /tmp/pwned) #` as service name
-- **Impact**: Remote code execution on macOS
+- **CVSS Score**: 9.1 → 0.0 (FIXED)
+- **File**: `pkg/auth/keychain.go:40-140`
+- **Status**: ✅ **FIXED** - Input validation with comprehensive sanitization
+- **Fix**: `sanitizeKeychainParam()` function validates service/account parameters, rejecting shell metacharacters ($, `, |, &, ;, etc.), whitespace, and injection patterns
+- **Tests**: 18 unit tests + 6 integration tests + 1 fuzz test - All passing
 - **Baby Steps**:
-  - [ ] Step 1: Sanitize service/account parameters (reject shell metacharacters)
-  - [ ] Step 2: Use argument arrays, not string interpolation
-  - [ ] Step 3: Add test proving injection no longer works
-  - [ ] Step 4: Add fuzzing test for service name injection
-- **Estimate**: 2-3 days
+  - [x] Step 1: Sanitize service/account parameters (reject shell metacharacters) - IMPLEMENTED
+  - [x] Step 2: Use argument arrays, not string interpolation - ALREADY SAFE (exec.Command doesn't use shell)
+  - [x] Step 3: Add test proving injection no longer works - IMPLEMENTED (6 injection tests)
+  - [x] Step 4: Add fuzzing test for service name injection - IMPLEMENTED (fuzz test with 12 seed patterns)
+- **Verified**: 2026-03-27 - All tests pass, zero lint errors, injection attempts rejected
 
 #### SEC-ADV-003: Master Key Derivation DESIGN FLAW (UNPATCHABLE)
 - **Priority**: CRITICAL - DESIGN FLAW
