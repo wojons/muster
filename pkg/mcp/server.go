@@ -20,7 +20,6 @@ type Server struct {
 	shutdownChan   chan struct{}
 	mu             sync.RWMutex
 	wg             sync.WaitGroup // CRITICAL FIX: Tracks in-flight goroutines
-	started        sync.Once      // CRITICAL FIX: Ensures Run() cleanup happens once
 	concurrencySem chan struct{}  // CRITICAL FIX: Semaphore to prevent unbounded goroutine spawn
 }
 

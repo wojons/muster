@@ -105,14 +105,15 @@ func TestProductionSimulation(t *testing.T) {
 
 			case strings.Contains(r.URL.Path, "/users"):
 				// Handle users endpoint
-				if r.Method == "GET" {
+				switch r.Method {
+				case "GET":
 					users := []map[string]interface{}{
 						{"id": 1, "name": "Alice", "email": "alice@example.com"},
 						{"id": 2, "name": "Bob", "email": "bob@example.com"},
 					}
 					w.Header().Set("Content-Type", "application/json")
 					_ = json.NewEncoder(w).Encode(users)
-				} else if r.Method == "POST" {
+				case "POST":
 					var user map[string]interface{}
 					_ = json.NewDecoder(r.Body).Decode(&user)
 					user["id"] = 3

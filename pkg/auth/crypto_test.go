@@ -164,8 +164,7 @@ func TestSignVerifyECDSA(t *testing.T) {
 
 func TestEncryptDecryptAESGCM(t *testing.T) {
 	t.Run("encrypts and decrypts", func(t *testing.T) {
-		key := make([]byte, 32)
-		key, _ = GenerateSecureRandom(32)
+		key, _ := GenerateSecureRandom(32)
 
 		plaintext := []byte("Secret message")
 
@@ -616,8 +615,7 @@ func TestDeriveSharedSecretECDH(t *testing.T) {
 
 func TestEncryptDecryptChaCha20(t *testing.T) {
 	t.Run("encrypts and decrypts", func(t *testing.T) {
-		key := make([]byte, 32)
-		key, _ = GenerateSecureRandom(32)
+		key, _ := GenerateSecureRandom(32)
 
 		plaintext := []byte("ChaCha20 message")
 
@@ -762,15 +760,13 @@ type testLogger struct {
 }
 
 func (l *testLogger) Printf(format string, args ...interface{}) {
-	l.buf.WriteString(fmt.Sprintf(format+"\n", args...))
+	fmt.Fprintf(l.buf, format+"\n", args...)
 }
 
 func TestWrapUnwrapKey(t *testing.T) {
 	t.Run("wraps and unwraps", func(t *testing.T) {
-		key := make([]byte, 32)
-		kek := make([]byte, 32)
-		key, _ = GenerateSecureRandom(32)
-		kek, _ = GenerateSecureRandom(32)
+		key, _ := GenerateSecureRandom(32)
+		kek, _ := GenerateSecureRandom(32)
 
 		wrapped, err := WrapKey(key, kek)
 		if err != nil {

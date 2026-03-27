@@ -170,10 +170,9 @@ func TestEnforceMemoryLimit(t *testing.T) {
 		engineWithLowLimit := NewEngine(limitConfig)
 
 		err := engineWithLowLimit.enforceMemoryLimit()
-		if err != nil {
-			// Expected to fail or pass depending on actual memory usage
-			// This is more of a sanity check
-		}
+		// Expected to fail or pass depending on actual memory usage
+		// This is more of a sanity check
+		t.Logf("enforceMemoryLimit result: %v", err)
 	})
 }
 

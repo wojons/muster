@@ -87,9 +87,10 @@ func ShouldUseProxy(targetURL string, noProxyHosts []string) bool {
 		}
 
 		// CIDR notation (simplified - real implementation needs netip package)
+		// Would need pkg/github.com/apparentlymart/go-cidrcheck/cidrcheck
+		// For now, continue with string matching
+		// nolint:staticcheck
 		if strings.Contains(pattern, "/") {
-			// Would need pkg/github.com/apparentlymart/go-cidrcheck/cidrcheck
-			// For now, continue with string matching
 		}
 	}
 

@@ -661,7 +661,7 @@ func TestLargeSpecParsing(t *testing.T) {
 		if i > 0 {
 			sb.WriteString(",")
 		}
-		sb.WriteString(fmt.Sprintf(`"/path%d": {"get": {"responses": {"200": {"description": "OK"}}}}`, i))
+		fmt.Fprintf(&sb, `"/path%d": {"get": {"responses": {"200": {"description": "OK"}}}}`, i)
 	}
 	sb.WriteString("}}")
 
@@ -694,7 +694,7 @@ func TestDeeplyNestedSpec(t *testing.T) {
 	depth := 100
 	for i := 0; i < depth; i++ {
 		sb.WriteString(`"properties": {"level`)
-		sb.WriteString(fmt.Sprintf("%d", i))
+		fmt.Fprintf(&sb, "%d", i)
 		sb.WriteString(`": `)
 	}
 	sb.WriteString(`{"type": "string"}`)
@@ -730,7 +730,7 @@ func TestParser_Timeout(t *testing.T) {
 		if i > 0 {
 			sb.WriteString(",")
 		}
-		sb.WriteString(fmt.Sprintf(`"/path%d": {"get": {"responses": {"200": {"description": "OK"}}}}`, i))
+		fmt.Fprintf(&sb, `"/path%d": {"get": {"responses": {"200": {"description": "OK"}}}}`, i)
 	}
 	sb.WriteString("}}")
 

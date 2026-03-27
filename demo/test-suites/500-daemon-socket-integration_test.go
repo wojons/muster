@@ -39,7 +39,7 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 		b, _ := json.Marshal(response)
 
 		w.Header().Set("X-Backend-Timestamp", "test-timestamp-12345")
-_, _ = w.Write(b)
+		_, _ = w.Write(b)
 	}))
 	defer backendAPI.Close()
 
@@ -76,10 +76,10 @@ _, _ = w.Write(b)
 		bufStdout := &bytes.Buffer{}
 
 		go func() {
-_, _ = io.Copy(bufStderr, stderr)
+			_, _ = io.Copy(bufStderr, stderr)
 		}()
 		go func() {
-_, _ = io.Copy(bufStdout, stdout)
+			_, _ = io.Copy(bufStdout, stdout)
 		}()
 
 		// Start the daemon
@@ -206,12 +206,4 @@ _, _ = io.Copy(bufStdout, stdout)
 	t.Log("  ✓ HTTP requests through socket")
 	t.Log("  ✓ Request routing to backend")
 	t.Log("  ✓ Backend proxy working")
-}
-
-func respBody(t *testing.T, resp *http.Response) []byte {
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Failed to read response body: %v", err)
-	}
-	return body
 }

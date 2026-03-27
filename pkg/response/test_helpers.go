@@ -5,18 +5,6 @@ import (
 	"io"
 )
 
-type mockReadCloser struct {
-	*bytes.Buffer
-}
-
-func (m *mockReadCloser) Close() error {
-	return nil
-}
-
-func newMockReadCloser(s string) io.ReadCloser {
-	return &mockReadCloser{bytes.NewBufferString(s)}
-}
-
 type mockBody struct {
 	*bytes.Buffer
 }
