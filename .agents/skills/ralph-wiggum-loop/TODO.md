@@ -429,9 +429,10 @@ See individual sections below for completion details.
 - [x] Step 2: Fix errcheck errors in pkg/daemon/proxy_test.go (10 instances) - Fixed all unchecked error returns: `os.Remove()` in cleanup defer (2 instances), `server.Stop()` in defer (2 instances), `resp.Body.Close()` in defer (4 instances). Used `defer func() { _ = ... }()` pattern for defer statements. All 10 errcheck errors resolved. All tests pass. Zero lint errors.
 - [x] Step 3: Fix errcheck errors in pkg/daemon/proxy_integration_test.go (29 instances) - Fixed all unchecked error returns: `os.Remove()` in cleanup defers (14 instances), `server.Stop()` in defer (5 instances), `resp.Body.Close()` in defer (10 instances). Used `defer func() { _ = ... }()` and `_ = ...` patterns for error handling. Also fixed staticcheck error: replaced `w.Write([]byte(fmt.Sprintf(...)))` with `fmt.Fprintf(w, ...)`. All 29 errcheck errors resolved. All tests pass. Zero lint errors.
 - [x] Step 4: Fix errcheck errors in pkg/cache/memory_test.go (22 instances) - Fixed all unchecked `mc.Close()` errors in defer statements using `defer func() { require.NoError(t, mc.Close()) }()` pattern. Also fixed 3 unchecked method calls in concurrent test goroutines (Set, Get, Delete) using `_ = mc.Set(...)`, `_, _ = mc.Get(...)`, and `_ = mc.Delete(...)` patterns. All 22 errcheck errors resolved. All 28 cache tests pass with race detector. Zero lint errors.
-- [ ] Step 5: Fix errcheck errors in pkg/wasm/runtime_test.go (estimated 30+ instances)
-- [ ] Step 6: Fix errcheck errors in pkg/auth/crypto_test.go (estimated 20+ instances)
-- [ ] Step 7: Fix errcheck errors in remaining test files (estimated 200+ instances)
+- [x] Step 5: Fix lint errors in pkg/wasm/... (3 instances: 2 staticcheck, 1 unused) - Fixed staticcheck nil pointer dereference warnings in sandbox_test.go by using require.NotNil() instead of manual nil check followed by field access. Removed unused dummyWASM constant from limits_enforcement_test.go. All WASM package tests pass. Zero lint errors.
+- [x] Step 6: Fix errcheck errors in internal/audit/storage_test.go (36 instances) - Fixed all unchecked `storage.Close()` errors: 32 instances converted to `defer func() { require.NoError(t, storage.Close()) }()` pattern for defer statements, 1 concurrent Write call prefixed with `_ = `, and 3 intentional Close() calls in "closed storage" tests changed to `_ = storage.Close()` to explicitly ignore errors. All 36 errcheck errors resolved. All audit storage tests pass. Zero lint errors.
+- [ ] Step 7: Fix errcheck errors in internal/cli/flags/validators_test.go (29 instances)
+- [ ] Step 8: Fix errcheck errors in remaining test files (estimated 200+ instances)
 - **Spec**: `CONTRIBUTING.md` - Error handling requirements
 - **Effort**: 2-3 days
 - **Impact**: Ensures all error returns are properly handled; prevents silent failures
@@ -683,5 +684,6 @@ All test coverage gaps have been filled with comprehensive unit and integration 
 *Latest platform tests: COV-007 Platform Integration - 14 tests across 4 files (Linux/macOS/Windows/Cross-platform)*
 *Latest fix: TestMacOSKeychainIntegration - fixed whitespace trimming in security command output comparison*
 *Test Coverage: 201/201 gaps closed (100%) - 2026-03-26*
-*Current Phase: LINT RESOLUTION - 0/369 issues fixed (2026-03-27)*
-*Next Task: LINT-001 Step 1 - Fix errcheck errors in pkg/events/dispatcher_test.go*
+*Current Phase: LINT RESOLUTION - 22/369 issues fixed (6%) - 2026-03-27*
+*Latest fix: LINT-001 Step 4 - Fixed 22 errcheck errors in pkg/cache/memory_test.go*
+*Next Task: LINT-001 Step 5 - Fix errcheck errors in pkg/wasm/runtime_test.go*

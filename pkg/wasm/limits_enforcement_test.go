@@ -10,10 +10,6 @@ import (
 	"github.com/openapi-cli/openapi-cli/pkg/wasm"
 )
 
-// dummyWASM is a placeholder for a real WASM module
-// TODO: Create actual WASM module for timeout testing
-const dummyWASM = "placeholder"
-
 // TestWASM_RuntimeLimits_ExecutionTimeout tests that execution time limits are enforced.
 func TestWASM_RuntimeLimits_ExecutionTimeout(t *testing.T) {
 	t.Run("TimeoutEnforcement", func(t *testing.T) {
