@@ -110,10 +110,8 @@ func TestDaemon_SocketProxy(t *testing.T) {
 	_, err = conn.Write([]byte("GET / HTTP/1.1\r\n\r\n"))
 	require.NoError(t, err)
 
-	select {
-	case <-ctx.Done():
-		t.Log("Socket proxy working")
-	}
+	<-ctx.Done()
+	t.Log("Socket proxy working")
 }
 
 func TestDaemon_PIDFile(t *testing.T) {

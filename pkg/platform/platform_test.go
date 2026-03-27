@@ -187,14 +187,10 @@ func TestPlatformDirs(t *testing.T) {
 
 	t.Run("MacOSKeychain implements all methods", func(t *testing.T) {
 		k := &MacOSKeychain{}
-		if k.Store("", "", "") != nil {
-		}
-		if _, err := k.Retrieve("", ""); err != nil {
-		}
-		if k.Delete("", "") != nil {
-		}
-		if _, err := k.List(""); err != nil {
-		}
+		_ = k.Store("", "", "")
+		_, _ = k.Retrieve("", "")
+		_ = k.Delete("", "")
+		_, _ = k.List("")
 	})
 
 	t.Run("LinuxKeychain implements all methods", func(t *testing.T) {

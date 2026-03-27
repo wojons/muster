@@ -162,9 +162,8 @@ func TestBuiltinPrint_List_Commented(t *testing.T) {
 		t.Logf("Print with args error expected: %v", err)
 	}
 
-	if result != starlark.None && err == nil {
-		// Expected successful print
-	}
+	// Expected successful print
+	_ = result
 }
 
 func TestBuiltinFormat_MultipleArgs(t *testing.T) {
@@ -315,6 +314,7 @@ func TestToStarlarkValue_Nil(t *testing.T) {
 	// FromStarlark may have issues with NoneType, skip strict check
 	if err != nil {
 		// This is expected - FromStarlark doesn't handle NoneType
+		t.Logf("Expected error for NoneType: %v", err)
 	}
 
 	// Just verify it doesn't panic

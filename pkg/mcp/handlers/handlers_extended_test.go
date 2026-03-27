@@ -236,15 +236,3 @@ func (m *errorResourceProvider) ListResources() ([]ResourceInfo, error) {
 func (m *errorResourceProvider) GetResource(uri string) (*StoredResource, error) {
 	return nil, m.err
 }
-
-type errorPromptProvider struct {
-	prompts []Prompt
-}
-
-func (m *errorPromptProvider) ListPrompts() []Prompt {
-	return m.prompts
-}
-
-func (m *errorPromptProvider) GetPrompt(name string, args map[string]interface{}) (string, error) {
-	return "", &testError{msg: "not found"}
-}

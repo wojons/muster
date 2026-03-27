@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 // tracedMockHandler is a test handler that can succeed or fail (renamed to avoid conflict)
@@ -31,7 +32,7 @@ func (h *tracedMockHandler) Handle(ctx context.Context, params json.RawMessage) 
 // mockTracerProvider creates a tracer provider for testing
 func mockTracerProvider(t *testing.T) trace.Tracer {
 	// Use the Noop tracer provider for testing
-	return trace.NewNoopTracerProvider().Tracer("test")
+	return noop.NewTracerProvider().Tracer("test")
 }
 
 func TestNewTracedHandler(t *testing.T) {
@@ -273,11 +274,15 @@ func TestTracedHandler_ConcurrentAccess(t *testing.T) {
 	}
 }
 
+type contextKey struct {
+	name string
+}
+
 func TestTracedHandler_ContextPropagation(t *testing.T) {
 	tracer := telemetry.NewTracer(mockTracerProvider(t))
 
 	// Create a context with a value
-	ctx := context.WithValue(context.Background(), "testKey", "testValue")
+	ctx := context.WithValue(context.Background(), contextKey{"testKey"}, "testValue")
 	handler := &tracedMockHandler{
 		method: "test/method",
 		result: "success",

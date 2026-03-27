@@ -14,7 +14,7 @@ import (
 	"github.com/openapi-cli/openapi-cli/internal/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestNewClient(t *testing.T) {
@@ -40,7 +40,7 @@ func TestNewClientWithOptions(t *testing.T) {
 }
 
 func TestNewClientWithTracer(t *testing.T) {
-	tracer := telemetry.NewTracer(trace.NewNoopTracerProvider().Tracer("test"))
+	tracer := telemetry.NewTracer(noop.NewTracerProvider().Tracer("test"))
 	client := NewClientWithTracer(tracer)
 
 	require.NotNil(t, client)
@@ -49,7 +49,7 @@ func TestNewClientWithTracer(t *testing.T) {
 
 func TestClient_SetTracer(t *testing.T) {
 	client := NewClient()
-	tracer := telemetry.NewTracer(trace.NewNoopTracerProvider().Tracer("test"))
+	tracer := telemetry.NewTracer(noop.NewTracerProvider().Tracer("test"))
 
 	client.SetTracer(tracer)
 	assert.Equal(t, tracer, client.tracer)
@@ -193,7 +193,7 @@ func TestClient_Do_WithTracer(t *testing.T) {
 	}))
 	defer server.Close()
 
-	tracer := telemetry.NewTracer(trace.NewNoopTracerProvider().Tracer("test"))
+	tracer := telemetry.NewTracer(noop.NewTracerProvider().Tracer("test"))
 	client := NewClientWithTracer(tracer)
 
 	req, _ := http.NewRequest(http.MethodGet, server.URL+"/test", nil)
@@ -212,7 +212,7 @@ func TestClient_Do_ErrorResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	tracer := telemetry.NewTracer(trace.NewNoopTracerProvider().Tracer("test"))
+	tracer := telemetry.NewTracer(noop.NewTracerProvider().Tracer("test"))
 	client := NewClientWithTracer(tracer)
 
 	req, _ := http.NewRequest(http.MethodGet, server.URL+"/test", nil)
