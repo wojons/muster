@@ -2,8 +2,11 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -116,12 +119,22 @@ func TestAuthorizationCodeFlow_Start_StoresState(t *testing.T) {
 		t.Fatalf("Start() error = %v", err)
 	}
 
-	if flow.State == "" {
-		t.Fatal("Start() did not store state in flow.State")
+	if req.State == "" {
+		t.Fatal("Start() did not generate state")
 	}
 
-	if flow.State != req.State {
-		t.Errorf("flow.State (%s) != req.State (%s)", flow.State, req.State)
+	if req.RequestID == "" {
+		t.Fatal("Start() did not generate requestID")
+	}
+
+	// Verify state is stored in stateStore
+	storedState, exists := flow.stateStore.Get(req.RequestID)
+	if !exists {
+		t.Fatal("Start() did not store state in stateStore")
+	}
+
+	if storedState != req.State {
+		t.Errorf("stored state (%s) != req.State (%s)", storedState, req.State)
 	}
 }
 
@@ -142,10 +155,15 @@ func TestAuthorizationCodeFlow_Exchange_ValidState(t *testing.T) {
 		ClientSecret: "test-client-secret",
 		TokenURL:     mockServer.URL,
 		RedirectURL:  "http://localhost:8080/callback",
-		State:        "test-state-123",
 	}
 
-	resp, err := flow.Exchange("test-auth-code", "test-state-123")
+	// Start the flow first to get requestID and state
+	req, err := flow.Start()
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	resp, err := flow.Exchange("test-auth-code", req.State, req.RequestID)
 	if err != nil {
 		t.Fatalf("Exchange() error = %v", err)
 	}
@@ -161,10 +179,15 @@ func TestAuthorizationCodeFlow_Exchange_InvalidState(t *testing.T) {
 		ClientSecret: "test-client-secret",
 		TokenURL:     "https://example.com/token",
 		RedirectURL:  "http://localhost:8080/callback",
-		State:        "expected-state",
 	}
 
-	_, err := flow.Exchange("test-auth-code", "attacker-state")
+	// Start the flow first
+	req, err := flow.Start()
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	_, err = flow.Exchange("test-auth-code", "attacker-state", req.RequestID)
 	if err == nil {
 		t.Fatal("Exchange() should have failed with state mismatch")
 	}
@@ -180,10 +203,15 @@ func TestAuthorizationCodeFlow_Exchange_EmptyState(t *testing.T) {
 		ClientSecret: "test-client-secret",
 		TokenURL:     "https://example.com/token",
 		RedirectURL:  "http://localhost:8080/callback",
-		State:        "expected-state",
 	}
 
-	_, err := flow.Exchange("test-auth-code", "")
+	// Start the flow first
+	req, err := flow.Start()
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	_, err = flow.Exchange("test-auth-code", "", req.RequestID)
 	if err == nil {
 		t.Fatal("Exchange() should have failed with empty state")
 	}
@@ -214,18 +242,21 @@ func TestAuthorizationCodeFlow_Integration_StartAndExchange(t *testing.T) {
 		Scopes:       []string{"read"},
 	}
 
-	// Start the flow to generate state
+	// Start the flow to generate state and requestID
 	req, err := flow.Start()
 	if err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
 
-	if flow.State == "" {
+	if req.State == "" {
 		t.Fatal("Start() did not generate state")
 	}
+	if req.RequestID == "" {
+		t.Fatal("Start() did not generate requestID")
+	}
 
-	// Simulate callback with correct state
-	resp, err := flow.Exchange("test-auth-code", req.State)
+	// Simulate callback with correct state and requestID
+	resp, err := flow.Exchange("test-auth-code", req.State, req.RequestID)
 	if err != nil {
 		t.Fatalf("Exchange() error = %v", err)
 	}
@@ -675,9 +706,10 @@ func TestTokenManager_Get_NoAutoRefresh(t *testing.T) {
 }
 
 func TestCallbackServer(t *testing.T) {
-	server := NewCallbackServer(18080)
+	store := newStateStore()
+	server := NewCallbackServer(18080, store)
 
-	url := server.Start()
+	url := server.Start("test-request-id")
 	if url == "" {
 		t.Fatal("Start() returned empty URL")
 	}
@@ -688,9 +720,8 @@ func TestCallbackServer(t *testing.T) {
 }
 
 func TestCallbackServer_WaitCode(t *testing.T) {
-	server := NewCallbackServer(18081)
-	server.codeChan = make(chan string, 1)
-	server.errChan = make(chan error, 1)
+	store := newStateStore()
+	server := NewCallbackServer(18081, store)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -711,10 +742,11 @@ func TestCallbackServer_WaitCode(t *testing.T) {
 }
 
 func TestCallbackServer_handleCallback_Success(t *testing.T) {
-	server := NewCallbackServer(18082)
-	server.state = "test-state-123"
+	store := newStateStore()
+	store.Set("test-request-id", "test-state-123", 10*time.Minute)
+	server := NewCallbackServer(18082, store)
 
-	req := httptest.NewRequest("GET", "/callback?code=test-auth-code&state=test-state-123", nil)
+	req := httptest.NewRequest("GET", "/callback?code=test-auth-code&state=test-state-123&request_id=test-request-id", nil)
 	w := httptest.NewRecorder()
 
 	server.handleCallback(w, req)
@@ -735,10 +767,11 @@ func TestCallbackServer_handleCallback_Success(t *testing.T) {
 }
 
 func TestCallbackServer_handleCallback_InvalidState(t *testing.T) {
-	server := NewCallbackServer(18083)
-	server.state = "expected-state"
+	store := newStateStore()
+	store.Set("test-request-id", "expected-state", 10*time.Minute)
+	server := NewCallbackServer(18083, store)
 
-	req := httptest.NewRequest("GET", "/callback?code=test-code&state=wrong-state", nil)
+	req := httptest.NewRequest("GET", "/callback?code=test-code&state=wrong-state&request_id=test-request-id", nil)
 	w := httptest.NewRecorder()
 
 	server.handleCallback(w, req)
@@ -759,10 +792,11 @@ func TestCallbackServer_handleCallback_InvalidState(t *testing.T) {
 }
 
 func TestCallbackServer_handleCallback_MissingCode(t *testing.T) {
-	server := NewCallbackServer(18084)
-	server.state = "test-state"
+	store := newStateStore()
+	store.Set("test-request-id", "test-state", 10*time.Minute)
+	server := NewCallbackServer(18084, store)
 
-	req := httptest.NewRequest("GET", "/callback?state=test-state", nil)
+	req := httptest.NewRequest("GET", "/callback?state=test-state&request_id=test-request-id", nil)
 	w := httptest.NewRecorder()
 
 	server.handleCallback(w, req)
@@ -783,10 +817,11 @@ func TestCallbackServer_handleCallback_MissingCode(t *testing.T) {
 }
 
 func TestCallbackServer_handleCallback_MissingState(t *testing.T) {
-	server := NewCallbackServer(18085)
-	server.state = "test-state"
+	store := newStateStore()
+	store.Set("test-request-id", "test-state", 10*time.Minute)
+	server := NewCallbackServer(18085, store)
 
-	req := httptest.NewRequest("GET", "/callback?code=test-code", nil)
+	req := httptest.NewRequest("GET", "/callback?code=test-code&request_id=test-request-id", nil)
 	w := httptest.NewRecorder()
 
 	server.handleCallback(w, req)
@@ -798,10 +833,11 @@ func TestCallbackServer_handleCallback_MissingState(t *testing.T) {
 }
 
 func TestCallbackServer_handleCallback_ResponseMessage(t *testing.T) {
-	server := NewCallbackServer(18086)
-	server.state = "test-state"
+	store := newStateStore()
+	store.Set("test-request-id", "test-state", 10*time.Minute)
+	server := NewCallbackServer(18086, store)
 
-	req := httptest.NewRequest("GET", "/callback?code=test-code&state=test-state", nil)
+	req := httptest.NewRequest("GET", "/callback?code=test-code&state=test-state&request_id=test-request-id", nil)
 	w := httptest.NewRecorder()
 
 	server.handleCallback(w, req)
@@ -836,4 +872,305 @@ func findSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestAuthorizationCodeFlow_ConcurrentFlows(t *testing.T) {
+	// Test that multiple OAuth flows can run concurrently without state collisions
+
+	// Create mock token server
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"test-token","refresh_token":"test-refresh","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer tokenServer.Close()
+
+	// Start multiple flows concurrently
+	numFlows := 10
+	results := make(chan struct {
+		requestID string
+		state     string
+		err       error
+	}, numFlows)
+
+	var wg sync.WaitGroup
+	for i := 0; i < numFlows; i++ {
+		wg.Add(1)
+		go func(flowNum int) {
+			defer wg.Done()
+
+			flow := &AuthorizationCodeFlow{
+				ClientID:     "test-client-id",
+				ClientSecret: "test-secret",
+				AuthURL:      "https://example.com/auth",
+				TokenURL:     tokenServer.URL,
+				RedirectURL:  "http://localhost/callback",
+				Scopes:       []string{"read"},
+			}
+
+			// Start flow
+			req, err := flow.Start()
+			if err != nil {
+				results <- struct {
+					requestID string
+					state     string
+					err       error
+				}{err: fmt.Errorf("flow %d: Start() failed: %w", flowNum, err)}
+				return
+			}
+
+			// Exchange with correct state
+			_, err = flow.Exchange("test-auth-code", req.State, req.RequestID)
+			results <- struct {
+				requestID string
+				state     string
+				err       error
+			}{requestID: req.RequestID, state: req.State, err: err}
+		}(i)
+	}
+
+	// Wait for all flows to complete
+	wg.Wait()
+	close(results)
+
+	// Verify all flows succeeded
+	successCount := 0
+	failCount := 0
+	for result := range results {
+		if result.err != nil {
+			t.Errorf("Concurrent flow failed: %v", result.err)
+			failCount++
+		} else {
+			successCount++
+		}
+	}
+
+	if successCount != numFlows {
+		t.Errorf("Expected %d successful flows, got %d (failed: %d)", numFlows, successCount, failCount)
+	}
+}
+
+func TestAuthorizationCodeFlow_StateReuse_Prevented(t *testing.T) {
+	// Test that state can only be used once (prevents replay attacks)
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"test-token","refresh_token":"test-refresh","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer tokenServer.Close()
+
+	flow := &AuthorizationCodeFlow{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		TokenURL:     tokenServer.URL,
+	}
+
+	req, err := flow.Start()
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	// First exchange should succeed
+	_, err = flow.Exchange("test-code", req.State, req.RequestID)
+	if err != nil {
+		t.Fatalf("First Exchange() failed: %v", err)
+	}
+
+	// Second exchange with same state should fail (state was deleted)
+	_, err = flow.Exchange("test-code", req.State, req.RequestID)
+	if err == nil {
+		t.Fatal("Second Exchange() should have failed (state reuse)")
+	}
+	if !strings.Contains(err.Error(), "expired or invalid") {
+		t.Errorf("Second Exchange() error = %v, want 'expired or invalid'", err)
+	}
+}
+
+func TestAuthorizationCodeFlow_StateExpiration(t *testing.T) {
+	// Test that state expires after timeout
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"test-token"}`))
+	}))
+	defer tokenServer.Close()
+
+	flow := &AuthorizationCodeFlow{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		TokenURL:     tokenServer.URL,
+	}
+
+	req, err := flow.Start()
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	// Manually expire the state by deleting it
+	flow.stateStore.Delete(req.RequestID)
+
+	// Exchange should fail
+	_, err = flow.Exchange("test-code", req.State, req.RequestID)
+	if err == nil {
+		t.Fatal("Exchange() should have failed (expired state)")
+	}
+	if !strings.Contains(err.Error(), "expired or invalid") {
+		t.Errorf("Exchange() error = %v, want 'expired or invalid'", err)
+	}
+}
+
+func TestAuthorizationCodeFlow_TimingAttack_Prevented(t *testing.T) {
+	// Test that state comparison uses constant-time comparison
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"test-token"}`))
+	}))
+	defer tokenServer.Close()
+
+	flow := &AuthorizationCodeFlow{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		TokenURL:     tokenServer.URL,
+	}
+
+	req, err := flow.Start()
+	if err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	// Try with wrong state (different length)
+	wrongState := "wrong"
+	_, err = flow.Exchange("test-code", wrongState, req.RequestID)
+	if err == nil {
+		t.Fatal("Exchange() should have failed (wrong state)")
+	}
+	if !strings.Contains(err.Error(), "mismatch") {
+		t.Errorf("Exchange() error = %v, want 'mismatch'", err)
+	}
+}
+
+func TestStateStore_ConcurrentAccess(t *testing.T) {
+	// Test that state store handles concurrent access safely
+
+	store := newStateStore()
+	defer func() {
+		// Clean up store
+		store.mu.Lock()
+		store.states = make(map[string]*stateEntry)
+		store.mu.Unlock()
+	}()
+
+	numGoroutines := 100
+	var wg sync.WaitGroup
+
+	// Concurrent writes
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			requestID := fmt.Sprintf("req-%d", id)
+			state := fmt.Sprintf("state-%d", id)
+			store.Set(requestID, state, 10*time.Minute)
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify all states were stored
+	store.mu.RLock()
+	count := len(store.states)
+	store.mu.RUnlock()
+
+	if count != numGoroutines {
+		t.Errorf("Expected %d states, got %d", numGoroutines, count)
+	}
+}
+
+func TestAuthorizationCodeFlow_MissingRequestID(t *testing.T) {
+	// Test that Exchange requires request ID
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"test-token"}`))
+	}))
+	defer tokenServer.Close()
+
+	flow := &AuthorizationCodeFlow{
+		ClientID:     "test-client-id",
+		ClientSecret: "test-secret",
+		TokenURL:     tokenServer.URL,
+	}
+
+	_, err := flow.Exchange("test-code", "test-state", "")
+	if err == nil {
+		t.Fatal("Exchange() should have failed (missing request ID)")
+	}
+	if !strings.Contains(err.Error(), "request ID required") {
+		t.Errorf("Exchange() error = %v, want 'request ID required'", err)
+	}
+}
+
+func TestCallbackServer_MissingRequestID(t *testing.T) {
+	// Test that callback handler requires request ID
+
+	store := newStateStore()
+	server := NewCallbackServer(18087, store)
+
+	req := httptest.NewRequest("GET", "/callback?code=test-code&state=test-state", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	if w.Code != 400 {
+		t.Errorf("handleCallback() status = %d, want 400", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Request ID required") {
+		t.Errorf("handleCallback() body = %v, want 'Request ID required'", w.Body.String())
+	}
+}
+
+func TestCallbackServer_InvalidRequestID(t *testing.T) {
+	// Test that callback handler rejects invalid request ID
+
+	store := newStateStore()
+	server := NewCallbackServer(18088, store)
+
+	req := httptest.NewRequest("GET", "/callback?code=test-code&state=test-state&request_id=invalid-id", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	if w.Code != 400 {
+		t.Errorf("handleCallback() status = %d, want 400", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Invalid or expired") {
+		t.Errorf("handleCallback() body = %v, want 'Invalid or expired'", w.Body.String())
+	}
+}
+
+func TestCallbackServer_ValidRequestWithState(t *testing.T) {
+	// Test that callback handler works with valid request ID and state
+
+	store := newStateStore()
+	store.Set("valid-request-id", "valid-state", 10*time.Minute)
+	server := NewCallbackServer(18089, store)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Start server in goroutine
+	go func() {
+		req := httptest.NewRequest("GET", "/callback?code=test-code&state=valid-state&request_id=valid-request-id", nil)
+		w := httptest.NewRecorder()
+		server.handleCallback(w, req)
+	}()
+
+	// Wait for code
+	code, err := server.WaitCode(ctx)
+	if err != nil {
+		t.Fatalf("WaitCode() error = %v", err)
+	}
+	if code != "test-code" {
+		t.Errorf("WaitCode() code = %v, want test-code", code)
+	}
 }

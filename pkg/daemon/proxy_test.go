@@ -421,3 +421,230 @@ func generateRandomString(length int) string {
 	}
 	return hex.EncodeToString(bytes)[:length]
 }
+
+// TestSanitizeProxyPath tests the path sanitization function
+func TestSanitizeProxyPath(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty_path",
+			input:    "",
+			expected: "/",
+		},
+		{
+			name:     "normal_path",
+			input:    "/api/users",
+			expected: "/api/users",
+		},
+		{
+			name:     "path_with_trailing_slash",
+			input:    "/api/users/",
+			expected: "/api/users", // filepath.Clean removes trailing slash
+		},
+		{
+			name:     "path_with_double_dot",
+			input:    "/api/../admin",
+			expected: "", // Should be rejected
+		},
+		{
+			name:     "path_with_multiple_double_dots",
+			input:    "/api/../../etc/passwd",
+			expected: "", // Should be rejected
+		},
+		{
+			name:     "path_with_null_byte",
+			input:    "/api/users\x00.txt",
+			expected: "", // Should be rejected
+		},
+		{
+			name:     "path_with_newline",
+			input:    "/api/users\n",
+			expected: "", // Should be rejected
+		},
+		{
+			name:     "path_with_carriage_return",
+			input:    "/api/users\r",
+			expected: "", // Should be rejected
+		},
+		{
+			name:     "path_without_leading_slash",
+			input:    "api/users",
+			expected: "/api/users",
+		},
+		{
+			name:     "complex_valid_path",
+			input:    "/api/v1/users/123/profile",
+			expected: "/api/v1/users/123/profile",
+		},
+		{
+			name:     "path_with_single_dot",
+			input:    "/api/./users",
+			expected: "/api/users", // Single dot is OK, gets cleaned
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := sanitizeProxyPath(tc.input)
+			if result != tc.expected {
+				t.Errorf("sanitizeProxyPath(%q) = %q, expected %q", tc.input, result, tc.expected)
+			}
+		})
+	}
+}
+
+// TestProxyHandler_RequestSmuggling tests that request smuggling attacks are prevented
+func TestProxyHandler_RequestSmuggling(t *testing.T) {
+	// Create a test backend server
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, `{"path":%q, "method":%q}`, r.URL.Path, r.Method)
+	}))
+	defer backend.Close()
+
+	handler := NewProxyHandler(backend.URL)
+
+	testCases := []struct {
+		name           string
+		path           string
+		query          string
+		expectedStatus int
+		description    string
+	}{
+		{
+			name:           "normal_request",
+			path:           "/api/users",
+			query:          "",
+			expectedStatus: http.StatusOK,
+			description:    "Normal path should work",
+		},
+		{
+			name:           "path_with_query",
+			path:           "/api/users",
+			query:          "limit=10",
+			expectedStatus: http.StatusOK,
+			description:    "Path with query string should work",
+		},
+		{
+			name:           "path_traversal_attempt",
+			path:           "/api/../admin",
+			query:          "",
+			expectedStatus: http.StatusBadRequest,
+			description:    "Path traversal should be rejected",
+		},
+		{
+			name:           "double_path_traversal",
+			path:           "/api/../../etc/passwd",
+			query:          "",
+			expectedStatus: http.StatusBadRequest,
+			description:    "Double path traversal should be rejected",
+		},
+		// Skip null byte test - httptest.NewRequest panics with control characters
+		// The sanitizeProxyPath function is tested separately in TestSanitizeProxyPath
+		// Newline and carriage return tests removed - httptest.NewRequest rejects control characters
+		// These are tested in TestSanitizeProxyPath instead
+		{
+			name:           "encoded_path_traversal",
+			path:           "/api/%2e%2e/admin",
+			query:          "",
+			expectedStatus: http.StatusBadRequest,
+			description:    "Encoded traversal should be rejected by sanitizeProxyPath",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tc.path, nil)
+			if tc.query != "" {
+				req.URL.RawQuery = tc.query
+			}
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			if rr.Code != tc.expectedStatus {
+				t.Errorf("%s: Expected status %d, got %d. Body: %s",
+					tc.description, tc.expectedStatus, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+// TestProxyHandler_URLValidation tests that the proxy validates target URLs
+func TestProxyHandler_URLValidation(t *testing.T) {
+	// Test with invalid backend URL
+	t.Run("invalid_backend_url", func(t *testing.T) {
+		handler := NewProxyHandler("://invalid-url")
+		req := httptest.NewRequest("GET", "/api/test", nil)
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		// Should fail with bad gateway when trying to parse invalid URL
+		if rr.Code != http.StatusInternalServerError && rr.Code != http.StatusBadGateway {
+			t.Errorf("Expected status 500 or 502 for invalid backend URL, got %d", rr.Code)
+		}
+	})
+
+	// Test that scheme changes are rejected
+	t.Run("scheme_change_rejected", func(t *testing.T) {
+		backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer backend.Close()
+
+		handler := NewProxyHandler(backend.URL)
+		req := httptest.NewRequest("GET", "/api/test", nil)
+		// Try to inject a different scheme (should be prevented by url.JoinPath)
+		req.URL.Scheme = "file"
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		// Should succeed because url.JoinPath preserves the backend scheme
+		if rr.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d. Body: %s", rr.Code, rr.Body.String())
+		}
+	})
+}
+
+// TestProxyHandler_PathSanitization_Integration tests path sanitization in integration
+func TestProxyHandler_PathSanitization_Integration(t *testing.T) {
+	requestSmugglingAttempts := []string{
+		"/api/../../../etc/passwd",
+		"/api/..\\..\\..\\windows\\system32\\config\\sam",
+		// Removed control character tests - httptest.NewRequest rejects them
+		"/....//....//....//etc/passwd",
+	}
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Backend should only receive clean paths
+		if len(r.URL.Path) > 100 {
+			t.Errorf("Backend received suspiciously long path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("OK"))
+	}))
+	defer backend.Close()
+
+	handler := NewProxyHandler(backend.URL)
+
+	for i, attempt := range requestSmugglingAttempts {
+		t.Run(fmt.Sprintf("attempt_%d", i+1), func(t *testing.T) {
+			req := httptest.NewRequest("GET", attempt, nil)
+			rr := httptest.NewRecorder()
+
+			handler.ServeHTTP(rr, req)
+
+			// All smuggling attempts should be rejected
+			if rr.Code != http.StatusBadRequest {
+				t.Errorf("Request smuggling attempt %d (%s) should be rejected with 400, got %d. Body: %s",
+					i+1, attempt, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
