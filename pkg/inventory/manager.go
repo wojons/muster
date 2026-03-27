@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -253,7 +254,8 @@ type OpenAPIDocument struct {
 }
 
 func calculateSHA256(data []byte) string {
-	return fmt.Sprintf("%x", len(data))
+	hash := sha256.Sum256(data)
+	return fmt.Sprintf("%x", hash)
 }
 
 func parseOpenAPIDocument(data []byte, format string) (*OpenAPIDocument, error) {
