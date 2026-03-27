@@ -492,6 +492,33 @@ See individual sections below for completion details.
 - **Coverage**: InitializeHandler (Method, Handle with valid/minimal/with-capabilities requests, InvalidJSON), InitializedHandler (Method, Handle), ListToolsHandler (Method, Handle with empty/with-commands registries, InvalidJSON, generateInputSchema with no-flags/flags/property-structure, cursor handling), CallToolHandler (Method, Handle with successful/error/nil/string/numeric/boolean/array/complex results, InvalidJSON, context cancellation, empty arguments), JSON marshaling/unmarshaling for all request/result types
 - **Impact**: MCP server core functionality now fully tested; initialize, tool listing, and tool calling verified with comprehensive test coverage including edge cases and error scenarios
 
+### ✅ COMPLETED: Log Package Audit Logging Tests
+
+**COV-004: Log Package - Critical Audit Logging Untested** - PRIORITY: CRITICAL  
+- [x] Step 1: Test field helper functions (String, Int, Bool, Float64, Time, Duration, Err, Any)
+- [x] Step 2: Test SensitiveString type with JSON marshaling
+- [x] Step 3: Test redaction helpers (isSensitiveField, redactIfSensitive)
+- [x] Step 4: Test redactMapValues with nested maps and arrays
+- [x] Step 5: Test redactValue recursive redaction
+- [x] Step 6: Test AuditEvent JSON marshaling/unmarshaling
+- [x] Step 7: Test AuditLogger creation and Log method
+- [x] Step 8: Test convenience methods (LogAuth, LogCommand, LogAccess, LogConfigChange)
+- [x] Step 9: Test sensitive data redaction in audit logs
+- [x] Step 10: Test error handling (marshal failures, write failures)
+- [x] Step 11: Test audit logger Close method
+- [x] Step 12: Test generateEventID uniqueness
+- [x] Step 13: Test specialized logging methods (InfoKV, ErrorKV, Metric, Request, Command)
+- [x] Step 14: Test logger context methods (WithStr, WithErr, WithFields, LoggerWithContext)
+- [x] Step 15: Test global logger management (Global, SetGlobalLogger, SetLevel, GetLevel)
+- [x] Step 16: Test output management (SetOutput, Output, Close)
+- [x] Step 17: Test concurrent audit logging
+- **File**: `pkg/log/audit_test.go` (966 lines, 58 test functions)
+- **Functions Tested**: All field helpers, `SensitiveString`, `isSensitiveField`, `redactIfSensitive`, `redactMapValues`, `redactValue`, `AuditEvent`, `AuditLogger.Log`, `AuditLogger.LogAuth`, `LogCommand`, `LogAccess`, `LogConfigChange`, `generateEventID`, `InfoKV`, `ErrorKV`, `Metric`, `Request`, `Command`, `WithStr`, `WithErr`, `WithFields`, `LoggerWithContext`, `FromContext`, `Global`, `SetGlobalLogger`, `SetLevel`, `GetLevel`, `SetOutput`, `Output`, `Close`
+- **Coverage**: Field helpers (8 types), sensitive string handling, pattern detection (passwords, tokens, keys, secrets, credentials), map/array redaction, recursive redaction, audit event JSON serialization, audit logger creation/logging, convenience methods, error handling, event ID generation, specialized logging, context propagation, global logger management, output management, concurrent logging
+- **Tests**: All 58 tests passing with zero lint errors
+- **Impact**: Audit logging infrastructure now fully tested; sensitive data redaction verified; compliance logging capabilities validated
+- **Coverage Improvement**: 17.8% → 94.7% (+76.9%)
+
 ---
 
 ## 📈 PROGRESS TRACKING - TEST COVERAGE GAPS
@@ -501,8 +528,9 @@ See individual sections below for completion details.
 | 2026-03-26 | 189/201 | 12 | 94.0% | Starting test coverage gaps |
 | 2026-03-26 | 190/201 | 11 | 94.5% | COV-002: Command Store Loader (28 tests) |
 | 2026-03-26 | 191/201 | 10 | 95.0% | COV-003: MCP Handlers (44 tests) |
+| 2026-03-26 | 192/201 | 9 | 95.5% | COV-004: Log Package Audit Logging (58 tests, 17.8% → 94.7%) |
 
-**Next Task**: Continue with remaining test coverage gaps (COV-004 through COV-006)
+**Next Task**: Continue with remaining test coverage gaps (COV-005 through COV-006)
 
 ---
 
@@ -512,4 +540,4 @@ See individual sections below for completion details.
 *Total analysis: 280 specs, 168 Go files, 1,494 test functions, 65.9% coverage*
 *Final validation: make validate - ALL TESTS PASS ✓*
 *Latest fix: Blocking daemon tests (TestRun_StartAction, TestRun_RestartAction) refactored to test Controller methods directly*
-*Latest test coverage: COV-003 MCP Handlers - 44 new tests (lifecycle + tools)*
+*Latest test coverage: COV-004 Log Package - 58 new tests (audit logging + redaction + global logger)*
