@@ -2,6 +2,7 @@ package wasm
 
 import (
 	"fmt"
+	"path"
 	"strings"
 	"sync"
 )
@@ -146,29 +147,160 @@ func (cs *CapabilitySet) List() []Capability {
 	return caps
 }
 
+// sanitizeResourceName validates and sanitizes a resource name.
+// It rejects path traversal sequences and normalizes the path.
+func sanitizeResourceName(resource string) (string, error) {
+	if resource == "" {
+		return "", fmt.Errorf("resource name cannot be empty")
+	}
+
+	// Reject path traversal sequences
+	if strings.Contains(resource, "..") {
+		return "", fmt.Errorf("path traversal sequences are not allowed")
+	}
+
+	// Reject backslashes (Windows-style paths)
+	if strings.Contains(resource, "\\") {
+		return "", fmt.Errorf("backslashes are not allowed in resource names")
+	}
+
+	// Only normalize if it looks like an absolute path
+	if strings.HasPrefix(resource, "/") {
+		cleaned := path.Clean(resource)
+
+		// Ensure cleaning didn't introduce issues
+		if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+			return "", fmt.Errorf("normalized path escapes root")
+		}
+
+		return cleaned, nil
+	}
+
+	return resource, nil
+}
+
 // matchWildcard checks if a resource matches a wildcard pattern.
+// Both pattern and resource are sanitized and normalized before comparison.
 func matchWildcard(pattern, resource string) bool {
-	if pattern == "*" {
+	// Sanitize and normalize the resource
+	sanitizedResource, err := sanitizeResourceName(resource)
+	if err != nil {
+		return false
+	}
+
+	// Sanitize the pattern (but allow wildcards)
+	sanitizedPattern, err := sanitizePattern(pattern)
+	if err != nil {
+		return false
+	}
+
+	if sanitizedPattern == "*" {
 		return true
 	}
 
-	if strings.HasSuffix(pattern, "**") {
-		prefix := strings.TrimSuffix(pattern, "**")
+	if strings.HasSuffix(sanitizedPattern, "**") {
+		prefix := strings.TrimSuffix(sanitizedPattern, "**")
 		if prefix == "" {
 			return true
 		}
-		return strings.HasPrefix(resource, prefix)
+		return strings.HasPrefix(sanitizedResource, prefix)
 	}
 
-	if strings.Contains(pattern, "*") {
-		parts := strings.Split(pattern, "*")
+	if strings.Contains(sanitizedPattern, "*") {
+		parts := strings.Split(sanitizedPattern, "*")
 		if len(parts) != 2 {
 			return false
 		}
-		return strings.HasPrefix(resource, parts[0]) && strings.HasSuffix(resource, parts[1])
+		return strings.HasPrefix(sanitizedResource, parts[0]) && strings.HasSuffix(sanitizedResource, parts[1])
 	}
 
-	return pattern == resource
+	return sanitizedPattern == sanitizedResource
+}
+
+// sanitizePattern sanitizes a wildcard pattern while preserving wildcards.
+func sanitizePattern(pattern string) (string, error) {
+	if pattern == "" {
+		return "", fmt.Errorf("pattern cannot be empty")
+	}
+
+	// Special case: wildcard all
+	if pattern == "*" {
+		return "*", nil
+	}
+
+	// Reject backslashes
+	if strings.Contains(pattern, "\\") {
+		return "", fmt.Errorf("backslashes are not allowed in patterns")
+	}
+
+	// For patterns ending with **, clean the prefix if it starts with /
+	if strings.HasSuffix(pattern, "**") {
+		prefix := strings.TrimSuffix(pattern, "**")
+		if prefix == "" {
+			return "**", nil
+		}
+		// Always check for path traversal
+		if strings.Contains(prefix, "..") {
+			return "", fmt.Errorf("pattern contains path traversal")
+		}
+		// Only clean if it looks like an absolute path
+		if strings.HasPrefix(prefix, "/") {
+			cleaned := path.Clean(prefix)
+			if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+				return "", fmt.Errorf("pattern contains path traversal")
+			}
+			// Ensure we preserve the slash before **
+			if !strings.HasSuffix(cleaned, "/") && prefix != "" {
+				return cleaned + "/**", nil
+			}
+			return cleaned + "**", nil
+		}
+		return pattern, nil
+	}
+
+	// For patterns with single *, check each part for traversal
+	if strings.Contains(pattern, "*") {
+		parts := strings.Split(pattern, "*")
+		if len(parts) != 2 {
+			return "", fmt.Errorf("invalid pattern format")
+		}
+		// Always check for path traversal in both parts
+		if strings.Contains(parts[0], "..") || strings.Contains(parts[1], "..") {
+			return "", fmt.Errorf("pattern contains path traversal")
+		}
+		// Only clean if parts look like absolute paths
+		cleaned0 := parts[0]
+		cleaned1 := parts[1]
+		if strings.HasPrefix(parts[0], "/") {
+			cleaned0 = path.Clean(parts[0])
+			if cleaned0 == ".." || strings.HasPrefix(cleaned0, "../") {
+				return "", fmt.Errorf("pattern contains path traversal")
+			}
+		}
+		if strings.HasPrefix(parts[1], "/") {
+			cleaned1 = path.Clean(parts[1])
+			if cleaned1 == ".." || strings.HasSuffix(cleaned1, "/..") {
+				return "", fmt.Errorf("pattern contains path traversal")
+			}
+		}
+		return cleaned0 + "*" + cleaned1, nil
+	}
+
+	// Simple pattern - always check for traversal first
+	if strings.Contains(pattern, "..") {
+		return "", fmt.Errorf("pattern contains path traversal")
+	}
+
+	// Only clean if it looks like an absolute path
+	if strings.HasPrefix(pattern, "/") {
+		cleaned := path.Clean(pattern)
+		if cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasSuffix(cleaned, "/..") {
+			return "", fmt.Errorf("pattern contains path traversal")
+		}
+		return cleaned, nil
+	}
+
+	return pattern, nil
 }
 
 // ParseCapability parses a capability string.

@@ -1306,7 +1306,7 @@
 - **Tests**: All 10 DNS rebinding tests passing + all existing tests (80s total)
 - **Lint**: 0 issues
 
-#### SEC-ADV-014: Capability Wildcard Privilege Escalation (ZERO-DAY)
+#### SEC-ADV-014: Capability Wildcard Privilege Escalation (ZERO-DAY) - ✅ COMPLETE
 - **Priority**: CRITICAL - ZERO-DAY
 - **CVE-style ID**: MUS-2026-014
 - **CVSS Score**: 8.8
@@ -1315,10 +1315,15 @@
 - **Exploit**: Grant `fs./tmp/**` matches `fs./tmp/../../../etc/passwd`
 - **Impact**: Complete sandbox escape
 - **Baby Steps**:
-  - [ ] Step 1: Sanitize resource names (reject `..`, `/`, `\`)
-  - [ ] Step 2: Add path normalization before capability check
-  - [ ] Step 3: Add test proving escalation no longer works
+  - [x] Step 1: Sanitize resource names (reject `..`, `/`, `\`) - Implemented `sanitizeResourceName()` and `sanitizePattern()` functions that reject path traversal sequences and backslashes
+  - [x] Step 2: Add path normalization before capability check - Implemented conditional path normalization using `path.Clean()` for absolute paths while preserving non-path resource names
+  - [x] Step 3: Add test proving escalation no longer works - Added comprehensive test suite (TestSanitizeResourceName, TestSanitizePattern, TestMatchWildcardPathTraversal, TestCapabilitySetPathTraversal, TestWildcardPrivilegeEscalation_Prevention) with 30+ test cases proving path traversal attacks are blocked
 - **Estimate**: 2-3 days
+- **Actual**: ~2 hours
+- **Completed**: 2026-03-27 - Implemented complete path sanitization and normalization for capability wildcard matching. Added `sanitizeResourceName()` and `sanitizePattern()` functions that reject path traversal sequences (`..`), backslashes, and normalize absolute paths. Updated `matchWildcard()` to use sanitization before comparison. Added comprehensive test suite (5 new test functions, 30+ test cases) proving privilege escalation attacks are blocked while legitimate access still works. All tests pass with zero lint errors.
+- **Files**: `pkg/wasm/capability.go` (sanitization implementation), `pkg/wasm/capability_test.go` (5 new test functions: TestSanitizeResourceName, TestSanitizePattern, TestMatchWildcardPathTraversal, TestCapabilitySetPathTraversal, TestWildcardPrivilegeEscalation_Prevention)
+- **Tests**: All tests passing (including new security tests proving escalation is blocked)
+- **Lint**: 0 issues
 
 #### SEC-ADV-015: OAuth State Timing Attack (ZERO-DAY)
 - **Priority**: HIGH - ZERO-DAY
