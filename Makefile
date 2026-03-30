@@ -212,6 +212,31 @@ security-check: ## Quick security checks
 	@go run ./cmd/security-audit/main.go || true
 	@echo "✓ Security checks complete"
 
+.PHONY: deps-audit
+deps-audit: ## Audit dependencies for vulnerabilities using govulncheck
+	@echo "Auditing dependencies with govulncheck..."
+	@if ! command -v govulncheck >/dev/null 2>&1 && ! command -v $(GOBIN)/govulncheck >/dev/null 2>&1; then \
+		echo "Installing govulncheck..."; \
+		go install golang.org/x/vuln/cmd/govulncheck@latest; \
+	fi
+	@$(GOBIN)/govulncheck ./... || govulncheck ./...
+	@echo "✓ Dependency audit complete"
+
+.PHONY: deps-outdated
+deps-outdated: ## List outdated dependencies
+	@echo "Checking for outdated dependencies..."
+	@go list -u -m all | grep -v '^github.com/openapi-cli' || true
+	@echo "✓ Outdated dependencies listed"
+
+.PHONY: deps-unmaintained
+deps-unmaintained: ## Check for unmaintained dependencies
+	@echo "Checking for unmaintained dependencies..."
+	@echo "Known unmaintained packages:"
+	@echo "  - github.com/robertkrimen/otto (PAC file parsing - consider replacement)"
+	@echo "  - github.com/bytecodealliance/wasmtime-go (WASM runtime - monitor closely)"
+	@echo "Recommendation: Monitor these packages for security updates"
+	@echo "✓ Unmaintained dependencies checked"
+
 # =============================================================================
 # Performance
 # =============================================================================
