@@ -1311,29 +1311,119 @@ func TestCallbackServer_InvalidRequestID(t *testing.T) {
 }
 
 func TestCallbackServer_ValidRequestWithState(t *testing.T) {
-	// Test that callback handler works with valid request ID and state
-
 	store := newStateStore()
-	store.Set("valid-request-id", "valid-state", 10*time.Minute)
+	store.Set("test-request-id", "test-state", 10*time.Minute)
 	server := NewCallbackServer(18089, store)
+
+	req := httptest.NewRequest("GET", "/callback?code=test-code&state=test-state&request_id=test-request-id", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	body := w.Body.String()
+	if !contains(body, "Authorization successful") {
+		t.Errorf("handleCallback() response = %v, want 'Authorization successful'", body)
+	}
+}
+
+func TestCallbackServer_Stop(t *testing.T) {
+	store := newStateStore()
+	server := NewCallbackServer(18090, store)
+
+	url := server.Start("test-request-id")
+	if url == "" {
+		t.Fatal("Start() returned empty URL")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Start server in goroutine
-	go func() {
-		req := httptest.NewRequest("GET", "/callback?code=test-code&state=valid-state&request_id=valid-request-id", nil)
-		w := httptest.NewRecorder()
-		server.handleCallback(w, req)
-	}()
+	err := server.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() error = %v", err)
+	}
+}
 
-	// Wait for code
-	code, err := server.WaitCode(ctx)
+func TestCallbackServer_Stop_ContextCancelled(t *testing.T) {
+	store := newStateStore()
+	server := NewCallbackServer(18091, store)
+
+	url := server.Start("test-request-id")
+	if url == "" {
+		t.Fatal("Start() returned empty URL")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_ = server.Stop(ctx)
+}
+
+func TestCallbackServer_Stop_NoServer(t *testing.T) {
+	store := newStateStore()
+	server := NewCallbackServer(18092, store)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := server.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() error = %v, want nil", err)
+	}
+}
+
+func TestCallbackServer_Stop_DoubleStop(t *testing.T) {
+	store := newStateStore()
+	server := NewCallbackServer(18093, store)
+
+	url := server.Start("test-request-id")
+	if url == "" {
+		t.Fatal("Start() returned empty URL")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := server.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() first error = %v", err)
+	}
+
+	err = server.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() second error = %v", err)
+	}
+}
+
+func TestCallbackServer_Stop_AfterCallback(t *testing.T) {
+	store := newStateStore()
+	store.Set("test-request-id", "test-state-stop", 10*time.Minute)
+	server := NewCallbackServer(18094, store)
+
+	url := server.Start("test-request-id")
+	if url == "" {
+		t.Fatal("Start() returned empty URL")
+	}
+
+	req := httptest.NewRequest("GET", "/callback?code=test-code&state=test-state-stop&request_id=test-request-id", nil)
+	w := httptest.NewRecorder()
+
+	server.handleCallback(w, req)
+
+	code, err := server.WaitCode(context.Background())
 	if err != nil {
 		t.Fatalf("WaitCode() error = %v", err)
 	}
 	if code != "test-code" {
 		t.Errorf("WaitCode() code = %v, want test-code", code)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = server.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() error = %v", err)
 	}
 }
 

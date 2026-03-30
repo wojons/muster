@@ -432,6 +432,7 @@ type CallbackServer struct {
 	stateStore *stateStore
 	codeChan   chan string
 	errChan    chan error
+	server     *http.Server
 }
 
 func NewCallbackServer(port int, stateStore *stateStore) *CallbackServer {
@@ -456,7 +457,19 @@ func (s *CallbackServer) Start(requestID string) string {
 	})
 
 	addr := fmt.Sprintf("localhost:%d", s.port)
-	go func() { _ = http.ListenAndServe(addr, mux) }()
+	s.server = &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
+	go func() {
+		if err := s.server.ListenAndServe(); err != http.ErrServerClosed {
+			select {
+			case s.errChan <- err:
+			default:
+			}
+		}
+	}()
 
 	return fmt.Sprintf("http://%s/callback", addr)
 }
@@ -470,6 +483,13 @@ func (s *CallbackServer) WaitCode(ctx context.Context) (string, error) {
 	case <-ctx.Done():
 		return "", ctx.Err()
 	}
+}
+
+func (s *CallbackServer) Stop(ctx context.Context) error {
+	if s.server == nil {
+		return nil
+	}
+	return s.server.Shutdown(ctx)
 }
 
 func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) {
