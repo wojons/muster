@@ -1,9 +1,13 @@
 package completion
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
+
+// ErrClosed is returned when operating on a closed cache
+var ErrClosed = errors.New("completion: cache closed")
 
 // CacheEntry represents a cached completion result
 type CacheEntry struct {
@@ -13,16 +17,19 @@ type CacheEntry struct {
 
 // Cache handles caching of completion results
 type Cache struct {
-	mu   sync.RWMutex
-	data map[string]*CacheEntry
-	ttl  time.Duration
+	mu          sync.RWMutex
+	data        map[string]*CacheEntry
+	ttl         time.Duration
+	stopCleanup chan struct{}
+	closed      bool
 }
 
 // NewCache creates a new completion cache
 func NewCache(ttl time.Duration) *Cache {
 	c := &Cache{
-		data: make(map[string]*CacheEntry),
-		ttl:  ttl,
+		data:        make(map[string]*CacheEntry),
+		ttl:         ttl,
+		stopCleanup: make(chan struct{}),
 	}
 
 	go c.cleanupLoop()
@@ -74,13 +81,32 @@ func (c *Cache) Clear() {
 	c.data = make(map[string]*CacheEntry)
 }
 
+// Close shuts down the cache and stops the cleanup goroutine
+func (c *Cache) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return ErrClosed
+	}
+
+	c.closed = true
+	close(c.stopCleanup)
+	return nil
+}
+
 // cleanupLoop periodically removes expired entries
 func (c *Cache) cleanupLoop() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		c.cleanup()
+	for {
+		select {
+		case <-ticker.C:
+			c.cleanup()
+		case <-c.stopCleanup:
+			return
+		}
 	}
 }
 
