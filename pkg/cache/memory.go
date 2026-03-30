@@ -16,6 +16,7 @@ type MemoryCache struct {
 	stats       Stats
 	closed      bool
 	statsMu     sync.Mutex
+	stopCleanup chan struct{}
 }
 
 const (
@@ -29,9 +30,10 @@ func NewMemoryCache(maxSize int64, eviction EvictionPolicy) *MemoryCache {
 	}
 
 	mc := &MemoryCache{
-		data:     make(map[string]*CacheEntry),
-		maxSize:  maxSize,
-		eviction: eviction,
+		data:        make(map[string]*CacheEntry),
+		maxSize:     maxSize,
+		eviction:    eviction,
+		stopCleanup: make(chan struct{}),
 	}
 
 	go mc.cleanupLoop()
@@ -205,6 +207,11 @@ func (mc *MemoryCache) Close() error {
 	}
 
 	mc.closed = true
+
+	if mc.stopCleanup != nil {
+		close(mc.stopCleanup)
+	}
+
 	mc.data = nil
 	mc.currentSize = 0
 
@@ -230,8 +237,13 @@ func (mc *MemoryCache) cleanupLoop() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		mc.cleanupExpired()
+	for {
+		select {
+		case <-ticker.C:
+			mc.cleanupExpired()
+		case <-mc.stopCleanup:
+			return
+		}
 	}
 }
 

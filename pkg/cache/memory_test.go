@@ -636,3 +636,117 @@ func TestMemoryCache_CreatedAtSetOnSet(t *testing.T) {
 	assert.True(t, got.CreatedAt.After(beforeSet) || got.CreatedAt.Equal(beforeSet))
 	assert.True(t, got.CreatedAt.Before(afterSet) || got.CreatedAt.Equal(afterSet))
 }
+
+// TestMemoryCache_Close_StopsCleanupGoroutine proves goroutine leak is fixed
+func TestMemoryCache_Close_StopsCleanupGoroutine(t *testing.T) {
+	t.Run("Close stops cleanup goroutine", func(t *testing.T) {
+		mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
+		require.NotNil(t, mc)
+		require.NotNil(t, mc.stopCleanup)
+
+		ctx := context.Background()
+
+		err := mc.Set(ctx, "test", Value{Data: []byte("data")})
+		require.NoError(t, err)
+
+		err = mc.Close()
+		require.NoError(t, err)
+
+		assert.True(t, mc.closed)
+
+		select {
+		case <-mc.stopCleanup:
+		default:
+			t.Fatal("stopCleanup channel should be closed after Close()")
+		}
+	})
+
+	t.Run("Close twice returns ErrClosed", func(t *testing.T) {
+		mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
+		require.NotNil(t, mc)
+
+		err := mc.Close()
+		require.NoError(t, err)
+
+		err = mc.Close()
+		assert.ErrorIs(t, err, ErrClosed)
+	})
+
+	t.Run("operations after Close return ErrClosed", func(t *testing.T) {
+		mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
+		require.NotNil(t, mc)
+
+		ctx := context.Background()
+
+		err := mc.Close()
+		require.NoError(t, err)
+
+		_, err = mc.Get(ctx, "key")
+		assert.ErrorIs(t, err, ErrClosed)
+
+		err = mc.Set(ctx, "key", Value{Data: []byte("data")})
+		assert.ErrorIs(t, err, ErrClosed)
+
+		err = mc.Delete(ctx, "key")
+		assert.ErrorIs(t, err, ErrClosed)
+
+		err = mc.Clear(ctx)
+		assert.ErrorIs(t, err, ErrClosed)
+
+		_, _ = mc.Has(ctx, "key")
+		assert.False(t, mc.closed == false)
+	})
+
+	t.Run("cleanupLoop exits on close", func(t *testing.T) {
+		mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
+		require.NotNil(t, mc)
+
+		done := make(chan struct{})
+		go func() {
+			mc.cleanupLoop()
+			close(done)
+		}()
+
+		time.Sleep(50 * time.Millisecond)
+
+		err := mc.Close()
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("cleanupLoop did not exit after Close()")
+		}
+	})
+
+	t.Run("concurrent Close is safe", func(t *testing.T) {
+		mc := NewMemoryCache(DefaultMemoryCacheSize, NewLRUPolicy())
+		require.NotNil(t, mc)
+
+		var wg sync.WaitGroup
+		errors := make(chan error, 10)
+
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := mc.Close()
+				if err != nil {
+					errors <- err
+				}
+			}()
+		}
+
+		wg.Wait()
+		close(errors)
+
+		errCount := 0
+		for err := range errors {
+			if err == ErrClosed {
+				errCount++
+			}
+		}
+
+		assert.Less(t, errCount, 10, "some Close calls should succeed")
+	})
+}
