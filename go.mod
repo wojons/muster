@@ -9,7 +9,7 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 	// Test containers for integration tests
-	github.com/testcontainers/testcontainers-go v0.38.0
+	github.com/testcontainers/testcontainers-go v0.38.0 // indirect
 	github.com/testcontainers/testcontainers-go/modules/redis v0.38.0
 )
 
@@ -40,7 +40,7 @@ require (
 )
 
 require (
-	github.com/blang/semver v3.5.1+incompatible
+	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/bytecodealliance/wasmtime-go/v8 v8.0.0
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/godbus/dbus/v5 v5.0.4

@@ -1406,13 +1406,13 @@
 - **Priority**: CRITICAL (collective)
 - **Files**: `go.mod` dependencies
 - **Gaps**:
-  - `blang/semver` - unmaintained 8+ years
+  - ~~`blang/semver`~~ - ✅ REPLACED with `Masterminds/semver/v3`
   - `gorilla/websocket` - archived project
   - `robertkrimen/otto` - JS interpreter (RCE risk)
   - `wasmtime-go` - WASM runtime (sandbox escape risk)
   - Plus 11 more (see full report)
 - **Baby Steps**:
-  - [ ] Step 1: Replace `blang/semver` with `Masterminds/semver/v3`
+  - [x] Step 1: Replace `blang/semver` with `Masterminds/semver/v3` - COMPLETED 2026-03-30
   - [ ] Step 2: Replace `gorilla/websocket` with `coder/websocket`
   - [ ] Step 3: Run `govulncheck` and fix all findings
   - [ ] Step 4: Vendor unmaintained packages
