@@ -61,7 +61,7 @@ func TestDaemonLogger_Info(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	logger.Info("test message", "arg1", "arg2")
+	logger.Info("%s %v %v", "test message", "arg1", "arg2")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -78,7 +78,7 @@ func TestDaemonLogger_Warn(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	logger.Warn("test warning", "arg1")
+	logger.Warn("%s %v", "test warning", "arg1")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -95,7 +95,7 @@ func TestDaemonLogger_Error(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	logger.Error("test error", "arg1")
+	logger.Error("%s %v", "test error", "arg1")
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -152,7 +152,7 @@ func TestInfoLogger_OutputFormat(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	logger.Info("operation completed", "status", "success")
+	logger.Info("%s %v=%v", "operation completed", "status", "success")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -169,7 +169,7 @@ func TestWarnLogger_OutputFormat(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	logger.Warn("operation completed", "status", "warning")
+	logger.Warn("%s %v=%v", "operation completed", "status", "warning")
 
 	_ = w.Close()
 	os.Stdout = oldStdout
@@ -186,7 +186,7 @@ func TestErrorLogger_OutputFormat(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	logger.Error("operation failed", "error", "timeout")
+	logger.Error("%s %v=%v", "operation failed", "error", "timeout")
 
 	_ = w.Close()
 	os.Stderr = oldStderr
@@ -325,7 +325,7 @@ func TestDaemonLogger_ErrorMessage(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stderr = w
 
-	logger.Error("critical error occurred", "code", "500")
+	logger.Error("%s %v=%v", "critical error occurred", "code", "500")
 
 	_ = w.Close()
 	os.Stderr = oldStderr

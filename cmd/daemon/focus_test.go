@@ -393,21 +393,21 @@ func TestController_StatusWhileRunning(t *testing.T) {
 func TestDaemonLogger_InfoNoPanic(t *testing.T) {
 	logger := &daemonLogger{}
 	require.NotPanics(t, func() {
-		logger.Info("test", "arg1", "arg2")
+		logger.Info("%s %v %v", "test", "arg1", "arg2")
 	})
 }
 
 func TestDaemonLogger_WarnNoPanic(t *testing.T) {
 	logger := &daemonLogger{}
 	require.NotPanics(t, func() {
-		logger.Warn("test", "arg1")
+		logger.Warn("%s %v", "test", "arg1")
 	})
 }
 
 func TestDaemonLogger_ErrorNoPanic(t *testing.T) {
 	logger := &daemonLogger{}
 	require.NotPanics(t, func() {
-		logger.Error("test", "error", "code")
+		logger.Error("%s %v %v", "test", "error", "code")
 	})
 }
 
