@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/openapi-cli/openapi-cli/pkg/daemon"
@@ -227,13 +228,70 @@ func handleStatus(controller *daemon.Controller) error {
 type daemonLogger struct{}
 
 func (l *daemonLogger) Info(msg string, args ...interface{}) {
-	fmt.Printf("[INFO] %s %v\n", msg, args)
+	if len(args) == 0 {
+		fmt.Printf("[INFO] %s\n", msg)
+	} else if len(args)%2 == 0 {
+		// Structured logging: key-value pairs
+		pairs := make([]string, 0, len(args)/2)
+		for i := 0; i < len(args); i += 2 {
+			key, ok := args[i].(string)
+			if ok {
+				pairs = append(pairs, fmt.Sprintf("%s=%v", key, args[i+1]))
+			}
+		}
+		if len(pairs) > 0 {
+			fmt.Printf("[INFO] %s %s\n", msg, strings.Join(pairs, " "))
+		} else {
+			fmt.Printf("[INFO] %s %v\n", msg, args)
+		}
+	} else {
+		// Printf-style formatting
+		fmt.Printf("[INFO] %s\n", fmt.Sprintf(msg, args...))
+	}
 }
 
 func (l *daemonLogger) Warn(msg string, args ...interface{}) {
-	fmt.Printf("[WARN] %s %v\n", msg, args)
+	if len(args) == 0 {
+		fmt.Printf("[WARN] %s\n", msg)
+	} else if len(args)%2 == 0 {
+		// Structured logging: key-value pairs
+		pairs := make([]string, 0, len(args)/2)
+		for i := 0; i < len(args); i += 2 {
+			key, ok := args[i].(string)
+			if ok {
+				pairs = append(pairs, fmt.Sprintf("%s=%v", key, args[i+1]))
+			}
+		}
+		if len(pairs) > 0 {
+			fmt.Printf("[WARN] %s %s\n", msg, strings.Join(pairs, " "))
+		} else {
+			fmt.Printf("[WARN] %s %v\n", msg, args)
+		}
+	} else {
+		// Printf-style formatting
+		fmt.Printf("[WARN] %s\n", fmt.Sprintf(msg, args...))
+	}
 }
 
 func (l *daemonLogger) Error(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, "[ERROR] %s %v\n", msg, args)
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "[ERROR] %s\n", msg)
+	} else if len(args)%2 == 0 {
+		// Structured logging: key-value pairs
+		pairs := make([]string, 0, len(args)/2)
+		for i := 0; i < len(args); i += 2 {
+			key, ok := args[i].(string)
+			if ok {
+				pairs = append(pairs, fmt.Sprintf("%s=%v", key, args[i+1]))
+			}
+		}
+		if len(pairs) > 0 {
+			fmt.Fprintf(os.Stderr, "[ERROR] %s %s\n", msg, strings.Join(pairs, " "))
+		} else {
+			fmt.Fprintf(os.Stderr, "[ERROR] %s %v\n", msg, args)
+		}
+	} else {
+		// Printf-style formatting
+		fmt.Fprintf(os.Stderr, "[ERROR] %s\n", fmt.Sprintf(msg, args...))
+	}
 }

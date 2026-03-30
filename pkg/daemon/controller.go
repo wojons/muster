@@ -101,7 +101,7 @@ func (c *Controller) StartWithSocket(handler http.HandlerFunc) error {
 		return fmt.Errorf("failed to save auth token: %w", err)
 	}
 
-	c.logger.Info("auth token generated", "path", c.tokenPath)
+	c.logger.Info("auth token generated: path=%s", c.tokenPath)
 
 	if err := c.pidManager.Acquire(); err != nil {
 		// Clean up token on failure
@@ -127,12 +127,12 @@ func (c *Controller) StartWithSocket(handler http.HandlerFunc) error {
 		return fmt.Errorf("set socket permissions: %w", err)
 	}
 
-	c.logger.Info("daemon started with socket", "socket", c.socketPath)
+	c.logger.Info("daemon started with socket: socket=%s", c.socketPath)
 
 	// Start serving in background
 	go func() {
 		if err := c.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
-			c.logger.Error("socket server error", "error", err)
+			c.logger.Error("socket server error: %v", err)
 		}
 	}()
 
@@ -168,7 +168,7 @@ func (c *Controller) Start() error {
 		return fmt.Errorf("failed to save auth token: %w", err)
 	}
 
-	c.logger.Info("auth token generated", "path", c.tokenPath)
+	c.logger.Info("auth token generated: path=%s", c.tokenPath)
 
 	// For macOS/Linux, we would fork the process
 	// For this implementation, we'll assume the caller will handle forking
@@ -179,7 +179,7 @@ func (c *Controller) Start() error {
 		return err
 	}
 
-	c.logger.Info("daemon started", "pid", os.Getpid())
+	c.logger.Info("daemon started: pid=%d", os.Getpid())
 	return nil
 }
 
@@ -187,7 +187,7 @@ func (c *Controller) Start() error {
 func (c *Controller) Stop() error {
 	// Clean up auth token
 	if err := c.tokenManager.Cleanup(); err != nil {
-		c.logger.Error("failed to clean up auth token", "error", err)
+		c.logger.Error("failed to clean up auth token: %v", err)
 	}
 
 	status, err := c.pidManager.GetStatus()
@@ -219,7 +219,7 @@ func (c *Controller) Stop() error {
 		select {
 		case <-ctx.Done():
 			// Force kill if still running
-			c.logger.Warn("daemon did not shut down gracefully, force killing", "pid", pid)
+			c.logger.Warn("daemon did not shut down gracefully, force killing: pid=%d", pid)
 			_ = process.Kill()
 
 			// Clean up PID file
@@ -229,7 +229,7 @@ func (c *Controller) Stop() error {
 		case <-ticker.C:
 			// Check if process still running
 			if !isProcessRunning(pid) {
-				c.logger.Info("daemon stopped", "pid", pid)
+				c.logger.Info("daemon stopped: pid=%d", pid)
 				// Clean up PID file
 				_ = c.pidManager.Release()
 				return nil
@@ -259,16 +259,16 @@ func (c *Controller) SetupSignalHandlers() {
 
 	go func() {
 		sig := <-sigCh
-		c.logger.Info("received signal, shutting down", "signal", sig)
+		c.logger.Info("received signal, shutting down: signal=%v", sig)
 
 		// Clean up auth token
 		if err := c.tokenManager.Cleanup(); err != nil {
-			c.logger.Error("failed to clean up auth token", "error", err)
+			c.logger.Error("failed to clean up auth token: %v", err)
 		}
 
 		// Release PID file
 		if err := c.pidManager.Release(); err != nil {
-			c.logger.Error("failed to release PID file", "error", err)
+			c.logger.Error("failed to release PID file: %v", err)
 		}
 
 		// Call shutdown handler (exits in production, no-op in tests)
@@ -296,7 +296,7 @@ func (c *Controller) Restart() error {
 func (c *Controller) Kill() error {
 	// Clean up auth token
 	if err := c.tokenManager.Cleanup(); err != nil {
-		c.logger.Error("failed to clean up auth token", "error", err)
+		c.logger.Error("failed to clean up auth token: %v", err)
 	}
 
 	status, err := c.Status()
