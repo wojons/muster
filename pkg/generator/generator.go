@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/openapi-cli/openapi-cli/pkg/log"
 	"github.com/openapi-cli/openapi-cli/pkg/openapi"
 	"github.com/openapi-cli/openapi-cli/pkg/request"
 	"github.com/spf13/cobra"
@@ -535,7 +536,13 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 			return fmt.Errorf("HTTP error: %s", resp.Status)
 		}
 
-		fmt.Printf("Response: %d %s\n", resp.StatusCode, resp.Status)
+		// Log response status
+		logger := log.FromContext(ctx)
+		logger.Info().
+			Int("status_code", resp.StatusCode).
+			Str("status", resp.Status).
+			Msg("HTTP response received")
+
 		return nil
 	}
 }

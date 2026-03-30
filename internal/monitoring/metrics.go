@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openapi-cli/openapi-cli/pkg/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -257,7 +258,7 @@ func (ms *MetricsServer) Start() error {
 
 	go func() {
 		if err := ms.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("metrics server error: %v\n", err)
+			log.Global().Error().Err(err).Msg("Metrics server error")
 		}
 	}()
 
