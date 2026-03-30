@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openapi-cli/openapi-cli/pkg/log"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
@@ -107,7 +108,7 @@ func (e *Engine) execute(ctx context.Context, script *Script, execCtx *Execution
 
 	thread := &starlark.Thread{
 		Name:  script.Name,
-		Print: func(_ *starlark.Thread, msg string) { fmt.Println(msg) },
+		Print: func(_ *starlark.Thread, msg string) { log.Global().Info().Str("script", script.Name).Msg(msg) },
 	}
 
 	execResult, err := program.Init(thread, e.getInterpreter().predeclared)

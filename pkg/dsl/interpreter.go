@@ -1,8 +1,7 @@
 package dsl
 
 import (
-	"fmt"
-
+	"github.com/openapi-cli/openapi-cli/pkg/log"
 	"go.starlark.net/starlark"
 	"go.starlark.net/syntax"
 )
@@ -43,7 +42,7 @@ func (i *Interpreter) Compile(ast *syntax.File) (*starlark.Program, error) {
 func (i *Interpreter) Exec(program *starlark.Program) (starlark.StringDict, error) {
 	thread := &starlark.Thread{
 		Name:  "exec",
-		Print: func(_ *starlark.Thread, msg string) { fmt.Println(msg) },
+		Print: func(_ *starlark.Thread, msg string) { log.Global().Info().Str("thread", "exec").Msg(msg) },
 	}
 
 	return program.Init(thread, i.predeclared)

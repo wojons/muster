@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/openapi-cli/openapi-cli/pkg/log"
 	"github.com/spf13/viper"
 )
 
@@ -43,7 +44,7 @@ func (w *Watcher) WatchConfig() error {
 
 	// Register the config change handler
 	w.v.OnConfigChange(func(e fsnotify.Event) {
-		fmt.Printf("Config file changed: %s\n", e.Name)
+		log.Global().Info().Str("file", e.Name).Msg("Config file changed")
 		if w.onChange != nil {
 			w.onChange()
 		}

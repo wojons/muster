@@ -150,7 +150,7 @@ func (p *ProxyServer) Start() error {
 	// Start serving
 	go func() {
 		if err := p.server.Serve(listener); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("Server error: %v\n", err)
+			log.Global().Error().Err(err).Msg("Proxy server error")
 		}
 	}()
 

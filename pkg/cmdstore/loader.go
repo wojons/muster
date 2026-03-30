@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/openapi-cli/openapi-cli/pkg/log"
 	"github.com/openapi-cli/openapi-cli/pkg/request"
 	"github.com/spf13/cobra"
 )
@@ -162,8 +163,13 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 		// Get output format
 		output, _ := cmd.Flags().GetString("output")
 
-		// Simple response display (can be enhanced with formatters)
-		fmt.Printf("Response: %d %s\n", resp.StatusCode, resp.Status)
+		// Log response status
+		logger := log.FromContext(ctx)
+		logger.Info().
+			Int("status_code", resp.StatusCode).
+			Str("status", resp.Status).
+			Msg("HTTP response received")
+
 		if output == "json" || output == "yaml" {
 			// Parse and output body
 			decoder := json.NewDecoder(resp.Body)
@@ -174,7 +180,8 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 					_ = encoder.Encode(result)
 				} else {
 					// YAML output (simplified)
-					fmt.Printf("%#v\n", result)
+					logger.Debug().Interface("response", result).Msg("Response body")
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%v\n", result)
 				}
 			}
 		}
