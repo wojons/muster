@@ -3,7 +3,7 @@ package inventory
 import (
 	"fmt"
 
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 )
 
 type Validator struct{}
@@ -18,26 +18,26 @@ func (v *Validator) Validate(inv *Inventory) error {
 	}
 
 	if inv.MinCLIVersion != "" {
-		minVer, err := semver.Parse(inv.MinCLIVersion)
+		minVer, err := semver.NewVersion(inv.MinCLIVersion)
 		if err != nil {
 			return fmt.Errorf("invalid min_cli_version: %w", err)
 		}
 
 		currentVer := semver.MustParse("0.1.0")
-		if currentVer.LT(minVer) {
+		if currentVer.LessThan(minVer) {
 			return fmt.Errorf("CLI version 0.1.0 is below minimum required %s",
 				inv.MinCLIVersion)
 		}
 	}
 
 	if inv.MaxCLIVersion != "" {
-		maxVer, err := semver.Parse(inv.MaxCLIVersion)
+		maxVer, err := semver.NewVersion(inv.MaxCLIVersion)
 		if err != nil {
 			return fmt.Errorf("invalid max_cli_version: %w", err)
 		}
 
 		currentVer := semver.MustParse("0.1.0")
-		if currentVer.GT(maxVer) {
+		if currentVer.GreaterThan(maxVer) {
 			return fmt.Errorf("CLI version 0.1.0 exceeds maximum supported %s",
 				inv.MaxCLIVersion)
 		}

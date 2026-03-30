@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver/v3"
 )
 
 type VersionManager struct {
@@ -70,21 +70,21 @@ func (vm *VersionManager) isCompatible(inv *Inventory) bool {
 	currentVer := semver.MustParse("0.1.0")
 
 	if inv.MinCLIVersion != "" {
-		minVer, err := semver.Parse(inv.MinCLIVersion)
+		minVer, err := semver.NewVersion(inv.MinCLIVersion)
 		if err != nil {
 			return false
 		}
-		if currentVer.LT(minVer) {
+		if currentVer.LessThan(minVer) {
 			return false
 		}
 	}
 
 	if inv.MaxCLIVersion != "" {
-		maxVer, err := semver.Parse(inv.MaxCLIVersion)
+		maxVer, err := semver.NewVersion(inv.MaxCLIVersion)
 		if err != nil {
 			return false
 		}
-		if currentVer.GT(maxVer) {
+		if currentVer.GreaterThan(maxVer) {
 			return false
 		}
 	}
