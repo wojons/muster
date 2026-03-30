@@ -42,10 +42,10 @@ require (
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/bytecodealliance/wasmtime-go/v8 v8.0.0
+	github.com/coder/websocket v1.8.14
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/godbus/dbus/v5 v5.0.4
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/pressly/goose/v3 v3.27.0
 	github.com/prometheus/client_golang v1.19.0

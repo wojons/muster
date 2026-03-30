@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
 type Client struct {
@@ -164,25 +164,27 @@ func (c *Client) connectWithRetry(ctx context.Context) (*websocket.Conn, error) 
 		"X-Subscription-Id": []string{c.subscriptionID},
 	}
 
-	dialer := websocket.DefaultDialer
-	dialer.HandshakeTimeout = 10 * time.Second
+	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
 	for attempt := 0; attempt < c.config.MaxRetries; attempt++ {
-		conn, resp, err := dialer.Dial(c.url, headers)
+		conn, resp, err := websocket.Dial(dialCtx, c.url, &websocket.DialOptions{
+			HTTPHeader: headers,
+		})
 		if err == nil {
 			return conn, nil
 		}
 
 		if resp != nil {
-			if resp.StatusCode == 401 {
-				_ = resp.Body.Close()
+			statusCode := resp.StatusCode
+			_ = resp.Body.Close()
+
+			if statusCode == 401 {
 				return nil, fmt.Errorf("authentication failed")
 			}
-			if resp.StatusCode == 403 {
-				_ = resp.Body.Close()
+			if statusCode == 403 {
 				return nil, fmt.Errorf("forbidden")
 			}
-			_ = resp.Body.Close()
 		}
 
 		if attempt < c.config.MaxRetries-1 {
@@ -198,6 +200,22 @@ func (c *Client) connectWithRetry(ctx context.Context) (*websocket.Conn, error) 
 	return nil, fmt.Errorf("failed to connect after %d attempts", c.config.MaxRetries)
 }
 
+func (c *Client) readJSON(ctx context.Context, v interface{}) error {
+	_, data, err := c.conn.Read(ctx)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, v)
+}
+
+func (c *Client) writeJSON(ctx context.Context, v interface{}) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return c.conn.Write(ctx, websocket.MessageText, data)
+}
+
 func (c *Client) readLoop() {
 	defer c.wg.Done()
 
@@ -209,8 +227,8 @@ func (c *Client) readLoop() {
 		}
 
 		var msg Event
-		if err := c.conn.ReadJSON(&msg); err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+		if err := c.readJSON(c.ctx, &msg); err != nil {
+			if websocket.CloseStatus(err) == websocket.StatusNormalClosure || websocket.CloseStatus(err) == websocket.StatusGoingAway {
 				c.errorHandler(fmt.Errorf("connection closed: %w", err))
 				c.setConnected(false)
 
@@ -288,7 +306,7 @@ func (c *Client) sendPendingAcks() {
 	ack.Payload.AcknowledgedIDs = ids
 	ack.Payload.ReceivedCount = len(ids)
 
-	if err := c.conn.WriteJSON(ack); err != nil {
+	if err := c.writeJSON(c.ctx, ack); err != nil {
 		c.errorHandler(fmt.Errorf("ack send failed: %w", err))
 	} else {
 		c.lastAckTime = time.Now()
@@ -306,8 +324,9 @@ func (c *Client) pingLoop() {
 		case <-c.ctx.Done():
 			return
 		case <-ticker.C:
-			deadline := time.Now().Add(10 * time.Second)
-			if err := c.conn.WriteControl(websocket.PingMessage, []byte{}, deadline); err != nil {
+			pingCtx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
+			defer cancel()
+			if err := c.conn.Ping(pingCtx); err != nil {
 				c.errorHandler(fmt.Errorf("ping failed: %w", err))
 			}
 		}
@@ -315,10 +334,8 @@ func (c *Client) pingLoop() {
 }
 
 func (c *Client) sendPong() {
-	deadline := time.Now().Add(10 * time.Second)
-	if err := c.conn.WriteControl(websocket.PongMessage, []byte{}, deadline); err != nil {
-		c.errorHandler(fmt.Errorf("pong send failed: %w", err))
-	}
+	// nhooyr.io/websocket automatically sends pong in response to ping
+	// No manual pong needed
 }
 
 func (c *Client) setConnected(connected bool) {
@@ -371,7 +388,7 @@ func (c *Client) resumeSubscription() error {
 		LastAckTime: c.lastAckTime,
 	}
 
-	return c.conn.WriteJSON(resume)
+	return c.writeJSON(c.ctx, resume)
 }
 
 func (c *Client) verifySignature(event Event) bool {
@@ -404,7 +421,7 @@ func (c *Client) UpdateSubscription(config SubscriptionConfig) error {
 	msg.Payload.ResourceTypes = config.ResourceTypes
 	msg.Payload.Namespaces = config.Namespaces
 
-	return c.conn.WriteJSON(msg)
+	return c.writeJSON(c.ctx, msg)
 }
 
 func (c *Client) Close() error {
@@ -412,11 +429,15 @@ func (c *Client) Close() error {
 	c.wg.Wait()
 
 	if c.conn != nil {
-		_ = c.conn.WriteMessage(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-		)
-		return c.conn.Close()
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err := c.conn.Close(websocket.StatusNormalClosure, "")
+		// Drain the context error if any
+		if closeCtx.Err() != nil && err == nil {
+			return closeCtx.Err()
+		}
+		return err
 	}
 	return nil
 }
