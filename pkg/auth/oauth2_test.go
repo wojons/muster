@@ -1174,3 +1174,108 @@ func TestCallbackServer_ValidRequestWithState(t *testing.T) {
 		t.Errorf("WaitCode() code = %v, want test-code", code)
 	}
 }
+
+func TestAuthorizationCodeFlow_StateComparison_ConstantTime(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"access_token": "test-access-token",
+			"token_type": "Bearer",
+			"expires_in": 3600
+		}`))
+	}))
+	defer mockServer.Close()
+
+	tests := []struct {
+		name        string
+		setupState  func() (state, requestID string)
+		testState   string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "valid_state",
+			setupState: func() (string, string) {
+				flow := &AuthorizationCodeFlow{
+					ClientID:     "test-client-id",
+					ClientSecret: "test-client-secret",
+					TokenURL:     mockServer.URL,
+					RedirectURL:  "http://localhost:8080/callback",
+				}
+				req, _ := flow.Start()
+				return req.State, req.RequestID
+			},
+			testState:   "", // Will be set to valid state in test
+			expectError: false,
+		},
+		{
+			name: "single_char_difference",
+			setupState: func() (string, string) {
+				flow := &AuthorizationCodeFlow{
+					ClientID:     "test-client-id",
+					ClientSecret: "test-client-secret",
+					TokenURL:     mockServer.URL,
+					RedirectURL:  "http://localhost:8080/callback",
+				}
+				req, _ := flow.Start()
+				return req.State, req.RequestID
+			},
+			testState:   "", // Will be set to modified state in test
+			expectError: true,
+			errorMsg:    "state",
+		},
+		{
+			name: "completely_different_state",
+			setupState: func() (string, string) {
+				flow := &AuthorizationCodeFlow{
+					ClientID:     "test-client-id",
+					ClientSecret: "test-client-secret",
+					TokenURL:     mockServer.URL,
+					RedirectURL:  "http://localhost:8080/callback",
+				}
+				req, _ := flow.Start()
+				return req.State, req.RequestID
+			},
+			testState:   "completelydifferentstate12345678901234567890",
+			expectError: true,
+			errorMsg:    "state",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validState, requestID := tt.setupState()
+
+			testState := tt.testState
+			switch tt.name {
+			case "valid_state":
+				testState = validState
+			case "single_char_difference":
+				testState = validState[:len(validState)-1] + "X"
+			}
+
+			flow := &AuthorizationCodeFlow{
+				ClientID:     "test-client-id",
+				ClientSecret: "test-client-secret",
+				TokenURL:     mockServer.URL,
+				RedirectURL:  "http://localhost:8080/callback",
+				stateStore:   newStateStore(),
+			}
+			flow.stateStore.Set(requestID, validState, 10*time.Minute)
+
+			_, err := flow.Exchange("test-code", testState, requestID)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Exchange() expected error but got none")
+				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Exchange() error = %v, want %q", err, tt.errorMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Exchange() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
