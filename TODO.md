@@ -1582,15 +1582,22 @@
 - **Estimate**: 1-2 days
 - **Actual**: 1 hour
 
-#### CONC-002: Completion Cache cleanupLoop Goroutine Leak
+#### CONC-002: Completion Cache cleanupLoop Goroutine Leak - ✅ COMPLETE
 - **Priority**: CRITICAL
-- **File**: `pkg/completion/cache.go:78-85`
+- **File**: `pkg/completion/cache.go:78-92`
+- **Status**: ✅ **COMPLETE** - Goroutine leak fixed with proper shutdown mechanism
 - **Gap**: Same as CONC-001
 - **Baby Steps**:
-  - [ ] Step 1: Add stop channel pattern
-  - [ ] Step 2: Stop goroutine on cache close
-  - [ ] Step 3: Add test proving goroutine exits
+  - [x] Step 1: Add stop channel pattern - IMPLEMENTED: Added `stopCleanup chan struct{}` field to Cache struct, initialized in NewCache constructor
+  - [x] Step 2: Stop goroutine on cache close - IMPLEMENTED: Added Close() method that closes stopCleanup channel, modified cleanupLoop() to use select statement listening for stop signal
+  - [x] Step 3: Add test proving goroutine exits - IMPLEMENTED: Added comprehensive test suite TestCache_Close_StopsCleanupGoroutine with 5 sub-tests covering goroutine exit, double close, operations after close, and concurrent safety
+- **Tests**: All 5 new tests passing with race detector enabled (TestCache_Close_StopsCleanupGoroutine/Close_stops_cleanup_goroutine, Close_twice_returns_ErrClosed, operations_after_Close_return_ErrClosed, cleanupLoop_exits_on_close, concurrent_Close_is_safe)
+- **Lint**: 0 issues
+- **Completed**: 2026-03-30 - Fixed goroutine leak by implementing proper shutdown mechanism for cleanupLoop(). Added stopCleanup channel to Cache struct, modified cleanupLoop() to use select statement, added Close() method to close the channel. Added comprehensive test suite (5 test functions plus additional tests for Close, cleanup, and concurrent access) proving goroutine exits properly, double-close is safe, operations after close work correctly, and concurrent Close calls are handled safely. All tests pass with race detector enabled. Zero lint errors.
 - **Estimate**: 1-2 days
+- **Actual**: 1 hour
+- **Files Modified**: `pkg/completion/cache.go` (added ErrClosed, stopCleanup channel, closed flag, Close() method, modified cleanupLoop()), `pkg/completion/cache_test.go` (added 10+ comprehensive test functions)
+- **Impact**: Eliminated goroutine leak in completion cache; proper resource cleanup on shutdown; prevents memory leaks in long-running processes
 
 #### CONC-003: OAuth2 CallbackServer No Shutdown
 - **Priority**: HIGH
