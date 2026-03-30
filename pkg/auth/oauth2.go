@@ -309,19 +309,36 @@ type TokenStorage interface {
 	Load(service string) (*Token, error)
 }
 
+// RevocationChecker defines the interface for checking token revocation status
+type RevocationChecker interface {
+	IsRevoked(token string) (bool, error)
+}
+
 type TokenManager struct {
-	storage      TokenStorage
-	tokenURL     string
-	clientID     string
-	clientSecret string
+	storage         TokenStorage
+	revocationStore RevocationChecker
+	tokenURL        string
+	clientID        string
+	clientSecret    string
 }
 
 func NewTokenManager(storage TokenStorage, tokenURL, clientID, clientSecret string) *TokenManager {
 	return &TokenManager{
-		storage:      storage,
-		tokenURL:     tokenURL,
-		clientID:     clientID,
-		clientSecret: clientSecret,
+		storage:         storage,
+		tokenURL:        tokenURL,
+		clientID:        clientID,
+		clientSecret:    clientSecret,
+		revocationStore: nil,
+	}
+}
+
+func NewTokenManagerWithRevocation(storage TokenStorage, tokenURL, clientID, clientSecret string, revocationStore RevocationChecker) *TokenManager {
+	return &TokenManager{
+		storage:         storage,
+		tokenURL:        tokenURL,
+		clientID:        clientID,
+		clientSecret:    clientSecret,
+		revocationStore: revocationStore,
 	}
 }
 
@@ -350,6 +367,17 @@ func (tm *TokenManager) Get(service string) (*Token, error) {
 func (tm *TokenManager) Refresh(token *Token) (*Token, error) {
 	if token.RefreshToken == "" {
 		return nil, fmt.Errorf("no refresh token available")
+	}
+
+	// Check if the refresh token has been revoked
+	if tm.revocationStore != nil {
+		revoked, err := tm.revocationStore.IsRevoked(token.RefreshToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check token revocation status: %w", err)
+		}
+		if revoked {
+			return nil, fmt.Errorf("token has been revoked")
+		}
 	}
 
 	// Perform refresh with the refresh token

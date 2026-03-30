@@ -705,6 +705,168 @@ func TestTokenManager_Get_NoAutoRefresh(t *testing.T) {
 	}
 }
 
+// mockRevocationStore implements RevocationChecker for testing
+type mockRevocationStore struct {
+	revokedTokens map[string]bool
+}
+
+func newMockRevocationStore() *mockRevocationStore {
+	return &mockRevocationStore{
+		revokedTokens: make(map[string]bool),
+	}
+}
+
+func (m *mockRevocationStore) IsRevoked(token string) (bool, error) {
+	return m.revokedTokens[token], nil
+}
+
+func (m *mockRevocationStore) revoke(token string) {
+	m.revokedTokens[token] = true
+}
+
+func TestTokenManager_Refresh_RevokedToken(t *testing.T) {
+	storage := &mockStorage{}
+	revocationStore := newMockRevocationStore()
+	tm := NewTokenManagerWithRevocation(storage, "https://example.com/token", "test-client-id", "test-client-secret", revocationStore)
+
+	// Create a token and revoke it
+	token := &Token{
+		AccessToken:  "test-access-token",
+		RefreshToken: "test-refresh-token",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(-time.Hour),
+	}
+	revocationStore.revoke(token.RefreshToken)
+
+	// Try to refresh the revoked token
+	_, err := tm.Refresh(token)
+	if err == nil {
+		t.Fatal("Refresh() should fail for revoked token")
+	}
+
+	if !contains(err.Error(), "revoked") {
+		t.Errorf("Expected 'revoked' error, got: %v", err)
+	}
+}
+
+func TestTokenManager_Refresh_NonRevokedToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"access_token": "new-access-token",
+			"token_type": "Bearer",
+			"expires_in": 3600,
+			"refresh_token": "new-refresh-token"
+		}`))
+	}))
+	defer mockServer.Close()
+
+	storage := &mockStorage{}
+	revocationStore := newMockRevocationStore()
+	tm := NewTokenManagerWithRevocation(storage, mockServer.URL, "test-client-id", "test-client-secret", revocationStore)
+
+	// Create a token that is NOT revoked
+	token := &Token{
+		AccessToken:  "old-access-token",
+		RefreshToken: "old-refresh-token",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(-time.Hour),
+	}
+
+	// Refresh should succeed
+	newToken, err := tm.Refresh(token)
+	if err != nil {
+		t.Fatalf("Refresh() error = %v", err)
+	}
+
+	if newToken == nil {
+		t.Fatal("Refresh() returned nil token")
+	}
+
+	if newToken.AccessToken != "new-access-token" {
+		t.Errorf("AccessToken = %v, want new-access-token", newToken.AccessToken)
+	}
+}
+
+func TestTokenManager_Refresh_RevocationCheckError(t *testing.T) {
+	// Create a revocation store that returns an error
+	errorRevocationStore := &errorRevocationStore{}
+	storage := &mockStorage{}
+	tm := NewTokenManagerWithRevocation(storage, "https://example.com/token", "test-client-id", "test-client-secret", errorRevocationStore)
+
+	token := &Token{
+		AccessToken:  "test-access-token",
+		RefreshToken: "test-refresh-token",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(-time.Hour),
+	}
+
+	_, err := tm.Refresh(token)
+	if err == nil {
+		t.Fatal("Refresh() should fail when revocation check fails")
+	}
+
+	if !contains(err.Error(), "failed to check token revocation") {
+		t.Errorf("Expected 'failed to check token revocation' error, got: %v", err)
+	}
+}
+
+// errorRevocationStore implements RevocationChecker and always returns an error
+type errorRevocationStore struct{}
+
+func (e *errorRevocationStore) IsRevoked(token string) (bool, error) {
+	return false, fmt.Errorf("database connection failed")
+}
+
+func TestTokenManager_Get_RevokedToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
+	// Mock server that would normally refresh the token
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"access_token": "refreshed-access-token",
+			"token_type": "Bearer",
+			"expires_in": 3600
+		}`))
+	}))
+	defer mockServer.Close()
+
+	storage := &mockStorage{}
+	revocationStore := newMockRevocationStore()
+	tm := NewTokenManagerWithRevocation(storage, mockServer.URL, "test-client-id", "test-client-secret", revocationStore)
+
+	// Create an expired token with a refresh token
+	expiredToken := &Token{
+		AccessToken:  "expired-access-token",
+		RefreshToken: "old-refresh-token",
+		TokenType:    "Bearer",
+		ExpiresAt:    time.Now().Add(-time.Hour),
+	}
+	_ = storage.Save("test-service", expiredToken)
+
+	// Revoke the refresh token
+	revocationStore.revoke(expiredToken.RefreshToken)
+
+	// Get should fail because the token is revoked and cannot be refreshed
+	_, err := tm.Get("test-service")
+	if err == nil {
+		t.Fatal("Get() should fail for revoked token")
+	}
+
+	if !contains(err.Error(), "revoked") {
+		t.Errorf("Expected 'revoked' error, got: %v", err)
+	}
+}
+
 func TestCallbackServer(t *testing.T) {
 	store := newStateStore()
 	server := NewCallbackServer(18080, store)
