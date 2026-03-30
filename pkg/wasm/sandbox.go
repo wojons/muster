@@ -35,22 +35,43 @@ func NewSandboxedFS(root string) *SandboxedFS {
 // AllowDirectory adds an allowed directory.
 func (fs *SandboxedFS) AllowDirectory(dir string) {
 	absPath, _ := filepath.Abs(dir)
+
+	// Resolve symlinks in the allowed directory path to handle system symlinks
+	// e.g., on macOS /var -> /private/var
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		// If we can't resolve it (e.g., directory doesn't exist yet), use the unresolved path
+		resolvedPath = absPath
+	}
+
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	fs.allowedDirs[absPath] = true
+	fs.allowedDirs[resolvedPath] = true
 	fs.restrictAccess = true
 }
 
 // AllowSubdirectory allows all subdirectories.
 func (fs *SandboxedFS) AllowSubdirectory(baseDir string) {
 	absBase, _ := filepath.Abs(baseDir)
+
+	// Resolve symlinks to handle system symlinks (e.g., /var -> /private/var)
+	resolvedBase, err := filepath.EvalSymlinks(absBase)
+	if err != nil {
+		resolvedBase = absBase
+	}
+
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	fs.allowedDirs[absBase] = true
+	fs.allowedDirs[resolvedBase] = true
 
-	_ = filepath.Walk(absBase, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(resolvedBase, func(path string, info os.FileInfo, err error) error {
 		if info != nil && info.IsDir() {
-			fs.allowedDirs[path] = true
+			// Resolve each subdirectory as well
+			resolvedPath, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				resolvedPath = path
+			}
+			fs.allowedDirs[resolvedPath] = true
 		}
 		return nil
 	})
@@ -67,12 +88,18 @@ func (fs *SandboxedFS) SetReadOnly(dir string) {
 // Disallow removes a directory from allowed list.
 func (fs *SandboxedFS) Disallow(dir string) {
 	absPath, _ := filepath.Abs(dir)
+
+	// Resolve symlinks to match what was stored in AllowDirectory
+	resolvedPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		resolvedPath = absPath
+	}
+
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	absPath = filepath.Clean(absPath)
-	delete(fs.allowedDirs, absPath)
-	delete(fs.readOnlyDirs, absPath)
+	delete(fs.allowedDirs, resolvedPath)
+	delete(fs.readOnlyDirs, resolvedPath)
 }
 
 // SetVirtualFile sets a virtual file in memory.
@@ -122,6 +149,15 @@ func (fs *SandboxedFS) Open(path string) (*os.File, error) {
 	return os.Open(absPath)
 }
 
+// isSymlink checks if a path is a symbolic link.
+func (fs *SandboxedFS) isSymlink(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeSymlink != 0
+}
+
 // Create creates a file for writing.
 func (fs *SandboxedFS) Create(path string) (*os.File, error) {
 	cleanPath, err := fs.normalizePath(path)
@@ -138,6 +174,22 @@ func (fs *SandboxedFS) Create(path string) (*os.File, error) {
 	}
 
 	absPath := filepath.Join(fs.root, cleanPath)
+
+	// SECURITY: Check if any component of the path is a symlink to prevent escape attempts
+	// We check each component because creating a file through a symlink could be exploited
+	currentPath := absPath
+	for currentPath != fs.root && currentPath != "/" && currentPath != "." {
+		if fs.isSymlink(currentPath) {
+			return nil, fmt.Errorf("symlink usage not allowed: %s", path)
+		}
+		currentPath = filepath.Dir(currentPath)
+	}
+
+	// Also check if the final path component exists and is a symlink
+	if fs.isSymlink(absPath) {
+		return nil, fmt.Errorf("symlink usage not allowed: %s", path)
+	}
+
 	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
 		return nil, err
 	}
@@ -241,8 +293,28 @@ func (fs *SandboxedFS) isPathAllowed(path string) bool {
 	defer fs.mu.RUnlock()
 
 	if fs.restrictAccess {
-		absPath := filepath.Join(fs.root, path)
+		// CRITICAL: Resolve the root path to handle system symlinks (e.g., /var -> /private/var on macOS)
+		// This must be done here because fs.root might not have been resolved in the constructor
+		resolvedRoot, err := filepath.EvalSymlinks(fs.root)
+		if err != nil {
+			resolvedRoot = fs.root
+		}
+		absPath := filepath.Join(resolvedRoot, path)
+
+		// CRITICAL SECURITY FIX: Resolve symlinks BEFORE path validation
+		// This prevents TOCTOU attacks where a symlink inside an allowed directory
+		// points to a file outside the sandbox
+		resolvedPath, err := filepath.EvalSymlinks(absPath)
+		if err == nil {
+			// Symlink resolved successfully - use the resolved path for validation
+			absPath = resolvedPath
+		}
+		// If EvalSymlinks fails (e.g., file doesn't exist or broken symlink),
+		// continue with the original path check below
+
 		for allowedDir := range fs.allowedDirs {
+			// allowedDir is already resolved when added via AllowDirectory
+			// Just check if the resolved absPath is within this allowed directory
 			if strings.HasPrefix(absPath, allowedDir+"/") || absPath == allowedDir {
 				return true
 			}

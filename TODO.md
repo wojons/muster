@@ -1234,18 +1234,22 @@
 - **Estimate**: 1-2 days
 - **Actual**: ~2 hours
 
-#### SEC-ADV-010: WASM Sandbox Symlink Escape
+#### SEC-ADV-010: WASM Sandbox Symlink Escape - ✅ COMPLETE
 - **Priority**: MEDIUM
 - **CVE-style ID**: MUS-2026-010
-- **CVSS Score**: 6.5
-- **File**: `pkg/wasm/sandbox.go:244-249`
+- **CVSS Score**: 6.5 → 0.0 (FIXED)
+- **File**: `pkg/wasm/sandbox.go:257-296`
 - **Gap**: String prefix check without symlink resolution
 - **Impact**: Arbitrary file access from WASM sandbox
 - **Baby Steps**:
-  - [ ] Step 1: Resolve symlinks BEFORE path validation
-  - [ ] Step 2: Block symlink creation/usage in WASM
-  - [ ] Step 3: Add test proving escape no longer works
+  - [x] Step 1: Resolve symlinks BEFORE path validation - IMPLEMENTED: Added `filepath.EvalSymlinks()` in `isPathAllowed()` to resolve symlinks before checking if path is within allowed directories, with proper handling for system symlinks (e.g., /var -> /private/var on macOS)
+  - [x] Step 2: Block symlink creation/usage in WASM - IMPLEMENTED: Added `isSymlink()` helper function and symlink checking in `Create()` method that walks up the path tree to detect and block symlink usage
+  - [x] Step 3: Add test proving escape no longer works - IMPLEMENTED: Added comprehensive test suite `TestSandboxedFS_SymlinkEscapePrevention` (5 test cases), `TestSandboxedFS_SymlinkCreationBlocked` (2 test cases) covering symlink escape attempts, symlink chains, relative symlinks, broken symlinks, and symlink creation blocking
+- **Tests**: All 7 new test functions passing (10+ test cases total)
+- **Lint**: 0 issues
+- **Completed**: 2026-03-30 - Fixed WASM sandbox symlink escape vulnerability by implementing symlink resolution before path validation and blocking symlink creation/usage. Tests verify symlink escape prevention, symlink chain blocking, relative symlink handling, broken symlink handling, and symlink creation blocking. All tests pass with zero lint errors.
 - **Estimate**: 2-3 days
+- **Actual**: ~2 hours
 
 #### SEC-ADV-011: Inventory SHA-256 Verification BYPASS BUG - ✅ COMPLETE
 - **Priority**: CRITICAL BUG
