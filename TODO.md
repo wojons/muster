@@ -1566,16 +1566,21 @@
 
 ### Concurrency & Resource Leak Gaps (CRITICAL: 5)
 
-#### CONC-001: Memory Cache cleanupLoop Goroutine Leak
+#### CONC-001: Memory Cache cleanupLoop Goroutine Leak - ✅ COMPLETE
 - **Priority**: CRITICAL
 - **File**: `pkg/cache/memory.go:229-236`
+- **Status**: ✅ **COMPLETE** - Goroutine leak fixed with proper shutdown mechanism
 - **Gap**: Cleanup goroutine runs forever with no shutdown signal
 - **Baby Steps**:
-  - [ ] Step 1: Add `stopCleanup chan struct{}`
-  - [ ] Step 2: Listen for stop signal in cleanup loop
-  - [ ] Step 3: Close channel in `Close()` method
-  - [ ] Step 4: Add test proving goroutine exits
+  - [x] Step 1: Add `stopCleanup chan struct{}` - IMPLEMENTED: Added `stopCleanup chan struct{}` field to MemoryCache struct, initialized in NewMemoryCache constructor
+  - [x] Step 2: Listen for stop signal in cleanup loop - IMPLEMENTED: Changed cleanupLoop() to use select statement listening for both ticker.C and stopCleanup channel
+  - [x] Step 3: Close channel in `Close()` method - IMPLEMENTED: Close() method now closes stopCleanup channel to signal goroutine exit
+  - [x] Step 4: Add test proving goroutine exits - IMPLEMENTED: Added comprehensive test suite TestMemoryCache_Close_StopsCleanupGoroutine with 5 sub-tests covering goroutine exit, double close, operations after close, and concurrent safety
+- **Tests**: All 5 new tests passing with race detector enabled (TestMemoryCache_Close_StopsCleanupGoroutine/Close_stops_cleanup_goroutine, Close_twice_returns_ErrClosed, operations_after_Close_return_ErrClosed, cleanupLoop_exits_on_close, concurrent_Close_is_safe)
+- **Lint**: 0 issues
+- **Completed**: 2026-03-30 - Fixed goroutine leak by implementing proper shutdown mechanism for cleanupLoop(). Added stopCleanup channel to MemoryCache struct, modified cleanupLoop() to use select statement, updated Close() to close the channel. Added comprehensive test suite (5 test functions) proving goroutine exits properly, double-close is safe, operations after close return ErrClosed, and concurrent Close calls are handled correctly. All tests pass with race detector enabled. Zero lint errors.
 - **Estimate**: 1-2 days
+- **Actual**: 1 hour
 
 #### CONC-002: Completion Cache cleanupLoop Goroutine Leak
 - **Priority**: CRITICAL
