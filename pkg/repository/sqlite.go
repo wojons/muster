@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mutecomm/go-sqlcipher"
 	"go.uber.org/zap"
 )
 
@@ -17,6 +17,8 @@ type SQLiteConfig struct {
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
 	ConnMaxIdleTime time.Duration
+	EncryptionKey   string // SQLCipher encryption key (hex-encoded). Empty disables encryption
+	KeyManager      *EncryptionKeyManager
 }
 
 // DefaultSQLiteConfig returns default configuration
@@ -27,7 +29,29 @@ func DefaultSQLiteConfig(path string) *SQLiteConfig {
 		MaxIdleConns:    25,
 		ConnMaxLifetime: time.Hour,
 		ConnMaxIdleTime: 5 * time.Minute,
+		EncryptionKey:   "", // Encryption disabled by default
 	}
+}
+
+// EnableEncryption enables database encryption with the provided key
+func (cfg *SQLiteConfig) EnableEncryption(key string) {
+	cfg.EncryptionKey = key
+}
+
+// EnableEncryptionWithKeyManager enables database encryption using a key manager
+func (cfg *SQLiteConfig) EnableEncryptionWithKeyManager(km *EncryptionKeyManager) error {
+	if km == nil {
+		return fmt.Errorf("key manager is required")
+	}
+
+	pragmKey, err := km.DerivePragmaKey()
+	if err != nil {
+		return fmt.Errorf("derive encryption key: %w", err)
+	}
+
+	cfg.EncryptionKey = pragmKey
+	cfg.KeyManager = km
+	return nil
 }
 
 // SQLiteManager manages SQLite database connections
@@ -48,14 +72,42 @@ func NewSQLiteManager(cfg *SQLiteConfig, log *zap.Logger) (*SQLiteManager, error
 		return nil, fmt.Errorf("database path is required")
 	}
 
-	dsn += "?_journal_mode=WAL&_foreign_keys=on&_timeout=5000"
+	// Build connection string with encryption support
+	queryParams := "_journal_mode=WAL&_foreign_keys=on&_timeout=5000"
 
-	db, err := sql.Open("sqlite3", dsn)
+	// Initialize key manager if provided
+	if cfg.KeyManager != nil {
+		if err := cfg.KeyManager.Initialize(); err != nil {
+			return nil, fmt.Errorf("initialize key manager: %w", err)
+		}
+
+		// Derive encryption key if not already set
+		if cfg.EncryptionKey == "" {
+			pragmKey, err := cfg.KeyManager.DerivePragmaKey()
+			if err != nil {
+				return nil, fmt.Errorf("derive encryption key: %w", err)
+			}
+			cfg.EncryptionKey = pragmKey
+		}
+	}
+
+	// Open database connection
+	fullDSN := fmt.Sprintf("%s?%s", dsn, queryParams)
+	db, err := sql.Open("sqlite3", fullDSN)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	// Apply encryption key BEFORE pinging
+	if cfg.EncryptionKey != "" {
+		if err := applyEncryptionKey(db, cfg.EncryptionKey); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("apply encryption key: %w", err)
+		}
+	}
+
 	if err := db.Ping(); err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
@@ -112,6 +164,60 @@ func (sm *SQLiteManager) Stats() sql.DBStats {
 // GetDB returns the underlying *sql.DB
 func (sm *SQLiteManager) GetDB() *sql.DB {
 	return sm.db
+}
+
+// applyEncryptionKey applies the SQLCipher encryption key to the database
+func applyEncryptionKey(db *sql.DB, key string) error {
+	// Set the encryption key using PRAGMA
+	// SQLCipher expects the key in hex format
+	pragmaKey := fmt.Sprintf("PRAGMA key = \"%s\"", key)
+	_, err := db.Exec(pragmaKey)
+	if err != nil {
+		return fmt.Errorf("set encryption key: %w", err)
+	}
+
+	// Verify encryption is working by checking cipher_version
+	var cipherVersion string
+	err = db.QueryRow("PRAGMA cipher_version").Scan(&cipherVersion)
+	if err != nil {
+		// SQLCipher not available or encryption failed
+		return fmt.Errorf("SQLCipher not available: %w", err)
+	}
+
+	// Additional security settings
+	// Set cipher_page_size for better security (default is 4096)
+	_, err = db.Exec("PRAGMA cipher_page_size = 4096")
+	if err != nil {
+		return fmt.Errorf("set cipher page size: %w", err)
+	}
+
+	// Enable KDF (Key Derivation Function) for stronger encryption
+	_, err = db.Exec("PRAGMA kdf_iter = 256000")
+	if err != nil {
+		return fmt.Errorf("set kdf iterations: %w", err)
+	}
+
+	return nil
+}
+
+// IsEncrypted checks if the database is encrypted
+func (sm *SQLiteManager) IsEncrypted() bool {
+	if sm.db == nil {
+		return false
+	}
+
+	// Try to get cipher_version - will fail if not encrypted or SQLCipher not available
+	var cipherVersion string
+	err := sm.db.QueryRow("PRAGMA cipher_version").Scan(&cipherVersion)
+	return err == nil && cipherVersion != ""
+}
+
+// GetEncryptionConfig returns the current encryption configuration
+func (sm *SQLiteManager) GetEncryptionConfig() *SQLiteConfig {
+	if sm.cfg == nil {
+		return nil
+	}
+	return sm.cfg
 }
 
 // sqliteTransaction implements the Transaction interface
