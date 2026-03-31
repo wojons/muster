@@ -34,6 +34,8 @@ type Builder struct {
 
 const defaultMaxResponseBody = 10 << 20 // 10 MB
 
+var ErrInvalidHeaderValue = fmt.Errorf("invalid header value: CRLF injection detected")
+
 func NewBuilder(baseURL, path, method string) *Builder {
 	return &Builder{
 		baseURL:         strings.TrimRight(baseURL, "/"),
@@ -60,8 +62,25 @@ func (b *Builder) WithQueryParam(name, value string) *Builder {
 }
 
 func (b *Builder) WithHeader(key, value string) *Builder {
+	if !isValidHeaderValue(value) {
+		b.buildError = ErrInvalidHeaderValue
+		return b
+	}
 	b.headers.Set(key, value)
 	return b
+}
+
+func isValidHeaderValue(value string) bool {
+	for _, c := range value {
+		if c == '\r' || c == '\n' {
+			return false
+		}
+	}
+	lower := strings.ToLower(value)
+	if strings.Contains(lower, "%0d") || strings.Contains(lower, "%0a") {
+		return false
+	}
+	return true
 }
 
 func (b *Builder) WithBody(body interface{}) *Builder {
@@ -85,16 +104,28 @@ func (b *Builder) WithBody(body interface{}) *Builder {
 }
 
 func (b *Builder) WithAuth(token string) *Builder {
+	if !isValidHeaderValue(token) {
+		b.buildError = ErrInvalidHeaderValue
+		return b
+	}
 	b.headers.Set("Authorization", "Bearer "+token)
 	return b
 }
 
 func (b *Builder) WithBasicAuth(username, password string) *Builder {
+	if !isValidHeaderValue(username) || !isValidHeaderValue(password) {
+		b.buildError = ErrInvalidHeaderValue
+		return b
+	}
 	b.headers.Set("Authorization", "Basic "+b.basicAuth(username, password))
 	return b
 }
 
 func (b *Builder) WithAPIKey(key, value string) *Builder {
+	if !isValidHeaderValue(key) || !isValidHeaderValue(value) {
+		b.buildError = ErrInvalidHeaderValue
+		return b
+	}
 	b.headers.Set(key, value)
 	return b
 }

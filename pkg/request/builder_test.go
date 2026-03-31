@@ -46,6 +46,106 @@ func TestBuilder_WithHeader(t *testing.T) {
 	require.Equal(t, "value", b.headers.Get("X-Custom"))
 }
 
+func TestBuilder_WithHeader_CRLFInjection_Prevented(t *testing.T) {
+	t.Run("carriage return injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value\r\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("newline injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("encoded crlf injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value%0d%0aX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("encoded lf injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value%0aX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("encoded cr injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value%0dX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("mixed case encoded crlf", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value%0D%0AX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("header splitting attack", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "normal\r\nSet-Cookie: session=hacked")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("response splitting with content-type", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("Content-Type", "text/html\r\nX-XSS-Protection: 0")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+}
+
+func TestBuilder_WithHeader_ValidValues(t *testing.T) {
+	t.Run("normal header value", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "normal-value")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "normal-value", b.headers.Get("X-Custom"))
+	})
+
+	t.Run("header with special characters", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value-with-special!@#$%^&*()chars")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "value-with-special!@#$%^&*()chars", b.headers.Get("X-Custom"))
+	})
+
+	t.Run("header with unicode", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value-with-unicode-日本語")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "value-with-unicode-日本語", b.headers.Get("X-Custom"))
+	})
+
+	t.Run("header with spaces", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "value with spaces")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "value with spaces", b.headers.Get("X-Custom"))
+	})
+
+	t.Run("empty header value", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom", "")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "", b.headers.Get("X-Custom"))
+	})
+}
+
 func TestBuilder_WithBody(t *testing.T) {
 	t.Run("string body", func(t *testing.T) {
 		b := NewBuilder("https://api.example.com", "/users", "POST")
@@ -72,6 +172,29 @@ func TestBuilder_WithAuth(t *testing.T) {
 	require.Equal(t, "Bearer token-123", b.headers.Get("Authorization"))
 }
 
+func TestBuilder_WithAuth_CRLFInjection_Prevented(t *testing.T) {
+	t.Run("token with carriage return", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithAuth("token\r\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("token with newline", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithAuth("token\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("token with encoded crlf", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithAuth("token%0d%0aX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+}
+
 func TestBuilder_WithAPIKey(t *testing.T) {
 	b := NewBuilder("https://api.example.com", "/users", "GET")
 
@@ -79,6 +202,66 @@ func TestBuilder_WithAPIKey(t *testing.T) {
 
 	require.Same(t, b, result)
 	require.Equal(t, "secret-123", b.headers.Get("X-API-Key"))
+}
+
+func TestBuilder_WithAPIKey_CRLFInjection_Prevented(t *testing.T) {
+	t.Run("key with injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithAPIKey("X-API-Key\r\nX-Injected: malicious", "secret")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("value with carriage return", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithAPIKey("X-API-Key", "secret\r\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("value with newline", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithAPIKey("X-API-Key", "secret\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("value with encoded crlf", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithAPIKey("X-API-Key", "secret%0d%0aX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+}
+
+func TestBuilder_WithBasicAuth_CRLFInjection_Prevented(t *testing.T) {
+	t.Run("username with injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithBasicAuth("user\r\nX-Injected: malicious", "pass")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("password with carriage return", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithBasicAuth("user", "pass\r\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("password with newline", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithBasicAuth("user", "pass\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
+
+	t.Run("password with encoded crlf", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithBasicAuth("user", "pass%0d%0aX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderValue)
+	})
 }
 
 func TestBuilder_WithTimeout(t *testing.T) {
