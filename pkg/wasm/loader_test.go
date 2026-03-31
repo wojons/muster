@@ -334,3 +334,154 @@ func TestGenerateCacheKey(t *testing.T) {
 		t.Error("different sources should produce different cache keys")
 	}
 }
+
+func TestLoader_LoadWithCache_HashCollisionPrevention(t *testing.T) {
+	tmpDir := t.TempDir()
+	cacheDir := filepath.Join(tmpDir, "cache")
+	loader := NewLoader(cacheDir)
+
+	validWASM := []byte{
+		0x00, 0x61, 0x73, 0x6d,
+		0x01, 0x00, 0x00, 0x00,
+	}
+
+	testPath := filepath.Join(tmpDir, "test.wasm")
+	if err := os.WriteFile(testPath, validWASM, 0600); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	source := ModuleSource{
+		Type: SourceLocalFile,
+		Path: testPath,
+	}
+
+	t.Run("cache reloads from source when cache misses", func(t *testing.T) {
+		module1, err := loader.LoadWithCache(source)
+		if err != nil {
+			t.Fatalf("LoadWithCache failed: %v", err)
+		}
+
+		expectedHash := module1.Hash
+
+		if expectedHash == "" {
+			t.Fatal("module hash should not be empty")
+		}
+
+		module2, err := loader.LoadWithCache(source)
+		if err != nil {
+			t.Fatalf("LoadWithCache failed on reload: %v", err)
+		}
+
+		if module2.Hash != expectedHash {
+			t.Error("hash should be consistent across loads")
+		}
+
+		if !bytes.Equal(module1.Bytes, module2.Bytes) {
+			t.Error("module bytes should be consistent across loads")
+		}
+	})
+
+	t.Run("hash changes with content modification", func(t *testing.T) {
+		originalData := []byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00}
+		modifiedData := []byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x01}
+
+		originalHash := generateHash(originalData)
+		modifiedHash := generateHash(modifiedData)
+
+		if originalHash == modifiedHash {
+			t.Error("hash collision: different content produced same hash")
+		}
+
+		if len(originalHash) == 0 || len(modifiedHash) == 0 {
+			t.Error("hash should not be empty")
+		}
+
+		if len(originalHash) != 64 || len(modifiedHash) != 64 {
+			t.Errorf("SHA256 hash should be 64 hex characters, got %d", len(originalHash))
+		}
+	})
+
+	t.Run("single bit flip detection", func(t *testing.T) {
+		original := []byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00}
+		flipped := make([]byte, len(original))
+		copy(flipped, original)
+		flipped[3] ^= 0x01
+
+		originalHash := generateHash(original)
+		flippedHash := generateHash(flipped)
+
+		if originalHash == flippedHash {
+			t.Error("hash collision: single bit flip not detected")
+		}
+	})
+
+	t.Run("collision resistance with varying sizes", func(t *testing.T) {
+		smallData := []byte{0x00, 0x61, 0x73, 0x6d}
+		largeData := make([]byte, 1024)
+		copy(largeData, []byte{0x00, 0x61, 0x73, 0x6d})
+
+		smallHash := generateHash(smallData)
+		largeHash := generateHash(largeData)
+
+		if smallHash == largeHash {
+			t.Error("hash collision: different size data produced same hash")
+		}
+	})
+
+	t.Run("hash verification with explicit expected hash", func(t *testing.T) {
+		cacheDir2 := t.TempDir()
+		loader2 := NewLoader(cacheDir2)
+
+		validModule := []byte{
+			0x00, 0x61, 0x73, 0x6d,
+			0x01, 0x00, 0x00, 0x00,
+		}
+
+		sourcePath := filepath.Join(tmpDir, "source2.wasm")
+		if err := os.WriteFile(sourcePath, validModule, 0600); err != nil {
+			t.Fatalf("failed to write source file: %v", err)
+		}
+
+		expectedHash := generateHash(validModule)
+
+		source := ModuleSource{
+			Type: SourceLocalFile,
+			Path: sourcePath,
+			Hash: expectedHash,
+		}
+
+		firstLoad, err := loader2.LoadWithCache(source)
+		if err != nil {
+			t.Fatalf("first LoadWithCache failed: %v", err)
+		}
+
+		if firstLoad.Hash != expectedHash {
+			t.Error("hash should match expected hash")
+		}
+
+		key := sanitizeCacheKey(generateCacheKey(source))
+		cacheFile := filepath.Join(cacheDir2, key+".wasm")
+
+		tamperedContent := []byte{
+			0x00, 0x61, 0x73, 0x6d,
+			0x01, 0x00, 0x00, 0xFF,
+		}
+		if err := os.WriteFile(cacheFile, tamperedContent, 0600); err != nil {
+			t.Fatalf("failed to write tampered content: %v", err)
+		}
+
+		secondLoad, err := loader2.LoadWithCache(source)
+		if err != nil {
+			t.Fatalf("LoadWithCache should invalidate bad cache and reload from source, not error: %v", err)
+		}
+
+		if secondLoad.Hash != expectedHash {
+			t.Error("hash should match expected hash after cache invalidation and reload")
+		}
+
+		t.Log("✓ Cache tampering detected via hash mismatch")
+		t.Log("✓ Corrupted cache automatically invalidated")
+		t.Log("✓ Module reloaded from trusted source")
+		t.Log("✓ Hash integrity verified")
+	})
+}

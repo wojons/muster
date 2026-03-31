@@ -161,10 +161,17 @@ func (l *Loader) LoadWithCache(source ModuleSource) (*Module, error) {
 		if err := l.validateWASM(cached); err != nil {
 			_ = l.cache.Delete(key)
 		} else {
+			computedHash := generateHash(cached)
+
+			if source.Hash != "" && computedHash != source.Hash {
+				_ = l.cache.Delete(key)
+				return nil, fmt.Errorf("cache integrity check failed: hash mismatch (expected %s, got %s)", source.Hash, computedHash)
+			}
+
 			return &Module{
 				Source: source,
 				Bytes:  cached,
-				Hash:   generateHash(cached),
+				Hash:   computedHash,
 			}, nil
 		}
 	}
