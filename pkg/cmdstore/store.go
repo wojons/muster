@@ -1,3 +1,73 @@
+// Package cmdstore provides persistent storage and management for dynamically generated CLI commands.
+// It enables commands generated from OpenAPI specifications to be saved, loaded, and executed across sessions.
+//
+// # Overview
+//
+// When commands are generated from OpenAPI specs using the generator package, cmdstore persists them
+// to disk (typically ~/.muster/commands.json) so they remain available in future CLI sessions. This
+// eliminates the need to regenerate commands on every startup.
+//
+// The package manages:
+//   - Command metadata storage and retrieval
+//   - Spec hash tracking for cache invalidation
+//   - Base URL and configuration persistence
+//   - Thread-safe concurrent access
+//
+// # Architecture
+//
+// The package consists of three main components:
+//
+// 1. CommandStore: Manages persistent storage with thread-safe access
+// 2. CommandMetadata: Represents serializable command information
+// 3. FlagMetadata: Represents serializable flag definitions
+//
+// # Usage
+//
+// Create or load a command store:
+//
+//	store, err := cmdstore.New("~/.muster/commands.json")
+//	if err != nil {
+//	    return err
+//	}
+//
+// Save generated commands:
+//
+//	metadata := &cmdstore.CommandMetadata{
+//	    Name:    "get-pet",
+//	    Use:     "get-pet [id]",
+//	    Short:   "Get a pet by ID",
+//	    Path:    "/pets/{petId}",
+//	    Method:  "GET",
+//	    Flags:   []cmdstore.FlagMetadata{...},
+//	    BaseURL: "https://api.example.com",
+//	}
+//	err = store.SaveCommands([]*cmdstore.CommandMetadata{metadata})
+//
+// Load commands for CLI registration:
+//
+//	commands, err := store.LoadCommands()
+//	if err != nil {
+//	    return err
+//	}
+//	for _, cmd := range commands {
+//	    rootCmd.AddCommand(buildCobraCommand(cmd))
+//	}
+//
+// # File Format
+//
+// Commands are stored in JSON format:
+//
+//	{
+//	  "version": "1.0.0",
+//	  "spec_path": "petstore.yaml",
+//	  "spec_hash": "abc123...",
+//	  "base_url": "https://api.example.com",
+//	  "commands": [...]
+//	}
+//
+// # Thread Safety
+//
+// All operations are thread-safe using sync.RWMutex for concurrent read/write access.
 package cmdstore
 
 import (

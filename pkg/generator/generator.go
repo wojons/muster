@@ -1,3 +1,114 @@
+// Package generator transforms OpenAPI specifications into executable CLI commands with intelligent naming,
+// comprehensive flag generation, and seamless Cobra integration. It is the core component that bridges
+// API definitions with user-facing command-line interfaces.
+//
+// # Overview
+//
+// The generator parses OpenAPI 3.x specifications and generates a complete CLI command tree where each
+// API operation becomes a subcommand. It handles:
+//
+//   - Intelligent command naming from operation IDs, summaries, or paths
+//   - Automatic flag generation from parameters (path, query, header, body)
+//   - Type-safe flag definitions (string, int, bool, array)
+//   - Required parameter validation
+//   - Help text generation from descriptions
+//   - Example usage generation
+//   - Spec hash tracking for cache invalidation
+//
+// # Architecture
+//
+// The package consists of three main components:
+//
+// 1. Generator: Main transformation engine with configuration
+// 2. CommandGenerator: Individual command generation from operations
+// 3. Naming utilities: Strategies for converting operation names to CLI commands
+//
+// # Usage
+//
+// Create a generator with configuration:
+//
+//	gen := generator.New(&generator.Config{
+//	    AppName:        "petstore-cli",
+//	    AppDescription: "CLI for Pet Store API",
+//	    Version:        "1.0.0",
+//	    BaseURL:        "https://api.petstore.com",
+//	    NamingStrategy: generator.NamingKebab,
+//	    CommandPrefix:  "api",
+//	})
+//
+// Generate commands from OpenAPI spec:
+//
+//	loader := openapi.NewLoader()
+//	doc, err := loader.Load(context.Background(), "petstore.yaml")
+//	if err != nil {
+//	    return err
+//	}
+//
+//	commands, err := gen.Generate(context.Background(), doc)
+//	if err != nil {
+//	    return err
+//	}
+//
+// Integrate with Cobra root command:
+//
+//	rootCmd := &cobra.Command{Use: "petstore"}
+//	for _, cmd := range commands {
+//	    rootCmd.AddCommand(cmd)
+//	}
+//
+// # Naming Strategies
+//
+// Supported naming strategies for command generation:
+//
+//   - NamingKebab: get-pet-by-id (default, most CLI-friendly)
+//   - NamingCamel: getPetById
+//   - NamingSnake: get_pet_by_id
+//   - NamingFlat: getpetbyid
+//
+// # Operation Styles
+//
+// Supported operation naming styles:
+//
+//   - StyleResource: pet get, pet create (resource-based)
+//   - StyleOperation: get-pet, create-pet (operation-based)
+//   - StyleRESTful: get /pets, post /pets (HTTP method-based)
+//
+// # Flag Generation
+//
+// Flags are automatically generated from OpenAPI parameters:
+//
+//   - Path parameters → Required positional args or --flag
+//   - Query parameters → Optional --flags
+//   - Header parameters → Optional --flags (hidden by default)
+//   - Body parameters → --body flag or individual flags per property
+//
+// Example generated flags:
+//
+//	petstore-cli api pet get --id 123 --include-owner --format json
+//
+// # Spec Hash Tracking
+//
+// Generated commands include a spec hash for cache invalidation. When the OpenAPI spec
+// changes, the hash changes, triggering regeneration:
+//
+//	hash := gen.calculateSpecHash(doc)
+//	if hash != storedHash {
+//	    // Regenerate commands
+//	}
+//
+// # Error Handling
+//
+// The generator provides detailed error messages for:
+//
+//   - Invalid OpenAPI specifications
+//   - Missing required fields
+//   - Circular references
+//   - Unsupported features
+//   - Naming conflicts
+//
+// # Thread Safety
+//
+// Generator instances are NOT thread-safe. Create separate instances for concurrent generation.
 package generator
 
 import (
