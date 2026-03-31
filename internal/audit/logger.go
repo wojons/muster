@@ -77,13 +77,7 @@ func (al *AuditLogger) Log(event *AuditEvent) error {
 	event.ID = generateID()
 	event.Timestamp = time.Now()
 
-	al.mu.Lock()
-	event.PreviousHash = al.lastHash
-	event.Hash = al.calculateHash(event)
-	al.lastHash = event.Hash
-	al.mu.Unlock()
-
-	// Apply redaction to sensitive fields
+	// Apply redaction to sensitive fields before hash computation
 	if err := al.redactor.RedactEvent(event); err != nil {
 		// Log redaction error but continue - don't lose the audit event
 		// In production, this should be logged to an error log
@@ -91,6 +85,9 @@ func (al *AuditLogger) Log(event *AuditEvent) error {
 	}
 
 	al.mu.Lock()
+	event.PreviousHash = al.lastHash
+	event.Hash = al.calculateHash(event)
+	al.lastHash = event.Hash
 	al.buffer = append(al.buffer, event)
 	shouldFlush := len(al.buffer) >= al.config.BufferSize
 	al.mu.Unlock()

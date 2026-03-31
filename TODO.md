@@ -2018,6 +2018,7 @@
       - [x] Step 2: Add `defer al.mu.Unlock()` after lock - Used explicit Unlock() calls to minimize lock duration
       - [x] Step 3: Run `go test -race ./internal/audit/...` to verify fix - All tests pass with race detector
       - [x] Step 4: Add concurrent logging test - Created TestIntegration_AuditLogger_ConcurrentHashChain with 20 goroutines logging 50 events each (1000 total), verifying hash chain integrity under concurrent access
+    - **Status**: ✅ FIXED (2026-03-31) - Consolidated mutex lock to cover entire critical section (hash chain computation + buffer append). Moved redaction before lock to minimize lock duration. All tests pass with race detector enabled, zero lint errors.
 
 3. **INPUT-003**: Fix header injection (1 day) - `pkg/request/builder.go:58-60` ✅ COMPLETE
     - Baby Steps:
