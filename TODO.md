@@ -1474,16 +1474,23 @@
 - **Estimate**: 1-2 weeks
 - **Actual**: 3 hours
 
-#### COMP-003: SOC 2 - SQLite NOT Encrypted at Rest (CC6.1)
+#### COMP-003: SOC 2 - SQLite NOT Encrypted at Rest (CC6.1) ✅ COMPLETE
 - **Priority**: CRITICAL
 - **Regulation**: SOC 2 CC6.1
 - **Gap**: Database files stored unencrypted
+- **Status**: ✅ **COMPLETE** - SQLCipher integration with PBKDF2 key derivation
 - **Baby Steps**:
-  - [ ] Step 1: Integrate SQLCipher or SQLite encryption extension
-  - [ ] Step 2: Mandate `PRAGMA key` for all database connections
-  - [ ] Step 3: Add encryption key management
-  - [ ] Step 4: Add tests for encrypted database
+  - [x] Step 1: Integrate SQLCipher or SQLite encryption extension - COMPLETED 2026-03-31 - Added `github.com/mutecomm/go-sqlcipher` dependency (SQLCipher 4.x fork), updated `pkg/repository/sqlite.go` to use sqlcipher driver instead of mattn/go-sqlite3
+  - [x] Step 2: Mandate `PRAGMA key` for all database connections - COMPLETED 2026-03-31 - Implemented `applyEncryptionKey()` function that sets encryption key via `PRAGMA key`, verifies with `PRAGMA cipher_version`, configures `PRAGMA cipher_page_size=4096` and `PRAGMA kdf_iter=256000` for enhanced security, added `IsEncrypted()` method to verify encryption status
+  - [x] Step 3: Add encryption key management - COMPLETED 2026-03-31 - Created `pkg/repository/encryption_key.go` with `EncryptionKeyManager` implementing PBKDF2-HMAC-SHA256 key derivation (150,000 iterations default, OWASP compliant), random 16-byte salt generation and persistence, secure file permissions (0600), `DeriveKey()` and `DerivePragmaKey()` methods, key rotation support, passphrase-based key derivation via `DeriveMasterKeyFromPassphrase()`, updated `SQLiteConfig` with `EnableEncryption()` and `EnableEncryptionWithKeyManager()` methods
+  - [x] Step 4: Add tests for encrypted database - COMPLETED 2026-03-31 - Created comprehensive test suites in `pkg/repository/encryption_key_test.go` (10 test functions) and `pkg/repository/encryption_test.go` (20+ test functions) covering key manager initialization, key derivation consistency, key rotation, salt persistence, passphrase derivation, SQLite encryption enablement, encrypted database creation/queries, encryption verification, file encryption validation. All tests pass with zero lint errors.
+- **Files Created**: `pkg/repository/encryption_key.go` (267 lines), `pkg/repository/encryption_key_test.go` (182 lines), `pkg/repository/encryption_test.go` (378 lines)
+- **Files Modified**: `pkg/repository/sqlite.go` (updated imports, added encryption support methods)
+- **Dependencies Added**: `github.com/mutecomm/go-sqlcipher v0.0.0-20190227152316-55dbde17881f`
+- **Security**: Encryption key derived using PBKDF2 with random salt (150K iterations), salt stored separately with secure permissions (0600), SQLCipher 4.x with AES-256 encryption, KDF iterations set to 256,000 for enhanced security
 - **Estimate**: 1-2 weeks
+- **Actual**: 1 day
+- **Completed**: 2026-03-31 - Implemented complete SQLite encryption at rest using SQLCipher 4.x with PBKDF2 key derivation. All tests pass, lint passes with 0 issues, project builds successfully with CGO_ENABLED=1.
 
 #### COMP-004: HIPAA - No RBAC for PHI (§164.312)
 - **Priority**: CRITICAL
