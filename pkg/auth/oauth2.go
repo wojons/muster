@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -235,10 +236,11 @@ func (f *AuthorizationCodeFlow) Exchange(code, state string, requestID string) (
 }
 
 type DeviceCodeFlow struct {
-	ClientID  string
-	DeviceURL string
-	TokenURL  string
-	Scopes    []string
+	ClientID    string
+	DeviceURL   string
+	TokenURL    string
+	Scopes      []string
+	rateLimiter *OAuthRateLimiter
 }
 
 func (f *DeviceCodeFlow) Start() (*DeviceAuthResponse, error) {
@@ -262,6 +264,11 @@ func (f *DeviceCodeFlow) Start() (*DeviceAuthResponse, error) {
 }
 
 func (f *DeviceCodeFlow) Poll(ctx context.Context, deviceCode string, interval int) (*TokenResponse, error) {
+	// Initialize rate limiter if not already done
+	if f.rateLimiter == nil {
+		f.rateLimiter = NewOAuthRateLimiter()
+	}
+
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
 
@@ -270,6 +277,11 @@ func (f *DeviceCodeFlow) Poll(ctx context.Context, deviceCode string, interval i
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-ticker.C:
+			// Apply rate limiting
+			if err := f.rateLimiter.AllowDeviceCodePoll(deviceCode); err != nil {
+				return nil, fmt.Errorf("device code poll rate limit exceeded: %w", err)
+			}
+
 			data := url.Values{
 				"client_id":   {f.ClientID},
 				"device_code": {deviceCode},
@@ -320,6 +332,7 @@ type TokenManager struct {
 	tokenURL        string
 	clientID        string
 	clientSecret    string
+	rateLimiter     *OAuthRateLimiter
 }
 
 func NewTokenManager(storage TokenStorage, tokenURL, clientID, clientSecret string) *TokenManager {
@@ -329,6 +342,7 @@ func NewTokenManager(storage TokenStorage, tokenURL, clientID, clientSecret stri
 		clientID:        clientID,
 		clientSecret:    clientSecret,
 		revocationStore: nil,
+		rateLimiter:     NewOAuthRateLimiter(),
 	}
 }
 
@@ -339,6 +353,7 @@ func NewTokenManagerWithRevocation(storage TokenStorage, tokenURL, clientID, cli
 		clientID:        clientID,
 		clientSecret:    clientSecret,
 		revocationStore: revocationStore,
+		rateLimiter:     NewOAuthRateLimiter(),
 	}
 }
 
@@ -380,6 +395,18 @@ func (tm *TokenManager) Refresh(token *Token) (*Token, error) {
 		}
 	}
 
+	// Apply rate limiting
+	clientID := tm.clientID
+	if clientID == "" {
+		clientID = "default"
+	}
+	if err := tm.rateLimiter.AllowTokenRequest(clientID); err != nil {
+		if errors.Is(err, ErrAccountLocked) {
+			return nil, fmt.Errorf("token refresh blocked: %w", err)
+		}
+		return nil, fmt.Errorf("rate limit exceeded: %w", err)
+	}
+
 	// Perform refresh with the refresh token
 	data := url.Values{
 		"grant_type":    {"refresh_token"},
@@ -395,23 +422,30 @@ func (tm *TokenManager) Refresh(token *Token) (*Token, error) {
 
 	resp, err := http.PostForm(tm.tokenURL, data)
 	if err != nil {
+		tm.rateLimiter.RecordFailedAttempt(clientID)
 		return nil, fmt.Errorf("token refresh request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		tm.rateLimiter.RecordFailedAttempt(clientID)
 		return nil, fmt.Errorf("read token response: %w", err)
 	}
 
 	var result TokenResponse
 	if err := json.Unmarshal(body, &result); err != nil {
+		tm.rateLimiter.RecordFailedAttempt(clientID)
 		return nil, fmt.Errorf("parse token response: %w", err)
 	}
 
 	if result.Error != "" {
+		tm.rateLimiter.RecordFailedAttempt(clientID)
 		return nil, fmt.Errorf("token refresh failed: %s", result.Error)
 	}
+
+	// Record successful attempt
+	tm.rateLimiter.RecordSuccessfulAttempt(clientID)
 
 	// Calculate new expiry time
 	expiresAt := time.Now()
@@ -428,19 +462,21 @@ func (tm *TokenManager) Refresh(token *Token) (*Token, error) {
 }
 
 type CallbackServer struct {
-	port       int
-	stateStore *stateStore
-	codeChan   chan string
-	errChan    chan error
-	server     *http.Server
+	port        int
+	stateStore  *stateStore
+	codeChan    chan string
+	errChan     chan error
+	server      *http.Server
+	rateLimiter *OAuthRateLimiter
 }
 
 func NewCallbackServer(port int, stateStore *stateStore) *CallbackServer {
 	return &CallbackServer{
-		port:       port,
-		stateStore: stateStore,
-		codeChan:   make(chan string, 1),
-		errChan:    make(chan error, 1),
+		port:        port,
+		stateStore:  stateStore,
+		codeChan:    make(chan string, 1),
+		errChan:     make(chan error, 1),
+		rateLimiter: NewOAuthRateLimiter(),
 	}
 }
 
@@ -497,6 +533,13 @@ func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) 
 	state := r.URL.Query().Get("state")
 	requestID := r.URL.Query().Get("request_id")
 
+	// Apply rate limiting
+	if err := s.rateLimiter.AllowCallbackRequest(requestID); err != nil {
+		s.errChan <- fmt.Errorf("callback rate limit exceeded: %w", err)
+		http.Error(w, "Too many requests, please try again later", http.StatusTooManyRequests)
+		return
+	}
+
 	// Validate request ID
 	if requestID == "" {
 		s.errChan <- fmt.Errorf("request ID missing")
@@ -508,6 +551,7 @@ func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) 
 	expectedState, exists := s.stateStore.Get(requestID)
 	if !exists {
 		s.errChan <- fmt.Errorf("state expired or invalid")
+		s.rateLimiter.RecordFailedAttempt("callback:" + requestID)
 		http.Error(w, "Invalid or expired state", 400)
 		return
 	}
@@ -518,12 +562,16 @@ func (s *CallbackServer) handleCallback(w http.ResponseWriter, r *http.Request) 
 
 	if len(stateBytes) != len(expectedBytes) || subtle.ConstantTimeCompare(stateBytes, expectedBytes) != 1 {
 		s.errChan <- fmt.Errorf("state mismatch")
+		s.rateLimiter.RecordFailedAttempt("callback:" + requestID)
 		http.Error(w, "Invalid state", 400)
 		return
 	}
 
 	// Delete state after use (one-time use)
 	s.stateStore.Delete(requestID)
+
+	// Record successful attempt
+	s.rateLimiter.RecordSuccessfulAttempt("callback:" + requestID)
 
 	s.codeChan <- code
 	_, _ = fmt.Fprintln(w, "Authorization successful. You can close this window.")
