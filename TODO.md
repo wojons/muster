@@ -1459,16 +1459,20 @@
 - **Estimate**: 2-3 weeks
 - **Actual**: 2 hours
 
-#### COMP-002: GDPR - No Data Residency Controls (Article 44-49)
+#### COMP-002: GDPR - No Data Residency Controls (Article 44-49) ✅ COMPLETE
 - **Priority**: HIGH
 - **Regulation**: GDPR Chapter V
 - **Gap**: No region enforcement; cache/DB can be configured anywhere
 - **Baby Steps**:
-  - [ ] Step 1: Add `DataResidencyPolicy` config with allowed regions
-  - [ ] Step 2: Block writes to non-compliant regions
-  - [ ] Step 3: Add region validation on startup
-  - [ ] Step 4: Add audit logging for residency violations
+  - [x] Step 1: Add `DataResidencyPolicy` config with allowed regions - Implemented `DataResidencyPolicy` struct with ID, Name, Description, AllowedRegions, EnforceMode fields in `pkg/repository/gdpr_residency.go`
+  - [x] Step 2: Block writes to non-compliant regions - Implemented `ResidencyEnforcer.AuthorizeWrite()` with strict/audit/disabled enforcement modes
+  - [x] Step 3: Add region validation on startup - Implemented `ResidencyEnforcer.LoadPolicies()` and `ValidateRegion()` for runtime validation
+  - [x] Step 4: Add audit logging for residency violations - Implemented `ResidencyViolation` table and logging via `saveViolation()` with zap logger
+- **Files**: `pkg/repository/gdpr_residency.go` (584 lines), `pkg/repository/gdpr_residency_test.go` (533 lines, 28 test functions), `migrations/00008_data_residency.sql` (new migration)
+- **Tests**: All 28 tests passing, zero lint errors
+- **Completed**: 2026-03-30 - Implemented complete GDPR data residency controls with policy-based region enforcement, strict/audit/disabled modes, violation tracking, and comprehensive audit logging. Supports 11 data regions (EU, US, UK, CH, CA, AU, JP, IN, BR, SG, ANY). Database migration adds `data_residency_policies` and `data_residency_violations` tables.
 - **Estimate**: 1-2 weeks
+- **Actual**: 3 hours
 
 #### COMP-003: SOC 2 - SQLite NOT Encrypted at Rest (CC6.1)
 - **Priority**: CRITICAL
