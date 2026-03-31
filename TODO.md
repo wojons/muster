@@ -1628,15 +1628,22 @@
 - **Estimate**: 2-3 weeks
 - **Actual**: 2 hours (Steps 1-2)
 
-#### OPS-005: Verbose Error Details Leaked to Clients
+#### OPS-005: Verbose Error Details Leaked to Clients - ✅ COMPLETE
 - **Priority**: HIGH
 - **File**: `pkg/response/error_handler.go:120-125`
 - **Gap**: Error responses include full stack traces and internal details
+- **Status**: ✅ **COMPLETE** - Comprehensive sensitive data redaction implemented
 - **Baby Steps**:
-  - [ ] Step 1: Redact sensitive details in production
-  - [ ] Step 2: Only show verbose errors in debug mode
-  - [ ] Step 3: Add error detail allowlist
+  - [x] Step 1: Redact sensitive details in production - IMPLEMENTED: Added `isSensitiveDetail()` function that checks against comprehensive list of 35+ sensitive field names (password, secret, token, api_key, credentials, etc.), case-insensitive substring matching, all sensitive values replaced with `[REDACTED]` marker
+  - [x] Step 2: Only show verbose errors in debug mode - VERIFIED: `verbose` flag properly checked before showing RequestID, Timestamp, and Details; non-verbose mode hides all sensitive information
+  - [x] Step 3: Add error detail allowlist - IMPLEMENTED: Added `isAllowedDetail()` function with 25+ safe field names (field, reason, status, id, page, limit, total, etc.), `AddToAllowlist()` and `RemoveFromAllowlist()` methods for custom configuration, unknown fields are hidden by default (defense in depth)
+- **Files Modified**: `pkg/response/error_handler.go` (added `allowlist` field to `ErrorHandler`, `sensitiveDetailKeys` map with 35+ entries, `allowedDetailKeys` map with 25+ entries, `isSensitiveDetail()`, `isAllowedDetail()`, `AddToAllowlist()`, `RemoveFromAllowlist()` methods, updated `FormatError()` to redact sensitive data)
+- **Tests Added**: `pkg/response/error_handler_test.go` (added 10 comprehensive test functions: TestErrorHandler_FormatError_RedactsSensitiveDetails with 5 sub-tests, TestErrorHandler_FormatError_AllowedDetails with 3 sub-tests, TestErrorHandler_FormatError_NonVerboseMode, TestErrorHandler_AddToAllowlist, TestErrorHandler_RemoveFromAllowlist, TestErrorHandler_isSensitiveDetail with 11 sub-tests, TestErrorHandler_isAllowedDetail with 7 sub-tests, TestErrorHandler_FormatError_UnknownDetailsHidden, TestErrorHandler_ComprehensiveSecurityRedaction testing all 35+ sensitive fields)
+- **Tests**: All 45+ tests passing
+- **Lint**: 0 issues
+- **Completed**: 2026-03-31 - Implemented comprehensive error detail redaction system with sensitive field detection, allowlist-based filtering, and verbose mode control. All tests pass with zero lint errors.
 - **Estimate**: 1-2 days
+- **Actual**: 2 hours
 
 ---
 

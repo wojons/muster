@@ -10,11 +10,15 @@ import (
 )
 
 type ErrorHandler struct {
-	verbose bool
+	verbose   bool
+	allowlist map[string]bool
 }
 
 func NewErrorHandler(verbose bool) *ErrorHandler {
-	return &ErrorHandler{verbose: verbose}
+	return &ErrorHandler{
+		verbose:   verbose,
+		allowlist: make(map[string]bool),
+	}
 }
 
 func (h *ErrorHandler) IsError(resp *http.Response) bool {
@@ -98,6 +102,106 @@ func (h *ErrorHandler) parseXMLError(body []byte, errorInfo *ErrorInfo) {
 	errorInfo.Message = xmlErr.Message
 }
 
+var sensitiveDetailKeys = map[string]bool{
+	"password":          true,
+	"secret":            true,
+	"api_key":           true,
+	"apikey":            true,
+	"token":             true,
+	"access_token":      true,
+	"refresh_token":     true,
+	"private_key":       true,
+	"credential":        true,
+	"credentials":       true,
+	"authorization":     true,
+	"auth":              true,
+	"bearer":            true,
+	"jwt":               true,
+	"session":           true,
+	"cookie":            true,
+	"x-api-key":         true,
+	"x-auth-token":      true,
+	"client_secret":     true,
+	"encryption_key":    true,
+	"master_key":        true,
+	"signing_key":       true,
+	"ssh_key":           true,
+	"rsa_key":           true,
+	"privatekey":        true,
+	"secret_key":        true,
+	"secretkey":         true,
+	"aws_secret":        true,
+	"aws_access_key":    true,
+	"database_url":      true,
+	"db_password":       true,
+	"db_user":           true,
+	"connection_string": true,
+}
+
+var allowedDetailKeys = map[string]bool{
+	"field":            true,
+	"reason":           true,
+	"validation_error": true,
+	"missing_field":    true,
+	"invalid_value":    true,
+	"expected":         true,
+	"received":         true,
+	"minimum":          true,
+	"maximum":          true,
+	"pattern":          true,
+	"format":           true,
+	"type":             true,
+	"count":            true,
+	"limit":            true,
+	"offset":           true,
+	"page":             true,
+	"total":            true,
+	"id":               true,
+	"name":             true,
+	"status":           true,
+	"code":             true,
+	"message":          true,
+	"description":      true,
+	"timestamp":        true,
+	"duration":         true,
+	"size":             true,
+	"version":          true,
+}
+
+func (h *ErrorHandler) isSensitiveDetail(key string) bool {
+	keyLower := strings.ToLower(key)
+	if h.allowlist[keyLower] {
+		return false
+	}
+	for sensitive := range sensitiveDetailKeys {
+		if strings.Contains(keyLower, sensitive) {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *ErrorHandler) isAllowedDetail(key string) bool {
+	keyLower := strings.ToLower(key)
+	if h.allowlist[keyLower] {
+		return true
+	}
+	for allowed := range allowedDetailKeys {
+		if strings.Contains(keyLower, allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *ErrorHandler) AddToAllowlist(key string) {
+	h.allowlist[strings.ToLower(key)] = true
+}
+
+func (h *ErrorHandler) RemoveFromAllowlist(key string) {
+	delete(h.allowlist, strings.ToLower(key))
+}
+
 func (h *ErrorHandler) FormatError(err *ErrorInfo) string {
 	var parts []string
 
@@ -120,7 +224,11 @@ func (h *ErrorHandler) FormatError(err *ErrorInfo) string {
 	if len(err.Details) > 0 && h.verbose {
 		parts = append(parts, "Details:")
 		for key, value := range err.Details {
-			parts = append(parts, fmt.Sprintf("  %s: %v", key, value))
+			if h.isSensitiveDetail(key) {
+				parts = append(parts, fmt.Sprintf("  %s: [REDACTED]", key))
+			} else if h.isAllowedDetail(key) {
+				parts = append(parts, fmt.Sprintf("  %s: %v", key, value))
+			}
 		}
 	}
 
