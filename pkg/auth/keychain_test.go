@@ -2,10 +2,14 @@ package auth
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"crypto/rand"
 )
 
 func TestNewKeychain(t *testing.T) {
@@ -557,4 +561,149 @@ func FuzzKeychainServiceNameInjection(f *testing.F) {
 			}
 		}
 	})
+}
+
+func TestFileKeychain_PBKDF2KeyDerivation(t *testing.T) {
+	tmpDir := t.TempDir()
+	fk := &FileKeychain{basePath: tmpDir}
+
+	// Test that PBKDF2 key derivation works
+	masterKey, err := fk.getMasterKeyFromFile()
+	if err != nil {
+		t.Fatalf("getMasterKeyFromFile() error = %v", err)
+	}
+
+	if len(masterKey) != 32 {
+		t.Errorf("master key length = %d, want 32", len(masterKey))
+	}
+
+	// Verify key is deterministic (same machine data produces same key)
+	masterKey2, err := fk.getMasterKeyFromFile()
+	if err != nil {
+		t.Fatalf("getMasterKeyFromFile() second call error = %v", err)
+	}
+
+	if string(masterKey) != string(masterKey2) {
+		t.Error("master key should be deterministic")
+	}
+}
+
+func TestFileKeychain_EncryptDecryptMasterKeyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	fk := &FileKeychain{basePath: tmpDir}
+
+	// Generate a test master key
+	testKey := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, testKey); err != nil {
+		t.Fatalf("generate test key: %v", err)
+	}
+
+	// Encrypt
+	encrypted, err := fk.encryptMasterKeyFile(testKey)
+	if err != nil {
+		t.Fatalf("encryptMasterKeyFile() error = %v", err)
+	}
+
+	// Verify encrypted format is not plain text
+	if strings.Contains(encrypted, string(testKey)) {
+		t.Error("encrypted data should not contain plain text key")
+	}
+
+	// Decrypt
+	decrypted, err := fk.decryptMasterKeyFile(encrypted)
+	if err != nil {
+		t.Fatalf("decryptMasterKeyFile() error = %v", err)
+	}
+
+	if string(testKey) != string(decrypted) {
+		t.Error("decrypted key should match original")
+	}
+}
+
+func TestFileKeychain_BackwardCompatibility(t *testing.T) {
+	tmpDir := t.TempDir()
+	fk := &FileKeychain{basePath: tmpDir}
+
+	// Create old format encrypted key (raw base64)
+	oldKey := []byte("test-old-format-key-12345678")
+	systemKey := fk.deriveSystemEncryptionKey()
+	oldEncrypted, err := fk.encrypt(oldKey, systemKey)
+	if err != nil {
+		t.Fatalf("encrypt old format: %v", err)
+	}
+
+	// Write old format to file
+	masterKeyFile := filepath.Join(tmpDir, ".master-key")
+	if err := os.WriteFile(masterKeyFile, []byte(oldEncrypted), 0600); err != nil {
+		t.Fatalf("write old format: %v", err)
+	}
+
+	// Should be able to decrypt old format
+	decrypted, err := fk.getMasterKeyFromFile()
+	if err != nil {
+		t.Fatalf("decrypt old format: %v", err)
+	}
+
+	if string(oldKey) != string(decrypted) {
+		t.Error("old format should decrypt correctly")
+	}
+}
+
+func TestFileKeychain_ApplicationSecret(t *testing.T) {
+	// Verify application secret is consistent
+	secret1 := getApplicationSecret()
+	secret2 := getApplicationSecret()
+
+	if secret1 != secret2 {
+		t.Error("application secret should be consistent")
+	}
+
+	if len(secret1) < 10 {
+		t.Error("application secret should have reasonable length")
+	}
+}
+
+func TestFileKeychain_MachineData(t *testing.T) {
+	tmpDir := t.TempDir()
+	fk := &FileKeychain{basePath: tmpDir}
+
+	// Verify machine data is consistent
+	data1 := fk.getMachineData()
+	data2 := fk.getMachineData()
+
+	if data1 != data2 {
+		t.Error("machine data should be consistent")
+	}
+
+	// Machine data should include OS and arch
+	if !strings.Contains(data1, runtime.GOOS) {
+		t.Error("machine data should include GOOS")
+	}
+	if !strings.Contains(data1, runtime.GOARCH) {
+		t.Error("machine data should include GOARCH")
+	}
+}
+
+func TestFileKeychain_CollisionResistance(t *testing.T) {
+	tmpDir1 := t.TempDir()
+	tmpDir2 := t.TempDir()
+
+	fk1 := &FileKeychain{basePath: tmpDir1}
+	fk2 := &FileKeychain{basePath: tmpDir2}
+
+	// Generate master keys for two different file keychains
+	key1, err := fk1.getMasterKeyFromFile()
+	if err != nil {
+		t.Fatalf("fk1 getMasterKey: %v", err)
+	}
+
+	key2, err := fk2.getMasterKeyFromFile()
+	if err != nil {
+		t.Fatalf("fk2 getMasterKey: %v", err)
+	}
+
+	// Keys should be different (each has unique random salt)
+	if string(key1) == string(key2) {
+		t.Error("different file keychains should have different master keys")
+	}
 }
