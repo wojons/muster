@@ -1621,7 +1621,7 @@
 - **Baby Steps**:
   - [x] Step 1: Implement `BackupManager` with scheduled backups - COMPLETED 2026-03-31 - Implemented complete BackupManager in pkg/repository/backup.go (620 lines) with scheduled backups, compression, encryption, rotation, and comprehensive backup/restore functionality. Supports automatic backup scheduling, AES-256-GCM encryption with PBKDF2 key derivation, gzip compression, SHA-256 checksums, backup rotation, and graceful shutdown.
   - [x] Step 2: Add encryption for backups - COMPLETED 2026-03-31 - Implemented AES-256-GCM encryption with PBKDF2-HMAC-SHA256 key derivation (100,000 iterations), random salt generation and persistence, nonce-based encryption, decryptBackup() method for decryption, encryption password validation. encryptFile() and decryptBackup() methods provide end-to-end encryption support.
-  - [ ] Step 3: Implement offsite storage (S3, GCS, Azure Blob)
+  - [x] Step 3: Implement offsite storage (S3, GCS, Azure Blob) - COMPLETE 2026-03-31 - Implemented comprehensive cloud storage support with S3, GCS, and Azure Blob Storage providers. Created CloudUploader interface with S3Uploader, GCSUploader, and AzureUploader implementations. Added CloudStorageConfig for provider configuration. Integrated cloud upload/download into BackupManager with automatic cloud sync after local backups. Added RestoreFromCloud() for cloud-based restoration. Files: pkg/repository/backup_cloud.go (450 lines), pkg/repository/backup.go (updated), pkg/repository/backup_cloud_test.go (unit tests)
   - [ ] Step 4: Add recovery testing automation
   - [ ] Step 5: Document RTO/RPO
 - **Files Created**: `pkg/repository/backup.go` (620 lines)

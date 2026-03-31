@@ -37,6 +37,7 @@ type BackupConfig struct {
 	EncryptionEnabled  bool
 	EncryptionPassword string
 	IncludeTimestamp   bool
+	CloudStorage       *CloudStorageConfig
 }
 
 func DefaultBackupConfig(backupDir string) *BackupConfig {
@@ -70,13 +71,14 @@ type BackupStats struct {
 }
 
 type BackupManager struct {
-	mu       sync.RWMutex
-	db       *sql.DB
-	cfg      *BackupConfig
-	log      *zap.Logger
-	stopChan chan struct{}
-	wg       sync.WaitGroup
-	lastErr  error
+	mu            sync.RWMutex
+	db            *sql.DB
+	cfg           *BackupConfig
+	log           *zap.Logger
+	stopChan      chan struct{}
+	wg            sync.WaitGroup
+	lastErr       error
+	cloudUploader CloudUploader
 }
 
 func NewBackupManager(db *sql.DB, cfg *BackupConfig, log *zap.Logger) (*BackupManager, error) {
@@ -101,6 +103,16 @@ func NewBackupManager(db *sql.DB, cfg *BackupConfig, log *zap.Logger) (*BackupMa
 
 	if err := os.MkdirAll(cfg.BackupDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create backup directory: %w", err)
+	}
+
+	if cfg.CloudStorage != nil {
+		ctx := context.Background()
+		cloudUploader, err := NewCloudUploader(ctx, cfg.CloudStorage)
+		if err != nil {
+			return nil, fmt.Errorf("create cloud uploader: %w", err)
+		}
+		bm.cloudUploader = cloudUploader
+		log.Info("cloud storage enabled", zap.String("provider", string(cfg.CloudStorage.Provider)))
 	}
 
 	return bm, nil
@@ -185,6 +197,14 @@ func (bm *BackupManager) Backup(ctx context.Context) (*BackupInfo, error) {
 
 	if err := bm.rotateBackups(); err != nil {
 		bm.log.Warn("failed to rotate backups", zap.Error(err))
+	}
+
+	if bm.cloudUploader != nil {
+		if err := bm.uploadToCloud(ctx, backupPath); err != nil {
+			bm.log.Error("failed to upload backup to cloud", zap.Error(err))
+		} else {
+			bm.log.Info("backup uploaded to cloud", zap.String("path", backupPath))
+		}
 	}
 
 	bm.log.Info("backup completed",
@@ -628,5 +648,51 @@ func (bm *BackupManager) restoreDatabase(ctx context.Context, path string) error
 		return fmt.Errorf("execute restore: %w", err)
 	}
 
+	return nil
+}
+
+func (bm *BackupManager) uploadToCloud(ctx context.Context, backupPath string) error {
+	if bm.cloudUploader == nil {
+		return fmt.Errorf("cloud uploader not configured")
+	}
+
+	objectName := filepath.Base(backupPath)
+	if bm.cfg.CloudStorage.Prefix != "" {
+		objectName = filepath.Join(bm.cfg.CloudStorage.Prefix, objectName)
+	}
+
+	return bm.cloudUploader.Upload(ctx, backupPath, objectName)
+}
+
+func (bm *BackupManager) downloadFromCloud(ctx context.Context, objectName string, localPath string) error {
+	if bm.cloudUploader == nil {
+		return fmt.Errorf("cloud uploader not configured")
+	}
+
+	return bm.cloudUploader.Download(ctx, objectName, localPath)
+}
+
+func (bm *BackupManager) RestoreFromCloud(ctx context.Context, objectName string) error {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+
+	if bm.cloudUploader == nil {
+		return fmt.Errorf("cloud uploader not configured")
+	}
+
+	bm.log.Info("starting cloud restore", zap.String("object", objectName))
+
+	tmpPath := filepath.Join(bm.cfg.BackupDir, "tmp_restore_"+objectName)
+	defer os.Remove(tmpPath)
+
+	if err := bm.downloadFromCloud(ctx, objectName, tmpPath); err != nil {
+		return fmt.Errorf("download from cloud: %w", err)
+	}
+
+	if err := bm.Restore(ctx, tmpPath); err != nil {
+		return fmt.Errorf("restore from downloaded backup: %w", err)
+	}
+
+	bm.log.Info("cloud restore completed", zap.String("object", objectName))
 	return nil
 }
