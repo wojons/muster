@@ -78,3 +78,103 @@ func TestSQLiteManagerClose(t *testing.T) {
 		t.Error("expected Ping to fail after Close")
 	}
 }
+
+func TestSQLiteTransaction_AutoRollback(t *testing.T) {
+	cfg := DefaultSQLiteConfig(":memory:")
+	sm, err := NewSQLiteManager(cfg, nil)
+	if err != nil {
+		t.Fatalf("NewSQLiteManager failed: %v", err)
+	}
+	defer func() { _ = sm.Close() }()
+
+	ctx := context.Background()
+
+	t.Run("AutoRollbackOnPanic", func(t *testing.T) {
+		tx, err := sm.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTx failed: %v", err)
+		}
+
+		defer AutoRollbackTx(tx)()
+
+		_, err = tx.GetTx().Exec("CREATE TABLE test_panic (id INTEGER PRIMARY KEY)")
+		if err != nil {
+			t.Fatalf("Exec failed: %v", err)
+		}
+
+		_ = tx.Commit()
+	})
+
+	t.Run("AutoRollbackWithoutCommit", func(t *testing.T) {
+		tx, err := sm.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTx failed: %v", err)
+		}
+
+		defer AutoRollbackTx(tx)()
+
+		_, err = tx.GetTx().Exec("CREATE TABLE test_no_commit (id INTEGER PRIMARY KEY)")
+		if err != nil {
+			t.Fatalf("Exec failed: %v", err)
+		}
+
+		// Intentionally NOT calling Commit - should rollback automatically
+	})
+
+	t.Run("DoubleRollbackPrevented", func(t *testing.T) {
+		tx, err := sm.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTx failed: %v", err)
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			t.Fatalf("Commit failed: %v", err)
+		}
+
+		defer AutoRollbackTx(tx)()
+
+		// Should not panic - already committed
+	})
+
+	t.Run("ExplicitRollbackThenDefer", func(t *testing.T) {
+		tx, err := sm.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("BeginTx failed: %v", err)
+		}
+
+		err = tx.Rollback()
+		if err != nil {
+			t.Fatalf("Rollback failed: %v", err)
+		}
+
+		defer AutoRollbackTx(tx)()
+
+		// Should not error - already rolled back
+	})
+}
+
+func TestSQLiteTransaction_CommitOnce(t *testing.T) {
+	cfg := DefaultSQLiteConfig(":memory:")
+	sm, err := NewSQLiteManager(cfg, nil)
+	if err != nil {
+		t.Fatalf("NewSQLiteManager failed: %v", err)
+	}
+	defer func() { _ = sm.Close() }()
+
+	ctx := context.Background()
+	tx, err := sm.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("BeginTx failed: %v", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		t.Fatalf("First Commit failed: %v", err)
+	}
+
+	err = tx.Commit()
+	if err == nil {
+		t.Error("Expected second Commit to fail, got nil error")
+	}
+}

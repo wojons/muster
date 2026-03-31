@@ -222,20 +222,40 @@ func (sm *SQLiteManager) GetEncryptionConfig() *SQLiteConfig {
 
 // sqliteTransaction implements the Transaction interface
 type sqliteTransaction struct {
-	tx *sql.Tx
+	tx        *sql.Tx
+	committed bool
 }
 
 // Commit commits the transaction
 func (st *sqliteTransaction) Commit() error {
+	if st.committed {
+		return fmt.Errorf("transaction already committed")
+	}
+	st.committed = true
 	return st.tx.Commit()
 }
 
 // Rollback rolls back the transaction
 func (st *sqliteTransaction) Rollback() error {
+	if st.committed {
+		return nil
+	}
 	return st.tx.Rollback()
 }
 
 // GetTx returns the underlying sql.Tx
 func (st *sqliteTransaction) GetTx() *sql.Tx {
 	return st.tx
+}
+
+// AutoRollbackTx wraps a transaction to automatically rollback if not committed.
+// This should be used with defer to ensure rollback on panic/error.
+func AutoRollbackTx(tx Transaction) func() {
+	return func() {
+		if st, ok := tx.(*sqliteTransaction); ok {
+			if !st.committed {
+				_ = st.Rollback()
+			}
+		}
+	}
 }
