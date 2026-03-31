@@ -1927,11 +1927,22 @@
       - [x] Step 3: Run `go test -race ./internal/audit/...` to verify fix - All tests pass with race detector
       - [x] Step 4: Add concurrent logging test - Created TestIntegration_AuditLogger_ConcurrentHashChain with 20 goroutines logging 50 events each (1000 total), verifying hash chain integrity under concurrent access
 
-3. **INPUT-003**: Fix header injection (1 day) - `pkg/request/builder.go:58-60`
-   - Baby Steps:
-     - [ ] Step 1: Add CRLF validation: reject `\r`, `\n`, `%0d`, `%0a`
-     - [ ] Step 2: Add test with injection payloads
-     - [ ] Step 3: Verify existing tests still pass
+3. **INPUT-003**: Fix header injection (1 day) - `pkg/request/builder.go:58-60` ✅ COMPLETE
+    - Baby Steps:
+      - [x] Step 1: Add CRLF validation: reject `\r`, `\n`, `%0d`, `%0a` - Implemented `isValidHeaderValue()` function with literal and URL-encoded CRLF detection
+      - [x] Step 2: Add test with injection payloads - Added 25 comprehensive tests covering all auth methods
+      - [x] Step 3: Verify existing tests still pass - All 50+ tests in pkg/request pass with zero lint errors
+    - **Completed**: 2026-03-31 - Implemented comprehensive header value validation to prevent HTTP response splitting attacks. Added `isValidHeaderValue()` function checking for `\r`, `\n`, `%0d`, `%0a` (case-insensitive). Added `ErrInvalidHeaderValue` error. Extended validation to `WithHeader()`, `WithAuth()`, `WithBasicAuth()`, and `WithAPIKey()` methods. All 25 new tests pass covering:
+      - WithHeader: 8 CRLF injection tests + 5 valid value tests
+      - WithAuth: 3 token injection tests
+      - WithAPIKey: 4 key/value injection tests  
+      - WithBasicAuth: 4 username/password injection tests
+      All 25+ existing tests pass with zero lint errors.
+    - **Files Modified**: 
+      - `pkg/request/builder.go`: Added `isValidHeaderValue()` validation function, `ErrInvalidHeaderValue` error, validation in `WithHeader()`, `WithAuth()`, `WithBasicAuth()`, `WithAPIKey()`
+      - `pkg/request/builder_test.go`: Added 25 new test functions for CRLF injection prevention
+    - **Tests**: All 25 header injection tests passing + all 25+ existing tests
+    - **Lint**: 0 issues
 
 4. **INPUT-005**: Fix path traversal in cache (1 day) - `pkg/inventory/cache.go:92-101`
    - Baby Steps:
