@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/openapi-cli/openapi-cli/pkg/auth/ratelimit"
 )
 
 func TestGenerateSecureState(t *testing.T) {
@@ -327,9 +329,18 @@ func TestDeviceCodeFlow_Poll_Success(t *testing.T) {
 	defer mockServer.Close()
 
 	flow := &DeviceCodeFlow{
-		ClientID: "test-client-id",
-		TokenURL: mockServer.URL,
+		ClientID:    "test-client-id",
+		TokenURL:    mockServer.URL,
+		rateLimiter: NewOAuthRateLimiter(),
 	}
+
+	// Configure rate limiter for tests (relaxed limits for device code polling)
+	flow.rateLimiter.Configure(100, 1*time.Minute)
+	// Set device code limiter to allow 10 polls per minute (enough for 1-second interval tests)
+	flow.rateLimiter.deviceCodeLimiter = ratelimit.NewTokenBucketLimiter(ratelimit.BucketConfig{
+		Capacity: 10,
+		FillRate: 10.0,
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -375,9 +386,18 @@ func TestDeviceCodeFlow_Poll_AuthorizationPending(t *testing.T) {
 	defer mockServer.Close()
 
 	flow := &DeviceCodeFlow{
-		ClientID: "test-client-id",
-		TokenURL: mockServer.URL,
+		ClientID:    "test-client-id",
+		TokenURL:    mockServer.URL,
+		rateLimiter: NewOAuthRateLimiter(),
 	}
+
+	// Configure rate limiter for tests (relaxed limits for device code polling)
+	flow.rateLimiter.Configure(100, 1*time.Minute)
+	// Set device code limiter to allow 10 polls per minute (enough for 1-second interval tests)
+	flow.rateLimiter.deviceCodeLimiter = ratelimit.NewTokenBucketLimiter(ratelimit.BucketConfig{
+		Capacity: 10,
+		FillRate: 10.0,
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -419,9 +439,18 @@ func TestDeviceCodeFlow_Poll_SlowDown(t *testing.T) {
 	defer mockServer.Close()
 
 	flow := &DeviceCodeFlow{
-		ClientID: "test-client-id",
-		TokenURL: mockServer.URL,
+		ClientID:    "test-client-id",
+		TokenURL:    mockServer.URL,
+		rateLimiter: NewOAuthRateLimiter(),
 	}
+
+	// Configure rate limiter for tests (relaxed limits for device code polling)
+	flow.rateLimiter.Configure(100, 1*time.Minute)
+	// Set device code limiter to allow 10 polls per minute (enough for 1-second interval tests)
+	flow.rateLimiter.deviceCodeLimiter = ratelimit.NewTokenBucketLimiter(ratelimit.BucketConfig{
+		Capacity: 10,
+		FillRate: 10.0,
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -449,9 +478,18 @@ func TestDeviceCodeFlow_Poll_ContextCancellation(t *testing.T) {
 	defer mockServer.Close()
 
 	flow := &DeviceCodeFlow{
-		ClientID: "test-client-id",
-		TokenURL: mockServer.URL,
+		ClientID:    "test-client-id",
+		TokenURL:    mockServer.URL,
+		rateLimiter: NewOAuthRateLimiter(),
 	}
+
+	// Configure rate limiter for tests (relaxed limits for device code polling)
+	flow.rateLimiter.Configure(100, 1*time.Minute)
+	// Set device code limiter to allow 10 polls per minute (enough for 1-second interval tests)
+	flow.rateLimiter.deviceCodeLimiter = ratelimit.NewTokenBucketLimiter(ratelimit.BucketConfig{
+		Capacity: 10,
+		FillRate: 10.0,
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -473,9 +511,18 @@ func TestDeviceCodeFlow_Poll_NetworkError(t *testing.T) {
 	mockServer.Close()
 
 	flow := &DeviceCodeFlow{
-		ClientID: "test-client-id",
-		TokenURL: mockServer.URL,
+		ClientID:    "test-client-id",
+		TokenURL:    mockServer.URL,
+		rateLimiter: NewOAuthRateLimiter(),
 	}
+
+	// Configure rate limiter for tests (relaxed limits for device code polling)
+	flow.rateLimiter.Configure(100, 1*time.Minute)
+	// Set device code limiter to allow 10 polls per minute (enough for 1-second interval tests)
+	flow.rateLimiter.deviceCodeLimiter = ratelimit.NewTokenBucketLimiter(ratelimit.BucketConfig{
+		Capacity: 10,
+		FillRate: 10.0,
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

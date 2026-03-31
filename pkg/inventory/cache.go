@@ -4,14 +4,33 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 )
 
 type InventoryCache struct {
 	baseDir string
 	ttl     time.Duration
+}
+
+var (
+	// ErrInvalidSHA256 is returned when an invalid SHA256 hash is provided
+	ErrInvalidSHA256 = errors.New("invalid SHA256 hash")
+)
+
+// isValidSHA256 validates that a string is a valid SHA256 hash (64 hexadecimal characters)
+func isValidSHA256(sha256Str string) bool {
+	// SHA256 hashes are exactly 64 hexadecimal characters
+	if len(sha256Str) != 64 {
+		return false
+	}
+
+	// Check that all characters are valid hexadecimal (0-9, a-f, A-F)
+	match, _ := regexp.MatchString("^[a-fA-F0-9]{64}$", sha256Str)
+	return match
 }
 
 type CacheEntry struct {
@@ -89,9 +108,14 @@ func (c *InventoryCache) Store(host string, inv *Inventory, etag string) error {
 	return os.Symlink(filepath.Base(versionPath), currentPath)
 }
 
-func (c *InventoryCache) StoreSpec(sha256 string, doc *OpenAPIDocument) error {
+func (c *InventoryCache) StoreSpec(sha256Str string, doc *OpenAPIDocument) error {
+	// Validate SHA256 format to prevent path traversal attacks
+	if !isValidSHA256(sha256Str) {
+		return ErrInvalidSHA256
+	}
+
 	specDir := filepath.Join(c.baseDir, "specs")
-	specPath := filepath.Join(specDir, sha256+".json")
+	specPath := filepath.Join(specDir, sha256Str+".json")
 
 	data, err := json.Marshal(doc)
 	if err != nil {
@@ -101,8 +125,13 @@ func (c *InventoryCache) StoreSpec(sha256 string, doc *OpenAPIDocument) error {
 	return os.WriteFile(specPath, data, 0644)
 }
 
-func (c *InventoryCache) GetSpec(sha256 string) *OpenAPIDocument {
-	specPath := filepath.Join(c.baseDir, "specs", sha256+".json")
+func (c *InventoryCache) GetSpec(sha256Str string) *OpenAPIDocument {
+	// Validate SHA256 format to prevent path traversal attacks
+	if !isValidSHA256(sha256Str) {
+		return nil
+	}
+
+	specPath := filepath.Join(c.baseDir, "specs", sha256Str+".json")
 
 	data, err := os.ReadFile(specPath)
 	if err != nil {

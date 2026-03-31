@@ -413,11 +413,12 @@ func TestManager_FetchOpenAPISpec(t *testing.T) {
 				Version: "1.0.0",
 			},
 		}
-		err = manager.cache.StoreSpec("cached-sha256", doc)
+		validSHA := "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e"
+		err = manager.cache.StoreSpec(validSHA, doc)
 		require.NoError(t, err)
 
 		inv := createTestInventory()
-		inv.OpenAPISpec.SHA256 = "cached-sha256"
+		inv.OpenAPISpec.SHA256 = validSHA
 
 		ctx := context.Background()
 		result, err := manager.FetchOpenAPISpec(ctx, inv)
