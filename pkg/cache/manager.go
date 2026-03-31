@@ -26,22 +26,33 @@ type Policy struct {
 	Priority int
 }
 
+const (
+	maxMetricsEntries    = 1000
+	metricsPruneInterval = 10 * time.Minute
+)
+
 type CacheMetrics struct {
 	hits      map[string]int64
 	misses    int64
 	evictions map[string]int64
+	lastPrune time.Time
 	mu        sync.RWMutex
+	stopPrune chan struct{}
 }
 
 func NewCacheManager() *CacheManager {
-	return &CacheManager{
+	cm := &CacheManager{
 		tiers:    make([]CacheTier, 0),
 		policies: make(map[string]Policy),
 		metrics: &CacheMetrics{
 			hits:      make(map[string]int64),
 			evictions: make(map[string]int64),
+			lastPrune: time.Now(),
+			stopPrune: make(chan struct{}),
 		},
 	}
+	cm.startMetricsPruner()
+	return cm
 }
 
 func (cm *CacheManager) AddTier(name string, cache Cache, priority int, maxSize int64) {
@@ -204,6 +215,56 @@ func (cm *CacheManager) recordMiss() {
 	cm.metrics.mu.Lock()
 	defer cm.metrics.mu.Unlock()
 	cm.metrics.misses++
+}
+
+func (cm *CacheManager) startMetricsPruner() {
+	go func() {
+		ticker := time.NewTicker(metricsPruneInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				cm.pruneMetrics()
+			case <-cm.metrics.stopPrune:
+				return
+			}
+		}
+	}()
+}
+
+func (cm *CacheManager) pruneMetrics() {
+	cm.metrics.mu.Lock()
+	defer cm.metrics.mu.Unlock()
+
+	if time.Since(cm.metrics.lastPrune) < metricsPruneInterval {
+		return
+	}
+
+	if len(cm.metrics.hits) > maxMetricsEntries {
+		targetSize := maxMetricsEntries / 2
+		for key := range cm.metrics.hits {
+			delete(cm.metrics.hits, key)
+			if len(cm.metrics.hits) <= targetSize {
+				break
+			}
+		}
+	}
+
+	if len(cm.metrics.evictions) > maxMetricsEntries {
+		targetSize := maxMetricsEntries / 2
+		for key := range cm.metrics.evictions {
+			delete(cm.metrics.evictions, key)
+			if len(cm.metrics.evictions) <= targetSize {
+				break
+			}
+		}
+	}
+
+	cm.metrics.lastPrune = time.Now()
+}
+
+func (cm *CacheManager) Stop() {
+	close(cm.metrics.stopPrune)
 }
 
 func (cm *CacheManager) GetHitRate() float64 {

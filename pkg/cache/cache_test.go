@@ -373,3 +373,159 @@ func TestKeysPattern(t *testing.T) {
 		t.Errorf("Expected 2 keys, got %d", len(keys))
 	}
 }
+
+func TestCacheManager_MetricsPruning(t *testing.T) {
+	cm := NewCacheManager()
+	defer cm.Stop()
+
+	ctx := context.Background()
+	value := Value{
+		Data:      []byte("test data"),
+		CreatedAt: time.Now(),
+		TTL:       time.Hour,
+	}
+
+	for i := 0; i < maxMetricsEntries+500; i++ {
+		key := string(rune('a'+(i%26))) + string(rune('0'+(i/26)%10))
+		_ = cm.Set(ctx, key, value, "default")
+		_, _ = cm.Get(ctx, key)
+	}
+
+	cm.metrics.mu.RLock()
+	hitsLen := len(cm.metrics.hits)
+	evictionsLen := len(cm.metrics.evictions)
+	cm.metrics.mu.RUnlock()
+
+	if hitsLen > maxMetricsEntries {
+		t.Errorf("Expected hits map to be pruned to <= %d, got %d", maxMetricsEntries, hitsLen)
+	}
+
+	if evictionsLen > maxMetricsEntries {
+		t.Errorf("Expected evictions map to be pruned to <= %d, got %d", maxMetricsEntries, evictionsLen)
+	}
+}
+
+func TestCacheManager_PruneMetrics(t *testing.T) {
+	cm := NewCacheManager()
+	defer cm.Stop()
+
+	cm.metrics.mu.Lock()
+	for i := 0; i < 2000; i++ {
+		cm.metrics.hits[string(rune(i))] = int64(i)
+		cm.metrics.evictions[string(rune(i))] = int64(i)
+	}
+	cm.metrics.lastPrune = time.Now().Add(-15 * time.Minute)
+	cm.metrics.mu.Unlock()
+
+	cm.pruneMetrics()
+
+	cm.metrics.mu.RLock()
+	hitsLen := len(cm.metrics.hits)
+	evictionsLen := len(cm.metrics.evictions)
+	cm.metrics.mu.RUnlock()
+
+	targetSize := maxMetricsEntries / 2
+	if hitsLen > targetSize {
+		t.Errorf("Expected hits map to be pruned to <= %d, got %d", targetSize, hitsLen)
+	}
+	if evictionsLen > targetSize {
+		t.Errorf("Expected evictions map to be pruned to <= %d, got %d", targetSize, evictionsLen)
+	}
+}
+
+func TestCacheManager_PruneMetrics_EarlyExit(t *testing.T) {
+	cm := NewCacheManager()
+	defer cm.Stop()
+
+	cm.metrics.mu.Lock()
+	for i := 0; i < 2000; i++ {
+		cm.metrics.hits[string(rune(i))] = int64(i)
+	}
+	cm.metrics.lastPrune = time.Now()
+	cm.metrics.mu.Unlock()
+
+	cm.pruneMetrics()
+
+	cm.metrics.mu.RLock()
+	hitsLen := len(cm.metrics.hits)
+	cm.metrics.mu.RUnlock()
+
+	if hitsLen != 2000 {
+		t.Errorf("Expected hits map to not be pruned (too soon), got %d", hitsLen)
+	}
+}
+
+func TestCacheManager_Stop(t *testing.T) {
+	cm := NewCacheManager()
+
+	cm.Stop()
+
+	select {
+	case <-cm.metrics.stopPrune:
+	default:
+		t.Error("Expected stopPrune channel to be closed")
+	}
+}
+
+func TestCacheManager_ConcurrentMetricsAccess(t *testing.T) {
+	cm := NewCacheManager()
+	defer cm.Stop()
+
+	done := make(chan bool)
+	go func() {
+		for i := 0; i < 1000; i++ {
+			cm.recordHit("tier1")
+			time.Sleep(time.Millisecond)
+		}
+		done <- true
+	}()
+
+	go func() {
+		for i := 0; i < 100; i++ {
+			cm.pruneMetrics()
+			time.Sleep(10 * time.Millisecond)
+		}
+		done <- true
+	}()
+
+	<-done
+	<-done
+}
+
+func TestCacheManager_MetricsBoundedGrowth(t *testing.T) {
+	cm := NewCacheManager()
+	defer cm.Stop()
+
+	ctx := context.Background()
+	value := Value{
+		Data:      []byte("test data"),
+		CreatedAt: time.Now(),
+		TTL:       time.Hour,
+	}
+
+	initialHits := 0
+	cm.metrics.mu.RLock()
+	initialHits = len(cm.metrics.hits)
+	cm.metrics.mu.RUnlock()
+
+	for i := 0; i < 3000; i++ {
+		key := string(rune('a'+(i%26))) + string(rune('0'+(i/26)%10)) + string(rune('0'+(i/100)%10))
+		_ = cm.Set(ctx, key, value, "default")
+		_, _ = cm.Get(ctx, key)
+	}
+
+	cm.metrics.mu.RLock()
+	finalHits := len(cm.metrics.hits)
+	finalEvictions := len(cm.metrics.evictions)
+	cm.metrics.mu.RUnlock()
+
+	if finalHits > maxMetricsEntries {
+		t.Errorf("Expected hits to be bounded to <= %d, got %d", maxMetricsEntries, finalHits)
+	}
+
+	if finalEvictions > maxMetricsEntries {
+		t.Errorf("Expected evictions to be bounded to <= %d, got %d", maxMetricsEntries, finalEvictions)
+	}
+
+	t.Logf("Metrics bounded: hits=%d (initial=%d), evictions=%d", finalHits, initialHits, finalEvictions)
+}
