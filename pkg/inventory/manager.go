@@ -1,3 +1,121 @@
+// Package inventory implements the API Inventory Protocol client for discovering, validating,
+// and caching API specifications from remote inventory servers. It enables dynamic API discovery
+// and seamless integration with enterprise API ecosystems.
+//
+// # Overview
+//
+// The inventory package provides a complete implementation of the API Inventory Protocol, allowing
+// Muster to:
+//
+//   - Discover available APIs from inventory servers
+//   - Download and validate OpenAPI specifications
+//   - Cache specs with ETag-based freshness checking
+//   - Verify spec integrity with SHA-256 checksums
+//   - Handle compressed specs (gzip, brotli)
+//   - Support multiple spec formats (JSON, YAML)
+//   - Track spec versions and metadata
+//
+// # Architecture
+//
+// The package consists of three main components:
+//
+// 1. ProtocolClient: Downloads and validates specs from inventory servers
+// 2. ProtocolCache: Multi-tier caching with ETag support
+// 3. Inventory: In-memory representation of inventory metadata
+//
+// # Usage
+//
+// Create a protocol client:
+//
+//	client := inventory.NewProtocolClient(&http.Client{})
+//
+// Discover APIs from inventory server:
+//
+//	inventoryURL := "https://inventory.example.com/apis"
+//	inv, err := client.FetchInventory(context.Background(), inventoryURL)
+//	if err != nil {
+//	    return err
+//	}
+//	fmt.Printf("Found %d APIs\n", len(inv.Resources))
+//
+// Download and validate a spec:
+//
+//	spec, err := client.DownloadSpec(context.Background(), inv.OpenAPISpec.URL)
+//	if err != nil {
+//	    return err
+//	}
+//	fmt.Printf("Downloaded spec: %d bytes, SHA-256: %s\n", len(spec), inv.OpenAPISpec.SHA256)
+//
+// Use cache with ETag support:
+//
+//	cache := inventory.NewProtocolCache(memory.NewCache(1*time.Hour))
+//	client.SetCache(cache)
+//
+//	// First request - downloads from server
+//	spec1, err := client.DownloadSpec(ctx, specURL)
+//
+//	// Second request - uses cached version (validates ETag)
+//	spec2, err := client.DownloadSpec(ctx, specURL)
+//
+// # Inventory Protocol
+//
+// The inventory protocol expects JSON responses with the following structure:
+//
+//	{
+//	  "schema_version": "1.0.0",
+//	  "generated_at": "2024-01-01T00:00:00Z",
+//	  "api_version": "1.0.0",
+//	  "api_name": "Pet Store API",
+//	  "api_description": "Sample Pet Store API",
+//	  "base_url": "https://api.petstore.com",
+//	  "openapi_spec": {
+//	    "url": "https://inventory.example.com/specs/petstore.yaml",
+//	    "format": "yaml",
+//	    "sha256": "abc123...",
+//	    "size": 12345,
+//	    "last_updated": "2024-01-01T00:00:00Z"
+//	  },
+//	  "resources": [...]
+//	}
+//
+// # Caching Strategy
+//
+// The cache uses a multi-tier approach:
+//
+// 1. Memory cache: Fast access for recently used specs (TTL: 1 hour)
+// 2. ETag validation: Conditional requests to minimize bandwidth
+// 3. SHA-256 verification: Ensures spec integrity on every download
+//
+// # Compression Support
+//
+// The client automatically handles compressed specs:
+//
+//   - gzip: Detected by Content-Encoding header or .gz extension
+//   - brotli: Detected by Content-Encoding header or .br extension
+//   - Identity: Uncompressed specs
+//
+// # Error Handling
+//
+// The package provides detailed error types:
+//
+//   - ErrInvalidSchema: Inventory schema validation failed
+//   - ErrSHA256Mismatch: Downloaded spec hash doesn't match
+//   - ErrUnsupportedFormat: Spec format not supported
+//   - ErrCacheExpired: Cached spec expired, needs refresh
+//
+// # Security
+//
+// The client performs several security validations:
+//
+//   - SHA-256 checksum verification prevents tampering
+//   - Schema validation ensures well-formed inventory
+//   - Size limits prevent DoS attacks
+//   - Redirect following limited to same-origin
+//
+// # Thread Safety
+//
+// ProtocolClient is thread-safe for concurrent use. ProtocolCache uses sync.RWMutex
+// for safe concurrent access.
 package inventory
 
 import (

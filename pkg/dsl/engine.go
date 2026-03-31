@@ -1,3 +1,180 @@
+// Package dsl provides a Starlark-based scripting engine for automating complex API workflows,
+// data transformations, and multi-step operations. It enables users to write custom scripts that
+// orchestrate multiple API calls, perform conditional logic, and manipulate data.
+//
+// # Overview
+//
+// The DSL (Domain-Specific Language) package embeds a Starlark interpreter to provide a safe,
+// sandboxed scripting environment within Muster. Starlark is a dialect of Python designed for
+// automation and configuration, offering:
+//
+//   - Python-like syntax familiar to developers
+//   - Safe execution with resource limits and timeouts
+//   - No arbitrary code execution (no eval, exec, import)
+//   - Deterministic execution (no recursion, limited loops)
+//   - Rich data structures (lists, dicts, tuples)
+//   - Built-in functions for API operations
+//
+// # Architecture
+//
+// The package consists of four main components:
+//
+// 1. Engine: Script loading, compilation, and execution management
+// 2. Interpreter: Starlark interpreter wrapper with error handling
+// 3. ExecutionContext: Per-script execution context with isolated globals
+// 4. Built-in functions: Predefined functions for API operations (http.get, http.post, etc.)
+//
+// # Usage
+//
+// Create a DSL engine:
+//
+//	engine := dsl.NewEngine(nil) // Uses default configuration
+//
+// Load and execute a script:
+//
+//	script, err := engine.LoadScript("workflow.star")
+//	if err != nil {
+//	    return err
+//	}
+//
+//	result, err := engine.Execute(context.Background(), script, dsl.ExecutionContext{
+//	    Variables: map[string]interface{}{
+//	        "base_url": "https://api.example.com",
+//	        "api_key":  "secret123",
+//	    },
+//	})
+//	if err != nil {
+//	    return err
+//	}
+//	fmt.Printf("Script completed: %v\n", result.Returned)
+//
+// Example Starlark script (workflow.star):
+//
+//	# @input base_url: string - Base API URL
+//	# @input api_key: string - API key for authentication
+//	# @output result: dict - Combined API response
+//
+//	def main():
+//	    # Fetch user data
+//	    user = http.get(base_url + "/users/123",
+//	        headers = {"Authorization": "Bearer " + api_key}
+//	    )
+//
+//	    # Fetch user's posts
+//	    posts = http.get(base_url + "/users/123/posts")
+//
+//	    # Combine results
+//	    return {
+//	        "user": user.json(),
+//	        "posts": posts.json(),
+//	    }
+//
+// # Script Metadata
+//
+// Scripts can include metadata annotations parsed by the engine:
+//
+//   - @input: Declares required input variables with type and description
+//   - @output: Declares expected output type and description
+//   - @timeout: Overrides default execution timeout
+//   - @description: Provides script documentation
+//
+// Example metadata:
+//
+//	# @input user_id: int - User ID to fetch
+//	# @input include_posts: bool - Whether to include posts (default: true)
+//	# @output user: dict - User object with optional posts
+//	# @timeout 30s
+//	# @description Fetches user data with optional posts
+//
+// # Built-in Functions
+//
+// The DSL provides built-in functions for common operations:
+//
+// HTTP Operations:
+//
+//	http.get(url, headers={}, params={}) → Response
+//	http.post(url, data, headers={}) → Response
+//	http.put(url, data, headers={}) → Response
+//	http.delete(url, headers={}) → Response
+//
+// Utility Functions:
+//
+//	print(value)              # Print to stdout
+//	len(collection)           # Get collection length
+//	range(n)                  # Generate number sequence
+//	str(value)                # Convert to string
+//	int(value)                # Convert to integer
+//	float(value)              # Convert to float
+//	bool(value)               # Convert to boolean
+//	json.encode(value)        # Encode as JSON
+//	json.decode(string)       # Decode from JSON
+//
+// # Security and Sandboxing
+//
+// The DSL engine enforces strict security constraints:
+//
+//   - No arbitrary file system access (blocked by default)
+//   - No network access except through http.* built-ins
+//   - No dynamic code execution (eval, exec, import blocked)
+//   - No recursion (prevents stack overflow)
+//   - Loop limits prevent infinite loops
+//   - Execution timeout (default: 30 seconds)
+//   - Memory limits (configurable)
+//   - CPU time limits (configurable)
+//
+// Configure security settings:
+//
+//	config := dsl.NewDefaultEngineConfig()
+//	config.MaxExecutionTime = 60 * time.Second
+//	config.MaxMemoryMB = 128
+//	config.AllowFileAccess = false
+//
+//	engine := dsl.NewEngine(config)
+//
+// # Error Handling
+//
+// The engine provides detailed error information:
+//
+//   - DSLError: Wrap Starlark errors with context
+//   - ErrorType: Categorizes errors (Syntax, Runtime, Timeout, Security, etc.)
+//   - Stack traces: Include file, line, column information
+//   - Helpful messages: Human-readable error descriptions
+//
+// Example error handling:
+//
+//	result, err := engine.Execute(ctx, script, context)
+//	if err != nil {
+//	    if dslErr, ok := err.(*dsl.DSLError); ok {
+//	        fmt.Printf("Error type: %s\n", dslErr.Type())
+//	        fmt.Printf("Error message: %s\n", dslErr.Message())
+//	        fmt.Printf("Stack trace: %s\n", dslErr.StackTrace())
+//	    }
+//	}
+//
+// # Execution Context
+//
+// Each script execution receives an isolated context:
+//
+//	type ExecutionContext struct {
+//	    Variables    map[string]interface{}  # Input variables
+//	    Globals      starlark.StringDict     # Pre-loaded globals
+//	    Locals       starlark.StringDict     # Execution locals
+//	    ResourceLimits *ResourceLimits       # CPU/memory limits
+//	}
+//
+// # Threading
+//
+// Engine instances are NOT thread-safe. Create separate engines for concurrent script execution.
+// Individual script executions are isolated and can run concurrently in separate engines.
+//
+// # Integration
+//
+// The DSL integrates with:
+//
+//   - pkg/request: HTTP request building and execution
+//   - pkg/response: Response parsing and formatting
+//   - cmd/cli: Custom script execution commands
+//   - pkg/wasm: Alternative sandboxed execution (WASM modules)
 package dsl
 
 import (
