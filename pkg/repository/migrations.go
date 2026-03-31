@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/pressly/goose/v3"
@@ -148,15 +150,69 @@ func (mm *MigrationManager) Status() (*MigrationStatus, error) {
 	}, nil
 }
 
+// sanitizeMigrationName sanitizes migration name to prevent path traversal attacks.
+// Only allows alphanumeric characters and underscores.
+func sanitizeMigrationName(name string) (string, error) {
+	if name == "" {
+		return "", fmt.Errorf("migration name cannot be empty")
+	}
+
+	// Reject null bytes
+	if strings.Contains(name, "\x00") {
+		return "", fmt.Errorf("migration name cannot contain null bytes")
+	}
+
+	// Reject path separators and traversal sequences
+	if strings.ContainsAny(name, `/\`) || strings.Contains(name, "..") {
+		return "", fmt.Errorf("migration name cannot contain path separators or traversal sequences")
+	}
+
+	// Only allow alphanumeric characters and underscores
+	validName := regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+	if !validName.MatchString(name) {
+		return "", fmt.Errorf("migration name can only contain alphanumeric characters and underscores")
+	}
+
+	return name, nil
+}
+
+// validatePathIsWithinDir ensures the resolved path is within the allowed directory
+func validatePathIsWithinDir(baseDir, fullPath string) error {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return fmt.Errorf("resolve base directory: %w", err)
+	}
+
+	absFull, err := filepath.Abs(fullPath)
+	if err != nil {
+		return fmt.Errorf("resolve full path: %w", err)
+	}
+
+	if !strings.HasPrefix(absFull, absBase) {
+		return fmt.Errorf("path traversal detected: %s is not within %s", absFull, absBase)
+	}
+
+	return nil
+}
+
 // CreateMigration creates a new migration file
 func (mm *MigrationManager) CreateMigration(name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("migration name is required")
 	}
 
+	sanitizedName, err := sanitizeMigrationName(name)
+	if err != nil {
+		return "", fmt.Errorf("sanitize migration name: %w", err)
+	}
+
 	timestamp := time.Now().Format("20060102150405")
-	filename := fmt.Sprintf("%s_%s.sql", timestamp, name)
-	filepath := filepath.Join(mm.dir, filename)
+	filename := fmt.Sprintf("%s_%s.sql", timestamp, sanitizedName)
+	fullPath := filepath.Join(mm.dir, filename)
+
+	if err := validatePathIsWithinDir(mm.dir, fullPath); err != nil {
+		return "", fmt.Errorf("validate migration path: %w", err)
+	}
 
 	template := `-- +goose Up
 -- +goose StatementBegin
@@ -173,15 +229,15 @@ DROP TABLE IF EXISTS example;
 -- +goose StatementEnd
 `
 
-	if err := os.WriteFile(filepath, []byte(template), 0644); err != nil {
+	if err := os.WriteFile(fullPath, []byte(template), 0644); err != nil {
 		return "", fmt.Errorf("write migration file: %w", err)
 	}
 
 	if mm.log != nil {
-		mm.log.Info("Created migration file", zap.String("file", filename))
+		mm.log.Info("Created migration file", zap.String("file", fullPath))
 	}
 
-	return filepath, nil
+	return fullPath, nil
 }
 
 // Redo rolls back and re-applies the last migration

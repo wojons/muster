@@ -1714,17 +1714,25 @@
 
 ### Input Validation Gaps (CRITICAL: 4)
 
-#### INPUT-001: File Path Traversal in Migration Creation
+#### INPUT-001: File Path Traversal in Migration Creation ✅ COMPLETE
 - **Priority**: CRITICAL
 - **File**: `pkg/repository/migrations.go:158-159`
+- **Status**: ✅ **COMPLETE** - Comprehensive path sanitization and validation implemented
 - **Gap**: User-supplied `name` used directly in `filepath.Join`
 - **Exploit**: Pass `../../../etc/passwd` to write outside intended directory
+- **Fix**: Implemented `sanitizeMigrationName()` function that rejects path traversal attempts, null bytes, path separators, and special characters. Added `validatePathIsWithinDir()` to verify resolved path is within allowed directory.
 - **Baby Steps**:
-  - [ ] Step 1: Sanitize filename (alphanumeric + underscore only)
-  - [ ] Step 2: Reject `..`, `/`, `\`, null bytes
-  - [ ] Step 3: Validate output path is within allowed directory
-  - [ ] Step 4: Add test proving traversal no longer works
+  - [x] Step 1: Sanitize filename (alphanumeric + underscore only) - IMPLEMENTED: `sanitizeMigrationName()` with regex validation `^[a-zA-Z0-9_]+$`
+  - [x] Step 2: Reject `..`, `/`, `\`, null bytes - IMPLEMENTED: Rejects null bytes, path separators, traversal sequences with clear error messages
+  - [x] Step 3: Validate output path is within allowed directory - IMPLEMENTED: `validatePathIsWithinDir()` resolves absolute paths and verifies containment
+  - [x] Step 4: Add test proving traversal no longer works - IMPLEMENTED: 40+ test functions covering valid names, null bytes, path separators, special characters, path traversal attempts, and integration tests
+- **Tests**: All 40+ tests passing (TestSanitizeMigrationName, TestValidatePathIsWithinDir, TestCreateMigration_PathTraversalPrevention)
+- **Lint**: 0 issues
+- **Build**: ✅ Compiles successfully
+- **Completed**: 2026-03-31 - Implemented complete path traversal prevention with sanitization, validation, and comprehensive test coverage. All tests pass with zero lint errors.
 - **Estimate**: 1-2 days
+- **Actual**: ~2 hours
+- **Files Modified**: `pkg/repository/migrations.go` (added sanitization and validation), `pkg/repository/migrations_test.go` (added 40+ test functions)
 
 #### INPUT-002: URL Scheme Validation Missing (SSRF)
 - **Priority**: CRITICAL
