@@ -132,3 +132,212 @@ func TestCreateMigrationFilename(t *testing.T) {
 		t.Error("path should include filename")
 	}
 }
+
+func TestSanitizeMigrationName(t *testing.T) {
+	t.Run("ValidNames", func(t *testing.T) {
+		validNames := []string{
+			"add_users_table",
+			"create_posts",
+			"update_schema_v1",
+			"AddUsersTable",
+			"ADD_USERS_TABLE",
+			"users123",
+			"_underscore_",
+			"a",
+			"ABC123_xyz",
+		}
+
+		for _, name := range validNames {
+			t.Run(name, func(t *testing.T) {
+				sanitized, err := sanitizeMigrationName(name)
+				if err != nil {
+					t.Errorf("unexpected error for %q: %v", name, err)
+				}
+				if sanitized != name {
+					t.Errorf("expected %q, got %q", name, sanitized)
+				}
+			})
+		}
+	})
+
+	t.Run("EmptyName", func(t *testing.T) {
+		_, err := sanitizeMigrationName("")
+		if err == nil {
+			t.Error("expected error for empty name")
+		}
+	})
+
+	t.Run("NullBytes", func(t *testing.T) {
+		nullByteNames := []string{
+			"test\x00name",
+			"\x00",
+			"name\x00",
+		}
+
+		for _, name := range nullByteNames {
+			t.Run(name, func(t *testing.T) {
+				_, err := sanitizeMigrationName(name)
+				if err == nil {
+					t.Errorf("expected error for null byte in %q", name)
+				}
+			})
+		}
+	})
+
+	t.Run("PathSeparators", func(t *testing.T) {
+		invalidNames := []string{
+			"test/name",
+			"test\\name",
+			"/etc/passwd",
+			"C:\\Windows\\System32",
+			"../traversal",
+			"..\\traversal",
+			"test/../name",
+			"test\\..\\name",
+			"../../etc/passwd",
+			"..\\..\\etc\\passwd",
+		}
+
+		for _, name := range invalidNames {
+			t.Run(name, func(t *testing.T) {
+				_, err := sanitizeMigrationName(name)
+				if err == nil {
+					t.Errorf("expected error for path separator in %q", name)
+				}
+			})
+		}
+	})
+
+	t.Run("SpecialCharacters", func(t *testing.T) {
+		invalidNames := []string{
+			"test-name",
+			"test.name",
+			"test name",
+			"test@name",
+			"test#name",
+			"test$name",
+			"test%name",
+			"test^name",
+			"test&name",
+			"test*name",
+			"test(name)",
+			"test[name]",
+			"test{name}",
+			"test|name",
+			"test;name",
+			"test:name",
+			"test'name",
+			"test\"name",
+			"test<name>",
+			"test,name",
+			"test?name",
+			"test!name",
+			"test~name",
+			"test`name",
+		}
+
+		for _, name := range invalidNames {
+			t.Run(name, func(t *testing.T) {
+				_, err := sanitizeMigrationName(name)
+				if err == nil {
+					t.Errorf("expected error for special character in %q", name)
+				}
+			})
+		}
+	})
+}
+
+func TestValidatePathIsWithinDir(t *testing.T) {
+	t.Run("ValidPath", func(t *testing.T) {
+		baseDir := "/tmp/migrations"
+		fullPath := "/tmp/migrations/001_test.sql"
+
+		err := validatePathIsWithinDir(baseDir, fullPath)
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("PathTraversal", func(t *testing.T) {
+		baseDir := "/tmp/migrations"
+		fullPath := "/etc/passwd"
+
+		err := validatePathIsWithinDir(baseDir, fullPath)
+		if err == nil {
+			t.Error("expected error for path traversal")
+		}
+	})
+
+	t.Run("RelativePathTraversal", func(t *testing.T) {
+		baseDir := "/tmp/migrations"
+		fullPath := "/tmp/migrations/../../../etc/passwd"
+
+		err := validatePathIsWithinDir(baseDir, fullPath)
+		if err == nil {
+			t.Error("expected error for relative path traversal")
+		}
+	})
+}
+
+func TestCreateMigration_PathTraversalPrevention(t *testing.T) {
+	sm, err := NewSQLiteManager(&SQLiteConfig{Path: ":memory:"}, nil)
+	if err != nil {
+		t.Fatalf("NewSQLiteManager failed: %v", err)
+	}
+	defer func() { _ = sm.Close() }()
+
+	dir := t.TempDir()
+	mm, err := NewMigrationManager(sm.GetDB(), dir, nil)
+	if err != nil {
+		t.Fatalf("NewMigrationManager failed: %v", err)
+	}
+
+	t.Run("PathTraversalWithDotDot", func(t *testing.T) {
+		_, err := mm.CreateMigration("../../etc/passwd")
+		if err == nil {
+			t.Error("expected error for path traversal with ..")
+		}
+	})
+
+	t.Run("PathTraversalWithSlash", func(t *testing.T) {
+		_, err := mm.CreateMigration("test/name")
+		if err == nil {
+			t.Error("expected error for path traversal with /")
+		}
+	})
+
+	t.Run("PathTraversalWithBackslash", func(t *testing.T) {
+		_, err := mm.CreateMigration("test\\name")
+		if err == nil {
+			t.Error("expected error for path traversal with \\")
+		}
+	})
+
+	t.Run("NullByteInjection", func(t *testing.T) {
+		_, err := mm.CreateMigration("test\x00name")
+		if err == nil {
+			t.Error("expected error for null byte injection")
+		}
+	})
+
+	t.Run("SpecialCharacters", func(t *testing.T) {
+		_, err := mm.CreateMigration("test-name")
+		if err == nil {
+			t.Error("expected error for special characters")
+		}
+	})
+
+	t.Run("ValidName", func(t *testing.T) {
+		path, err := mm.CreateMigration("valid_migration_name")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if path == "" {
+			t.Error("expected non-empty path")
+		}
+
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			t.Errorf("migration file does not exist: %s", path)
+		}
+	})
+}
