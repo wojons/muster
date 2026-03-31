@@ -37,6 +37,164 @@ func TestBuilder_WithQueryParam(t *testing.T) {
 	require.Equal(t, "10", b.queryParams.Get("limit"))
 }
 
+func TestBuilder_WithQueryParam_Injection_Prevented(t *testing.T) {
+	t.Run("carriage return injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("callback", "myFunc\r\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("newline injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("callback", "myFunc\nX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("encoded crlf injection", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("callback", "myFunc%0d%0aX-Injected: malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("ampersand injection in name", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("param&injected=value", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("equals injection in name", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("param=injected", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("hash injection in name", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("param#injected", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("question mark injection in name", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("param?injected", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("ampersand injection in value", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("callback", "myFunc&injected=malicious")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("equals injection in value", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("callback", "myFunc=injected")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("hash injection in value", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("redirect", "http://example.com#injected")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("question mark injection in value", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("redirect", "http://example.com?injected=param")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("control characters in name", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("param\x00injected", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("DEL character in value", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("callback", "myFunc\x7finjected")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+
+	t.Run("parameter splitting attack", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("callback", "myFunc\r\nSet-Cookie: session=hacked")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidQueryParam)
+	})
+}
+
+func TestBuilder_WithQueryParam_ValidValues(t *testing.T) {
+	t.Run("normal query param", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("limit", "10")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "10", b.queryParams.Get("limit"))
+	})
+
+	t.Run("query param with special characters", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("filter", "name-age_25")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "name-age_25", b.queryParams.Get("filter"))
+	})
+
+	t.Run("query param with unicode", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("search", "日本語")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "日本語", b.queryParams.Get("search"))
+	})
+
+	t.Run("query param with spaces", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("q", "hello world")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "hello world", b.queryParams.Get("q"))
+	})
+
+	t.Run("empty query param value", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("optional", "")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "", b.queryParams.Get("optional"))
+	})
+
+	t.Run("query param with dots", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("version", "1.2.3")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "1.2.3", b.queryParams.Get("version"))
+	})
+
+	t.Run("query param with plus sign", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithQueryParam("operator", "C++")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "C++", b.queryParams.Get("operator"))
+	})
+}
+
 func TestBuilder_WithHeader(t *testing.T) {
 	b := NewBuilder("https://api.example.com", "/users", "GET")
 
@@ -143,6 +301,119 @@ func TestBuilder_WithHeader_ValidValues(t *testing.T) {
 
 		require.NoError(t, b.buildError)
 		require.Equal(t, "", b.headers.Get("X-Custom"))
+	})
+}
+
+func TestBuilder_WithHeader_HeaderKeyInjection_Prevented(t *testing.T) {
+	t.Run("carriage return in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom\r\nX-Injected", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("newline in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom\nX-Injected", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("encoded crlf in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom%0d%0aX-Injected", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("colon in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom:Injected", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("space in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom Header", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("tab in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom\tHeader", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("empty header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("control characters in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom\x00Header", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("DEL character in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom\x7fHeader", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("leading colon in header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader(":authority", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+
+	t.Run("header splitting attack in key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom\r\nSet-Cookie: session=hacked", "value")
+
+		require.ErrorIs(t, b.buildError, ErrInvalidHeaderName)
+	})
+}
+
+func TestBuilder_WithHeader_ValidKeys(t *testing.T) {
+	t.Run("standard header key", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("Content-Type", "application/json")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "application/json", b.headers.Get("Content-Type"))
+	})
+
+	t.Run("custom header key with hyphen", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X-Custom-Header", "value")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "value", b.headers.Get("X-Custom-Header"))
+	})
+
+	t.Run("header key with underscore", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("X_Custom_Header", "value")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "value", b.headers.Get("X_Custom_Header"))
+	})
+
+	t.Run("authorization header", func(t *testing.T) {
+		b := NewBuilder("https://api.example.com", "/users", "GET")
+		b.WithHeader("Authorization", "Bearer token123")
+
+		require.NoError(t, b.buildError)
+		require.Equal(t, "Bearer token123", b.headers.Get("Authorization"))
 	})
 }
 

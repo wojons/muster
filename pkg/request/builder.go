@@ -35,6 +35,8 @@ type Builder struct {
 const defaultMaxResponseBody = 10 << 20 // 10 MB
 
 var ErrInvalidHeaderValue = fmt.Errorf("invalid header value: CRLF injection detected")
+var ErrInvalidHeaderName = fmt.Errorf("invalid header name: RFC 7230 violation detected")
+var ErrInvalidQueryParam = fmt.Errorf("invalid query parameter: injection detected")
 
 func NewBuilder(baseURL, path, method string) *Builder {
 	return &Builder{
@@ -55,6 +57,10 @@ func (b *Builder) WithPathParam(name, value string) *Builder {
 }
 
 func (b *Builder) WithQueryParam(name, value string) *Builder {
+	if !isValidQueryParam(name) || !isValidQueryParam(value) {
+		b.buildError = ErrInvalidQueryParam
+		return b
+	}
 	if value != "" {
 		b.queryParams.Add(name, value)
 	}
@@ -62,6 +68,10 @@ func (b *Builder) WithQueryParam(name, value string) *Builder {
 }
 
 func (b *Builder) WithHeader(key, value string) *Builder {
+	if !isValidHeaderName(key) {
+		b.buildError = ErrInvalidHeaderName
+		return b
+	}
 	if !isValidHeaderValue(value) {
 		b.buildError = ErrInvalidHeaderValue
 		return b
@@ -78,6 +88,56 @@ func isValidHeaderValue(value string) bool {
 	}
 	lower := strings.ToLower(value)
 	if strings.Contains(lower, "%0d") || strings.Contains(lower, "%0a") {
+		return false
+	}
+	return true
+}
+
+func isValidHeaderName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, c := range name {
+		if c == '\r' || c == '\n' {
+			return false
+		}
+		if c < 32 || c == 127 {
+			return false
+		}
+		if c == ' ' || c == '\t' {
+			return false
+		}
+		if c == ':' {
+			return false
+		}
+	}
+	lower := strings.ToLower(name)
+	if strings.Contains(lower, "%0d") || strings.Contains(lower, "%0a") {
+		return false
+	}
+	if strings.HasPrefix(lower, ":") {
+		return false
+	}
+	return true
+}
+
+func isValidQueryParam(s string) bool {
+	if s == "" {
+		return true
+	}
+	for _, c := range s {
+		if c == '\r' || c == '\n' {
+			return false
+		}
+		if c < 32 || c == 127 {
+			return false
+		}
+	}
+	lower := strings.ToLower(s)
+	if strings.Contains(lower, "%0d") || strings.Contains(lower, "%0a") {
+		return false
+	}
+	if strings.ContainsAny(s, "&=#?") {
 		return false
 	}
 	return true
