@@ -1355,7 +1355,7 @@
 - **Estimate**: 2-3 days
 - **Actual**: 30 minutes (verification only)
 
-#### SEC-ADV-017: WASM Module Hash Collision (ZERO-DAY) - 🟡 LOW RISK (CLI TOOL)
+#### SEC-ADV-017: WASM Module Hash Collision (ZERO-DAY) - ✅ COMPLETE
 - **Priority**: HIGH - ZERO-DAY
 - **CVE-style ID**: MUS-2026-017
 - **CVSS Score**: 7.5
@@ -1366,11 +1366,13 @@
 - **Enhancement** (optional): Store module hash alongside cached data, verify on load
 - **Baby Steps**:
   - [x] Step 1: Include module SHA-256 in cache key - NOT NEEDED (hash computed on load)
-  - [x] Step 2: Verify module hash on cache load - PARTIAL (hash computed but not verified)
-  - [ ] Step 3: Add test proving collision no longer works - OPTIONAL ENHANCEMENT
-- **Recommendation**: Document in security guide that cache integrity relies on file system permissions. Consider adding hash file (.sha256) alongside cached modules in future.
+  - [x] Step 2: Verify module hash on cache load - IMPLEMENTED: LoadWithCache() verifies cached module hash against expected hash, invalidates corrupted cache and reloads from source
+  - [x] Step 3: Add test proving collision no longer works - IMPLEMENTED: TestLoader_LoadWithCache_HashCollisionPrevention with 5 comprehensive test functions proving hash collision resistance, single-bit flip detection, cache tampering detection, and automatic cache invalidation
+- **Recommendation**: ✅ IMPLEMENTED - Hash verification now automatic when source.Hash is provided; cache auto-invalidates on hash mismatch
 - **Estimate**: 2-3 days (if implemented)
-- **Decision**: DEFERRED - Low risk for CLI tool, acceptable with current file permissions (0600)
+- **Actual**: ~2 hours
+- **Completed**: 2026-03-31 - Implemented hash verification in LoadWithCache() that validates cached module hash against expected hash. When mismatch detected, cache is automatically invalidated and module reloaded from trusted source. Added comprehensive test suite (TestLoader_LoadWithCache_HashCollisionPrevention) with 5 test functions proving: (1) hash consistency across loads, (2) hash changes with content modification, (3) single-bit flip detection, (4) collision resistance with varying sizes, (5) cache tampering detection with automatic recovery. All tests pass with zero lint errors.
+- **Decision**: ✅ COMPLETE - Hash collision attack mitigated via automatic hash verification and cache invalidation
 
 #### SEC-ADV-018: Ghost Token Revival (ZERO-DAY) ✅ COMPLETE
 - **Priority**: CRITICAL - ZERO-DAY
