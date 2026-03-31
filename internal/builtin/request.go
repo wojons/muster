@@ -46,10 +46,23 @@ func newRequestCommand() *cobra.Command {
 	return cmd
 }
 
+// validateURLScheme checks if the URL scheme is safe for HTTP requests.
+// Only http and https schemes are allowed to prevent SSRF attacks.
+func validateURLScheme(scheme string) error {
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("unsupported scheme %q - only http and https are allowed", scheme)
+	}
+	return nil
+}
+
 func handleRequest(method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody string) error {
 	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
 		return fmt.Errorf("parse URL: %w", err)
+	}
+
+	if err := validateURLScheme(parsedURL.Scheme); err != nil {
+		return fmt.Errorf("invalid URL scheme: %w", err)
 	}
 
 	builder := request.NewBuilder(parsedURL.Scheme+"://"+parsedURL.Host, parsedURL.Path, method)

@@ -279,3 +279,168 @@ func TestRequestCommandIntegration(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestValidateURLScheme(t *testing.T) {
+	tests := []struct {
+		name    string
+		scheme  string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid http scheme",
+			scheme:  "http",
+			wantErr: false,
+		},
+		{
+			name:    "valid https scheme",
+			scheme:  "https",
+			wantErr: false,
+		},
+		{
+			name:    "invalid file scheme",
+			scheme:  "file",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+		{
+			name:    "invalid gopher scheme",
+			scheme:  "gopher",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+		{
+			name:    "invalid dict scheme",
+			scheme:  "dict",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+		{
+			name:    "invalid ftp scheme",
+			scheme:  "ftp",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+		{
+			name:    "invalid javascript scheme",
+			scheme:  "javascript",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+		{
+			name:    "invalid data scheme",
+			scheme:  "data",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+		{
+			name:    "invalid jar scheme",
+			scheme:  "jar",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+		{
+			name:    "invalid blob scheme",
+			scheme:  "blob",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+		{
+			name:    "empty scheme",
+			scheme:  "",
+			wantErr: true,
+			errMsg:  "unsupported scheme",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateURLScheme(tt.scheme)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateURLScheme_SSRFPrevention(t *testing.T) {
+	dangerousSchemes := []string{
+		"file",
+		"gopher",
+		"dict",
+		"ftp",
+		"javascript",
+		"data",
+		"jar",
+		"blob",
+		"moz-extension",
+		"chrome-extension",
+		"safari-extension",
+		"ms-browser-extension",
+		"opera-extension",
+	}
+
+	for _, scheme := range dangerousSchemes {
+		t.Run(scheme+"_scheme_blocked", func(t *testing.T) {
+			err := validateURLScheme(scheme)
+			assert.Error(t, err, "Scheme %s should be blocked to prevent SSRF attacks", scheme)
+			assert.Contains(t, err.Error(), "unsupported scheme")
+		})
+	}
+}
+
+func TestHandleRequest_SSRFPrevention(t *testing.T) {
+	t.Run("blocks file scheme SSRF attack", func(t *testing.T) {
+		err := handleRequest("GET", "file:///etc/passwd", []string{}, []string{}, "json", false, 30*time.Second, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid URL scheme")
+		assert.Contains(t, err.Error(), "unsupported scheme")
+	})
+
+	t.Run("blocks gopher scheme SSRF attack", func(t *testing.T) {
+		err := handleRequest("GET", "gopher://internal-server/attack", []string{}, []string{}, "json", false, 30*time.Second, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid URL scheme")
+		assert.Contains(t, err.Error(), "unsupported scheme")
+	})
+
+	t.Run("blocks dict scheme SSRF attack", func(t *testing.T) {
+		err := handleRequest("GET", "dict://attacker-server/attack", []string{}, []string{}, "json", false, 30*time.Second, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid URL scheme")
+		assert.Contains(t, err.Error(), "unsupported scheme")
+	})
+
+	t.Run("blocks javascript scheme SSRF attack", func(t *testing.T) {
+		err := handleRequest("GET", "javascript:alert('XSS')", []string{}, []string{}, "json", false, 30*time.Second, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid URL scheme")
+		assert.Contains(t, err.Error(), "unsupported scheme")
+	})
+
+	t.Run("allows http scheme", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		err := handleRequest("GET", server.URL, []string{}, []string{}, "json", false, 30*time.Second, "")
+		require.NoError(t, err)
+	})
+
+	t.Run("allows https scheme", func(t *testing.T) {
+		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		err := handleRequest("GET", server.URL, []string{}, []string{}, "json", false, 30*time.Second, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "certificate")
+	})
+}
