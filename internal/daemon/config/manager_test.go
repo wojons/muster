@@ -35,7 +35,7 @@ func TestManager_Load(t *testing.T) {
 		// Create a test config file
 		testConfig := `{
 			"socket_path": "/custom/socket.sock",
-			"target_url": "http://example.com",
+			"target_url": "https://example.com",
 			"max_connections": 200,
 			"read_timeout": 30000000000,
 			"write_timeout": 30000000000
@@ -49,7 +49,7 @@ func TestManager_Load(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, cfg)
 		assert.Equal(t, "/custom/socket.sock", cfg.SocketPath)
-		assert.Equal(t, "http://example.com", cfg.TargetURL)
+		assert.Equal(t, "https://example.com", cfg.TargetURL)
 		assert.Equal(t, 200, cfg.MaxConnections)
 	})
 
@@ -86,7 +86,7 @@ func TestManager_Load(t *testing.T) {
 
 		testConfig := `{
 			"socket_path": "",
-			"target_url": "http://example.com",
+			"target_url": "https://example.com",
 			"max_connections": 100,
 			"read_timeout": 30000000000,
 			"write_timeout": 30000000000

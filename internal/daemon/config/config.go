@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -29,7 +30,7 @@ func Default() *Config {
 		SocketPath:      "/var/run/muster/daemon.sock",
 		PIDFile:         "/var/run/muster/daemon.pid",
 		LogFile:         "/var/log/muster/daemon.log",
-		TargetURL:       "http://localhost:8080",
+		TargetURL:       "https://localhost:8080",
 		SocketMode:      0660,
 		MaxConnections:  100,
 		KeepAlive:       true,
@@ -58,7 +59,60 @@ func (c *Config) Validate() error {
 	if c.WriteTimeout <= 0 {
 		return fmt.Errorf("write_timeout must be positive")
 	}
+
+	// Check for insecure HTTP URLs in production
+	if c.isInsecureURL() {
+		return fmt.Errorf("insecure HTTP URL detected: %s (use HTTPS in production)", c.TargetURL)
+	}
+
 	return nil
+}
+
+// ValidateDev checks configuration validity with warnings for development
+func (c *Config) ValidateDev() error {
+	if c.SocketPath == "" {
+		return fmt.Errorf("socket_path is required")
+	}
+	if c.TargetURL == "" {
+		return fmt.Errorf("target_url is required")
+	}
+	if c.MaxConnections <= 0 {
+		return fmt.Errorf("max_connections must be positive")
+	}
+	if c.ReadTimeout <= 0 {
+		return fmt.Errorf("read_timeout must be positive")
+	}
+	if c.WriteTimeout <= 0 {
+		return fmt.Errorf("write_timeout must be positive")
+	}
+
+	// Warn but don't fail for HTTP in development
+	if c.isInsecureURL() {
+		fmt.Fprintf(os.Stderr, "WARNING: Using insecure HTTP URL: %s (use HTTPS in production)\n", c.TargetURL)
+	}
+
+	return nil
+}
+
+// isInsecureURL checks if the URL uses HTTP instead of HTTPS
+func (c *Config) isInsecureURL() bool {
+	return strings.HasPrefix(c.TargetURL, "http://") &&
+		!strings.Contains(c.TargetURL, "localhost") &&
+		!strings.Contains(c.TargetURL, "127.0.0.1")
+}
+
+// IsProductionReady checks if configuration is safe for production use
+func (c *Config) IsProductionReady() bool {
+	if err := c.Validate(); err != nil {
+		return false
+	}
+
+	// Explicitly check for HTTPS in production
+	if !strings.HasPrefix(c.TargetURL, "https://") {
+		return false
+	}
+
+	return true
 }
 
 // String returns a JSON representation of the config
