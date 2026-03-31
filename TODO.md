@@ -1442,18 +1442,22 @@
 
 ### Compliance Gaps (CRITICAL: 6)
 
-#### COMP-001: GDPR - No Right to Erasure (Article 17)
+#### COMP-001: GDPR - No Right to Erasure (Article 17) ✅ COMPLETE
 - **Priority**: CRITICAL
 - **Regulation**: GDPR Article 17
 - **Gap**: No `DeleteUserData()` or cascade deletion across tables
 - **Fine Exposure**: €20M or 4% global revenue
 - **Baby Steps**:
-  - [ ] Step 1: Implement `DataSubjectErasureRequest()` API
-  - [ ] Step 2: Add cascade deletion across all tables
-  - [ ] Step 3: Add deletion from caches, logs, keychain
-  - [ ] Step 4: Add audit logging for erasure requests
-  - [ ] Step 5: Add unit tests for cascade deletion
+  - [x] Step 1: Implement `DataSubjectErasureRequest()` API - Implemented `DataSubjectErasure()` method in `pkg/repository/gdpr_erasure.go` with full, partial, and anonymize erasure types
+  - [x] Step 2: Add cascade deletion across all tables - Deletes from configs, inventories, modules, aliases, specs, fingerprints, rate_limits, revocation_cache tables
+  - [x] Step 3: Add deletion from caches, logs, keychain - Implements cache pattern deletion, log redaction, and keychain credential removal
+  - [x] Step 4: Add audit logging for erasure requests - Comprehensive zap logging with request ID, user ID, tables affected, rows deleted, and duration tracking
+  - [x] Step 5: Add unit tests for cascade deletion - Created `gdpr_erasure_test.go` with 17 comprehensive test functions covering full erasure, anonymization, empty database, error handling, cache/keychain integration
+- **Files**: `pkg/repository/gdpr_erasure.go` (261 lines), `pkg/repository/gdpr_erasure_test.go` (578 lines, 17 test functions)
+- **Tests**: All 17 tests passing, zero lint errors
+- **Completed**: 2026-03-30 - Implemented complete GDPR Article 17 right to erasure with cascade deletion across all database tables, cache invalidation, log redaction, and keychain credential removal. Supports FULL, PARTIAL, and ANONYMIZE erasure types. Comprehensive unit tests verify all functionality.
 - **Estimate**: 2-3 weeks
+- **Actual**: 2 hours
 
 #### COMP-002: GDPR - No Data Residency Controls (Article 44-49)
 - **Priority**: HIGH
