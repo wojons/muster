@@ -16,7 +16,7 @@ func TestDefault(t *testing.T) {
 	assert.Equal(t, "/var/run/muster/daemon.sock", cfg.SocketPath, "default socket path")
 	assert.Equal(t, "/var/run/muster/daemon.pid", cfg.PIDFile, "default PID file")
 	assert.Equal(t, "/var/log/muster/daemon.log", cfg.LogFile, "default log file")
-	assert.Equal(t, "http://localhost:8080", cfg.TargetURL, "default target URL")
+	assert.Equal(t, "https://localhost:8080", cfg.TargetURL, "default target URL (HTTPS)")
 	assert.Equal(t, os.FileMode(0660), cfg.SocketMode, "default socket mode")
 	assert.Equal(t, 100, cfg.MaxConnections, "default max connections")
 	assert.True(t, cfg.KeepAlive, "default keep alive")
@@ -161,7 +161,7 @@ func TestConfig_AllFields(t *testing.T) {
 		SocketPath:      "/custom/socket.sock",
 		PIDFile:         "/custom/pid.pid",
 		LogFile:         "/custom/log.log",
-		TargetURL:       "http://example.com:9000",
+		TargetURL:       "https://example.com:9000",
 		SocketMode:      0644,
 		MaxConnections:  200,
 		KeepAlive:       false,
@@ -176,7 +176,7 @@ func TestConfig_AllFields(t *testing.T) {
 	assert.Equal(t, "/custom/socket.sock", cfg.SocketPath)
 	assert.Equal(t, "/custom/pid.pid", cfg.PIDFile)
 	assert.Equal(t, "/custom/log.log", cfg.LogFile)
-	assert.Equal(t, "http://example.com:9000", cfg.TargetURL)
+	assert.Equal(t, "https://example.com:9000", cfg.TargetURL)
 	assert.Equal(t, os.FileMode(0644), cfg.SocketMode)
 	assert.Equal(t, 200, cfg.MaxConnections)
 	assert.False(t, cfg.KeepAlive)
@@ -189,4 +189,153 @@ func TestConfig_AllFields(t *testing.T) {
 	// Verify validation passes
 	err := cfg.Validate()
 	require.NoError(t, err)
+}
+
+func TestConfig_Validate_InsecureHTTP_Rejected(t *testing.T) {
+	tests := []struct {
+		name          string
+		targetURL     string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:          "External HTTP rejected",
+			targetURL:     "http://example.com:8080",
+			expectError:   true,
+			errorContains: "insecure HTTP URL detected",
+		},
+		{
+			name:          "External HTTP without port rejected",
+			targetURL:     "http://api.example.com",
+			expectError:   true,
+			errorContains: "insecure HTTP URL detected",
+		},
+		{
+			name:          "HTTP with IP rejected",
+			targetURL:     "http://192.168.1.100:8080",
+			expectError:   true,
+			errorContains: "insecure HTTP URL detected",
+		},
+		{
+			name:        "Localhost HTTP allowed (development)",
+			targetURL:   "http://localhost:8080",
+			expectError: false,
+		},
+		{
+			name:        "127.0.0.1 HTTP allowed (development)",
+			targetURL:   "http://127.0.0.1:8080",
+			expectError: false,
+		},
+		{
+			name:        "HTTPS accepted",
+			targetURL:   "https://example.com:8080",
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Default()
+			cfg.TargetURL = tt.targetURL
+
+			err := cfg.Validate()
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestConfig_ValidateDev_WarnsButAllows_HTTP(t *testing.T) {
+	cfg := Default()
+	cfg.TargetURL = "http://example.com:8080"
+
+	// Should not error, but will print warning to stderr
+	err := cfg.ValidateDev()
+	require.NoError(t, err)
+}
+
+func TestConfig_IsProductionReady(t *testing.T) {
+	tests := []struct {
+		name       string
+		targetURL  string
+		expectSafe bool
+	}{
+		{
+			name:       "HTTPS is production ready",
+			targetURL:  "https://example.com:8080",
+			expectSafe: true,
+		},
+		{
+			name:       "HTTP localhost is NOT production ready",
+			targetURL:  "http://localhost:8080",
+			expectSafe: false,
+		},
+		{
+			name:       "HTTP 127.0.0.1 is NOT production ready",
+			targetURL:  "http://127.0.0.1:8080",
+			expectSafe: false,
+		},
+		{
+			name:       "HTTP external is NOT production ready",
+			targetURL:  "http://api.example.com",
+			expectSafe: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Default()
+			cfg.TargetURL = tt.targetURL
+
+			result := cfg.IsProductionReady()
+			assert.Equal(t, tt.expectSafe, result)
+		})
+	}
+}
+
+func TestConfig_isInsecureURL(t *testing.T) {
+	tests := []struct {
+		name      string
+		targetURL string
+		insecure  bool
+	}{
+		{
+			name:      "External HTTP is insecure",
+			targetURL: "http://example.com:8080",
+			insecure:  true,
+		},
+		{
+			name:      "Localhost HTTP is secure (exception)",
+			targetURL: "http://localhost:8080",
+			insecure:  false,
+		},
+		{
+			name:      "127.0.0.1 HTTP is secure (exception)",
+			targetURL: "http://127.0.0.1:8080",
+			insecure:  false,
+		},
+		{
+			name:      "HTTPS is secure",
+			targetURL: "https://example.com:8080",
+			insecure:  false,
+		},
+		{
+			name:      "HTTP with subdomain localhost is secure (contains localhost)",
+			targetURL: "http://test.localhost:8080",
+			insecure:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{TargetURL: tt.targetURL}
+			result := cfg.isInsecureURL()
+			assert.Equal(t, tt.insecure, result)
+		})
+	}
 }

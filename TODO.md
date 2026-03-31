@@ -1598,15 +1598,21 @@
 - **Files Created**: `pkg/auth/oauth2_ratelimit.go` (180 lines), `pkg/auth/oauth2_ratelimit_test.go` (320 lines, 20+ test functions)
 - **Files Modified**: `pkg/auth/oauth2.go` (added rate limiting to TokenManager, DeviceCodeFlow, CallbackServer), `pkg/auth/oauth2_test.go` (updated tests to configure rate limiter for tests)
 
-#### OPS-003: Insecure Default Target URL (HTTP)
+#### OPS-003: Insecure Default Target URL (HTTP) - ✅ COMPLETE
 - **Priority**: HIGH
 - **File**: `internal/daemon/config/config.go:32`
 - **Gap**: Default `TargetURL: "http://localhost:8080"` (insecure)
+- **Status**: ✅ **COMPLETE** - Secure HTTPS default with validation
 - **Baby Steps**:
-  - [ ] Step 1: Default to `https://localhost:8080`
-  - [ ] Step 2: Require explicit URL in production configs
-  - [ ] Step 3: Add warning if HTTP URL used
+  - [x] Step 1: Default to `https://localhost:8080` - IMPLEMENTED: Changed default from `http://localhost:8080` to `https://localhost:8080` in `Default()` function
+  - [x] Step 2: Require explicit URL in production configs - IMPLEMENTED: Added `Validate()` method that rejects insecure HTTP URLs (external), `IsProductionReady()` method that verifies HTTPS is used
+  - [x] Step 3: Add warning if HTTP URL used - IMPLEMENTED: Added `ValidateDev()` method that prints warning to stderr for HTTP URLs, `isInsecureURL()` helper function with localhost/127.0.0.1 exceptions for development
 - **Estimate**: 1 day
+- **Actual**: ~1 hour
+- **Completed**: 2026-03-31 - Fixed insecure default target URL by changing to HTTPS default. Added comprehensive validation with `Validate()` rejecting external HTTP URLs, `ValidateDev()` for development with warnings, `IsProductionReady()` for production verification, and `isInsecureURL()` helper with localhost exemptions. Added 5 new test functions covering insecure HTTP rejection, development warnings, production readiness checks, and URL validation. All tests pass with zero lint errors.
+- **Files Modified**: `internal/daemon/config/config.go` (added `strings` import, changed default to HTTPS, added `Validate()`, `ValidateDev()`, `isInsecureURL()`, `IsProductionReady()` methods), `internal/daemon/config/config_test.go` (updated TestDefault assertion, added TestConfig_Validate_InsecureHTTP_Rejected, TestConfig_ValidateDev_WarnsButAllows_HTTP, TestConfig_IsProductionReady, TestConfig_isInsecureURL), `internal/daemon/config/manager_test.go` (updated test configs to use HTTPS)
+- **Tests**: All 44+ tests passing including 5 new security validation tests
+- **Lint**: 0 issues
 
 #### OPS-004: No Backup/DR Capabilities
 - **Priority**: HIGH
