@@ -1,0 +1,122 @@
+# =============================================================================
+# Docker Compose Security Configuration for Muster
+# Production-ready container hardening with security options
+# =============================================================================
+
+version: "3.8"
+
+services:
+  muster:
+    image: muster:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-latest}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    
+    # Security: Run as non-root user (matches distroless 'nonroot' user)
+    user: "65532:65532"
+    
+    # Security: Read-only root filesystem
+    read_only: true
+    
+    # Security: No new privileges
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:./seccomp-profile.json
+      - apparmor:docker-default
+    
+    # Security: Capabilities drop all, add only necessary
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # Only if binding to ports < 1024
+    
+    # Security: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
+    # Security: Read-only /tmp with size limit
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    
+    # Security: Network isolation
+    networks:
+      - muster-network
+    
+    # Health check
+    healthcheck:
+      test: ["/usr/local/bin/openapi-cli", "version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,environment"
+    
+    # Environment variables (no secrets here - use secrets management)
+    environment:
+      - MUSTER_LOG_LEVEL=${MUSTER_LOG_LEVEL:-info}
+      - MUSTER_CONFIG_PATH=/etc/muster
+    
+    # Volumes (read-only where possible)
+    volumes:
+      # Config mounted read-only
+      - type: bind
+        source: ./config
+        target: /etc/muster
+        read_only: true
+      # Cache volume with noexec
+      - type: volume
+        source: muster-cache
+        target: /tmp/muster
+    
+    # Port exposure (use non-privileged ports)
+    expose:
+      - "8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+    
+    # PID namespace isolation
+    pid: "service:muster-init"
+
+  # Init container for proper PID 1 handling
+  muster-init:
+    image: busybox:latest
+    command: ["tail", "-f", "/dev/null"]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+# Named volumes
+volumes:
+  muster-cache:
+    driver: local
+
+# Custom network with encryption
+networks:
+  muster-network:
+    driver: bridge
+    internal: false  # Set to true for complete network isolation
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1

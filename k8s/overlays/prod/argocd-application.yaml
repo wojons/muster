@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openapi-cli-prod
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: openapi-cli
+    app.kubernetes.io/component: gitops
+    environment: production
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/anomalyco/muster.git
+    targetRevision: main
+    path: k8s/overlays/prod
+    helm:
+      valueFiles:
+        - values-prod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openapi-cli-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      jsonPointers:
+        - /spec/minReplicas
+        - /spec/maxReplicas
+  info:
+    - name: "Owner"
+      value: "platform-engineering"
+    - name: "Cost Center"
+      value: "engineering"
+    - name: "Environment"
+      value: "production"
+    - name: "PagerDuty"
+      value: "https://pagerduty.com/service/ABCD1234"

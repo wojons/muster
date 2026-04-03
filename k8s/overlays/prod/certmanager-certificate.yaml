@@ -1,0 +1,30 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openapi-cli-tls
+  namespace: openapi-cli-prod
+  labels:
+    app.kubernetes.io/name: openapi-cli
+    app.kubernetes.io/component: certificate
+    environment: production
+spec:
+  secretName: openapi-cli-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - api.example.com
+    - openapi-cli.example.com
+  duration: 2160h0m0s  # 90 days
+  renewBefore: 720h0m0s  # 30 days
+  subject:
+    organizations:
+      - Example Inc
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 4096
+    rotationPolicy: Always
+  usages:
+    - digital signature
+    - key encipherment
