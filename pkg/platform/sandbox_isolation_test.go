@@ -84,7 +84,7 @@ func TestSandboxIsolation_SyscallNameConversion(t *testing.T) {
 // TestSandboxIsolation_CheckSeccompSupport tests seccomp support detection
 func TestSandboxIsolation_CheckSeccompSupport(t *testing.T) {
 	supported := CheckSeccompSupport()
-	
+
 	if runtime.GOOS == "linux" {
 		// On Linux, should be supported
 		assert.True(t, supported, "seccomp should be supported on Linux")
@@ -98,10 +98,10 @@ func TestSandboxIsolation_CheckSeccompSupport(t *testing.T) {
 func TestSandboxIsolation_FilterCreation(t *testing.T) {
 	sf := NewSeccompFilter(SeccompModeFilter)
 	require.NotNil(t, sf)
-	
+
 	// Initially not loaded
 	assert.False(t, sf.loaded)
-	
+
 	// Mode should be set
 	assert.Equal(t, SeccompModeFilter, sf.mode)
 }
@@ -113,11 +113,11 @@ func TestSandboxIsolation_ProfileApplication(t *testing.T) {
 	}
 
 	sf := NewSeccompFilter(SeccompModeFilter)
-	
+
 	// Profile application should succeed (doesn't load yet)
 	err := sf.ApplyProfile(SeccompProfileMinimal)
 	require.NoError(t, err)
-	
+
 	// Applying the filter should fail on non-Linux
 	err = sf.Apply()
 	require.Error(t, err)
