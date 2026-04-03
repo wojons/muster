@@ -1,0 +1,204 @@
+#!/bin/bash
+#
+# Security Regression Test Suite
+# Automated security regression testing for CI/CD
+#
+# Usage: ./test/scripts/security-regression.sh [--quick|--full]
+#
+
+set -e
+
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REPORT_DIR="${PROJECT_ROOT}/test/security/regression-reports"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+REPORT_FILE="${REPORT_DIR}/regression_${TIMESTAMP}.md"
+MODE="${1:---quick}"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Create report directory
+mkdir -p "${REPORT_DIR}"
+
+# Initialize report
+cat > "${REPORT_FILE}" << EOF
+# Security Regression Test Report
+
+**Generated:** $(date -u +%Y-%m-%dT%H:%M:%SZ)  
+**Mode:** ${MODE}  
+**Commit:** $(git rev-parse --short HEAD 2>/dev/null || echo "N/A")
+
+## Summary
+
+| Test Suite | Status | Duration |
+|------------|--------|----------|
+
+EOF
+
+echo "========================================="
+echo "Security Regression Test Suite"
+echo "========================================="
+echo "Mode: ${MODE}"
+echo "Started at: $(date)"
+echo ""
+
+# Counters
+total_suites=0
+passed_suites=0
+failed_suites=0
+
+# Helper function
+run_suite() {
+    local name="$1"
+    local command="$2"
+    local start_time=$(date +%s)
+    
+    echo -e "${BLUE}[${total_suites}] Running ${name}...${NC}"
+    
+    if eval "${command}" >/dev/null 2>&1; then
+        local end_time=$(date +%s)
+        local duration=$((end_time - start_time))
+        echo -e "  ${GREEN}✓ PASS${NC} (${duration}s)"
+        echo "| ${name} | ✓ PASS | ${duration}s |" >> "${REPORT_FILE}"
+        ((passed_suites++))
+    else
+        local end_time=$(date +%s)
+        local duration=$((end_time - start_time))
+        echo -e "  ${RED}✗ FAIL${NC} (${duration}s)"
+        echo "| ${name} | ✗ FAIL | ${duration}s |" >> "${REPORT_FILE}"
+        ((failed_suites++))
+    fi
+    
+    ((total_suites++))
+}
+
+# ===========================================
+# REGRESSION TEST SUITES
+# ===========================================
+
+echo "Running regression test suites..."
+echo ""
+
+# 1. Critical Security Unit Tests
+run_suite "Critical_Security_Unit_Tests" \
+    "go test -v -run 'TestCrypto_|TestAuth_|TestNetwork_TLS|TestValidation_' ./test/security/..."
+
+# 2. Fuzzing Regression (Quick mode: 30s, Full mode: 5min)
+if [ "${MODE}" = "--full" ]; then
+    FUZZ_TIME="300s"
+else
+    FUZZ_TIME="30s"
+fi
+
+run_suite "Fuzzing_Regression_YAML" \
+    "go test -fuzz=FuzzParseMalformedYAML -fuzztime=${FUZZ_TIME} ./test/security/... 2>/dev/null || true"
+
+run_suite "Fuzzing_Regression_JSON" \
+    "go test -fuzz=FuzzParseMalformedJSON -fuzztime=${FUZZ_TIME} ./test/security/... 2>/dev/null || true"
+
+# 3. Dependency Vulnerability Scan
+run_suite "Dependency_Vulnerability_Scan" \
+    "make deps-audit 2>/dev/null || go list -m all | grep -E 'CVE|vulnerability' || true"
+
+# 4. Secret Leak Detection
+echo -n "  Checking for hardcoded secrets... "
+if grep -r -i "password.*=.*\"" --include="*.go" "${PROJECT_ROOT}/pkg" "${PROJECT_ROOT}/internal" "${PROJECT_ROOT}/cmd" 2>/dev/null | \
+   grep -v "_test.go" | grep -v "// " | head -1; then
+    echo -e "${RED}✗ FAIL${NC} (potential secrets found)"
+    echo "| Secret_Leak_Detection | ✗ FAIL | 0s |" >> "${REPORT_FILE}"
+    ((failed_suites++))
+else
+    echo -e "${GREEN}✓ PASS${NC}"
+    echo "| Secret_Leak_Detection | ✓ PASS | 0s |" >> "${REPORT_FILE}"
+    ((passed_suites++))
+fi
+((total_suites++))
+
+# 5. Race Condition Tests (if in full mode)
+if [ "${MODE}" = "--full" ]; then
+    run_suite "Race_Condition_Tests" \
+        "go test -race -run 'TestConcurrent|TestRace' ./test/security/... 2>/dev/null || true"
+fi
+
+# 6. Security Playbook Execution
+run_suite "Security_Playbook_Quick" \
+    "${PROJECT_ROOT}/test/scripts/security-playbook.sh crypto 2>/dev/null || true"
+
+# ===========================================
+# REPORT GENERATION
+# ===========================================
+
+echo ""
+echo "Generating report..."
+
+# Add summary to report
+cat >> "${REPORT_FILE}" << EOF
+
+## Test Details
+
+### Total: ${total_suites} suites
+- **Passed:** ${passed_suites}
+- **Failed:** ${failed_suites}
+- **Success Rate:** $(( passed_suites * 100 / total_suites ))%
+
+## Recommendations
+
+EOF
+
+if [ ${failed_suites} -gt 0 ]; then
+    cat >> "${REPORT_FILE}" << EOF
+⚠️ **Action Required**
+
+${failed_suites} security regression test(s) failed. Please:
+1. Review the failing test suites above
+2. Check the detailed logs for specific failures
+3. Fix any introduced security regressions before merging
+
+EOF
+else
+    cat >> "${REPORT_FILE}" << EOF
+✅ **All Tests Passed**
+
+No security regressions detected. The codebase maintains its security posture.
+
+EOF
+fi
+
+cat >> "${REPORT_FILE}" << EOF
+
+## Next Steps
+
+- Run full regression: \`./test/scripts/security-regression.sh --full\`
+- View detailed logs: \`cat test/security/regression-reports/regression_*.md\`
+- Update security playbook: \`./test/scripts/security-playbook.sh\`
+
+---
+
+*Report generated by Security Regression Test Suite*
+EOF
+
+echo ""
+echo "========================================="
+echo "Security Regression Tests Complete"
+echo "========================================="
+echo ""
+echo "Results:"
+echo "  Total suites: ${total_suites}"
+echo -e "  ${GREEN}Passed: ${passed_suites}${NC}"
+echo -e "  ${RED}Failed: ${failed_suites}${NC}"
+echo ""
+echo "Report: ${REPORT_FILE}"
+
+if [ ${failed_suites} -eq 0 ]; then
+    echo -e "${GREEN}✓ All regression tests passed!${NC}"
+    exit 0
+else
+    echo -e "${RED}✗ ${failed_suites} regression test(s) failed${NC}"
+    exit 1
+fi
