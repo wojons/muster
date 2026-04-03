@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -133,8 +132,10 @@ func TestSQLiteManager_BeginTx_Isolation(t *testing.T) {
 	defer func() { _ = sm.Close() }()
 
 	ctx := context.Background()
+	// SQLCipher/SQLite doesn't support non-default isolation levels
+	// Use default isolation level
 	tx, err := sm.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
+		Isolation: sql.LevelDefault,
 		ReadOnly:  false,
 	})
 	require.NoError(t, err)

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -110,7 +111,7 @@ func (m *EncryptionKeyManager) DeriveKey() ([]byte, error) {
 	}
 
 	// Derive key using PBKDF2-HMAC-SHA256
-	key := pbkdf2.Key(m.masterKey, m.salt, m.iterations, KeySize, nil)
+	key := pbkdf2.Key(m.masterKey, m.salt, m.iterations, KeySize, sha256.New)
 	return key, nil
 }
 
@@ -226,6 +227,6 @@ func DeriveMasterKeyFromPassphrase(passphrase string, salt []byte, iterations in
 	}
 
 	// Derive key using PBKDF2-HMAC-SHA256
-	key := pbkdf2.Key([]byte(passphrase), salt, iterations, KeySize, nil)
+	key := pbkdf2.Key([]byte(passphrase), salt, iterations, KeySize, sha256.New)
 	return key, nil
 }
