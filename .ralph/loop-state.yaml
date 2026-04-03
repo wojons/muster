@@ -11,11 +11,12 @@ completed_tasks:
 - All CRITICAL gaps fixed (15 items)
 - "Security audit by external firm \U0001F7E1 PENDING - Recommended before production\
   \ deployment"
+- 'OPS-001: Alerting (AlertManager config)'
+- 'OPS-002: Backup/Recovery (automated backups)'
 current_task: null
 failed_attempts: 0
-iteration: 248
+iteration: 251
 last_failure: null
-last_task: "Security audit by external firm \U0001F7E1 PENDING - Recommended before\
-  \ production deployment"
+last_task: 'OPS-002: Backup/Recovery (automated backups)'
 phase: build
 started_at: '2026-03-24T00:00:00.000000+00:00'

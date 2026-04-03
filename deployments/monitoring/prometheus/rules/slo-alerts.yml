@@ -1,0 +1,218 @@
+# SLO Alerts
+
+# High error rate alert
+- alert: MusterHighErrorRate
+  expr: |
+    sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+    /
+    sum(rate(http_requests_total[5m])) > 0.001
+  for: 2m
+  labels:
+    severity: critical
+    service: muster-api
+  annotations:
+    summary: "Muster API error rate is high"
+    description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+    runbook_url: "https://wiki.internal/runbooks/muster-high-error-rate"
+
+# Latency SLO violation
+- alert: MusterHighLatency
+  expr: |
+    histogram_quantile(0.95, 
+      sum(rate(request_duration_seconds_bucket[5m])) by (le)
+    ) > 0.2
+  for: 5m
+  labels:
+    severity: warning
+    service: muster-api
+  annotations:
+    summary: "Muster API latency is high"
+    description: "95th percentile latency is {{ $value }}s"
+
+# API availability
+- alert: MusterAPIDown
+  expr: up{job="muster-api"} == 0
+  for: 1m
+  labels:
+    severity: critical
+    service: muster-api
+  annotations:
+    summary: "Muster API is down"
+    description: "API has been down for more than 1 minute"
+
+# Error budget burn rate (fast burn)
+- alert: MusterErrorBudgetFastBurn
+  expr: |
+    (
+      sum(rate(http_requests_total{status_code=~"5.."}[1h]))
+      /
+      sum(rate(http_requests_total[1h]))
+    ) > 0.144
+  for: 5m
+  labels:
+    severity: critical
+    service: muster-api
+  annotations:
+    summary: "Muster error budget is burning fast"
+    description: "Error rate over 1h is {{ $value | humanizePercentage }}, which will exhaust budget in 7 hours"
+
+# MCP alerts
+- alert: MusterMCPHighErrorRate
+  expr: |
+    sum(rate(mcp_tool_calls_total{status!="success"}[5m]))
+    /
+    sum(rate(mcp_tool_calls_total[5m])) > 0.005
+  for: 5m
+  labels:
+    severity: warning
+    service: muster-mcp
+  annotations:
+    summary: "Muster MCP error rate is high"
+    description: "MCP error rate is {{ $value | humanizePercentage }}"
+
+- alert: MusterMCPLatency
+  expr: |
+    histogram_quantile(0.95,
+      sum(rate(mcp_tool_call_duration_seconds_bucket[5m])) by (le)
+    ) > 0.5
+  for: 5m
+  labels:
+    severity: warning
+    service: muster-mcp
+  annotations:
+    summary: "Muster MCP latency is high"
+    description: "95th percentile MCP latency is {{ $value }}s"
+
+# Daemon alerts
+- alert: MusterDaemonDown
+  expr: up{job="muster-daemon"} == 0
+  for: 30s
+  labels:
+    severity: critical
+    service: muster-daemon
+  annotations:
+    summary: "Muster Daemon is down"
+    description: "Daemon has been down for more than 30 seconds"
+
+- alert: MusterDaemonHighSocketLatency
+  expr: |
+    histogram_quantile(0.999,
+      sum(rate(daemon_socket_request_duration_seconds_bucket[5m])) by (le)
+    ) > 0.05
+  for: 5m
+  labels:
+    severity: warning
+    service: muster-daemon
+  annotations:
+    summary: "Muster Daemon socket latency is high"
+    description: "99.9th percentile socket latency is {{ $value }}s"
+
+# Cache alerts
+- alert: MusterCacheLowHitRate
+  expr: |
+    (
+      sum(rate(cache_hits_total[5m]))
+      /
+      (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m])))
+    ) < 0.95
+  for: 10m
+  labels:
+    severity: warning
+    service: muster-cache
+  annotations:
+    summary: "Muster cache hit rate is low"
+    description: "Cache hit rate is {{ $value | humanizePercentage }}"
+
+- alert: MusterCacheHighStaleEntries
+  expr: |
+    sum(rate(cache_stale_entries_total[5m]))
+    /
+    sum(rate(cache_entries_total[5m])) > 0.01
+  for: 5m
+  labels:
+    severity: info
+    service: muster-cache
+  annotations:
+    summary: "Muster has high stale cache entries"
+    description: "{{ $value | humanizePercentage }} of cache entries are stale"
+
+# Resource alerts
+- alert: MusterHighMemoryUsage
+  expr: |
+    process_resident_memory_bytes / 1024 / 1024 > 512
+  for: 5m
+  labels:
+    severity: warning
+    service: muster
+  annotations:
+    summary: "Muster memory usage is high"
+    description: "Memory usage is {{ $value }}MB"
+
+- alert: MusterHighCPUUsage
+  expr: |
+    rate(process_cpu_seconds_total[5m]) * 100 > 80
+  for: 5m
+  labels:
+    severity: warning
+    service: muster
+  annotations:
+    summary: "Muster CPU usage is high"
+    description: "CPU usage is {{ $value }}%"
+
+# Command store alerts
+- alert: MusterCommandStoreLoadTime
+  expr: |
+    histogram_quantile(0.99,
+      sum(rate(cmdstore_load_duration_seconds_bucket[5m])) by (le)
+    ) > 0.1
+  for: 5m
+  labels:
+    severity: warning
+    service: muster-cmdstore
+  annotations:
+    summary: "Command store load time is high"
+    description: "99th percentile load time is {{ $value }}s"
+
+- alert: MusterCommandStorePersistFailure
+  expr: |
+    (
+      sum(rate(cmdstore_persist_total{status!="success"}[5m]))
+      /
+      sum(rate(cmdstore_persist_total[5m]))
+    ) > 0.0001
+  for: 1m
+  labels:
+    severity: critical
+    service: muster-cmdstore
+  annotations:
+    summary: "Command store persistence is failing"
+    description: "Persistence failure rate is {{ $value | humanizePercentage }}"
+
+# Auth alerts
+- alert: MusterOAuthTokenRefreshFailure
+  expr: |
+    (
+      sum(rate(oauth_token_refresh_total{status!="success"}[5m]))
+      /
+      sum(rate(oauth_token_refresh_total[5m]))
+    ) > 0.005
+  for: 5m
+  labels:
+    severity: warning
+    service: muster-auth
+  annotations:
+    summary: "OAuth token refresh failure rate is high"
+    description: "Failure rate is {{ $value | humanizePercentage }}"
+
+- alert: MusterAuthHighLatency
+  expr: |
+    histogram_quantile(0.95,
+      sum(rate(auth_operation_duration_seconds_bucket[5m])) by (le)
+    ) > 0.1
+  for: 5m
+  labels:
+    severity: warning
+    service: muster-auth
+  annotations:
+    summary: "Auth latency is high"
+    description: "95th percentile auth latency is {{ $value }}s"
