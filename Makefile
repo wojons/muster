@@ -653,3 +653,115 @@ help: ## Show this help message
 	@echo ""
 	@echo "Targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# =============================================================================
+# BENCHMARK TARGETS
+# =============================================================================
+
+.PHONY: bench
+bench: ## Run all benchmarks
+	@echo "Running all benchmarks..."
+	@go test -bench=. -benchmem ./test/benchmarks/...
+	@echo "✓ Benchmarks complete"
+
+.PHONY: bench-ci
+bench-ci: ## Run benchmarks for CI (faster)
+	@echo "Running CI benchmarks..."
+	@go test -bench=. -benchmem -benchtime=1s ./test/benchmarks/...
+	@echo "✓ CI benchmarks complete"
+
+.PHONY: bench-verbose
+bench-verbose: ## Run benchmarks with verbose output
+	@echo "Running verbose benchmarks..."
+	@go test -v -bench=. -benchmem ./test/benchmarks/...
+	@echo "✓ Verbose benchmarks complete"
+
+.PHONY: bench-json
+bench-json: ## Run benchmarks and save results as JSON
+	@echo "Running benchmarks with JSON output..."
+	@mkdir -p test/benchmarks/results
+	@go test -bench=. -benchmem -json ./test/benchmarks/... > test/benchmarks/results/benchmark-$(shell date +%Y%m%d-%H%M%S).jsonl
+	@echo "✓ Results saved to test/benchmarks/results/"
+
+.PHONY: bench-auth
+bench-auth: ## Run authentication benchmarks
+	@echo "Running authentication benchmarks..."
+	@go test -bench=BenchmarkAuth -benchmem ./test/benchmarks/...
+
+.PHONY: bench-cache
+bench-cache: ## Run cache benchmarks
+	@echo "Running cache benchmarks..."
+	@go test -bench=BenchmarkCache -benchmem ./test/benchmarks/...
+
+.PHONY: bench-request
+bench-request: ## Run request building benchmarks
+	@echo "Running request building benchmarks..."
+	@go test -bench=BenchmarkRequest -benchmem ./test/benchmarks/...
+
+.PHONY: bench-mcp
+bench-mcp: ## Run MCP benchmarks
+	@echo "Running MCP benchmarks..."
+	@go test -bench=BenchmarkMCP -benchmem ./test/benchmarks/...
+
+.PHONY: bench-critical-paths
+bench-critical-paths: ## Run benchmarks for all critical paths
+	@echo "Running critical path benchmarks..."
+	@go test -bench="Benchmark(Auth|Cache|Request|MCP)" -benchmem ./test/benchmarks/...
+
+.PHONY: bench-list
+bench-list: ## List all available benchmarks
+	@echo "Available benchmarks:"
+	@go test -bench=. -run=^$$ ./test/benchmarks/... 2>&1 | grep -E "^Benchmark" | sed 's/^/  - /'
+
+.PHONY: bench-check-budgets
+bench-check-budgets: ## Check benchmarks against performance budgets
+	@echo "Checking benchmarks against performance budgets..."
+	@go test -bench=. -benchmem ./test/benchmarks/... 2>&1 | tee /tmp/bench-results.txt
+	@echo ""
+	@echo "Performance Budget Status:"
+	@echo "  All benchmarks must complete within defined budgets"
+	@echo "  See test/benchmarks/budgets.go for budget definitions"
+
+.PHONY: bench-generate-baseline
+bench-generate-baseline: ## Generate performance baseline
+	@echo "Generating performance baseline..."
+	@mkdir -p test/benchmarks/baselines
+	@go test -bench=. -benchmem -count=5 ./test/benchmarks/... | tee test/benchmarks/baselines/baseline-$(shell date +%Y%m%d).txt
+	@echo "✓ Baseline saved to test/benchmarks/baselines/"
+
+.PHONY: bench-regression
+bench-regression: ## Check for performance regressions
+	@echo "Checking for performance regressions..."
+	@if [ -f test/benchmarks/baselines/baseline-latest.txt ]; then \
+		echo "Comparing against baseline..."; \
+		go test -bench=. -benchmem ./test/benchmarks/... | benchstat test/benchmarks/baselines/baseline-latest.txt /dev/stdin 2>/dev/null || echo "benchstat not installed, showing raw comparison:"
+	else \
+		echo "No baseline found. Run 'make bench-generate-baseline' first."; \
+	fi
+
+.PHONY: bench-profile
+bench-profile: ## Run benchmarks with CPU and memory profiling
+	@echo "Running benchmarks with profiling..."
+	@mkdir -p test/benchmarks/profiles
+	@go test -bench=BenchmarkAuth -benchmem -cpuprofile=test/benchmarks/profiles/cpu.prof -memprofile=test/benchmarks/profiles/mem.prof ./test/benchmarks/...
+	@echo "✓ Profiles saved to test/benchmarks/profiles/"
+	@echo "  CPU profile: go tool pprof test/benchmarks/profiles/cpu.prof"
+	@echo "  Memory profile: go tool pprof test/benchmarks/profiles/mem.prof"
+
+.PHONY: bench-help
+bench-help: ## Show benchmark help
+	@echo "Benchmark targets:"
+	@echo "  make bench                  - Run all benchmarks"
+	@echo "  make bench-ci               - Run CI benchmarks (faster)"
+	@echo "  make bench-auth             - Run authentication benchmarks"
+	@echo "  make bench-cache            - Run cache benchmarks"
+	@echo "  make bench-request          - Run request benchmarks"
+	@echo "  make bench-mcp              - Run MCP benchmarks"
+	@echo "  make bench-critical-paths   - Run critical path benchmarks"
+	@echo "  make bench-generate-baseline - Generate performance baseline"
+	@echo "  make bench-regression       - Check for regressions"
+	@echo "  make bench-profile          - Run with CPU/mem profiling"
+	@echo ""
+	@echo "Benchmark options:"
+	@echo "  BENCHTIME=5s make bench     - Run with 5 second benchtime"
+	@echo "  BENCHFLAGS='-cpu=1,2,4' make bench - Run with specific CPU counts"
