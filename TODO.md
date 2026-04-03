@@ -2489,12 +2489,12 @@
 
 #### **PRIORITY 3: PLATFORM SUPPORT (2 specs)**
 
-**PLATFORM-001**: `PLATFORM-MACOS.md` - macOS Platform Features ❌
+**PLATFORM-001**: `PLATFORM-MACOS.md` - macOS Platform Features 🟡
 - **Gap**: macOS-specific features not tracked
 - **Evidence**: `pkg/platform/darwin_*.go` files exist but features undocumented
 - **Impact**: Inconsistent macOS experience
 - **Baby Steps**:
-  - [ ] Step 1: Document macOS-specific features (keychain, notifications)
+  - [x] Step 1: Document macOS-specific features (keychain, notifications) - COMPLETED: Created comprehensive feature documentation at `docs/PLATFORM-MACOS-FEATURES.md` documenting platform directories (pkg/platform/darwin.go), keychain integration (pkg/platform/integration_darwin_test.go), notification support, build tags, and platform tests. References complete 1695-line specification at `specs/PLATFORM-MACOS.md`.
   - [ ] Step 2: Add macOS integration tests
   - [ ] Step 3: Test Homebrew installation
   - [ ] Step 4: Validate macOS signing/notarization
