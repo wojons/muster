@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -67,13 +68,12 @@ type Module struct {
 
 // Spec represents a specification or contract.
 type Spec struct {
-	ID        int64     `db:"id" json:"id"`
-	Name      string    `db:"name" json:"name"`
-	Content   string    `db:"content" json:"content"`
-	AliasID   int64     `db:"alias_id" json:"alias_id"`
-	ModuleID  int64     `db:"module_id" json:"module_id"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	ID          int64     `db:"id" json:"id"`
+	Name        string    `db:"name" json:"name"`
+	Content     string    `db:"content" json:"content"`
+	Fingerprint string    `db:"fingerprint" json:"fingerprint"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // Fingerprint represents a content hash for tracking.
@@ -123,4 +123,107 @@ type ListOptions struct {
 	Offset  int
 	OrderBy string
 	Order   string // ASC or DESC
+}
+
+// ErrNotFound is returned when an entity is not found.
+type ErrNotFound struct {
+	Entity string
+	ID     int64
+}
+
+func (e ErrNotFound) Error() string {
+	return fmt.Sprintf("%s with ID %d not found", e.Entity, e.ID)
+}
+
+// ErrValidation is returned when validation fails.
+type ErrValidation struct {
+	Field   string
+	Message string
+}
+
+func (e ErrValidation) Error() string {
+	return fmt.Sprintf("validation error for field %s: %s", e.Field, e.Message)
+}
+
+// InventoryRepository defines CRUD operations for inventories.
+type InventoryRepository interface {
+	Create(ctx context.Context, inv *Inventory) error
+	GetByID(ctx context.Context, id int64) (*Inventory, error)
+	GetByAlias(ctx context.Context, alias string) (*Inventory, error)
+	GetByModule(ctx context.Context, moduleID int64) (*Inventory, error)
+	Update(ctx context.Context, inv *Inventory) error
+	Delete(ctx context.Context, id int64) error
+	List(ctx context.Context, opts ListOptions) ([]*Inventory, error)
+	Count(ctx context.Context) (int64, error)
+	Search(ctx context.Context, query string, opts ListOptions) ([]*Inventory, error)
+}
+
+// AliasRepository defines CRUD operations for aliases.
+type AliasRepository interface {
+	Create(ctx context.Context, alias *Alias) error
+	GetByID(ctx context.Context, id int64) (*Alias, error)
+	GetByName(ctx context.Context, name string) (*Alias, error)
+	GetByInventory(ctx context.Context, inventoryID int64, opts ListOptions) ([]*Alias, error)
+	GetByModule(ctx context.Context, moduleID int64, opts ListOptions) ([]*Alias, error)
+	Update(ctx context.Context, alias *Alias) error
+	Delete(ctx context.Context, id int64) error
+	DeleteByInventory(ctx context.Context, inventoryID int64) error
+}
+
+// ModuleRepository defines CRUD operations for modules.
+type ModuleRepository interface {
+	Create(ctx context.Context, mod *Module) error
+	GetByID(ctx context.Context, id int64) (*Module, error)
+	GetByPath(ctx context.Context, path string) (*Module, error)
+	GetByInventory(ctx context.Context, inventoryID int64, opts ListOptions) ([]*Module, error)
+	Update(ctx context.Context, mod *Module) error
+	Delete(ctx context.Context, id int64) error
+	GetOrphans(ctx context.Context) ([]*Module, error)
+	CountByInventory(ctx context.Context, inventoryID int64) (int64, error)
+}
+
+// SpecRepository defines CRUD operations for specs.
+type SpecRepository interface {
+	Create(ctx context.Context, spec *Spec) error
+	GetByID(ctx context.Context, id int64) (*Spec, error)
+	GetByAlias(ctx context.Context, aliasID int64, opts ListOptions) ([]*Spec, error)
+	GetByModule(ctx context.Context, moduleID int64, opts ListOptions) ([]*Spec, error)
+	Update(ctx context.Context, spec *Spec) error
+	Delete(ctx context.Context, id int64) error
+	DeleteByAlias(ctx context.Context, aliasID int64) error
+	DeleteByModule(ctx context.Context, moduleID int64) error
+}
+
+// FingerprintRepository defines CRUD operations for fingerprints.
+type FingerprintRepository interface {
+	Create(ctx context.Context, fp *Fingerprint) error
+	GetByID(ctx context.Context, id int64) (*Fingerprint, error)
+	GetBySpec(ctx context.Context, specID int64) (*Fingerprint, error)
+	GetByHash(ctx context.Context, hash string) (*Fingerprint, error)
+	Update(ctx context.Context, fp *Fingerprint) error
+	Delete(ctx context.Context, id int64) error
+	DeleteBySpec(ctx context.Context, specID int64) error
+	Exists(ctx context.Context, hash string) (bool, error)
+}
+
+// AuditRepository defines CRUD operations for audit logs.
+type AuditRepository interface {
+	Create(ctx context.Context, audit *Audit) error
+	GetByID(ctx context.Context, id int64) (*Audit, error)
+	GetByEntity(ctx context.Context, entityType string, entityID int64, opts ListOptions) ([]*Audit, error)
+	List(ctx context.Context, opts ListOptions) ([]*Audit, error)
+	Count(ctx context.Context) (int64, error)
+	Cleanup(ctx context.Context, olderThan time.Time) (int64, error)
+}
+
+// RateLimitRepository defines CRUD operations for rate limits.
+type RateLimitRepository interface {
+	Create(ctx context.Context, rl *RateLimit) error
+	GetByID(ctx context.Context, id int64) (*RateLimit, error)
+	GetByKey(ctx context.Context, key string) (*RateLimit, error)
+	Update(ctx context.Context, rl *RateLimit) error
+	Delete(ctx context.Context, id int64) error
+	DeleteByKey(ctx context.Context, key string) error
+	Cleanup(ctx context.Context, olderThan time.Time) (int64, error)
+	Increment(ctx context.Context, key string, window time.Time) error
 }
