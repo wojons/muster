@@ -9,79 +9,97 @@ OpenAPI CLI is a modular command-line tool that bridges OpenAPI specifications w
 ### Core Components
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        CLI Frontend                         │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐│
-│  │   Cobra CLI   │ │  Interactive  │ │   Output Formatters  ││
-│  │   Framework   │ │   Prompts    │ │    (json/table)     ││
-│  └──────┬───────┘ └──────┬───────┘ └──────────┬───────────┘│
-│         │                  │                      │         │
-└─────────┼──────────────────┼──────────────────────┼─────────┘
-          │                  │                      │
-          ▼                  ▼                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Command Generator Layer                    │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐│
-│  │  OpenAPI     │ │   Request    │ │    Response          ││
-│  │   Parser     │ │    Builder   │ │     Handler          ││
-│  └──────┬───────┘ └──────┬───────┘ └──────────┬───────────┘│
-│         │                  │                      │         │
-└─────────┼──────────────────┼──────────────────────┼─────────┘
-          │                  │                      │
-          ▼                  ▼                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Business Logic Layer                    │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐│
-│  │   Inventory  │ │   Inventory  │ │    Cache             ││
-│  │   Manager    │ │   Discovery  │ │    Manager           ││
-│  └──────┬───────┘ └──────┬───────┘ └──────────┬───────────┘│
-└─────────┼──────────────────┼──────────────────────┼─────────┘
-          │                  │                      │
-          ▼                  ▼                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Service Layer                            │
-│  ┌──────────────┐ ┌──────────────────────────────────────┐ │
-│  │   HTTP       │ │         MCP Server                    │ │
-│  │   Client     │ │         (JSON-RPC)                    │ │
-│  └──────┬───────┘ └──────────────────────┬───────────────┘ │
-└─────────┼──────────────────────────────────┼────────────────┘
-          │                                  │
-          ▼                                  ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  Platform Services                           │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
-│  │  WASM        │ │  Starlark    │ │  Daemon      │         │
-│  │  Runtime     │ │  DSL Engine  │ │  Controller  │         │
-│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘         │
-└─────────┼──────────────────┼──────────────────┼─────────────┘
-          │                  │                  │
-          ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Infrastructure                             │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
-│  │   Auth       │ │   Config     │ │   Logging    │         │
-│  │   Manager    │ │   Manager    │ │   & Audit    │         │
-│  └──────────────┘ └──────────────┘ └──────────────┘         │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CLI Frontend                                    │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐ │
+│  │   Cobra CLI  │ │  Interactive │ │   Output     │ │   Shell Completion   │ │
+│  │   Framework  │ │   Prompts    │ │  Formatters  │ │      Generators      │ │
+│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────────┬───────────┘ │
+│         │                │                │                  │             │
+└─────────┼────────────────┼────────────────┼──────────────────┼─────────────┘
+          │                │                │                  │
+          ▼                ▼                ▼                  ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Command Generator Layer                              │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         │
+│  │   OpenAPI    │ │   Request    │ │   Response   │ │   Command    │       │
+│  │   Parser     │ │   Builder    │ │   Handler    │ │   Store      │         │
+│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘       │
+│         │                │                │                │             │
+└─────────┼────────────────┼────────────────┼────────────────┼───────────────┘
+          │                │                │                │
+          ▼                ▼                ▼                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Business Logic Layer                               │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │   Inventory  │ │   Inventory  │ │    Cache     │ │   Events     │       │
+│  │   Manager    │ │   Discovery  │ │   Manager    │ │  Dispatcher  │         │
+│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘       │
+│         │                │                │                │             │
+└─────────┼────────────────┼────────────────┼────────────────┼───────────────┘
+          │                │                │                │
+          ▼                ▼                ▼                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Service Layer                                   │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │     HTTP     │ │     MCP      │ │   Webhook    │ │    Rate      │       │
+│  │    Client    │ │    Server    │ │    Client    │ │   Limiter    │         │
+│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘       │
+│         │                │                │                │             │
+└─────────┼────────────────┼────────────────┼────────────────┼───────────────┘
+          │                │                │                │
+          ▼                ▼                ▼                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Platform Services                                  │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │     WASM     │ │   Starlark   │ │    Daemon    │ │   Tenant     │       │
+│  │   Runtime    │ │  DSL Engine  │ │  Controller  │ │  Isolation   │         │
+│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘       │
+│         │                │                │                │             │
+└─────────┼────────────────┼────────────────┼────────────────┼───────────────┘
+          │                │                │                │
+          ▼                ▼                ▼                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            Infrastructure                                    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐│
+│  │   Auth   │ │  Config  │ │ Logging  │ │ Metrics  │ │  Audit  │ │ Crypto ││
+│  │ Manager  │ │ Manager  │ │ & Audit  │ │  Export  │ │ Storage │ │ Engine ││
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └───┬────┘│
+│       │            │            │            │            │            │    │
+└───────┼────────────┼────────────┼────────────┼────────────┼────────────┼────┘
+        │            │            │            │            │            │
+        ▼            ▼            ▼            ▼            ▼            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Observability & Compliance                            │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │  Distributed │ │  Compliance  │ │   Metrics  │ │     Log      │       │
+│  │   Tracing    │ │ Framework    │ │    RED/    │ │   Alerting   │         │
+│  │              │ │              │ │    USE     │ │              │         │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Component Descriptions
 
 ### CLI Frontend
 
-**Cobra Framework**: Provides the command-line structure, argument parsing, and built-in commands.
+**Cobra Framework**: Provides the command-line structure, argument parsing, and built-in commands with context-aware help.
 
-**Interactive Prompts**: `charmbracelet/bubbletea` for interactive CLI experiences with user-friendly prompts.
+**Interactive Prompts**: `charmbracelet/bubbletea` for interactive CLI experiences with user-friendly prompts and validation.
 
-**Output Formatters**: Supports JSON, YAML, table, text output formats with color highlighting.
+**Output Formatters**: Supports JSON, YAML, table, text output formats with color highlighting and custom templates.
+
+**Shell Completion Generators**: Automated shell completion for Bash, Zsh, Fish, and PowerShell with dynamic completion based on OpenAPI specs.
 
 ### Command Generator Layer
 
-**OpenAPI Parser**: Uses `github.com/getkin/kin-openapi` to parse and validate OpenAPI 3.0/3.1 specifications.
+**OpenAPI Parser**: Uses `github.com/getkin/kin-openapi` to parse and validate OpenAPI 3.0/3.1 specifications with full schema validation.
 
-**Request Builder**: Constructs HTTP requests from CLI arguments with parameter serialization and body formatting.
+**Request Builder**: Constructs HTTP requests from CLI arguments with parameter serialization, body formatting, and validation.
 
-**Response Handler**: Processes and formats API responses with content-type detection and error handling.
+**Response Handler**: Processes and formats API responses with content-type detection, streaming support (SSE, NDJSON), and error handling.
+
+**Command Store**: Persistent storage for OpenAPI specs with versioning, metadata, and fast lookup.
 
 ### Business Logic Layer
 
@@ -107,11 +125,27 @@ OpenAPI CLI is a modular command-line tool that bridges OpenAPI specifications w
 
 ### Infrastructure
 
-**Auth Manager**: OAuth2, mTLS, API key support with platform-native credential storage (keychain, Secret Service, Credential Manager).
+**Auth Manager**: OAuth2 (PKCE, Device Code, Refresh), mTLS (X.509 certificates), API key support with platform-native credential storage (keychain, Secret Service, Credential Manager).
 
-**Config Manager**: Viper-based configuration with file, environment variable, and command-line flag support.
+**Config Manager**: Viper-based configuration with file, environment variable, and command-line flag support, profile-based settings.
 
-**Logging**: Structured logging (`uber-go/zap`) with configurable levels and output formats.
+**Logging & Audit**: Structured logging (`uber-go/zap`) with configurable levels, correlation IDs, sensitive data redaction, and audit trail with hash chain.
+
+**Metrics Export**: Prometheus-compatible metrics with RED/USE methodology, cardinality control, and SLO-based alerting.
+
+**Audit Storage**: File-based and memory-based audit log storage with pagination and retention policies.
+
+**Crypto Engine**: Comprehensive cryptographic toolkit including RSA, ECDSA, AES-GCM, ChaCha20-Poly1305, PBKDF2, Argon2id, HMAC, HKDF.
+
+### Observability & Compliance
+
+**Distributed Tracing**: OpenTelemetry integration with Jaeger/Zipkin exporters, trace context propagation, and span management.
+
+**Compliance Framework**: Multi-framework compliance support (Bible Standard, OpenAPI, MCP, OAuth2, TLS, GDPR, HIPAA, PCI DSS, FIPS 140-3) with evidence collection and report generation.
+
+**Metrics (RED/USE)**: Standardized metrics following RED (Rate, Errors, Duration) and USE (Utilization, Saturation, Errors) patterns.
+
+**Log Alerting**: Rule-based log alerting with webhook, Slack, and PagerDuty integrations.
 
 ## Data Flow
 

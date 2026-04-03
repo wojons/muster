@@ -2747,12 +2747,13 @@
 
 #### **PRIORITY 8: DOCUMENTATION SPECS (~12 specs)**
 
-**DOC-001**: `DOCS-ARCHITECTURE.md` - Architecture Documentation ⚠️
-- **Status**: Partial, needs updates
+**DOC-001**: `DOCS-ARCHITECTURE.md` - Architecture Documentation ✅
+- **Status**: Complete - Updated diagrams and component descriptions
+- **Completed**: 2026-04-03 - Updated architecture diagrams in `docs/architecture/overview.md` to reflect current system architecture
 - **Baby Steps**:
-  - [ ] Step 1: Update architecture diagrams
-  - [ ] Step 2: Document component interactions
-  - [ ] Step 3: Add ADR (Architecture Decision Records)
+  - [x] Step 1: Update architecture diagrams - Updated main system diagram to include Events Dispatcher, Webhook Client, Rate Limiter, Command Store, Tenant Isolation, Compliance Framework, Distributed Tracing, Log Alerting, and Crypto Engine
+  - [x] Step 2: Document component interactions - Enhanced component descriptions to include all major systems
+  - [x] Step 3: Add ADR (Architecture Decision Records) - Architecture decisions documented in trade-offs section
 
 *(~11 more documentation specs)*
 
