@@ -2601,7 +2601,7 @@
 - [x] SEC-003: Security Testing suite - COMPLETE: Implemented comprehensive security testing suite with credential security tests (7 test functions), network security tests (7 test functions), WASM security tests (12 test functions). Total 26 new security tests covering memory leakage, disk encryption, network transmission, TLS configuration, capability enforcement, sandbox escape prevention, and resource limits. All tests pass with zero lint errors.
 - [x] CONTAINER-003: Docker Image hardening
 - [x] CONTAINER-004: K8s production manifests - COMPLETE: Created production overlay with kustomization.yaml, deployment patches (5 replicas, resource limits, TLS), HPA (min 5, max 20 replicas), PDB (minAvailable: 3), ResourceQuota (CPU: 5-20 cores, Memory: 10-40Gi), LimitRange, cert-manager Certificate, Ingress with rate limiting/CORS/SSL, and ArgoCD Application for GitOps. All 9 files created and validated.
-- [ ] OPS-005: Distributed tracing
+- [x] OPS-005: Distributed tracing - COMPLETE: All 5 steps implemented including OpenTelemetry SDK integration in `internal/telemetry/`, trace context propagation middleware, WASM runtime tracing, Jaeger/Zipkin exporters, and comprehensive debugging guide. All tests passing.
 
 **Phase 4C - Platform Parity (Weeks 5-6)**:
 - [ ] PLATFORM-001: macOS features
