@@ -332,8 +332,17 @@ func (fs *SandboxedFS) isReadOnly(path string) bool {
 	fs.mu.RLock()
 	defer fs.mu.RUnlock()
 
+	// Check against the provided path
 	for roDir := range fs.readOnlyDirs {
 		if strings.HasPrefix(path, roDir) || path == roDir {
+			return true
+		}
+	}
+
+	// Also check against absolute path of the file
+	absPath := filepath.Join(fs.root, path)
+	for roDir := range fs.readOnlyDirs {
+		if strings.HasPrefix(absPath, roDir) || absPath == roDir {
 			return true
 		}
 	}
