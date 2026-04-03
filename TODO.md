@@ -2495,7 +2495,7 @@
 - **Impact**: Inconsistent macOS experience
 - **Baby Steps**:
   - [x] Step 1: Document macOS-specific features (keychain, notifications) - COMPLETED: Created comprehensive feature documentation at `docs/PLATFORM-MACOS-FEATURES.md` documenting platform directories (pkg/platform/darwin.go), keychain integration (pkg/platform/integration_darwin_test.go), notification support, build tags, and platform tests. References complete 1695-line specification at `specs/PLATFORM-MACOS.md`.
-  - [ ] Step 2: Add macOS integration tests
+  - [x] Step 2: Add macOS integration tests - COMPLETED: Created comprehensive launchd integration tests in `internal/platform/darwin/launchd_test.go` with 35+ test functions covering Launchd constructor (NewLaunchd), Load/Unload operations, Start/Stop/Restart service lifecycle, IsRunning status checking, GetLogPaths log path extraction with user expansion ($USER), EnsureLogDirectory directory creation, plist path generation (AgentPlistPath, DaemonPlistPath), full service lifecycle testing, complex plist configuration, and label validation. All tests pass with zero lint errors.
   - [ ] Step 3: Test Homebrew installation
   - [ ] Step 4: Validate macOS signing/notarization
 
