@@ -1,0 +1,241 @@
+# Docker Build Context Exclusions
+# Excludes sensitive files, development artifacts, and unnecessary build context
+# to improve build performance and prevent secret leakage
+
+# =============================================================================
+# SECURITY: Secrets and Credentials (CRITICAL - Never include in images)
+# =============================================================================
+**/.env
+**/.env.*
+**/*.env
+**/.env.local
+**/.env.development
+**/.env.production
+**/.envrc
+**/secrets/
+**/.secrets/
+**/.credentials/
+**/.keys/
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/*.crt
+**/*.cer
+**/*.der
+**/id_rsa
+**/id_rsa.pub
+**/id_dsa
+**/id_dsa.pub
+**/id_ecdsa
+**/id_ecdsa.pub
+**/id_ed25519
+**/id_ed25519.pub
+**/.ssh/
+**/.gnupg/
+**/.aws/
+**/.azure/
+**/.gcp/
+**/.docker/
+**/.kube/
+**/.config/gcloud/
+**/.config/aws/
+**/.config/openapi-cli/secrets*
+
+# =============================================================================
+# SECURITY: API Keys and Tokens
+# =============================================================================
+**/*apikey*
+**/*api-key*
+**/*token*
+**/*secret*
+**/*password*
+**/*passwd*
+**/*credential*
+**/auth.json
+**/credentials.json
+**/service-account*.json
+**/account-key*.json
+**/.token_cache
+**/.oauth*
+
+# =============================================================================
+# DEVELOPMENT: Build Artifacts and Dependencies
+# =============================================================================
+# Compiled binaries
+/bin/
+/dist/
+/out/
+/build/
+/target/
+**/*.exe
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.o
+**/*.a
+
+# Go specific
+/vendor/
+/go.sum.orig
+/go.sum.bak
+*.test
+*.prof
+*.out
+coverage.out
+coverage.html
+coverage.xml
+/coverage/
+
+# =============================================================================
+# DEVELOPMENT: Version Control
+# =============================================================================
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+.gitkeep
+.svn/
+.hg/
+
+# =============================================================================
+# DEVELOPMENT: IDE and Editor Files
+# =============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+*.sublime-*
+*.code-workspace
+.project
+.classpath
+.settings/
+*.iml
+*.ipr
+*.iws
+
+# =============================================================================
+# DEVELOPMENT: Testing and CI
+# =============================================================================
+/test/
+/tests/
+*_test.go
+!*_test.go
+/testdata/
+/fixtures/
+/mocks/
+/mock/
+.coverage/
+.cover/
+.nyc_output/
+coverage/
+
+# CI/CD artifacts
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+.drone.yml
+.appveyor.yml
+
+# =============================================================================
+# DOCUMENTATION: Source documentation (not needed in production)
+# =============================================================================
+*.md
+!README.md
+!CHANGELOG.md
+LICENSE
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+docs/
+doc/
+*.pdf
+*.odt
+*.docx
+
+# =============================================================================
+# DEVELOPMENT: Logs and Databases
+# =============================================================================
+*.log
+*.log.*
+logs/
+log/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# =============================================================================
+# DEVELOPMENT: Temporary and Cache Files
+# =============================================================================
+tmp/
+temp/
+.cache/
+*.cache
+*.pid
+*.sock
+*.socket
+
+# =============================================================================
+# DEPLOYMENT: Infrastructure and Configuration
+# =============================================================================
+# Kubernetes manifests (use kustomize or helm instead)
+k8s/
+kubernetes/
+manifests/
+
+# Docker Compose files (may contain secrets)
+docker-compose*.yml
+docker-compose*.yaml
+.docker/
+
+# Terraform and infrastructure
+*.tf
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# =============================================================================
+# APPLICATION SPECIFIC
+# =============================================================================
+# Configuration files (may contain secrets)
+config.yaml
+config.yml
+config.json
+*.config.yaml
+*.config.yml
+
+# Local development overrides
+*.local.yaml
+*.local.yml
+*.local.json
+*.local.toml
+
+# Cache directories
+.cache/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.eggs/
+
+# =============================================================================
+# DEBUG AND PROFILING
+# =============================================================================
+*.debug
+*.prof
+*.pprof
+*.trace
+*.memprof
+*.cpuprof
+
+debug/
+debugging/
+profiling/

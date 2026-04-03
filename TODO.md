@@ -2599,8 +2599,8 @@
 
 **Phase 4B - Security Hardening (Weeks 3-4)**:
 - [x] SEC-003: Security Testing suite - COMPLETE: Implemented comprehensive security testing suite with credential security tests (7 test functions), network security tests (7 test functions), WASM security tests (12 test functions). Total 26 new security tests covering memory leakage, disk encryption, network transmission, TLS configuration, capability enforcement, sandbox escape prevention, and resource limits. All tests pass with zero lint errors.
-- [ ] CONTAINER-003: Docker Image hardening
-- [ ] CONTAINER-004: K8s production manifests
+- [x] CONTAINER-003: Docker Image hardening
+- [x] CONTAINER-004: K8s production manifests - COMPLETE: Created production overlay with kustomization.yaml, deployment patches (5 replicas, resource limits, TLS), HPA (min 5, max 20 replicas), PDB (minAvailable: 3), ResourceQuota (CPU: 5-20 cores, Memory: 10-40Gi), LimitRange, cert-manager Certificate, Ingress with rate limiting/CORS/SSL, and ArgoCD Application for GitOps. All 9 files created and validated.
 - [ ] OPS-005: Distributed tracing
 
 **Phase 4C - Platform Parity (Weeks 5-6)**:
