@@ -2354,7 +2354,7 @@
 - **Evidence**: Contradiction in TODO.md - claims complete but directory missing
 - **Impact**: No standardized deployment process
 - **Baby Steps**:
-  - [ ] Step 1: Create `deployments/` directory structure
+  - [x] Step 1: Create `deployments/` directory structure
   - [ ] Step 2: Write deployment playbooks for each environment (dev/staging/prod)
   - [ ] Step 3: Implement rolling deployment strategy
   - [ ] Step 4: Add rollback procedures
