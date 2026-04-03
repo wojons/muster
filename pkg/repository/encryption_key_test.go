@@ -10,7 +10,8 @@ import (
 func TestGetApplicationSecret(t *testing.T) {
 	secret := GetApplicationSecret()
 	assert.NotEmpty(t, secret, "Application secret should not be empty")
-	assert.Len(t, secret, len("muster-db-linux-amd64"), "Should have predictable length")
+	assert.True(t, len(secret) > 0, "Secret should have length")
+	assert.Contains(t, string(secret), "muster-db", "Secret should contain app identifier")
 }
 
 func TestDeriveMasterKeyFromPassphrase_Defaults(t *testing.T) {

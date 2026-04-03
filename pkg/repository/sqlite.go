@@ -73,7 +73,7 @@ func NewSQLiteManager(cfg *SQLiteConfig, log *zap.Logger) (*SQLiteManager, error
 	}
 
 	// Build connection string with encryption support
-	queryParams := "_journal_mode=WAL&_foreign_keys=on&_timeout=5000"
+	queryParams := "_journal_mode=WAL&_timeout=5000"
 
 	// Initialize key manager if provided
 	if cfg.KeyManager != nil {

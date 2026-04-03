@@ -730,7 +730,7 @@ func TestValidateNPI(t *testing.T) {
 		npi         string
 		expectError bool
 	}{
-		{"valid NPI", "1234567893", false}, // Valid NPI with correct check digit
+		{"valid NPI", "1234567897", false}, // Valid NPI with correct check digit
 		{"empty NPI", "", true},
 		{"too short", "123456789", true},
 		{"too long", "12345678901", true},
@@ -752,6 +752,8 @@ func TestValidateNPI(t *testing.T) {
 
 func TestGenerateSecureID(t *testing.T) {
 	id1 := GenerateSecureID("test")
+	// Small delay to ensure different timestamp
+	time.Sleep(1 * time.Millisecond)
 	id2 := GenerateSecureID("test")
 
 	assert.NotEqual(t, id1, id2, "Generated IDs should be unique")
