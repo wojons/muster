@@ -18,10 +18,12 @@ completed_tasks:
 - 'SEC-002: Runtime Sandbox (isolation tests)'
 - 'SEC-003: Security Testing suite'
 - 'CONTAINER-003: Docker Image hardening'
+- 'CONTAINER-004: K8s production manifests'
+- 'OPS-005: Distributed tracing'
 current_task: null
 failed_attempts: 0
-iteration: 271
+iteration: 274
 last_failure: null
-last_task: 'CONTAINER-003: Docker Image hardening'
+last_task: 'OPS-005: Distributed tracing'
 phase: build
 started_at: '2026-03-24T00:00:00.000000+00:00'

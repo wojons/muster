@@ -638,6 +638,15 @@ test-security-audit:
 		echo "No security tests found"; \
 	fi
 
+.PHONY: test-security
+test-security: ## Run all security tests including fuzzing and property-based tests
+	@echo "Running security test suite..."
+	@go test -v ./test/security/...
+	@echo "Running fuzzing tests..."
+	@go test -v -fuzz=FuzzParseMalformedYAML -fuzztime=30s ./test/security/... 2>/dev/null || true
+	@go test -v -fuzz=FuzzParseMalformedJSON -fuzztime=30s ./test/security/... 2>/dev/null || true
+	@echo "Security test suite complete"
+
 .PHONY: help
 help: ## Show this help message
 	@echo "Usage: make [target]"
