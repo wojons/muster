@@ -2356,7 +2356,7 @@
 - **Baby Steps**:
   - [x] Step 1: Create `deployments/` directory structure
   - [x] Step 2: Write deployment playbooks for each environment (dev/staging/prod) - Created comprehensive playbooks for dev, staging, and prod environments
-  - [ ] Step 3: Implement rolling deployment strategy
+  - [x] Step 3: Implement rolling deployment strategy - Created `deployments/scripts/rolling-deployment.sh` with three strategies (rolling, canary, blue-green), automatic rollback, health gates, and comprehensive test suite
   - [ ] Step 4: Add rollback procedures
   - [ ] Step 5: Document deployment checklist
   - [ ] Step 6: Create deployment automation scripts
