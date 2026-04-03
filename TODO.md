@@ -2385,9 +2385,9 @@
   - [x] Step 1: Add OpenTelemetry SDK integration - COMPLETED: OpenTelemetry SDK integration already exists in `internal/telemetry/` package with TracerProvider, Tracer, and Span types
   - [x] Step 2: Implement trace context propagation in HTTP middleware - COMPLETED: Created `TracingMiddleware` function in `internal/telemetry/middleware.go` that extracts trace context from incoming requests, creates spans with HTTP attributes, and propagates context. Also created helper functions: `ExtractTraceContext`, `InjectTraceContext`, `GetTraceID`, `GetSpanID`, `ParseTraceParent`, `ValidateTraceParent`, `FormatTraceContextHeader`, `ParseSamplingDecision`, and comprehensive test suite (35+ tests)
   - [x] Step 3: Add tracing to WASM runtime calls - COMPLETED: Created TelemetryTracer adapter in `pkg/wasm/telemetry_wasm.go` that bridges internal telemetry package to WASM Tracer interface. Implemented TelemetryTracer with StartSpan(), TelemetrySpan with End(), SetTag(), and SetError() methods. Created NoopSpan for when tracing is disabled. Added comprehensive unit tests (20+ test functions) in `pkg/wasm/telemetry_wasm_test.go` covering tracer creation, span management, tag setting (string, int, int64, float64, bool), error recording, context propagation, concurrent access, and integration with WASM runtime (Execute, Validate, GetModuleInfo). All tests pass with zero lint errors.
-  - [ ] Step 4: Configure Jaeger/Zipkin exporter
-  - [ ] Step 5: Create trace-based debugging guides
-- **Status**: Partially Complete - HTTP middleware implemented, remaining steps pending
+  - [x] Step 4: Configure Jaeger/Zipkin exporter
+  - [x] Step 5: Create trace-based debugging guides - COMPLETED: Created comprehensive trace-based debugging guide in `docs/guides/trace-based-debugging.md` with quick start instructions, 5 common debugging scenarios (slow requests, intermittent failures, cross-service tracing, memory leaks, concurrency issues), advanced techniques (custom events, baggage, sampling), integration with other tools, best practices, and troubleshooting guides
+- **Status**: COMPLETE - All steps implemented, comprehensive debugging documentation available
 
 **OPS-006**: `OPS-METRICS.md` - Metrics Standardization ❌
 - **Gap**: No standardized metrics naming, no RED/USE method
