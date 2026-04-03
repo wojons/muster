@@ -1,0 +1,30 @@
+# Dockerfile for development environment
+# Based on specs/DOCKER-COMPOSE.md
+
+FROM golang:1.26-alpine
+
+# Install development dependencies
+RUN apk add --no-cache git make curl
+
+# Install air for hot reload
+RUN go install github.com/cosmtrek/air@latest
+
+# Install development tools
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+RUN go install github.com/onsi/ginkgo/v2/ginkgo@latest
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the rest of the source code
+COPY . .
+
+# Expose ports
+EXPOSE 8080
+
+# Default command
+CMD ["air", "-c", ".air.toml"]
