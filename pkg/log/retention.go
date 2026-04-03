@@ -142,7 +142,7 @@ func (m *LogRetentionManager) enforceRetention() {
 
 		// Check if file should be deleted
 		if age > m.policy.Delete {
-			os.Remove(file.Path)
+			_ = os.Remove(file.Path)
 			continue
 		}
 
@@ -157,7 +157,7 @@ func (m *LogRetentionManager) enforceRetention() {
 		totalSize += file.Size
 		if totalSize > m.policy.MaxTotalSize {
 			// Delete oldest files
-			os.Remove(file.Path)
+			_ = os.Remove(file.Path)
 			totalSize -= file.Size
 			continue
 		}
@@ -165,7 +165,7 @@ func (m *LogRetentionManager) enforceRetention() {
 		// Check file count limit
 		fileCount++
 		if fileCount > m.policy.MaxFileCount {
-			os.Remove(file.Path)
+			_ = os.Remove(file.Path)
 			continue
 		}
 
@@ -227,18 +227,12 @@ func (m *LogRetentionManager) getLogFiles() ([]LogFile, error) {
 func (m *LogRetentionManager) rotateFile(path string) {
 	timestamp := time.Now().Format("2006-01-02-150405")
 	dir := filepath.Dir(path)
-	base := filepath.Base(path)
-
-	// Remove extension if compressed
-	if strings.HasSuffix(base, ".gz") {
-		base = strings.TrimSuffix(base, ".gz")
-	}
-	if strings.HasSuffix(base, ".zst") {
-		base = strings.TrimSuffix(base, ".zst")
-	}
+	base := strings.TrimSuffix(filepath.Base(path), ".log")
+	base = strings.TrimSuffix(base, ".gz")
+	base = strings.TrimSuffix(base, ".zst")
 
 	newPath := filepath.Join(dir, fmt.Sprintf("%s.%s", base, timestamp))
-	os.Rename(path, newPath)
+	_ = os.Rename(path, newPath)
 }
 
 // compressFile compresses a log file
@@ -246,7 +240,7 @@ func (m *LogRetentionManager) compressFile(path string) {
 	// For now, just rename with .compressed extension
 	// Full compression implementation would use gzip/zstd
 	newPath := path + ".compressed"
-	os.Rename(path, newPath)
+	_ = os.Rename(path, newPath)
 }
 
 // GetStats returns retention statistics
