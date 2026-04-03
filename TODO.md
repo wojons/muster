@@ -2440,16 +2440,25 @@
   - [ ] Step 4: Test resource limits (CPU, memory, FDs)
   - [ ] Step 5: Add adversarial WASM module tests
 
-**SEC-002**: `RUNTIME-SANDBOX.md` (453 lines) - Runtime Isolation Testing ❌
+**SEC-002**: `RUNTIME-SANDBOX.md` (453 lines) - Runtime Isolation Testing ✅ COMPLETE
 - **Gap**: No runtime isolation tests
 - **Evidence**: `pkg/platform/seccomp.go` exists (500 lines) but untested
 - **Impact**: Runtime could be compromised
 - **Baby Steps**:
-  - [ ] Step 1: Test seccomp BPF filtering
-  - [ ] Step 2: Validate capability restrictions
-  - [ ] Step 3: Test filesystem isolation
-  - [ ] Step 4: Validate network namespace isolation
-  - [ ] Step 5: Add privilege escalation tests
+  - [x] Step 1: Test seccomp BPF filtering - Implemented comprehensive seccomp BPF filtering tests (`seccomp_sandbox_test.go:600+ lines, 35+ test functions`)
+  - [x] Step 2: Validate capability restrictions - Implemented capability restriction tests (`capability_test.go:168 lines, 11 test functions`)
+  - [x] Step 3: Test filesystem isolation - Implemented filesystem isolation and escape prevention tests (`sandbox_escape_test.go:300+ lines, 20+ test functions`)
+  - [x] Step 4: Validate network namespace isolation - Implemented network isolation tests (socket restrictions, network I/O blocking)
+  - [x] Step 5: Add privilege escalation tests - Implemented privilege escalation prevention tests (setuid/setgid, ptrace, chroot, mount blocking)
+- **Status**: ✅ COMPLETE - All 5 baby steps implemented with comprehensive test coverage
+- **Files Created**:
+  - `pkg/platform/seccomp_sandbox_test.go` (600+ lines, 35+ test functions) - Seccomp BPF filtering, profile tests (Minimal/Standard/Relaxed), syscall verification
+  - `pkg/platform/capability_test.go` (168 lines, 11 test functions) - Capability restrictions, ptrace blocking, privilege tests
+  - `pkg/platform/sandbox_escape_test.go` (300+ lines, 20+ test functions) - Filesystem isolation, escape prevention, privilege escalation tests
+  - `pkg/platform/sandbox_isolation_test.go` (125 lines, 10 test functions) - Cross-platform seccomp stub tests
+  - `pkg/platform/seccomp_stub.go` (137 lines) - Cross-platform stub for non-Linux support
+- **Tests Passing**: All 76+ tests passing (Linux and non-Linux platforms)
+- **Completion**: 2026-04-02
 
 **SEC-003**: `SECURITY-TESTING.md` (449 lines) - Security Test Suite ❌
 - **Gap**: No comprehensive security testing
