@@ -1,0 +1,131 @@
+# Prometheus Alert Rules for Muster
+# Reference: specs/OPS-ALERTING.md
+
+groups:
+  - name: muster_alerts
+    interval: 30s
+    rules:
+      # CRITICAL: High error rate (>5%)
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://wiki/runbooks/high-error-rate"
+
+      # WARNING: High latency (95th percentile >500ms)
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(request_duration_seconds_bucket[5m])) by (le)
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }}s"
+          runbook_url: "https://wiki/runbooks/high-latency"
+
+      # WARNING: Low disk space (<10% available)
+      - alert: LowDiskSpace
+        expr: |
+          node_filesystem_avail_bytes{fstype!="tmpfs"} 
+          / node_filesystem_size_bytes{fstype!="tmpfs"} < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk space is below 10% on {{ $labels.mountpoint }}"
+          runbook_url: "https://wiki/runbooks/low-disk-space"
+
+      # WARNING: High memory usage (>85%)
+      - alert: HighMemoryUsage
+        expr: |
+          (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) 
+          / node_memory_MemTotal_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is above 85%"
+          runbook_url: "https://wiki/runbooks/high-memory-usage"
+
+      # CRITICAL: Database connection failures
+      - alert: DatabaseConnectionFailures
+        expr: increase(db_connection_errors_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection failures"
+          description: "{{ $value }} connection failures in 5 minutes"
+          runbook_url: "https://wiki/runbooks/database-connection-failures"
+
+      # CRITICAL: Service down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service has been down for more than 1 minute"
+          runbook_url: "https://wiki/runbooks/service-down"
+
+      # WARNING: MCP request latency
+      - alert: HighMCPRequestLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(mcp_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: mcp
+        annotations:
+          summary: "High MCP request latency"
+          description: "95th percentile MCP latency is {{ $value }}s"
+          runbook_url: "https://wiki/runbooks/high-mcp-latency"
+
+      # WARNING: Cache hit ratio low
+      - alert: LowCacheHitRatio
+        expr: |
+          (
+            sum(rate(cache_hits_total[5m]))
+            /
+            sum(rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Low cache hit ratio"
+          description: "Cache hit ratio is {{ $value | humanizePercentage }}"
+          runbook_url: "https://wiki/runbooks/low-cache-hit-ratio"
+
+      # INFO: High CPU usage
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is above 80%"
+          runbook_url: "https://wiki/runbooks/high-cpu-usage"

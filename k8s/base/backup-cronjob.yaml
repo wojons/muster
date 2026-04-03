@@ -1,0 +1,262 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: muster-database-backup
+  namespace: muster
+  labels:
+    app: muster
+    component: backup
+    version: v1
+spec:
+  schedule: "0 2 * * *"  # Run at 2 AM daily
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: muster
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 1000
+          containers:
+          - name: backup
+            image: muster/backup:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Starting Muster database backup..."
+              /usr/local/bin/backup-database.sh
+              echo "Backup completed"
+            env:
+            # Database configuration
+            - name: DB_PATH
+              value: "/data/muster.db"
+            
+            # Backup configuration
+            - name: BACKUP_DIR
+              value: "/backups"
+            - name: RETENTION_DAYS
+              value: "30"
+            - name: ENABLE_COMPRESSION
+              value: "true"
+            - name: ENABLE_ENCRYPTION
+              valueFrom:
+                secretKeyRef:
+                  name: backup-secrets
+                  key: encryption-enabled
+                  optional: true
+            - name: ENCRYPTION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backup-secrets
+                  key: encryption-password
+                  optional: true
+            
+            # Cloud storage configuration
+            - name: CLOUD_PROVIDER
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: cloud-provider
+                  optional: true
+            - name: CLOUD_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: cloud-bucket
+                  optional: true
+            - name: CLOUD_PREFIX
+              value: "backups/muster"
+            
+            # AWS S3 configuration
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backup-secrets
+                  key: aws-access-key-id
+                  optional: true
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backup-secrets
+                  key: aws-secret-access-key
+                  optional: true
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            
+            # GCS configuration
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/secrets/gcs-key.json"
+            
+            # Notifications
+            - name: NOTIFY_ON_SUCCESS
+              value: "true"
+            - name: NOTIFY_ON_FAILURE
+              value: "true"
+            - name: SLACK_WEBHOOK
+              valueFrom:
+                secretKeyRef:
+                  name: backup-secrets
+                  key: slack-webhook
+                  optional: true
+            - name: EMAIL_TO
+              valueFrom:
+                configMapKeyRef:
+                  name: backup-config
+                  key: email-to
+                  optional: true
+            
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+            
+            volumeMounts:
+            - name: data
+              mountPath: /data
+              readOnly: true
+            - name: backups
+              mountPath: /backups
+            - name: backup-scripts
+              mountPath: /usr/local/bin/backup-database.sh
+              subPath: backup-database.sh
+              readOnly: true
+            - name: secrets
+              mountPath: /secrets
+              readOnly: true
+            
+          volumes:
+          - name: data
+            persistentVolumeClaim:
+              claimName: muster-data-pvc
+          - name: backups
+            emptyDir:
+              sizeLimit: 10Gi
+          - name: backup-scripts
+            configMap:
+              name: backup-scripts
+              defaultMode: 0755
+          - name: secrets
+            secret:
+              secretName: backup-secrets
+              optional: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-scripts
+  namespace: muster
+data:
+  backup-database.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    
+    # Logging
+    LOG_FILE="${BACKUP_DIR}/backup.log"
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="muster_backup_${TIMESTAMP}.db"
+    BACKUP_PATH="${BACKUP_DIR}/${BACKUP_FILE}"
+    
+    log() {
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+    }
+    
+    error() {
+        log "ERROR: $*"
+        exit 1
+    }
+    
+    log "Starting backup process..."
+    
+    # Verify database exists
+    if [[ ! -f "$DB_PATH" ]]; then
+        error "Database not found: $DB_PATH"
+    fi
+    
+    log "Source database: $DB_PATH"
+    log "Backup destination: $BACKUP_PATH"
+    
+    # Create backup using SQLite VACUUM INTO
+    if command -v sqlite3 &> /dev/null; then
+        sqlite3 "$DB_PATH" "VACUUM INTO '${BACKUP_PATH}'"
+    else
+        cp "$DB_PATH" "$BACKUP_PATH"
+    fi
+    
+    # Verify backup
+    if [[ ! -f "$BACKUP_PATH" ]]; then
+        error "Backup file was not created"
+    fi
+    
+    local size=$(stat -c%s "$BACKUP_PATH" 2>/dev/null || stat -f%z "$BACKUP_PATH")
+    log "Backup created: $size bytes"
+    
+    # Compress if enabled
+    if [[ "$ENABLE_COMPRESSION" == "true" ]]; then
+        log "Compressing backup..."
+        gzip "$BACKUP_PATH"
+        BACKUP_PATH="${BACKUP_PATH}.gz"
+        BACKUP_FILE="${BACKUP_FILE}.gz"
+    fi
+    
+    # Encrypt if enabled
+    if [[ "$ENABLE_ENCRYPTION" == "true" && -n "$ENCRYPTION_PASSWORD" ]]; then
+        log "Encrypting backup..."
+        openssl enc -aes-256-cbc -salt -pbkdf2 \
+            -in "$BACKUP_PATH" \
+            -out "${BACKUP_PATH}.enc" \
+            -pass pass:"$ENCRYPTION_PASSWORD"
+        mv "${BACKUP_PATH}.enc" "$BACKUP_PATH"
+    fi
+    
+    # Calculate checksum
+    if command -v sha256sum &> /dev/null; then
+        sha256sum "$BACKUP_PATH" | awk '{print $1}' > "${BACKUP_PATH}.sha256"
+    else
+        shasum -a 256 "$BACKUP_PATH" | awk '{print $1}' > "${BACKUP_PATH}.sha256"
+    fi
+    
+    # Upload to cloud if configured
+    if [[ -n "$CLOUD_PROVIDER" && -n "$CLOUD_BUCKET" ]]; then
+        log "Uploading to cloud storage (${CLOUD_PROVIDER})..."
+        
+        case "$CLOUD_PROVIDER" in
+            s3)
+                if command -v aws &> /dev/null; then
+                    aws s3 cp "$BACKUP_PATH" "s3://${CLOUD_BUCKET}/${CLOUD_PREFIX}/${BACKUP_FILE}" --storage-class STANDARD_IA
+                    aws s3 cp "${BACKUP_PATH}.sha256" "s3://${CLOUD_BUCKET}/${CLOUD_PREFIX}/${BACKUP_FILE}.sha256"
+                fi
+                ;;
+            gcs)
+                if command -v gsutil &> /dev/null; then
+                    gsutil cp "$BACKUP_PATH" "gs://${CLOUD_BUCKET}/${CLOUD_PREFIX}/${BACKUP_FILE}"
+                fi
+                ;;
+        esac
+        
+        log "Cloud upload completed"
+    fi
+    
+    # Cleanup old backups (keep last 30 days)
+    find "$BACKUP_DIR" -name "muster_backup_*.db*" -mtime +"${RETENTION_DAYS}" -delete 2>/dev/null || true
+    find "$BACKUP_DIR" -name "muster_backup_*.sha256" -mtime +"${RETENTION_DAYS}" -delete 2>/dev/null || true
+    
+    log "Backup process completed successfully"
+    
+    # Output for metrics
+    echo "BACKUP_FILE=${BACKUP_FILE}"
+    echo "BACKUP_SIZE=${size}"
+    echo "BACKUP_TIMESTAMP=${TIMESTAMP}"
