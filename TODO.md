@@ -2377,16 +2377,17 @@
   - [x] Step 4: Implement custom metrics for business logic - COMPLETED: Created comprehensive alert rules in `deployments/monitoring/prometheus/rules/slo-alerts.yml` covering API availability/latency/error rate, MCP tool calls, Daemon health, Cache performance, Auth operations, Command Store operations, and resource usage
   - [x] Step 5: Add dashboard provisioning - COMPLETED: Created Grafana provisioning configs in `deployments/monitoring/grafana/provisioning/` with automatic Prometheus datasource configuration and dashboard auto-loading, created `docker-compose.yml` for full stack deployment
 
-**OPS-005**: `OPS-TRACING.md` - Distributed Tracing ❌
+**OPS-005**: `OPS-TRACING.md` - Distributed Tracing ✅ IN PROGRESS
 - **Gap**: No distributed tracing implementation
 - **Evidence**: No OpenTelemetry/Jaeger integration, no trace context propagation
 - **Impact**: Cannot debug cross-service requests
 - **Baby Steps**:
-  - [ ] Step 1: Add OpenTelemetry SDK integration
-  - [ ] Step 2: Implement trace context propagation in HTTP middleware
-  - [ ] Step 3: Add tracing to WASM runtime calls
+  - [x] Step 1: Add OpenTelemetry SDK integration - COMPLETED: OpenTelemetry SDK integration already exists in `internal/telemetry/` package with TracerProvider, Tracer, and Span types
+  - [x] Step 2: Implement trace context propagation in HTTP middleware - COMPLETED: Created `TracingMiddleware` function in `internal/telemetry/middleware.go` that extracts trace context from incoming requests, creates spans with HTTP attributes, and propagates context. Also created helper functions: `ExtractTraceContext`, `InjectTraceContext`, `GetTraceID`, `GetSpanID`, `ParseTraceParent`, `ValidateTraceParent`, `FormatTraceContextHeader`, `ParseSamplingDecision`, and comprehensive test suite (35+ tests)
+  - [x] Step 3: Add tracing to WASM runtime calls - COMPLETED: Created TelemetryTracer adapter in `pkg/wasm/telemetry_wasm.go` that bridges internal telemetry package to WASM Tracer interface. Implemented TelemetryTracer with StartSpan(), TelemetrySpan with End(), SetTag(), and SetError() methods. Created NoopSpan for when tracing is disabled. Added comprehensive unit tests (20+ test functions) in `pkg/wasm/telemetry_wasm_test.go` covering tracer creation, span management, tag setting (string, int, int64, float64, bool), error recording, context propagation, concurrent access, and integration with WASM runtime (Execute, Validate, GetModuleInfo). All tests pass with zero lint errors.
   - [ ] Step 4: Configure Jaeger/Zipkin exporter
   - [ ] Step 5: Create trace-based debugging guides
+- **Status**: Partially Complete - HTTP middleware implemented, remaining steps pending
 
 **OPS-006**: `OPS-METRICS.md` - Metrics Standardization ❌
 - **Gap**: No standardized metrics naming, no RED/USE method
