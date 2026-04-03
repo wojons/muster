@@ -1,0 +1,33 @@
+{{ define "slack.default.title" }}
+{{ .GroupLabels.alertname }}
+{{ end }}
+
+{{ define "slack.default.text" }}
+{{ range .Alerts }}
+{{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} *{{ .Labels.severity | toUpper }}*
+*Alert:* {{ .Annotations.summary }}
+*Description:* {{ .Annotations.description }}
+*Service:* {{ .Labels.service }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+{{ if .Annotations.runbook_url }}*Runbook:* {{ .Annotations.runbook_url }}{{ end }}
+{{ end }}
+{{ end }}
+
+{{ define "email.default.subject" }}
+[Muster Alert] {{ .GroupLabels.alertname }}
+{{ end }}
+
+{{ define "email.default.body" }}
+{{ range .Alerts }}
+Alert: {{ .Annotations.summary }}
+Severity: {{ .Labels.severity }}
+Description: {{ .Annotations.description }}
+Service: {{ .Labels.service }}
+Started: {{ .StartsAt }}
+{{ if .Annotations.runbook_url }}Runbook: {{ .Annotations.runbook_url }}{{ end }}
+{{ end }}
+{{ end }}
+
+{{ define "pagerduty.default.instances" }}
+{{ range . }}{{ .Labels.instance }}{{ end }}
+{{ end }}
