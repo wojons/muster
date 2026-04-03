@@ -846,7 +846,8 @@ func validateUUID(uuid string) bool {
 
 	// Check for valid hex characters
 	for _, r := range cleaned {
-		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+		isHex := (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
+		if !isHex {
 			return false
 		}
 	}
