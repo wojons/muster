@@ -2496,7 +2496,7 @@
 - **Baby Steps**:
   - [x] Step 1: Document macOS-specific features (keychain, notifications) - COMPLETED: Created comprehensive feature documentation at `docs/PLATFORM-MACOS-FEATURES.md` documenting platform directories (pkg/platform/darwin.go), keychain integration (pkg/platform/integration_darwin_test.go), notification support, build tags, and platform tests. References complete 1695-line specification at `specs/PLATFORM-MACOS.md`.
   - [x] Step 2: Add macOS integration tests - COMPLETED: Created comprehensive launchd integration tests in `internal/platform/darwin/launchd_test.go` with 35+ test functions covering Launchd constructor (NewLaunchd), Load/Unload operations, Start/Stop/Restart service lifecycle, IsRunning status checking, GetLogPaths log path extraction with user expansion ($USER), EnsureLogDirectory directory creation, plist path generation (AgentPlistPath, DaemonPlistPath), full service lifecycle testing, complex plist configuration, and label validation. All tests pass with zero lint errors.
-  - [ ] Step 3: Test Homebrew installation
+  - [x] Step 3: Test Homebrew installation - COMPLETED: Created comprehensive Homebrew installation test suite in `internal/platform/darwin/homebrew_test.go` with 20+ test functions covering formula generation, structure validation, installation paths, service integration, caveats, dependencies, tap configuration, architecture support, bottle structure, install/uninstall/upgrade simulations, and conflict validation. All tests pass on macOS.
   - [ ] Step 4: Validate macOS signing/notarization
 
 **PLATFORM-002**: `PLATFORM-WINDOWS.md` - Windows Platform Features ✅ COMPLETE
@@ -2542,7 +2542,7 @@
 - **Evidence**: No Trivy/Clair integration
 - **Impact**: Vulnerable base images
 - **Baby Steps**:
-  - [ ] Step 1: Add Trivy scanning to CI
+  - [x] Step 1: Add Trivy scanning to CI - COMPLETED: Added Trivy scanning to GitHub Actions security job with SARIF output, GitHub Security tab integration
   - [ ] Step 2: Use distroless base image
   - [ ] Step 3: Remove unnecessary packages
   - [ ] Step 4: Configure read-only filesystem
