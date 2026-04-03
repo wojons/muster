@@ -2497,7 +2497,15 @@
   - [x] Step 1: Document macOS-specific features (keychain, notifications) - COMPLETED: Created comprehensive feature documentation at `docs/PLATFORM-MACOS-FEATURES.md` documenting platform directories (pkg/platform/darwin.go), keychain integration (pkg/platform/integration_darwin_test.go), notification support, build tags, and platform tests. References complete 1695-line specification at `specs/PLATFORM-MACOS.md`.
   - [x] Step 2: Add macOS integration tests - COMPLETED: Created comprehensive launchd integration tests in `internal/platform/darwin/launchd_test.go` with 35+ test functions covering Launchd constructor (NewLaunchd), Load/Unload operations, Start/Stop/Restart service lifecycle, IsRunning status checking, GetLogPaths log path extraction with user expansion ($USER), EnsureLogDirectory directory creation, plist path generation (AgentPlistPath, DaemonPlistPath), full service lifecycle testing, complex plist configuration, and label validation. All tests pass with zero lint errors.
   - [x] Step 3: Test Homebrew installation - COMPLETED: Created comprehensive Homebrew installation test suite in `internal/platform/darwin/homebrew_test.go` with 20+ test functions covering formula generation, structure validation, installation paths, service integration, caveats, dependencies, tap configuration, architecture support, bottle structure, install/uninstall/upgrade simulations, and conflict validation. All tests pass on macOS.
-  - [ ] Step 4: Validate macOS signing/notarization
+  - [x] Step 4: Validate macOS signing/notarization - COMPLETED: Implemented comprehensive macOS code signing and notarization validation in `internal/platform/darwin/signing.go` with complete validation API including:
+    - Code signing validation with deep/strict verification options
+    - Notarization status checking with stapled ticket detection
+    - Distribution readiness validation (Developer ID signing, notarization, stapling)
+    - Signing identity retrieval from keychain
+    - Thread-safe result caching with expiration
+    - Entitlement parsing from signed binaries
+    - Comprehensive error handling and reporting
+    - Complete test suite in `signing_test.go` with 60+ test functions covering validation, caching, concurrency, and edge cases. All code compiles with CGO_ENABLED=1. Documentation follows Go conventions with package-level overview, security considerations, usage examples, and thread safety notes.
 
 **PLATFORM-002**: `PLATFORM-WINDOWS.md` - Windows Platform Features ✅ COMPLETE
 - **Gap**: Windows support incomplete
