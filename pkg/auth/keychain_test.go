@@ -120,14 +120,23 @@ func TestWindowsKeychain_Set(t *testing.T) {
 
 func TestSecretServiceKeychain_Fallback(t *testing.T) {
 	kc, err := NewSecretServiceKeychain()
-	if err == nil {
-		t.Error("Expected NewSecretServiceKeychain to return error on this platform")
-	}
-	if err != ErrSecretServiceNotAvailable {
-		t.Logf("Note: Got error %v (expected ErrSecretServiceNotAvailable on non-Linux)", err)
-	}
-	if kc != nil {
-		t.Error("Expected nil SecretServiceKeychain on error")
+	if runtime.GOOS != "linux" {
+		// Non-Linux: the stub is compiled and must return ErrSecretServiceNotAvailable
+		if err != ErrSecretServiceNotAvailable {
+			t.Errorf("expected ErrSecretServiceNotAvailable on %s, got %v", runtime.GOOS, err)
+		}
+		if kc != nil {
+			t.Error("Expected nil SecretServiceKeychain on error")
+		}
+	} else {
+		// Linux: the real implementation runs. The D-Bus Secret Service may or
+		// may not be available; either outcome is acceptable for this test.
+		if err != nil {
+			t.Logf("Secret Service not available (expected in CI/headless): %v", err)
+		}
+		if err == nil && kc == nil {
+			t.Error("Expected non-nil SecretServiceKeychain when no error")
+		}
 	}
 }
 

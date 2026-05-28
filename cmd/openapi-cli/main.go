@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/builtin"
 	"github.com/wojons/muster/pkg/config"
 )
@@ -26,6 +27,14 @@ func main() {
 func run() error {
 	ctx := context.Background()
 
+	// Initialize audit hook (opt-in via MUSTER_AUDIT_ENABLED env var)
+	auditHook := audit.NewHook(audit.DefaultConfig())
+	defer func() {
+		if err := auditHook.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", err)
+		}
+	}()
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -35,8 +44,8 @@ func run() error {
 		cfg = &config.Config{Version: Version}
 	}
 
-	// Build root command
-	rootCmd := builtin.NewRootCommand(cfg)
+	// Build root command with audit hook wired in
+	rootCmd := builtin.NewRootCommandWithAudit(cfg, auditHook)
 
 	// Execute
 	return rootCmd.ExecuteContext(ctx)

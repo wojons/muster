@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/pkg/mcp"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 )
@@ -34,6 +35,7 @@ var (
 	baseURLFlag   = flag.String("base-url", "", "Base URL for API operations")
 	logLevelFlag  = flag.String("log-level", "info", "Log level")
 	logOutputFlag = flag.String("log-output", "stderr", "Log output destination")
+	auditFlag     = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
 )
 
 func loadConfig() *MCPServerConfig {
@@ -99,6 +101,18 @@ func main() {
 	ctx, cancel := setupSignalHandling()
 	defer cancel()
 
+	// Initialize audit hook (opt-in via --audit flag or MUSTER_AUDIT_ENABLED env var)
+	auditConfig := audit.DefaultConfig()
+	if *auditFlag {
+		auditConfig.Enabled = true
+	}
+	auditHook := audit.NewHook(auditConfig)
+	defer func() {
+		if err := auditHook.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", err)
+		}
+	}()
+
 	config := loadConfig()
 	stdin, stdout, stderr := setupStdio()
 
@@ -106,10 +120,13 @@ func main() {
 
 	// Set up server
 	if err := runMCPServer(config, server); err != nil {
+		auditHook.LogCommand(ctx, "mcp-server-start", mcpActorID(), false, map[string]string{"error": err.Error()})
 		handleFatal(err)
 	}
+	auditHook.LogCommand(ctx, "mcp-server-start", mcpActorID(), true, nil)
 
 	if err := server.Run(ctx); err != nil && err != context.Canceled {
+		auditHook.LogCommand(ctx, "mcp-server-run", mcpActorID(), false, map[string]string{"error": err.Error()})
 		handleFatal(err)
 	}
 }
@@ -157,4 +174,15 @@ func RegisterHandler(server *mcp.Server, handler handlers.Handler) {
 	// This would need to be implemented in pkg/mcp/server.go
 	// For now, just a placeholder
 	_ = handler
+}
+
+// mcpActorID returns the actor identifier for MCP audit events.
+func mcpActorID() string {
+	if user := os.Getenv("USER"); user != "" {
+		return user
+	}
+	if user := os.Getenv("LOGNAME"); user != "" {
+		return user
+	}
+	return "mcp-client"
 }

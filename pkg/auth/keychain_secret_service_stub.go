@@ -3,10 +3,6 @@
 
 package auth
 
-import "errors"
-
-var ErrSecretServiceNotAvailable = errors.New("secret service not available on this platform")
-
 type SecretServiceKeychain struct{}
 
 func NewSecretServiceKeychain() (*SecretServiceKeychain, error) {

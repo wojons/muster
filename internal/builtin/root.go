@@ -5,20 +5,44 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/cmdstore"
 	"github.com/wojons/muster/pkg/config"
 	"github.com/spf13/cobra"
 )
 
-// NewRootCommand creates the root cobra command
+// NewRootCommand creates the root cobra command.
 func NewRootCommand(cfg *config.Config) *cobra.Command {
+	return newRootCommand(cfg, nil)
+}
+
+// NewRootCommandWithAudit creates the root cobra command with audit logging wired in.
+// Pass nil for auditHook to disable audit logging.
+func NewRootCommandWithAudit(cfg *config.Config, auditHook *audit.Hook) *cobra.Command {
+	return newRootCommand(cfg, auditHook)
+}
+
+// newRootCommand is the shared implementation for both constructors.
+func newRootCommand(cfg *config.Config, auditHook *audit.Hook) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "openapi-cli",
 		Short: "OpenAPI-powered CLI and MCP server",
 		Long: `A unified CLI tool that generates commands from OpenAPI specifications
 and serves them via MCP protocol.`,
 		Version: version.Get().Short(),
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if auditHook != nil {
+				auditHook.LogCommand(cmd.Context(), cmd.CommandPath(), cliActorID(), true, nil)
+			}
+		},
+		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			// This is called on success. Errors before command execution
+			// (e.g. arg parsing) are captured by ExecuteContext returning an error.
+			if auditHook != nil {
+				auditHook.LogCommand(cmd.Context(), cmd.CommandPath(), cliActorID(), true, nil)
+			}
+		},
 	}
 
 	// Add built-in commands
@@ -38,6 +62,17 @@ and serves them via MCP protocol.`,
 	loadPersistedCommands(root, cfg)
 
 	return root
+}
+
+// cliActorID returns the actor identifier for CLI audit events.
+func cliActorID() string {
+	if user := os.Getenv("USER"); user != "" {
+		return user
+	}
+	if user := os.Getenv("LOGNAME"); user != "" {
+		return user
+	}
+	return "unknown"
 }
 
 // loadPersistedCommands loads previously generated commands from storage

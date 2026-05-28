@@ -22,8 +22,9 @@ import (
 )
 
 var (
-	ErrNotFound         = errors.New("not found")
-	ErrMissingMasterKey = errors.New("master key not available: encryption requires a secure master key to be configured. Run 'muster auth init' to set up secure key storage")
+	ErrNotFound                    = errors.New("not found")
+	ErrMissingMasterKey            = errors.New("master key not available: encryption requires a secure master key to be configured. Run 'muster auth init' to set up secure key storage")
+	ErrSecretServiceNotAvailable   = errors.New("secret service not available on this platform")
 )
 
 type Account struct {
