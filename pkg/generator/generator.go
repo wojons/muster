@@ -125,9 +125,9 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/openapi-cli/openapi-cli/pkg/log"
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
-	"github.com/openapi-cli/openapi-cli/pkg/request"
+	"github.com/wojons/muster/pkg/log"
+	"github.com/wojons/muster/pkg/openapi"
+	"github.com/wojons/muster/pkg/request"
 	"github.com/spf13/cobra"
 )
 

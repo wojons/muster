@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/log"
+	"github.com/wojons/muster/pkg/log"
 )
 
 // ProxyServer handles HTTP proxying over Unix socket

@@ -185,7 +185,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/log"
+	"github.com/wojons/muster/pkg/log"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )

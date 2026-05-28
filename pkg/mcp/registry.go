@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
-	"github.com/openapi-cli/openapi-cli/pkg/request"
+	"github.com/wojons/muster/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/request"
 	"github.com/xeipuuv/gojsonschema"
 )
 

@@ -3,7 +3,7 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/openapi-cli/openapi-cli/pkg/daemon"
+	"github.com/wojons/muster/pkg/daemon"
 	"github.com/spf13/cobra"
 )
 

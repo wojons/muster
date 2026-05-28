@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/wasm"
+	"github.com/wojons/muster/pkg/wasm"
 )
 
 // TestWASM_RuntimeLimits_CPU tests CPU limiting via fuel mechanism.

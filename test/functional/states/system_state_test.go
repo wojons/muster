@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/openapi-cli/openapi-cli/test/functional/harness"
+	"github.com/wojons/muster/test/functional/harness"
 )
 
 // TestSystem_StateTransitions tests system state transitions.

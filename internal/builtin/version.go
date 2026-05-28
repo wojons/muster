@@ -3,7 +3,7 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/openapi-cli/openapi-cli/internal/version"
+	"github.com/wojons/muster/internal/version"
 	"github.com/spf13/cobra"
 )
 

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/events"
+	"github.com/wojons/muster/pkg/events"
 )
 
 // handlerFuncAdapter adapts a function to the Handler interface

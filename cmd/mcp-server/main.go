@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/openapi-cli/openapi-cli/pkg/mcp"
-	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/mcp"
+	"github.com/wojons/muster/pkg/mcp/handlers"
 )
 
 type MCPServerConfig struct {

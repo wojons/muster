@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/request"
-	"github.com/openapi-cli/openapi-cli/pkg/response"
+	"github.com/wojons/muster/pkg/request"
+	"github.com/wojons/muster/pkg/response"
 	"github.com/spf13/cobra"
 )
 

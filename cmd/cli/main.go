@@ -16,9 +16,9 @@ import (
 	"syscall"
 	"time"
 
-	builtpkg "github.com/openapi-cli/openapi-cli/internal/builtin"
-	"github.com/openapi-cli/openapi-cli/internal/version"
-	"github.com/openapi-cli/openapi-cli/pkg/config"
+	builtpkg "github.com/wojons/muster/internal/builtin"
+	"github.com/wojons/muster/internal/version"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"

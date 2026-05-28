@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/wasm"
+	"github.com/wojons/muster/pkg/wasm"
 	"github.com/stretchr/testify/require"
 )
 

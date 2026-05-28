@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/client"
-	"github.com/openapi-cli/openapi-cli/pkg/retry"
+	"github.com/wojons/muster/pkg/client"
+	"github.com/wojons/muster/pkg/retry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

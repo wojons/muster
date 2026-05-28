@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/auth/ratelimit"
+	"github.com/wojons/muster/pkg/auth/ratelimit"
 )
 
 func TestGenerateSecureState(t *testing.T) {

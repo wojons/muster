@@ -8,7 +8,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/mcp/handlers"
 )
 
 type Server struct {

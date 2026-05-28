@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openapi-cli/openapi-cli/internal/telemetry"
+	"github.com/wojons/muster/internal/telemetry"
 )
 
 // TelemetryTracer adapts the internal telemetry package to the WASM Tracer interface.

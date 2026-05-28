@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/openapi-cli/openapi-cli/pkg/cmdstore"
-	"github.com/openapi-cli/openapi-cli/pkg/config"
-	"github.com/openapi-cli/openapi-cli/pkg/generator"
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
+	"github.com/wojons/muster/pkg/cmdstore"
+	"github.com/wojons/muster/pkg/config"
+	"github.com/wojons/muster/pkg/generator"
+	"github.com/wojons/muster/pkg/openapi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

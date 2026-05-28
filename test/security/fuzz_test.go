@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
+	"github.com/wojons/muster/pkg/openapi"
 	"github.com/stretchr/testify/require"
 )
 

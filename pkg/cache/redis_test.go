@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/test/util"
+	"github.com/wojons/muster/test/util"
 )
 
 func TestRedisCache_Get(t *testing.T) {

@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/mcp"
-	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
+	"github.com/wojons/muster/pkg/mcp"
+	"github.com/wojons/muster/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/openapi"
 )
 
 // TestRealMCPIntegration is a REAL integration test that proves:

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/auth/ratelimit"
+	"github.com/wojons/muster/pkg/auth/ratelimit"
 	"github.com/stretchr/testify/require"
 )
 

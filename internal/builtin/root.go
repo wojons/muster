@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/openapi-cli/openapi-cli/internal/version"
-	"github.com/openapi-cli/openapi-cli/pkg/cmdstore"
-	"github.com/openapi-cli/openapi-cli/pkg/config"
+	"github.com/wojons/muster/internal/version"
+	"github.com/wojons/muster/pkg/cmdstore"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/spf13/cobra"
 )
 

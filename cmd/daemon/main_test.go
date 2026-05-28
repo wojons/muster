@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/openapi-cli/openapi-cli/pkg/daemon"
+	"github.com/wojons/muster/pkg/daemon"
 	"github.com/stretchr/testify/require"
 )
 

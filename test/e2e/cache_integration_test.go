@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/cache"
+	"github.com/wojons/muster/pkg/cache"
 )
 
 func TestCacheIntegration_CacheMiss(t *testing.T) {

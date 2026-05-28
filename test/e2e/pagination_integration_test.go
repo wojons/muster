@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/generator"
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
+	"github.com/wojons/muster/pkg/generator"
+	"github.com/wojons/muster/pkg/openapi"
 )
 
 // TestPagination_E2E tests end-to-end pagination handling for APIs with 500+ items

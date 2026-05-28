@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openapi-cli/openapi-cli/pkg/errors"
+	"github.com/wojons/muster/pkg/errors"
 )
 
 func TestNewErrorFormatter(t *testing.T) {

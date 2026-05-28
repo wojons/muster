@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/openapi-cli/openapi-cli/pkg/log"
-	"github.com/openapi-cli/openapi-cli/pkg/request"
+	"github.com/wojons/muster/pkg/log"
+	"github.com/wojons/muster/pkg/request"
 	"github.com/spf13/cobra"
 )
 

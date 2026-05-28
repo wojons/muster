@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/wasm"
+	"github.com/wojons/muster/pkg/wasm"
 )
 
 // TestWASM_RuntimeIntegration tests WASM runtime, capabilities, and sandbox

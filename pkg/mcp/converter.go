@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/mcp/handlers"
 )
 
 // Converter transforms OpenAPI operations into MCP tools

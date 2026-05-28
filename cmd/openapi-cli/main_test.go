@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/openapi-cli/openapi-cli/internal/builtin"
-	"github.com/openapi-cli/openapi-cli/pkg/config"
+	"github.com/wojons/muster/internal/builtin"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/require"
 )
 

@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/openapi-cli/openapi-cli/pkg/log"
+	"github.com/wojons/muster/pkg/log"
 	"github.com/spf13/viper"
 )
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/config"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/require"
 )
 

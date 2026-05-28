@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/openapi-cli/openapi-cli/pkg/repository"
+	"github.com/wojons/muster/pkg/repository"
 )
 
 // inventoryRepository implements repository.InventoryRepository.

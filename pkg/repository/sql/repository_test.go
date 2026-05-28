@@ -8,7 +8,7 @@ import (
 	"time"
 
 	_ "github.com/mutecomm/go-sqlcipher"
-	"github.com/openapi-cli/openapi-cli/pkg/repository"
+	"github.com/wojons/muster/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

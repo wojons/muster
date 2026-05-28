@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/openapi-cli/openapi-cli/pkg/daemon"
+	"github.com/wojons/muster/pkg/daemon"
 )
 
 // Build-time variables
