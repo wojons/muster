@@ -277,10 +277,10 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 	path, method, args := extractOperationFromCommandAndSpec(cmd, doc)
 
 	// Determine which flags represent request body properties (vs query/header params).
-	// For POST/PUT/PATCH operations, flags that match requestBody schema properties
-	// should be serialized as JSON body, not query parameters.
-	// Maps normalized flag name → original JSON property name.
 	bodyFlagToJSON := extractBodyPropertyNames(doc, path, method)
+
+	// Determine if this operation supports multipart
+	hasMultipart, multipartFields := detectMultipartOperation(doc, path, method)
 
 	cmdMeta := cmdstore.CommandMetadata{
 		Name:    cmd.Name(),
@@ -305,13 +305,24 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 		}
 
 		if flag.Name == "output" || flag.Name == "namespace" || flag.Name == "debug" {
-			// Skip standard flags
 			return
+		}
+
+		// Tag file-upload flag for multipart operations
+		if hasMultipart {
+			if flag.Name == "file" {
+				flagMeta.Kind = cmdstore.FlagKindFile
+			} else if multipartFields[flag.Name] {
+				flagMeta.Kind = cmdstore.FlagKindMultipart
+			}
 		}
 
 		// Tag body flags so the loader can marshal them as JSON body
 		if jsonName, ok := bodyFlagToJSON[flag.Name]; ok {
-			flagMeta.Kind = cmdstore.FlagKindBody
+			// Don't override multipart kind with body kind
+			if flagMeta.Kind == "" {
+				flagMeta.Kind = cmdstore.FlagKindBody
+			}
 			flagMeta.JSONName = jsonName
 		}
 
@@ -319,6 +330,43 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 	})
 
 	*metadata = append(*metadata, cmdMeta)
+}
+
+// detectMultipartOperation checks if the operation at path+method supports multipart/form-data
+// and returns a set of non-file multipart field flag names.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=internal/builtin/generate.go
+func detectMultipartOperation(doc *openapi3.T, path, method string) (bool, map[string]bool) {
+	if doc == nil || path == "" || method == "" {
+		return false, nil
+	}
+	pathItem := doc.Paths.Find(path)
+	if pathItem == nil {
+		return false, nil
+	}
+	operation := pathItem.GetOperation(method)
+	if operation == nil || operation.RequestBody == nil || operation.RequestBody.Value == nil {
+		return false, nil
+	}
+
+	mt := operation.RequestBody.Value.Content.Get("multipart/form-data")
+	if mt == nil || mt.Schema == nil || mt.Schema.Value == nil {
+		return false, nil
+	}
+
+	// Collect non-binary field names
+	fields := make(map[string]bool)
+	for name, propRef := range mt.Schema.Value.Properties {
+		if propRef == nil || propRef.Value == nil {
+			continue
+		}
+		// Skip file/binary fields — those go through --file
+		if propRef.Value.Format == "binary" {
+			continue
+		}
+		fields[normalizeFlagName(name)] = true
+	}
+
+	return true, fields
 }
 
 // extractBodyPropertyNames returns a map from normalized flag name to original

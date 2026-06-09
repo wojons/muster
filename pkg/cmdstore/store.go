@@ -49,10 +49,12 @@ type CommandMetadata struct {
 type FlagKind string
 
 const (
-	FlagKindPath   FlagKind = "path"
-	FlagKindQuery  FlagKind = "query"
-	FlagKindHeader FlagKind = "header"
-	FlagKindBody   FlagKind = "body"
+	FlagKindPath      FlagKind = "path"
+	FlagKindQuery     FlagKind = "query"
+	FlagKindHeader    FlagKind = "header"
+	FlagKindBody      FlagKind = "body"
+	FlagKindFile      FlagKind = "file"      // multipart file upload flag
+	FlagKindMultipart FlagKind = "multipart" // non-file multipart form field
 )
 
 // FlagMetadata describes a command flag.

@@ -3,11 +3,11 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-09 17:00 CDT
+**Last run:** 2026-06-09 18:28 CDT
 **Last cron:** 2026-06-09 11:49 CDT (error — pre-build-fix)
-**Run status:** AC-001 ✅ passed. AC-002 delegated to Axiom (running now). 
-**Summary:** AC-011 ✅. AC-001 ✅ (discover subcommand + URL fetching, committed ce5bd06). AC-002 🔄 (Axiom testing full CRUD across 5 apps). AC-003–006 ⬜. AC-012–013 ⬜.
-**Key findings:** `discover http://...` fetches live spec, displays 32 ops with params. `generate http://...` now works with URLs. Non-OpenAPI responses caught cleanly (nil-guard in parser). All edge cases handled gracefully.
+**Run status:** AC-001 ✅ AC-002 ✅. AC-003 delegated to Axiom (running now).
+**Summary:** AC-011 ✅. AC-001 ✅. AC-002 ✅ (full CRUD: request cmd + generated cmds, body-as-JSON, $ref resolution, all return 201). AC-003 🔄. AC-004–006 ⬜. AC-012–013 ⬜.
+**Key findings:** `$ref` body schemas resolve correctly now. Path params → positional args, body flags → JSON body, query params → URL params. All 32 ops work across 8 command groups. 5 commits this session.
 
 ## Demo Infrastructure (Fake Apps)
 

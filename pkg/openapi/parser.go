@@ -68,15 +68,18 @@ type RequestBodyProperty struct {
 }
 
 // Operation represents a single API operation extracted from an OpenAPI spec.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/openapi/parser.go
 type Operation struct {
-	ID          string
-	Tags        []string
-	Path        string
-	Method      string
-	Summary     string
-	Description string
-	Parameters  []Parameter
-	RequestBody []RequestBodyProperty
+	ID              string
+	Tags            []string
+	Path            string
+	Method          string
+	Summary         string
+	Description     string
+	Parameters      []Parameter
+	RequestBody     []RequestBodyProperty
+	HasMultiPart    bool                 // true if requestBody supports multipart/form-data
+	MultipartFields []RequestBodyProperty // non-file fields in multipart form
 }
 
 // Parameters is a convenience type for a slice of Parameter values.
@@ -136,6 +139,12 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 				RequestBody: extractRequestBodyProperties(spec, op.RequestBody),
 			}
 
+			// Detect multipart/form-data support
+			operation.HasMultiPart = hasMultipartBody(op.RequestBody)
+			if operation.HasMultiPart {
+				operation.MultipartFields = extractMultipartFields(op.RequestBody)
+			}
+
 			operations = append(operations, operation)
 		}
 	}
@@ -191,6 +200,7 @@ func extractParameters(params openapi3.Parameters) []Parameter {
 // are converted into RequestBodyProperty entries suitable for flag generation.
 // Resolves $ref references (e.g. "#/components/schemas/CreateMilestone") by
 // looking up the referenced schema in the document's Components.Schemas map.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/openapi/parser.go
 func extractRequestBodyProperties(spec *openapi3.T, bodyRef *openapi3.RequestBodyRef) []RequestBodyProperty {
 	if bodyRef == nil || bodyRef.Value == nil {
 		return nil
@@ -205,6 +215,62 @@ func extractRequestBodyProperties(spec *openapi3.T, bodyRef *openapi3.RequestBod
 	}
 
 	return extractPropertiesFromSchemaRef(spec, mt.Schema)
+}
+
+// hasMultipartBody returns true if the requestBody supports multipart/form-data.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/openapi/parser.go
+func hasMultipartBody(bodyRef *openapi3.RequestBodyRef) bool {
+	if bodyRef == nil || bodyRef.Value == nil {
+		return false
+	}
+	return bodyRef.Value.Content.Get("multipart/form-data") != nil
+}
+
+// extractMultipartFields extracts non-file fields from a multipart/form-data request body.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/openapi/parser.go
+func extractMultipartFields(bodyRef *openapi3.RequestBodyRef) []RequestBodyProperty {
+	if bodyRef == nil || bodyRef.Value == nil {
+		return nil
+	}
+	mt := bodyRef.Value.Content.Get("multipart/form-data")
+	if mt == nil || mt.Schema == nil || mt.Schema.Value == nil {
+		return nil
+	}
+
+	schema := mt.Schema.Value
+	requiredSet := make(map[string]bool)
+	for _, name := range schema.Required {
+		requiredSet[name] = true
+	}
+
+	var props []RequestBodyProperty
+	for name, propRef := range schema.Properties {
+		if propRef == nil || propRef.Value == nil {
+			continue
+		}
+		propSchema := propRef.Value
+
+		// Skip binary/file fields — those are handled via --file flag
+		if propSchema.Format == "binary" || (propSchema.Type != nil && propSchema.Type.Is("string") && propSchema.Format == "binary") {
+			continue
+		}
+
+		propType := ""
+		if propSchema.Type != nil {
+			propType = propSchema.Type.Slice()[0]
+		}
+
+		props = append(props, RequestBodyProperty{
+			Name:        name,
+			Type:        propType,
+			Description: propSchema.Description,
+			Required:    requiredSet[name],
+			Enum:        propSchema.Enum,
+			Default:     propSchema.Default,
+		})
+	}
+
+	return props
 }
 
 // extractPropertiesFromSchemaRef extracts property metadata from a SchemaRef,

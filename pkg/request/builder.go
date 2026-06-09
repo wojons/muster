@@ -1,24 +1,32 @@
 // Package request provides HTTP request building from OpenAPI operation definitions.
 // It handles parameter serialization, path substitution, and request construction.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
 package request
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
 // Builder constructs HTTP requests from operation metadata and user-provided parameters.
 type Builder struct {
-	BaseURL     string
-	Path        string
-	Method      string
-	Headers     map[string]string
-	PathParams  map[string]string
-	QueryParams map[string]string
-	Body        io.Reader
+	BaseURL        string
+	Path           string
+	Method         string
+	Headers        map[string]string
+	PathParams     map[string]string
+	QueryParams    map[string]string
+	Body           io.Reader
+	contentType    string
+	multipartParts map[string]string // fieldName → filePath
+	multipartExtra map[string]string // fieldName → value (non-file form fields)
 }
 
 // NewBuilder creates a new request Builder with the given base URL.
@@ -126,11 +134,95 @@ func (b *Builder) WithBody(body io.Reader) *Builder {
 	return b
 }
 
+// WithFileUpload adds a file to be uploaded via multipart/form-data.
+// fieldName is the form field name (e.g. "file"), filePath is the local path to read.
+// Also auto-adds a "name" form field with the file's basename (common for upload APIs).
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
+func (b *Builder) WithFileUpload(fieldName, filePath string) *Builder {
+	if b.multipartParts == nil {
+		b.multipartParts = make(map[string]string)
+	}
+	b.multipartParts[fieldName] = filePath
+	b.contentType = "multipart/form-data"
+	// Auto-add "name" field from the file's basename
+	if b.multipartExtra == nil {
+		b.multipartExtra = make(map[string]string)
+	}
+	if _, exists := b.multipartExtra["name"]; !exists {
+		b.multipartExtra["name"] = filepath.Base(filePath)
+	}
+	return b
+}
+
+// WithMultipartField adds a non-file form field for multipart uploads.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
+func (b *Builder) WithMultipartField(fieldName, value string) *Builder {
+	if b.multipartExtra == nil {
+		b.multipartExtra = make(map[string]string)
+	}
+	b.multipartExtra[fieldName] = value
+	return b
+}
+
+// buildMultipartBody constructs a multipart/form-data body from registered parts.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
+func (b *Builder) buildMultipartBody() (io.Reader, string, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	for fieldName, filePath := range b.multipartParts {
+		file, err := os.Open(filePath)
+		if err != nil {
+			return nil, "", fmt.Errorf("open file %s: %w", filePath, err)
+		}
+		part, err := w.CreateFormFile(fieldName, filepath.Base(filePath))
+		if err != nil {
+			file.Close()
+			return nil, "", fmt.Errorf("create form file: %w", err)
+		}
+		if _, err := io.Copy(part, file); err != nil {
+			file.Close()
+			return nil, "", fmt.Errorf("copy file content: %w", err)
+		}
+		file.Close()
+	}
+
+	for fieldName, value := range b.multipartExtra {
+		if err := w.WriteField(fieldName, value); err != nil {
+			return nil, "", fmt.Errorf("write field %s: %w", fieldName, err)
+		}
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, "", fmt.Errorf("close multipart writer: %w", err)
+	}
+
+	return &buf, w.FormDataContentType(), nil
+}
+
+// WithContentType sets a custom Content-Type header for the request.
+func (b *Builder) WithContentType(ct string) *Builder {
+	b.contentType = ct
+	return b
+}
+
 // Execute builds and executes the HTTP request.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
 func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
 	url := b.buildURL()
 
-	req, err := http.NewRequestWithContext(ctx, b.Method, url, b.Body)
+	var body io.Reader = b.Body
+
+	// If multipart parts are registered, build the multipart body
+	if len(b.multipartParts) > 0 {
+		var err error
+		body, b.contentType, err = b.buildMultipartBody()
+		if err != nil {
+			return nil, fmt.Errorf("build multipart body: %w", err)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, b.Method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -138,6 +230,11 @@ func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
 	// Apply default headers
 	for key, value := range b.Headers {
 		req.Header.Set(key, value)
+	}
+
+	// Apply content type from multipart or explicit setting
+	if b.contentType != "" {
+		req.Header.Set("Content-Type", b.contentType)
 	}
 
 	client := &http.Client{}

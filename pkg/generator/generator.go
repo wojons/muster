@@ -117,6 +117,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -314,6 +315,9 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation) *cobra.Command 
 	return cmd
 }
 
+// addFlags adds CLI flags for the operation's parameters and request body properties.
+// For multipart operations, adds a --file flag instead of per-property body flags.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/generator/generator.go
 func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 	for _, param := range op.Parameters {
 		if param.In == "path" {
@@ -356,9 +360,33 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		}
 	}
 
+	// For multipart operations, add --file flag alongside any JSON body flags
+	if op.HasMultiPart {
+		cmd.Flags().StringP("file", "f", "", "File path to upload (multipart/form-data)")
+		// Add non-file multipart form fields
+		for _, field := range op.MultipartFields {
+			flagName := g.normalizeFlagName(field.Name)
+			description := field.Description
+			if description == "" {
+				description = fmt.Sprintf("%s (form field)", field.Name)
+			}
+			cmd.Flags().StringP(flagName, "", "", description)
+		}
+	}
+
 	// Add flags for request body properties (for POST/PUT/PATCH operations)
+	// Build a set of multipart flag names to avoid duplicates
+	multipartFlagNames := make(map[string]bool)
+	for _, field := range op.MultipartFields {
+		multipartFlagNames[g.normalizeFlagName(field.Name)] = true
+	}
+
 	for _, bodyProp := range op.RequestBody {
 		flagName := g.normalizeFlagName(bodyProp.Name)
+		// Skip if already added as a multipart field
+		if multipartFlagNames[flagName] {
+			continue
+		}
 		shorthand := g.inferShorthand(bodyProp.Name)
 		description := bodyProp.Description
 		if description == "" {
@@ -683,7 +711,6 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 				if err != nil {
 					return fmt.Errorf("get flag %s: %w", param.Name, err)
 				}
-				// Check if flag was actually set
 				flagName := g.normalizeFlagName(param.Name)
 				if cmd.Flag(flagName) != nil && cmd.Flag(flagName).Changed {
 					builder.WithQueryParam(param.Name, fmt.Sprintf("%v", value))
@@ -698,6 +725,24 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 					builder.SetHeader(param.Name, value)
 				}
 			}
+		}
+
+		// Handle multipart file upload
+		if op.HasMultiPart {
+			filePath, _ := cmd.Flags().GetString("file")
+			if filePath != "" {
+				builder.WithFileUpload("file", filePath)
+				// Add multipart non-file fields
+				for _, field := range op.MultipartFields {
+					flagName := g.normalizeFlagName(field.Name)
+					if cmd.Flag(flagName) != nil && cmd.Flag(flagName).Changed {
+						val, _ := cmd.Flags().GetString(flagName)
+						builder.WithMultipartField(field.Name, val)
+					}
+				}
+				return executeAndPrint(builder, cmd, ctx)
+			}
+			// No file provided — fall through to JSON body path below
 		}
 
 		// Build JSON body from request body property flags (for POST/PUT/PATCH)
@@ -762,25 +807,40 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 			}
 		}
 
-		resp, err := builder.Execute(ctx)
-		if err != nil {
-			return fmt.Errorf("execute request: %w", err)
-		}
-		defer func() { _ = resp.Body.Close() }()
-
-		if resp.StatusCode >= 400 {
-			return fmt.Errorf("HTTP error: %s", resp.Status)
-		}
-
-		// Log response status
-		logger := log.FromContext(ctx)
-		logger.Info().
-			Int("status_code", resp.StatusCode).
-			Str("status", resp.Status).
-			Msg("HTTP response received")
-
-		return nil
+		return executeAndPrint(builder, cmd, ctx)
 	}
+}
+
+// executeAndPrint sends the request and prints the response body.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/generator/generator.go
+func executeAndPrint(builder *request.Builder, cmd *cobra.Command, ctx context.Context) error {
+	resp, err := builder.Execute(ctx)
+	if err != nil {
+		return fmt.Errorf("execute request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Read and print response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+	if len(body) > 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), string(body))
+	}
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("HTTP error: %s", resp.Status)
+	}
+
+	// Log response status
+	logger := log.FromContext(ctx)
+	logger.Info().
+		Int("status_code", resp.StatusCode).
+		Str("status", resp.Status).
+		Msg("HTTP response received")
+
+	return nil
 }
 
 func (g *Generator) getFlagValue(cmd *cobra.Command, name, paramType string) (interface{}, error) {
