@@ -323,6 +323,8 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 
 // extractBodyPropertyNames returns a map from normalized flag name to original
 // JSON property name for all request body properties in the given path+method.
+// Resolves $ref references (e.g. "#/components/schemas/CreateMilestone") by
+// looking up the referenced schema in the document's Components.Schemas map.
 // Returns nil if no body schema exists.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=internal/builtin/generate.go
 func extractBodyPropertyNames(doc *openapi3.T, path, method string) map[string]string {
@@ -346,10 +348,10 @@ func extractBodyPropertyNames(doc *openapi3.T, path, method string) map[string]s
 	}
 
 	// Look for application/json request body content
-	var schema *openapi3.Schema
-	if jsonContent := content.Get("application/json"); jsonContent != nil && jsonContent.Schema != nil {
-		schema = jsonContent.Schema.Value
-	}
+	// kin-openapi resolves $ref at parse time when the loader is configured
+	// to do so, but when it doesn't, we resolve it manually via
+	// resolveRequestBodySchema below.
+	schema := resolveRequestBodySchema(doc, content.Get("application/json"))
 	if schema == nil {
 		return nil
 	}
@@ -361,6 +363,33 @@ func extractBodyPropertyNames(doc *openapi3.T, path, method string) map[string]s
 		names[normalized] = propName // original name → JSON key
 	}
 	return names
+}
+
+// resolveRequestBodySchema resolves the schema for a requestBody content-type
+// entry, following $ref references that point into #/components/schemas/...
+// This is a fallback for cases where kin-openapi didn't fully resolve the
+// $ref at parse time.
+func resolveRequestBodySchema(doc *openapi3.T, mt *openapi3.MediaType) *openapi3.Schema {
+	if mt == nil || mt.Schema == nil {
+		return nil
+	}
+
+	if mt.Schema.Value != nil && mt.Schema.Value.Properties != nil && len(mt.Schema.Value.Properties) > 0 {
+		return mt.Schema.Value
+	}
+
+	// Resolution via kin-openapi may have populated Value even for a $ref;
+	// check if there's a $ref we need to follow manually.
+	if mt.Schema.Ref != "" && strings.HasPrefix(mt.Schema.Ref, "#/components/schemas/") {
+		schemaName := strings.TrimPrefix(mt.Schema.Ref, "#/components/schemas/")
+		if doc.Components != nil && doc.Components.Schemas != nil {
+			if refSchema, ok := doc.Components.Schemas[schemaName]; ok && refSchema != nil && refSchema.Value != nil {
+				return refSchema.Value
+			}
+		}
+	}
+
+	return nil
 }
 
 // normalizeFlagName converts a camelCase name to kebab-lower flag name.

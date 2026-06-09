@@ -133,7 +133,7 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 				Description: op.Description,
 				Tags:        op.Tags,
 				Parameters:  extractParameters(op.Parameters),
-				RequestBody: extractRequestBodyProperties(op.RequestBody),
+				RequestBody: extractRequestBodyProperties(spec, op.RequestBody),
 			}
 
 			operations = append(operations, operation)
@@ -189,7 +189,9 @@ func extractParameters(params openapi3.Parameters) []Parameter {
 // extractRequestBodyProperties extracts properties from an OpenAPI requestBody schema.
 // For POST/PUT/PATCH operations, the requestBody content's JSON schema properties
 // are converted into RequestBodyProperty entries suitable for flag generation.
-func extractRequestBodyProperties(bodyRef *openapi3.RequestBodyRef) []RequestBodyProperty {
+// Resolves $ref references (e.g. "#/components/schemas/CreateMilestone") by
+// looking up the referenced schema in the document's Components.Schemas map.
+func extractRequestBodyProperties(spec *openapi3.T, bodyRef *openapi3.RequestBodyRef) []RequestBodyProperty {
 	if bodyRef == nil || bodyRef.Value == nil {
 		return nil
 	}
@@ -198,12 +200,29 @@ func extractRequestBodyProperties(bodyRef *openapi3.RequestBodyRef) []RequestBod
 
 	// Look for application/json media type
 	mt := body.Content.Get("application/json")
-	if mt == nil || mt.Schema == nil || mt.Schema.Value == nil {
+	if mt == nil || mt.Schema == nil {
 		return nil
 	}
 
-	schema := mt.Schema.Value
-	if schema.Properties == nil {
+	return extractPropertiesFromSchemaRef(spec, mt.Schema)
+}
+
+// extractPropertiesFromSchemaRef extracts property metadata from a SchemaRef,
+// resolving $ref references by looking up the referenced schema in the
+// OpenAPI document's Components.Schemas map.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/openapi/parser.go
+func extractPropertiesFromSchemaRef(spec *openapi3.T, schemaRef *openapi3.SchemaRef) []RequestBodyProperty {
+	if schemaRef == nil {
+		return nil
+	}
+
+	// kin-openapi should resolve $ref at parse time into schemaRef.Value,
+	// but when the requestBody itself uses $ref (e.g. "$ref": "#/components/schemas/CreateMilestone")
+	// the properties may live in the referenced schema rather than being inlined.
+	// As a fallback, explicitly look up the reference when inline Properties
+	// are missing.
+	schema := schemaRef.Value
+	if schema == nil {
 		return nil
 	}
 
@@ -233,6 +252,43 @@ func extractRequestBodyProperties(bodyRef *openapi3.RequestBodyRef) []RequestBod
 			Enum:        propSchema.Enum,
 			Default:     propSchema.Default,
 		})
+	}
+
+	// If no properties were found on the resolved Value, check if this
+	// schema was a $ref and look up the referenced schema explicitly.
+	if len(props) == 0 && schemaRef.Ref != "" && strings.HasPrefix(schemaRef.Ref, "#/components/schemas/") {
+		schemaName := strings.TrimPrefix(schemaRef.Ref, "#/components/schemas/")
+		if spec != nil && spec.Components != nil && spec.Components.Schemas != nil {
+			if refSchema, ok := spec.Components.Schemas[schemaName]; ok && refSchema != nil && refSchema.Value != nil {
+				schema = refSchema.Value
+				for name, propRef := range schema.Properties {
+					if propRef == nil || propRef.Value == nil {
+						continue
+					}
+					propSchema := propRef.Value
+
+					propType := ""
+					if propSchema.Type != nil {
+						propType = propSchema.Type.Slice()[0]
+					}
+
+					props = append(props, RequestBodyProperty{
+						Name:        name,
+						Type:        propType,
+						Description: propSchema.Description,
+						Required:    requiredSet[name],
+						Enum:        propSchema.Enum,
+						Default:     propSchema.Default,
+					})
+				}
+			}
+		}
+	}
+
+	// Handle allOf composition — merge properties from all allOf schemas
+	for _, subSchemaRef := range schema.AllOf {
+		subProps := extractPropertiesFromSchemaRef(spec, subSchemaRef)
+		props = append(props, subProps...)
 	}
 
 	return props
