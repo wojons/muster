@@ -1,0 +1,416 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "File Vault API",
+    "description": "File storage API with folders, file upload/download, soft-delete trash/recover, and sharing. Supports multipart upload, binary download, folder hierarchy, and pagination.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "http://localhost:9802", "description": "File Vault local server" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "healthCheck",
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiSpec",
+        "summary": "Get OpenAPI specification",
+        "responses": {
+          "200": { "description": "OpenAPI spec" }
+        }
+      }
+    },
+    "/files": {
+      "get": {
+        "operationId": "listFiles",
+        "summary": "List files with filters and pagination",
+        "parameters": [
+          { "name": "folder_id", "in": "query", "schema": { "type": "integer" }, "description": "Filter by parent folder" },
+          { "name": "name", "in": "query", "schema": { "type": "string" }, "description": "Filter by name (case-insensitive substring)" },
+          { "name": "include_deleted", "in": "query", "schema": { "type": "string", "default": "false" }, "description": "Include soft-deleted files" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated file list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedFiles" } } } }
+        }
+      },
+      "post": {
+        "operationId": "uploadFile",
+        "summary": "Upload a file (multipart/form-data or JSON body)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/FileUploadForm" }
+            },
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/FileUploadJSON" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "File uploaded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileMeta" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/files/{file_id}": {
+      "get": {
+        "operationId": "getFile",
+        "summary": "Get file metadata by ID",
+        "parameters": [ { "name": "file_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "File metadata", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileMeta" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "operationId": "updateFile",
+        "summary": "Full update a file's metadata and content",
+        "parameters": [ { "name": "file_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileUpdate" } } } },
+        "responses": {
+          "200": { "description": "Updated file metadata", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileMeta" } } } },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": {
+        "operationId": "patchFile",
+        "summary": "Partial update a file's metadata",
+        "parameters": [ { "name": "file_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FilePatch" } } } },
+        "responses": {
+          "200": { "description": "Updated file metadata", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileMeta" } } } },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFile",
+        "summary": "Soft-delete a file (move to trash)",
+        "parameters": [ { "name": "file_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "File trashed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeleteResponse" } } } },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/files/{file_id}/download": {
+      "get": {
+        "operationId": "downloadFile",
+        "summary": "Download file binary content",
+        "parameters": [ { "name": "file_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "File binary content", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
+          "404": { "description": "File not found or in trash" }
+        }
+      }
+    },
+    "/files/{file_id}/recover": {
+      "post": {
+        "operationId": "recoverFile",
+        "summary": "Recover a soft-deleted file from trash",
+        "parameters": [ { "name": "file_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "File recovered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FileMeta" } } } },
+          "400": { "description": "File is not deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/files/{file_id}/permanent": {
+      "delete": {
+        "operationId": "permanentDeleteFile",
+        "summary": "Permanently delete a file",
+        "parameters": [ { "name": "file_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Permanently deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PermanentDeleteResponse" } } } },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/folders": {
+      "get": {
+        "operationId": "listFolders",
+        "summary": "List folders with filters and pagination",
+        "parameters": [
+          { "name": "parent_id", "in": "query", "schema": { "type": "integer" }, "description": "Filter by parent folder" },
+          { "name": "include_deleted", "in": "query", "schema": { "type": "string", "default": "false" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated folder list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedFolders" } } } }
+        }
+      },
+      "post": {
+        "operationId": "createFolder",
+        "summary": "Create a folder",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateFolder" } } } },
+        "responses": {
+          "201": { "description": "Folder created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Folder" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/folders/{folder_id}": {
+      "get": {
+        "operationId": "getFolder",
+        "summary": "Get folder by ID with child counts",
+        "parameters": [ { "name": "folder_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Folder with child counts", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/FolderDetail" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "operationId": "updateFolder",
+        "summary": "Update a folder",
+        "parameters": [ { "name": "folder_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateFolder" } } } },
+        "responses": {
+          "200": { "description": "Updated folder", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Folder" } } } },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteFolder",
+        "summary": "Soft-delete a folder (move to trash)",
+        "parameters": [ { "name": "folder_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Folder trashed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeleteResponse" } } } },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/folders/{folder_id}/recover": {
+      "post": {
+        "operationId": "recoverFolder",
+        "summary": "Recover a soft-deleted folder from trash",
+        "parameters": [ { "name": "folder_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Folder recovered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Folder" } } } },
+          "400": { "description": "Folder is not deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/shares": {
+      "get": {
+        "operationId": "listShares",
+        "summary": "List shares",
+        "parameters": [
+          { "name": "file_id", "in": "query", "schema": { "type": "integer" }, "description": "Filter by file ID" }
+        ],
+        "responses": {
+          "200": { "description": "Share list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ShareList" } } } }
+        }
+      },
+      "post": {
+        "operationId": "createShare",
+        "summary": "Create a share",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateShare" } } } },
+        "responses": {
+          "201": { "description": "Share created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Share" } } } },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/shares/{share_id}": {
+      "get": {
+        "operationId": "getShare",
+        "summary": "Get a share by ID",
+        "parameters": [ { "name": "share_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Share", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Share" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "operationId": "updateShare",
+        "summary": "Update a share",
+        "parameters": [ { "name": "share_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateShare" } } } },
+        "responses": {
+          "200": { "description": "Updated share", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Share" } } } },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteShare",
+        "summary": "Delete a share",
+        "parameters": [ { "name": "share_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeleteResponse" } } } },
+          "404": { "description": "Not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      },
+      "DeleteResponse": {
+        "type": "object",
+        "properties": {
+          "deleted": { "type": "boolean" },
+          "trashed": { "type": "boolean" }
+        }
+      },
+      "PermanentDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "deleted": { "type": "boolean" },
+          "permanent": { "type": "boolean" }
+        }
+      },
+      "FileMeta": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "folder_id": { "type": "integer", "nullable": true },
+          "size": { "type": "integer" },
+          "content_type": { "type": "string" },
+          "deleted": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "FileUploadForm": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string", "format": "binary", "description": "File binary content" },
+          "folder_id": { "type": "integer", "description": "Optional parent folder ID" }
+        }
+      },
+      "FileUploadJSON": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "content": { "type": "string", "description": "Text content for the file" },
+          "content_type": { "type": "string", "default": "text/plain" },
+          "folder_id": { "type": "integer" }
+        }
+      },
+      "FileUpdate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "content": { "type": "string" },
+          "content_type": { "type": "string" },
+          "folder_id": { "type": "integer" }
+        }
+      },
+      "FilePatch": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "folder_id": { "type": "integer" }
+        }
+      },
+      "PaginatedFiles": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/FileMeta" } },
+          "page": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "total": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      },
+      "Folder": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "parent_id": { "type": "integer", "nullable": true },
+          "deleted": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "FolderDetail": {
+        "allOf": [ { "$ref": "#/components/schemas/Folder" } ],
+        "type": "object",
+        "properties": {
+          "file_count": { "type": "integer" },
+          "folder_count": { "type": "integer" }
+        }
+      },
+      "CreateFolder": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "parent_id": { "type": "integer" }
+        }
+      },
+      "PaginatedFolders": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Folder" } },
+          "page": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "total": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      },
+      "Share": {
+        "type": "object",
+        "required": ["id", "file_id", "shared_with"],
+        "properties": {
+          "id": { "type": "integer" },
+          "file_id": { "type": "integer" },
+          "shared_with": { "type": "string" },
+          "permission": { "type": "string", "enum": ["read", "write"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateShare": {
+        "type": "object",
+        "required": ["file_id", "shared_with"],
+        "properties": {
+          "file_id": { "type": "integer" },
+          "shared_with": { "type": "string" },
+          "permission": { "type": "string", "default": "read" }
+        }
+      },
+      "ShareList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Share" } },
+          "total": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,623 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Metrics Engine API",
+    "description": "Time-series analytics API. Stores and queries numeric metric data points with aggregation support. Dashboards CRUD included.\n\nPort: 9804",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:9804",
+      "description": "Local development"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "health",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "OpenAPI specification",
+        "operationId": "getOpenApiSpec",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.0.3 spec in JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "post": {
+        "summary": "Bulk insert metric data points",
+        "operationId": "bulkInsertMetrics",
+        "tags": ["Metrics"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["points"],
+                "properties": {
+                  "points": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/components/schemas/MetricPointInput"
+                    },
+                    "example": [
+                      { "name": "cpu", "value": 42.5, "timestamp": "2024-01-01T00:00:00Z" },
+                      { "name": "memory", "value": 68.2, "timestamp": "2024-01-01T00:00:00Z" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Points inserted (may include partial errors)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkInsertResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Multi-series query by comma-separated metric names",
+        "operationId": "listMetrics",
+        "tags": ["Metrics"],
+        "parameters": [
+          {
+            "name": "names",
+            "in": "query",
+            "required": true,
+            "description": "Comma-separated metric names (e.g. cpu,memory,disk)",
+            "schema": { "type": "string", "example": "cpu,memory" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "ISO 8601 start timestamp (inclusive)",
+            "schema": { "type": "string", "format": "date-time", "example": "2024-01-01T00:00:00Z" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "ISO 8601 end timestamp (inclusive)",
+            "schema": { "type": "string", "format": "date-time", "example": "2024-01-02T00:00:00Z" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Multi-series result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultiSeriesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing names parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics/{name}": {
+      "get": {
+        "summary": "Range query for a single metric",
+        "operationId": "queryMetricsRange",
+        "tags": ["Metrics"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "cpu" },
+            "description": "Metric name"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "ISO 8601 start timestamp (inclusive)",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "ISO 8601 end timestamp (inclusive)",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Range query result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeQueryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics/{name}/aggregate": {
+      "get": {
+        "summary": "Aggregate a metric over time buckets",
+        "operationId": "aggregateMetrics",
+        "tags": ["Metrics"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "cpu" }
+          },
+          {
+            "name": "fn",
+            "in": "query",
+            "required": false,
+            "description": "Aggregation function",
+            "schema": {
+              "type": "string",
+              "enum": ["avg", "min", "max", "sum"],
+              "default": "avg"
+            }
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "description": "Bucket interval (e.g. 1h, 30m, 3600s, 2d)",
+            "schema": { "type": "string", "default": "1h", "example": "1h" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AggregateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid fn or interval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics/{name}/latest": {
+      "get": {
+        "summary": "Most recent data point for a metric",
+        "operationId": "latestMetric",
+        "tags": ["Metrics"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "cpu" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest point (data is null if metric has no points)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LatestResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dashboards": {
+      "get": {
+        "summary": "List all dashboards",
+        "operationId": "listDashboards",
+        "tags": ["Dashboards"],
+        "responses": {
+          "200": {
+            "description": "Dashboard list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Dashboard" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new dashboard",
+        "operationId": "createDashboard",
+        "tags": ["Dashboards"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "System Overview" },
+                  "description": { "type": "string", "example": "Top-level system dashboards" },
+                  "panels": {
+                    "type": "array",
+                    "items": { "type": "object" },
+                    "example": [
+                      { "title": "CPU Usage", "metric": "cpu", "type": "line" },
+                      { "title": "Memory Usage", "metric": "memory", "type": "gauge" }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dashboard created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Dashboard" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing name",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dashboards/{dashboard_id}": {
+      "get": {
+        "summary": "Get a dashboard by ID",
+        "operationId": "getDashboard",
+        "tags": ["Dashboards"],
+        "parameters": [
+          {
+            "name": "dashboard_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Dashboard" }
+              }
+            }
+          },
+          "404": {
+            "description": "Dashboard not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a dashboard (full or partial)",
+        "operationId": "updateDashboard",
+        "tags": ["Dashboards"],
+        "parameters": [
+          {
+            "name": "dashboard_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "panels": { "type": "array", "items": { "type": "object" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dashboard updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Dashboard" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Dashboard not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a dashboard",
+        "operationId": "deleteDashboard",
+        "tags": ["Dashboards"],
+        "parameters": [
+          {
+            "name": "dashboard_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean", "example": true }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dashboard not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "example": "not found" }
+        },
+        "required": ["error"]
+      },
+      "MetricPointInput": {
+        "type": "object",
+        "required": ["name", "value", "timestamp"],
+        "properties": {
+          "name": { "type": "string", "example": "cpu" },
+          "value": { "type": "number", "example": 42.5 },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 string or numeric Unix timestamp",
+            "example": "2024-01-01T00:00:00Z"
+          }
+        }
+      },
+      "MetricPointOutput": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "example": "cpu" },
+          "value": { "type": "number", "example": 42.5 },
+          "timestamp": { "type": "string", "format": "date-time", "example": "2024-01-01T00:00:00Z" }
+        }
+      },
+      "BulkInsertResponse": {
+        "type": "object",
+        "properties": {
+          "inserted": { "type": "integer", "example": 10 },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": { "type": "integer" },
+                "point": { "type": "object" },
+                "error": { "type": "string" }
+              }
+            }
+          },
+          "total_errors": { "type": "integer", "example": 0 }
+        }
+      },
+      "RangeQueryResponse": {
+        "type": "object",
+        "properties": {
+          "metric": { "type": "string", "example": "cpu" },
+          "count": { "type": "integer", "example": 50 },
+          "from": { "type": "string", "nullable": true },
+          "to": { "type": "string", "nullable": true },
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MetricPointOutput" }
+          }
+        }
+      },
+      "AggregateBucket": {
+        "type": "object",
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time" },
+          "value": { "type": "number", "example": 45.23 },
+          "count": { "type": "integer", "example": 6 }
+        }
+      },
+      "AggregateResponse": {
+        "type": "object",
+        "properties": {
+          "metric": { "type": "string", "example": "cpu" },
+          "fn": { "type": "string", "example": "avg" },
+          "interval": { "type": "string", "example": "1h" },
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AggregateBucket" }
+          }
+        }
+      },
+      "LatestResponse": {
+        "type": "object",
+        "properties": {
+          "metric": { "type": "string", "example": "cpu" },
+          "data": {
+            "nullable": true,
+            "oneOf": [
+              { "$ref": "#/components/schemas/MetricPointOutput" }
+            ]
+          }
+        }
+      },
+      "MultiSeriesResponse": {
+        "type": "object",
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/MetricPointOutput" }
+                }
+              }
+            }
+          },
+          "from": { "type": "string", "nullable": true },
+          "to": { "type": "string", "nullable": true }
+        }
+      },
+      "Dashboard": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "name": { "type": "string", "example": "System Overview" },
+          "description": { "type": "string", "example": "Top-level dashboards" },
+          "panels": {
+            "type": "array",
+            "items": { "type": "object" },
+            "example": [
+              { "title": "CPU Usage", "metric": "cpu", "type": "line" }
+            ]
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

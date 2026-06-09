@@ -1,0 +1,607 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Orchestrator — Workflow / Webhook API",
+    "description": "State-machine workflow engine with webhook triggers and execution polling. Manage workflows, define multi-step pipelines, trigger runs via webhooks, and track execution progress.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Muster Test Suite"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:9805",
+      "description": "Local development"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "health",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "OpenAPI specification",
+        "operationId": "openapiSpec",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.0.3 specification"
+          }
+        }
+      }
+    },
+    "/workflows": {
+      "get": {
+        "summary": "List workflows",
+        "operationId": "listWorkflows",
+        "tags": ["Workflows"],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Filter by name (case-insensitive substring)"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["active", "inactive", "archived"] },
+            "description": "Filter by status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of workflows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Workflow" }
+                    },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a workflow",
+        "operationId": "createWorkflow",
+        "tags": ["Workflows"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWorkflow"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Workflow created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Workflow" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — name is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/workflows/{workflowId}": {
+      "get": {
+        "summary": "Get a workflow by ID",
+        "operationId": "getWorkflow",
+        "tags": ["Workflows"],
+        "parameters": [
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Workflow" }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a workflow",
+        "operationId": "updateWorkflow",
+        "tags": ["Workflows"],
+        "parameters": [
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateWorkflow" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Workflow updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Workflow" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a workflow",
+        "operationId": "deleteWorkflow",
+        "tags": ["Workflows"],
+        "parameters": [
+          {
+            "name": "workflowId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Workflow deleted (also cleans up associated executions)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Workflow not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/triggers": {
+      "get": {
+        "summary": "List webhook triggers",
+        "operationId": "listTriggers",
+        "tags": ["Triggers"],
+        "responses": {
+          "200": {
+            "description": "List of triggers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Trigger" }
+                    },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a trigger",
+        "operationId": "createTrigger",
+        "tags": ["Triggers"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "workflow_id"],
+                "properties": {
+                  "name": { "type": "string", "description": "Unique trigger name" },
+                  "workflow_id": { "type": "integer", "description": "Workflow to execute" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Trigger created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Trigger" }
+              }
+            }
+          },
+          "400": { "description": "Bad request" },
+          "404": { "description": "Workflow not found" },
+          "409": { "description": "Trigger name already exists" }
+        }
+      }
+    },
+    "/triggers/{triggerName}": {
+      "get": {
+        "summary": "Get a trigger by name",
+        "operationId": "getTrigger",
+        "tags": ["Triggers"],
+        "parameters": [
+          {
+            "name": "triggerName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trigger details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Trigger" }
+              }
+            }
+          },
+          "404": { "description": "Trigger not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete a trigger",
+        "operationId": "deleteTrigger",
+        "tags": ["Triggers"],
+        "parameters": [
+          {
+            "name": "triggerName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trigger deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Trigger not found" }
+        }
+      }
+    },
+    "/triggers/{triggerName}/webhook": {
+      "post": {
+        "summary": "Trigger a workflow execution via webhook",
+        "operationId": "triggerWebhook",
+        "tags": ["Triggers", "Executions"],
+        "parameters": [
+          {
+            "name": "triggerName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Optional payload passed to the execution",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Execution started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "execution_id": { "type": "integer" },
+                    "status": { "type": "string", "example": "running" },
+                    "progress": { "type": "integer", "example": 0 }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Trigger not found" },
+          "500": { "description": "Workflow not found for trigger" }
+        }
+      }
+    },
+    "/executions": {
+      "get": {
+        "summary": "List executions",
+        "operationId": "listExecutions",
+        "tags": ["Executions"],
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "query",
+            "schema": { "type": "integer" },
+            "description": "Filter by workflow ID"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["running", "completed", "failed"]
+            },
+            "description": "Filter by execution status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of executions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Execution" }
+                    },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/executions/{executionId}": {
+      "get": {
+        "summary": "Get execution status and progress",
+        "operationId": "getExecution",
+        "tags": ["Executions"],
+        "parameters": [
+          {
+            "name": "executionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Execution details with per-step status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Execution" }
+              }
+            }
+          },
+          "404": {
+            "description": "Execution not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      },
+      "WorkflowStep": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "description": "Step ID (auto-assigned if missing)" },
+          "name": { "type": "string", "description": "Step name" },
+          "type": {
+            "type": "string",
+            "description": "Step type",
+            "enum": ["task", "approval", "notification", "webhook"]
+          },
+          "config": {
+            "type": "object",
+            "description": "Step-specific configuration",
+            "additionalProperties": true
+          },
+          "order": { "type": "integer", "description": "Execution order" }
+        }
+      },
+      "Workflow": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive", "archived"]
+          },
+          "steps": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/WorkflowStep" }
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateWorkflow": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive", "archived"],
+            "default": "active"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "type": {
+                  "type": "string",
+                  "enum": ["task", "approval", "notification", "webhook"]
+                },
+                "config": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "StepResult": {
+        "type": "object",
+        "properties": {
+          "step_id": { "type": "integer" },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "running", "completed", "failed", "skipped"]
+          },
+          "started_at": { "type": "string", "format": "date-time", "nullable": true },
+          "completed_at": { "type": "string", "format": "date-time", "nullable": true },
+          "output": { "type": "object", "nullable": true, "additionalProperties": true },
+          "error": { "type": "string", "nullable": true }
+        }
+      },
+      "Execution": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "workflow_id": { "type": "integer" },
+          "workflow_name": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["running", "completed", "failed"]
+          },
+          "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "current_step": { "type": "integer", "nullable": true },
+          "steps": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StepResult" }
+          },
+          "triggered_by": { "type": "string" },
+          "payload": { "type": "object", "additionalProperties": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "started_at": { "type": "string", "format": "date-time", "nullable": true },
+          "completed_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "Trigger": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "workflow_id": { "type": "integer" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "tags": [
+    { "name": "System", "description": "Health and specification endpoints" },
+    { "name": "Workflows", "description": "Workflow CRUD — define multi-step pipelines" },
+    { "name": "Triggers", "description": "Webhook trigger management" },
+    { "name": "Executions", "description": "Execution lifecycle and progress polling" }
+  ]
+}

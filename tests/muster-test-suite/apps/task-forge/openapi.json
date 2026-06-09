@@ -1,0 +1,592 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Task Forge API",
+    "description": "Project management API with projects, tasks, comments, milestones, and tags. Supports nested resources, query filters, PATCH partial updates, pagination, and search.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "http://localhost:9800", "description": "Task Forge local server" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "healthCheck",
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiSpec",
+        "summary": "Get OpenAPI specification",
+        "responses": {
+          "200": { "description": "OpenAPI spec" }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "List all projects",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" }, "description": "Filter by status (active, archived, completed)" },
+          { "name": "name", "in": "query", "schema": { "type": "string" }, "description": "Filter by name (case-insensitive substring)" },
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Search in name and description" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated project list",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedProjects" } } }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProject",
+        "summary": "Create a project",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateProject" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } }
+          },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/projects/{project_id}": {
+      "get": {
+        "operationId": "getProject",
+        "summary": "Get a project by ID",
+        "parameters": [ { "name": "project_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Project", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "operationId": "updateProject",
+        "summary": "Full update a project",
+        "parameters": [ { "name": "project_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateProject" } } } },
+        "responses": {
+          "200": { "description": "Updated project", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } } },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": {
+        "operationId": "patchProject",
+        "summary": "Partial update a project",
+        "parameters": [ { "name": "project_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PatchProject" } } } },
+        "responses": {
+          "200": { "description": "Updated project", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } } },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProject",
+        "summary": "Delete a project",
+        "parameters": [ { "name": "project_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Deleted confirmation" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/projects/{project_id}/tasks": {
+      "get": {
+        "operationId": "listProjectTasks",
+        "summary": "List tasks for a project",
+        "parameters": [
+          { "name": "project_id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "priority", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated task list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedTasks" } } } },
+          "404": { "description": "Project not found" }
+        }
+      },
+      "post": {
+        "operationId": "createProjectTask",
+        "summary": "Create a task in a project",
+        "parameters": [ { "name": "project_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateTask" } } } },
+        "responses": {
+          "201": { "description": "Task created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Project not found" }
+        }
+      }
+    },
+    "/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "summary": "List all tasks with filters",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "priority", "in": "query", "schema": { "type": "string" } },
+          { "name": "project_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "assignee", "in": "query", "schema": { "type": "string" } },
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated task list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedTasks" } } } }
+        }
+      }
+    },
+    "/tasks/{task_id}": {
+      "get": {
+        "operationId": "getTask",
+        "summary": "Get a task by ID",
+        "parameters": [ { "name": "task_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Task", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Task" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "operationId": "updateTask",
+        "summary": "Full update a task",
+        "parameters": [ { "name": "task_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateTask" } } } },
+        "responses": {
+          "200": { "description": "Updated task" },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": {
+        "operationId": "patchTask",
+        "summary": "Partial update a task",
+        "parameters": [ { "name": "task_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PatchTask" } } } },
+        "responses": {
+          "200": { "description": "Updated task" },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTask",
+        "summary": "Delete a task",
+        "parameters": [ { "name": "task_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/tasks/{task_id}/comments": {
+      "get": {
+        "operationId": "listTaskComments",
+        "summary": "List comments for a task",
+        "parameters": [ { "name": "task_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Comment list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CommentList" } } } },
+          "404": { "description": "Task not found" }
+        }
+      },
+      "post": {
+        "operationId": "createTaskComment",
+        "summary": "Add a comment to a task",
+        "parameters": [ { "name": "task_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateComment" } } } },
+        "responses": {
+          "201": { "description": "Comment created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Comment" } } } },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Task not found" }
+        }
+      }
+    },
+    "/comments/{comment_id}": {
+      "get": {
+        "operationId": "getComment",
+        "summary": "Get a comment by ID",
+        "parameters": [ { "name": "comment_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Comment", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Comment" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "operationId": "updateComment",
+        "summary": "Update a comment",
+        "parameters": [ { "name": "comment_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateComment" } } } },
+        "responses": {
+          "200": { "description": "Updated comment" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteComment",
+        "summary": "Delete a comment",
+        "parameters": [ { "name": "comment_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/milestones": {
+      "get": {
+        "operationId": "listMilestones",
+        "summary": "List milestones",
+        "parameters": [
+          { "name": "project_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated milestone list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedMilestones" } } } }
+        }
+      },
+      "post": {
+        "operationId": "createMilestone",
+        "summary": "Create a milestone",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateMilestone" } } } },
+        "responses": {
+          "201": { "description": "Milestone created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Milestone" } } } },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/milestones/{milestone_id}": {
+      "get": {
+        "operationId": "getMilestone",
+        "summary": "Get a milestone",
+        "parameters": [ { "name": "milestone_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Milestone", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Milestone" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "operationId": "updateMilestone",
+        "summary": "Full update a milestone",
+        "parameters": [ { "name": "milestone_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateMilestone" } } } },
+        "responses": {
+          "200": { "description": "Updated milestone" },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": {
+        "operationId": "patchMilestone",
+        "summary": "Partial update a milestone",
+        "parameters": [ { "name": "milestone_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PatchMilestone" } } } },
+        "responses": {
+          "200": { "description": "Updated milestone" },
+          "400": { "description": "Validation error" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMilestone",
+        "summary": "Delete a milestone",
+        "parameters": [ { "name": "milestone_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/tags": {
+      "get": {
+        "operationId": "listTags",
+        "summary": "List all tags",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated tag list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedTags" } } } }
+        }
+      },
+      "post": {
+        "operationId": "createTag",
+        "summary": "Create a tag",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateTag" } } } },
+        "responses": {
+          "201": { "description": "Tag created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Tag" } } } },
+          "400": { "description": "Validation error" }
+        }
+      }
+    },
+    "/tags/{tag_id}": {
+      "get": {
+        "operationId": "getTag",
+        "summary": "Get a tag",
+        "parameters": [ { "name": "tag_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Tag", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Tag" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "put": {
+        "operationId": "updateTag",
+        "summary": "Update a tag",
+        "parameters": [ { "name": "tag_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateTag" } } } },
+        "responses": {
+          "200": { "description": "Updated tag" },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteTag",
+        "summary": "Delete a tag",
+        "parameters": [ { "name": "tag_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "Search across projects and tasks",
+        "parameters": [ { "name": "q", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Search query (case-insensitive substring)" } ],
+        "responses": {
+          "200": { "description": "Search results", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SearchResult" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "ok" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateProject": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      },
+      "PatchProject": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      },
+      "PaginatedProjects": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Project" } },
+          "page": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "total": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      },
+      "Task": {
+        "type": "object",
+        "required": ["id", "project_id", "title", "status", "priority"],
+        "properties": {
+          "id": { "type": "integer" },
+          "project_id": { "type": "integer" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "in_progress", "review", "closed"] },
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "milestone_id": { "type": "integer", "nullable": true },
+          "tags": { "type": "array", "items": { "type": "integer" } },
+          "assignee": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateTask": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string" },
+          "priority": { "type": "string" },
+          "milestone_id": { "type": "integer" },
+          "tags": { "type": "array", "items": { "type": "integer" } },
+          "assignee": { "type": "string" }
+        }
+      },
+      "PatchTask": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string" },
+          "priority": { "type": "string" },
+          "milestone_id": { "type": "integer" },
+          "tags": { "type": "array", "items": { "type": "integer" } },
+          "assignee": { "type": "string" }
+        }
+      },
+      "PaginatedTasks": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Task" } },
+          "page": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "total": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "required": ["id", "task_id", "content"],
+        "properties": {
+          "id": { "type": "integer" },
+          "task_id": { "type": "integer" },
+          "content": { "type": "string" },
+          "author": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateComment": {
+        "type": "object",
+        "required": ["content"],
+        "properties": {
+          "content": { "type": "string" },
+          "author": { "type": "string" }
+        }
+      },
+      "CommentList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Comment" } },
+          "total": { "type": "integer" }
+        }
+      },
+      "Milestone": {
+        "type": "object",
+        "required": ["id", "project_id", "name"],
+        "properties": {
+          "id": { "type": "integer" },
+          "project_id": { "type": "integer" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "due_date": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["pending", "active", "completed"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateMilestone": {
+        "type": "object",
+        "required": ["name", "project_id"],
+        "properties": {
+          "name": { "type": "string" },
+          "project_id": { "type": "integer" },
+          "description": { "type": "string" },
+          "due_date": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      },
+      "PatchMilestone": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "due_date": { "type": "string" },
+          "status": { "type": "string" },
+          "project_id": { "type": "integer" }
+        }
+      },
+      "PaginatedMilestones": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Milestone" } },
+          "page": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "total": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "color": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateTag": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "color": { "type": "string" }
+        }
+      },
+      "PaginatedTags": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Tag" } },
+          "page": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "total": { "type": "integer" },
+          "pages": { "type": "integer" }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "projects": { "type": "array", "items": { "$ref": "#/components/schemas/Project" } },
+          "tasks": { "type": "array", "items": { "$ref": "#/components/schemas/Task" } }
+        }
+      }
+    }
+  }
+}
