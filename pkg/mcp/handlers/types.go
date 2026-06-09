@@ -234,11 +234,22 @@ func NewInitializedHandler() Handler {
 	}
 }
 
+// ToolLister is an optional interface for registries that can directly list tools with input schemas.
+type ToolLister interface {
+	ListTools() []Tool
+}
+
 // NewListToolsHandler creates a handler for tools/list.
 func NewListToolsHandler(registry CommandRegistry) Handler {
 	return &baseHandler{
 		method: "tools/list",
 		fn: func(ctx context.Context, params json.RawMessage) (interface{}, error) {
+			// If the registry implements ToolLister, use direct tool list (preserves inputSchema)
+			if lister, ok := registry.(ToolLister); ok {
+				return &ListToolsResult{Tools: lister.ListTools()}, nil
+			}
+
+			// Fallback: convert Commands to Tools (inputSchema will be empty)
 			commands := registry.ListCommands()
 			tools := make([]Tool, 0, len(commands))
 			for _, cmd := range commands {

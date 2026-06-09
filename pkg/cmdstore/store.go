@@ -3,6 +3,10 @@ package cmdstore
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -11,6 +15,7 @@ type CommandStore struct {
 	commands []CommandMetadata
 	meta     *CommandMetadata
 	path     string
+	loaded   bool
 }
 
 // NewCommandStore creates a new command store. If a path is provided,
@@ -53,26 +58,111 @@ type FlagMetadata struct {
 
 // Commands returns all stored commands.
 func (cs *CommandStore) Commands() ([]CommandMetadata, error) {
+	if !cs.loaded && cs.path != "" {
+		if err := cs.loadFromDisk(); err != nil {
+			return nil, fmt.Errorf("load from disk: %w", err)
+		}
+	}
 	return cs.commands, nil
 }
 
-// HasData returns true if the store has persisted data.
+// HasData returns true if the store has persisted data on disk or loaded commands.
 func (cs *CommandStore) HasData() bool {
-	return cs.path != "" || len(cs.commands) > 0 || cs.meta != nil
+	if len(cs.commands) > 0 {
+		return true
+	}
+	if cs.path == "" {
+		return false
+	}
+	// Check if the file exists on disk
+	info, err := os.Stat(cs.path)
+	return err == nil && info.Size() > 0
 }
 
 // Load returns stored command metadata.
 func (cs *CommandStore) Load() (*CommandMetadata, error) {
-	return cs.meta, nil
+	if cs.meta != nil {
+		return cs.meta, nil
+	}
+	if cs.path != "" {
+		if err := cs.loadFromDisk(); err != nil {
+			return nil, err
+		}
+	}
+	if cs.meta != nil {
+		return cs.meta, nil
+	}
+	if len(cs.commands) > 0 {
+		cs.meta = &cs.commands[0]
+		return cs.meta, nil
+	}
+	return nil, fmt.Errorf("no stored data")
 }
 
-// Save stores command metadata from StoredData.
+// Save stores command metadata from StoredData and persists to disk.
 // axiom:trace work_item=rebuild-foundation-03 spec=specs/02-Workflows.md plan=phase-97-2/task-97-2-1/step-97-2-1-1 impl=pkg/cmdstore/store.go
 func (cs *CommandStore) Save(data *StoredData) error {
 	if data != nil && len(data.Commands) > 0 {
 		cs.commands = data.Commands
 		cs.meta = &data.Commands[0]
+		cs.loaded = true
 	}
+	// Persist to disk if path is configured
+	if cs.path != "" {
+		return cs.persistToDisk()
+	}
+	return nil
+}
+
+// persistToDisk writes the stored data as JSON to disk.
+func (cs *CommandStore) persistToDisk() error {
+	if cs.path == "" {
+		return nil
+	}
+	// Ensure parent directory exists
+	dir := filepath.Dir(cs.path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create store dir: %w", err)
+	}
+
+	stored := StoredData{
+		Version:     "1.0",
+		Commands:    cs.commands,
+		GeneratedAt: time.Now(),
+	}
+	if cs.meta != nil {
+		stored.BaseURL = cs.meta.BaseURL
+	}
+
+	data, err := json.MarshalIndent(stored, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal stored data: %w", err)
+	}
+	return os.WriteFile(cs.path, data, 0644)
+}
+
+// loadFromDisk reads the stored data from the JSON file on disk.
+func (cs *CommandStore) loadFromDisk() error {
+	if cs.path == "" {
+		return fmt.Errorf("no store path configured")
+	}
+	data, err := os.ReadFile(cs.path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			cs.loaded = true // Mark as loaded (empty)
+			return nil
+		}
+		return fmt.Errorf("read store file: %w", err)
+	}
+	var stored StoredData
+	if err := json.Unmarshal(data, &stored); err != nil {
+		return fmt.Errorf("unmarshal stored data: %w", err)
+	}
+	cs.commands = stored.Commands
+	if len(stored.Commands) > 0 {
+		cs.meta = &stored.Commands[0]
+	}
+	cs.loaded = true
 	return nil
 }
 

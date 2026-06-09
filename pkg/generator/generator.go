@@ -356,6 +356,69 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		}
 	}
 
+	// Add flags for request body properties (for POST/PUT/PATCH operations)
+	for _, bodyProp := range op.RequestBody {
+		flagName := g.normalizeFlagName(bodyProp.Name)
+		shorthand := g.inferShorthand(bodyProp.Name)
+		description := bodyProp.Description
+		if description == "" {
+			description = fmt.Sprintf("%s (request body)", bodyProp.Name)
+		}
+
+		switch bodyProp.Type {
+		case "string":
+			defaultVal := ""
+			if bodyProp.Default != nil {
+				defaultVal = fmt.Sprintf("%v", bodyProp.Default)
+			}
+			if len(bodyProp.Enum) > 0 {
+				allowed := make([]string, len(bodyProp.Enum))
+				for i, v := range bodyProp.Enum {
+					allowed[i] = fmt.Sprintf("%v", v)
+				}
+				description = fmt.Sprintf("%s (allowed: %s)", description, strings.Join(allowed, ", "))
+			}
+			cmd.Flags().StringP(flagName, shorthand, defaultVal, description)
+		case "integer":
+			defaultVal := 0
+			if bodyProp.Default != nil {
+				switch v := bodyProp.Default.(type) {
+				case float64:
+					defaultVal = int(v)
+				case int:
+					defaultVal = v
+				case int64:
+					defaultVal = int(v)
+				}
+			}
+			cmd.Flags().IntP(flagName, shorthand, defaultVal, description)
+		case "number":
+			defaultVal := 0.0
+			if bodyProp.Default != nil {
+				if v, ok := bodyProp.Default.(float64); ok {
+					defaultVal = v
+				}
+			}
+			cmd.Flags().Float64P(flagName, shorthand, defaultVal, description)
+		case "boolean":
+			defaultVal := false
+			if bodyProp.Default != nil {
+				if v, ok := bodyProp.Default.(bool); ok {
+					defaultVal = v
+				}
+			}
+			cmd.Flags().BoolP(flagName, shorthand, defaultVal, description)
+		case "array":
+			cmd.Flags().StringSliceP(flagName, shorthand, nil, description)
+		default:
+			cmd.Flags().StringP(flagName, shorthand, "", description)
+		}
+
+		if bodyProp.Required {
+			_ = cmd.MarkFlagRequired(flagName)
+		}
+	}
+
 	cmd.Flags().StringP("output", "o", g.config.DefaultFormat, fmt.Sprintf("Output format (%s)", strings.Join(g.config.SupportedFormats, ", ")))
 	cmd.Flags().StringP("namespace", "n", "", "Resource namespace")
 	cmd.Flags().BoolP("watch", "w", false, "Watch for changes")
@@ -634,6 +697,68 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 				if value != "" {
 					builder.SetHeader(param.Name, value)
 				}
+			}
+		}
+
+		// Build JSON body from request body property flags (for POST/PUT/PATCH)
+		if len(op.RequestBody) > 0 &&
+			(op.Method == http.MethodPost || op.Method == http.MethodPut || op.Method == http.MethodPatch) {
+			bodyMap := make(map[string]interface{})
+			hasBodyFlag := false
+
+			for _, bodyProp := range op.RequestBody {
+				flagName := g.normalizeFlagName(bodyProp.Name)
+				if cmd.Flag(flagName) == nil {
+					continue
+				}
+
+				switch bodyProp.Type {
+				case "string":
+					val, _ := cmd.Flags().GetString(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				case "integer":
+					val, _ := cmd.Flags().GetInt(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				case "number":
+					val, _ := cmd.Flags().GetFloat64(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				case "boolean":
+					val, _ := cmd.Flags().GetBool(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				case "array":
+					val, _ := cmd.Flags().GetStringSlice(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				default:
+					val, _ := cmd.Flags().GetString(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				}
+			}
+
+			if hasBodyFlag {
+				bodyJSON, err := json.Marshal(bodyMap)
+				if err != nil {
+					return fmt.Errorf("marshal request body: %w", err)
+				}
+				builder.JSONBody(string(bodyJSON))
+				builder.SetHeader("Content-Type", "application/json")
 			}
 		}
 

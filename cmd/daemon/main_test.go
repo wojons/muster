@@ -141,7 +141,7 @@ func TestAllHandlers_NilArguments(t *testing.T) {
 	err = handleStatus(nil)
 	require.Error(t, err, "handleStatus should error with nil controller")
 
-	err = handleProxyStart(nil)
+	err = handleProxyStart(nil, nil)
 	require.Error(t, err, "handleProxyStart should error with nil controller")
 }
 

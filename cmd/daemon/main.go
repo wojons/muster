@@ -85,7 +85,7 @@ func run() error {
 	case "restart", "reload":
 		return handleRestart(controller)
 	case "proxy":
-		return handleProxyStart(controller)
+		return handleProxyStart(controller, handler)
 	case "status":
 		return handleStatus(controller)
 	default:
@@ -135,7 +135,7 @@ func handleStart(controller *daemon.Controller) error {
 	return controller.Stop()
 }
 
-func handleProxyStart(controller *daemon.Controller) error {
+func handleProxyStart(controller *daemon.Controller, handler http.Handler) error {
 	if controller == nil {
 		return fmt.Errorf("controller is required")
 	}
@@ -145,12 +145,9 @@ func handleProxyStart(controller *daemon.Controller) error {
 		socketPath = "/tmp/muster-daemon.sock"
 	}
 
-	// Create simple proxy handler
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprintf(w, `{"status":"ok","message":"Proxy is working","method":"%s","path":"%s"}`, r.Method, r.URL.Path)
-	})
+	if handler == nil {
+		return fmt.Errorf("handler is required; use --backend-url to specify the backend URL")
+	}
 
 	if err := controller.StartWithSocket(handler); err != nil {
 		return fmt.Errorf("start proxy: %w", err)

@@ -1,6 +1,9 @@
 package builtin
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -114,6 +117,43 @@ paths:
 
 		require.NoError(t, err)
 	})
+
+	t.Run("executes with URL-based spec", func(t *testing.T) {
+		specContent := `{
+  "openapi": "3.0.0",
+  "info": {"title": "URL API", "version": "1.0.0"},
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "responses": {"200": {"description": "OK"}}
+      }
+    }
+  }
+}`
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, specContent)
+		}))
+		defer server.Close()
+
+		cfg := &config.Config{}
+		cmd := newGenerateCommand(cfg)
+		_ = cmd.Flags().Set("base-url", server.URL)
+
+		err := cmd.RunE(cmd, []string{server.URL})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects bad URL gracefully", func(t *testing.T) {
+		cfg := &config.Config{}
+		cmd := newGenerateCommand(cfg)
+
+		err := cmd.RunE(cmd, []string{"http://localhost:19999/nonexistent"})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "fetch spec")
+	})
 }
 
 func TestCommandsToMetadata(t *testing.T) {
@@ -130,7 +170,7 @@ paths: {}
 		err := os.WriteFile(specPath, specContent, 0644)
 		require.NoError(t, err)
 
-		metadata, err := commandsToMetadata(nil, specPath, "https://api.test.com", nil)
+		metadata, err := commandsToMetadata(nil, specPath, "https://api.test.com", nil, specContent)
 
 		require.NoError(t, err)
 		assert.NotNil(t, metadata)
@@ -143,7 +183,7 @@ paths: {}
 		tmpDir := t.TempDir()
 		specPath := filepath.Join(tmpDir, "spec.yaml")
 
-		metadata, err := commandsToMetadata(nil, specPath, "https://api.test.com", nil)
+		metadata, err := commandsToMetadata(nil, specPath, "https://api.test.com", nil, nil)
 
 		require.NoError(t, err)
 		assert.NotNil(t, metadata)
@@ -301,43 +341,26 @@ func TestInferFromCommandName(t *testing.T) {
 }
 
 func TestComputeSpecHash(t *testing.T) {
-	t.Run("computes hash for file", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		specPath := filepath.Join(tmpDir, "spec.yaml")
+	t.Run("computes hash for data", func(t *testing.T) {
 		specContent := []byte(`openapi: 3.0.0`)
 
-		err := os.WriteFile(specPath, specContent, 0644)
-		require.NoError(t, err)
-
-		hash := computeSpecHash(specPath)
+		hash := computeSpecHash(specContent)
 
 		assert.NotEmpty(t, hash)
 		assert.Len(t, hash, 16)
 	})
 
 	t.Run("different content produces different hash", func(t *testing.T) {
-		tmpDir := t.TempDir()
-
-		specPath1 := filepath.Join(tmpDir, "spec1.yaml")
-		specContent1 := []byte(`openapi: 3.0.0`)
-		err := os.WriteFile(specPath1, specContent1, 0644)
-		require.NoError(t, err)
-
-		specPath2 := filepath.Join(tmpDir, "spec2.yaml")
-		specContent2 := []byte(`openapi: 3.1.0`)
-		err = os.WriteFile(specPath2, specContent2, 0644)
-		require.NoError(t, err)
-
-		hash1 := computeSpecHash(specPath1)
-		hash2 := computeSpecHash(specPath2)
+		hash1 := computeSpecHash([]byte(`openapi: 3.0.0`))
+		hash2 := computeSpecHash([]byte(`openapi: 3.1.0`))
 
 		assert.NotEqual(t, hash1, hash2)
 	})
 
-	t.Run("returns empty string for non-existent file", func(t *testing.T) {
-		hash := computeSpecHash("/nonexistent/spec.yaml")
+	t.Run("empty data produces valid hash", func(t *testing.T) {
+		hash := computeSpecHash([]byte{})
 
-		// Returns hash of empty data, not empty string
+		// Returns SHA256 hash of empty data truncated to 16 hex chars
 		assert.NotEmpty(t, hash)
 		assert.Equal(t, "e3b0c44298fc1c14", hash) // SHA256 of empty data truncated
 	})

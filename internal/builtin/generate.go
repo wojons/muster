@@ -21,11 +21,12 @@ func newGenerateCommand(cfg *config.Config) *cobra.Command {
 	var baseURL string
 
 	cmd := &cobra.Command{
-		Use:   "generate <spec-path>",
+		Use:   "generate <spec-path-or-url>",
 		Short: "Generate commands from OpenAPI specification",
 		Long: `Generate CLI commands dynamically from an OpenAPI 3.0 or 3.1 specification.
 
 The generator parses the spec and creates Cobra commands for each API operation.
+Accepts either a local file path or a remote URL (http/https).
 
 Commands are persisted to storage and loaded on subsequent CLI invocations.`,
 		Args: cobra.ExactArgs(1),
@@ -33,9 +34,19 @@ Commands are persisted to storage and loaded on subsequent CLI invocations.`,
 			specPath := args[0]
 			fmt.Printf("Loading spec from: %s\n", specPath)
 
-			data, err := os.ReadFile(specPath)
-			if err != nil {
-				return fmt.Errorf("read spec file: %w", err)
+			// Determine whether to load from file or URL
+			var data []byte
+			var err error
+			if strings.HasPrefix(specPath, "http://") || strings.HasPrefix(specPath, "https://") {
+				data, err = fetchSpec(specPath)
+				if err != nil {
+					return fmt.Errorf("fetch spec from URL: %w", err)
+				}
+			} else {
+				data, err = os.ReadFile(specPath)
+				if err != nil {
+					return fmt.Errorf("read spec file: %w", err)
+				}
 			}
 
 			ctx := context.Background()
@@ -74,7 +85,7 @@ Commands are persisted to storage and loaded on subsequent CLI invocations.`,
 			fmt.Printf("✓ Generated %d command groups\n", len(commands))
 
 			// Convert commands to metadata and persist
-			metadata, err := commandsToMetadata(commands, specPath, baseURLPath, result.Document)
+			metadata, err := commandsToMetadata(commands, specPath, baseURLPath, result.Document, data)
 			if err != nil {
 				return fmt.Errorf("convert commands to metadata: %w", err)
 			}
@@ -106,7 +117,7 @@ Commands are persisted to storage and loaded on subsequent CLI invocations.`,
 }
 
 // commandsToMetadata converts generated cobra.Commands to persistent metadata
-func commandsToMetadata(commands []*cobra.Command, specPath, baseURL string, doc *openapi3.T) (*cmdstore.StoredData, error) {
+func commandsToMetadata(commands []*cobra.Command, specPath, baseURL string, doc *openapi3.T, specData []byte) (*cmdstore.StoredData, error) {
 	var commandMetadatas []cmdstore.CommandMetadata
 
 	// Extract operations from the spec
@@ -115,8 +126,8 @@ func commandsToMetadata(commands []*cobra.Command, specPath, baseURL string, doc
 		extractCommandMetadata(cmd, specPath, baseURL, doc, &commandMetadatas)
 	}
 
-	// Calculate spec hash
-	specHash := computeSpecHash(specPath)
+	// Calculate spec hash from the already-loaded spec data
+	specHash := computeSpecHash(specData)
 
 	metadata := &cmdstore.StoredData{
 		SpecPath: specPath,
@@ -313,9 +324,9 @@ func getFlagType(flag *pflag.Flag) string {
 	}
 }
 
-// computeSpecHash calculates a hash for the spec file
-func computeSpecHash(specPath string) string {
-	data, _ := os.ReadFile(specPath)
+// computeSpecHash calculates a hash for the spec data bytes.
+// Accepts raw spec data to work with both file and URL sources.
+func computeSpecHash(data []byte) string {
 	hash := sha256.Sum256(data)
 	return fmt.Sprintf("%x", hash)[:16]
 }

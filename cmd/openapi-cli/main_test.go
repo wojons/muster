@@ -134,6 +134,7 @@ func TestNewRootCommand_HasAllSubcommands(t *testing.T) {
 		"auth",
 		"inventory",
 		"modules",
+		"discover",
 		"generate",
 		"request",
 		"daemon",
@@ -320,6 +321,20 @@ func TestNewRootCommand_DaemonCommand(t *testing.T) {
 	defer func() { os.Args = originalArgs }()
 
 	os.Args = []string{"openapi-cli", "daemon", "--help"}
+	err := root.ExecuteContext(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestNewRootCommand_DiscoverCommand(t *testing.T) {
+	cfg := &config.Config{Version: "test"}
+	root := builtin.NewRootCommand(cfg)
+
+	ctx := context.Background()
+	originalArgs := os.Args
+	defer func() { os.Args = originalArgs }()
+
+	os.Args = []string{"openapi-cli", "discover", "--help"}
 	err := root.ExecuteContext(ctx)
 
 	require.NoError(t, err)

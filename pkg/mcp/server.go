@@ -68,17 +68,17 @@ func (s *Server) registerHandlers() {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	// CRITICAL FIX: Track this goroutine so Shutdown() waits for it to complete
-	s.wg.Add(1)
-	defer s.wg.Done()
-
 	scanner := bufio.NewScanner(s.stdin)
 
 	for scanner.Scan() {
 		select {
 		case <-s.shutdownChan:
+			// Wait for in-flight request goroutines before returning
+			s.wg.Wait()
 			return nil
 		case <-ctx.Done():
+			// Wait for in-flight request goroutines before returning
+			s.wg.Wait()
 			return ctx.Err()
 		default:
 		}
@@ -94,20 +94,18 @@ func (s *Server) Run(ctx context.Context) error {
 			continue
 		}
 
-		// CRITICAL FIX: Acquire semaphore before spawning goroutine to prevent unbounded spawn
-		// If semaphore is full, block until slot available (prevents DoS)
+		// Acquire semaphore before spawning goroutine to prevent unbounded spawn
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
 			s.concurrencySem <- struct{}{}
 			defer func() { <-s.concurrencySem }()
-
 			s.handleRequest(ctx, &req)
 		}()
 	}
 
-	// CRITICAL FIX: Notify doneChan before waiting for in-flight requests
-	// This prevents Shutdown() from blocking when Run() exits early
+	// Wait for all in-flight request goroutines to complete before returning
+	s.wg.Wait()
 	return scanner.Err()
 }
 

@@ -38,7 +38,7 @@ func TestHandleStatus_NilController(t *testing.T) {
 }
 
 func TestHandleProxyStart_NilController(t *testing.T) {
-	err := handleProxyStart(nil)
+	err := handleProxyStart(nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "controller is required")
 }

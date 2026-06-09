@@ -54,6 +54,7 @@ and serves them via MCP protocol.`,
 	root.AddCommand(newAuthCommand())
 	root.AddCommand(newInventoryCommand())
 	root.AddCommand(newModulesCommand())
+	root.AddCommand(newDiscoverCommand())
 	root.AddCommand(newGenerateCommand(cfg))
 	root.AddCommand(newRequestCommand())
 	root.AddCommand(newDaemonCommand())
