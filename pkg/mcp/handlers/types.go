@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 )
 
 // Handler is the interface for MCP method handlers.
@@ -34,6 +35,16 @@ func (r *Registry) Register(h Handler) {
 // Get returns the handler for the given method, or nil if not found.
 func (r *Registry) Get(method string) Handler {
 	return r.handlers[method]
+}
+
+// Handle looks up the handler for the given method and delegates to it.
+// Returns an error if no handler is registered for the method.
+func (r *Registry) Handle(ctx context.Context, method string, params json.RawMessage) (interface{}, error) {
+	handler := r.Get(method)
+	if handler == nil {
+		return nil, fmt.Errorf("Method not found: %s", method)
+	}
+	return handler.Handle(ctx, params)
 }
 
 // Methods returns all registered method names.
@@ -86,10 +97,16 @@ type Prompt struct {
 	Arguments   interface{} `json:"arguments,omitempty"`
 }
 
+// PromptMessage represents a message in a prompt result.
+type PromptMessage struct {
+	Role    string      `json:"role"`
+	Content interface{} `json:"content,omitempty"`
+}
+
 // GetPromptResult is the result of a prompts/get request.
 type GetPromptResult struct {
-	Description string        `json:"description,omitempty"`
-	Messages    []interface{} `json:"messages"`
+	Description string          `json:"description,omitempty"`
+	Messages    []PromptMessage `json:"messages"`
 }
 
 // ListResourcesResult is the result of a resources/list request.
@@ -105,9 +122,16 @@ type Resource struct {
 	MimeType    string `json:"mimeType,omitempty"`
 }
 
+// ResourceContents represents the content of a resource.
+type ResourceContents struct {
+	URI      string `json:"uri"`
+	MimeType string `json:"mimeType,omitempty"`
+	Text     string `json:"text,omitempty"`
+}
+
 // ReadResourceResult is the result of a resources/read request.
 type ReadResourceResult struct {
-	Contents []interface{} `json:"contents"`
+	Contents []ResourceContents `json:"contents"`
 }
 
 // InitializeResult is the result of an initialize request.
