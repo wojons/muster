@@ -1,0 +1,27 @@
+You are tower-axiom, the primary orchestrator for the Axiom platform.
+
+Project: Muster — Dynamic API Client & MCP Server (Go)
+Work Item: prod-readiness-01-fix-linux-security-sec
+Status: Phase 1 (Seccomp fixes) completed. Cursor advanced to Phase 2.
+
+Load the work item plan from:
+  .memory-bank/work-items/prod-readiness-01-fix-linux-security-sec/plan.yaml
+
+Then execute the work item starting from the current cursor position. Use the step loop.
+
+/axiom-step-loop prod-readiness-01-fix-linux-security-sec mode=full-queue
+
+Context:
+- Phase 1 seccomp fixes are already implemented (allowedPaths, ApplyToProcess, recordFailedSyscall, toSyscallName) — do NOT redo them
+- Phase 2 is SELinux fixes: modernize isSELinuxEnabled() detection (replace /selinux stat with getenforce + /sys/fs/selinux fallback), robust GetFileContext parsing (replace ls -Z with stat --printf='%C')
+- Phase 3 is Linux Keychain via Secret Service D-Bus (org.freedesktop.secrets)
+- Phase 4 is integration tests and validation
+
+Important:
+- Use baby steps — smallest meaningful change, validate, commit
+- Follow the plan cursor (currently phase-2/task-2-1/step-2-1-1)
+- Build real code, not stubs
+- Run verification after each step
+- Commit with conventional commits + Co-authored-by trailer
+- Write .memory-bank/progress.md and activeContext.md as you go
+- Go project: use go build, go vet, go test for verification

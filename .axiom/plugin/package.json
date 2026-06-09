@@ -1,0 +1,79 @@
+{
+  "name": "opencode-axiom",
+  "version": "0.59.6",
+  "description": "Axiom platform extension plugin for OpenCode — enterprise observability, session sharing, config-driven automation, and progressive onboarding",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./plugin": {
+      "import": "./dist/plugin.js",
+      "types": "./dist/plugin.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --format esm --external zod --external @opencode-ai/plugin && bun build src/plugin.ts --outdir dist --target node --format esm --external zod --external @opencode-ai/plugin --external yaml && tsc --emitDeclarationOnly --declaration --outDir dist",
+    "dev": "bun build src/index.ts --outdir dist --target node --format esm --external zod --external @opencode-ai/plugin --watch",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "bun run clean && bun run build && bun run typecheck",
+    "check:circular": "madge --circular src/index.ts",
+    "check:hub-size": "node -e \"const fs=require('fs');const lines=fs.readFileSync('src/index.ts','utf8').split('\\n').length;if(lines>1000){console.error('index.ts has '+lines+' lines (limit: 1000). Consider extracting tool execute() bodies into tools.ts.');process.exit(1);}else{console.log('index.ts: '+lines+' lines (limit: 1000) ✓');}\"",
+    "check:arch": "bun run check:circular && bun run check:hub-size"
+  },
+  "keywords": [
+    "opencode",
+    "axiom",
+    "plugin",
+    "enterprise",
+    "observability",
+    "session-analytics",
+    "security"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/garozzo/Axiom.git",
+    "directory": ".axiom/plugin"
+  },
+  "homepage": "https://github.com/garozzo/Axiom/tree/main/.axiom/plugin#readme",
+  "bugs": {
+    "url": "https://github.com/garozzo/Axiom/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://dexdat-prod-904233114280.d.codeartifact.us-east-1.amazonaws.com/npm/npm-prod/"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.2.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.4.10",
+    "typescript": "^5.7.0",
+    "@types/bun": "latest",
+    "vitest": "^2.0.0",
+    "madge": "^8.0.0"
+  },
+  "dependencies": {
+    "@langfuse/otel": "^4.5.1",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.200.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.0",
+    "yaml": "^2.8.2"
+  },
+  "optionalDependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.0.0"
+  },
+  "_optionalDependenciesNote": "Install @aws-sdk/client-cloudwatch to enable the CloudWatch metrics sink. Without it, the CloudWatch sink gracefully degrades to stdout logging."
+}

@@ -1,0 +1,100 @@
+# .goreleaser.yml configuration for automated releases
+project_name: muster
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    dir: ./bin
+    main: ./cmd
+    binary: muster
+    ldflags:
+      - -s -w
+      - -X github.com/anomalyco/muster/internal/version.Version={{.Version}}
+      - -X github.com/anomalyco/muster/internal/version.Commit={{.Commit}}
+      - -X github.com/anomalyco/muster/internal/version.BuildDate={{.Date}}
+      - -X github.com/anomalyco/muster/internal/version.Branch={{.Branch}}
+      - -X github.com/anomalyco/muster/internal/version.GoVersion={{.Env.GOVERSION}}
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "Merge pull request"
+
+release:
+  github:
+    owner: anomalyco
+    name: muster
+  draft: false
+  prerelease: false
+  extra_files:
+    - glob: ./README.md
+    - glob: ./LICENSE
+    - glob: ./CHANGELOG.md
+
+brews:
+  - name: muster
+    homepage: https://github.com/anomalyco/muster
+    description: "OpenAPI CLI + MCP Server - Unified tool for API interaction"
+    license: MIT
+    commit_author:
+      name: goreleaser-bot
+      email: bot@goreleaser.com
+    folder: Formula
+    tap:
+      owner: anomalyco
+      name: homebrew-tap
+    caveats: |
+      Add support for database operations:
+      brew install sqlite3
+
+scoops:
+  - name: muster
+    homepage: https://github.com/anomalyco/muster
+    description: "OpenAPI CLI + MCP Server"
+    license: MIT
+    commit_author:
+      name: goreleaser-bot
+      email: bot@goreleaser.com
+    bucket:
+      owner: anomalyco
+      name: scoop-bucket
+
+dockers:
+  - image_templates:
+      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{ .ProjectName }}:{{ .Version }}"
+      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{ .ProjectName }}:latest"
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.Commit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "CGO_ENABLED=1"
+      - "GOOS=linux"

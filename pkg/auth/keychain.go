@@ -220,8 +220,12 @@ type WindowsKeychain struct {
 }
 
 func NewWindowsKeychain() *WindowsKeychain {
+	native, err := NewWindowsKeychainNative()
+	if err != nil {
+		native = nil
+	}
 	return &WindowsKeychain{
-		native:    NewWindowsKeychainNative(),
+		native:    native,
 		filechain: NewFileKeychain(),
 	}
 }
@@ -463,7 +467,10 @@ func (k *FileKeychain) getMasterKeyFromLinuxKeychain() ([]byte, error) {
 
 func (k *FileKeychain) getMasterKeyFromWindowsKeychain() ([]byte, error) {
 	// Use Windows Credential Manager
-	winKC := NewWindowsKeychainNative()
+	winKC, err := NewWindowsKeychainNative()
+	if err != nil {
+		return nil, err
+	}
 	password, err := winKC.Get("muster-master-key", "master-key")
 	if err != nil {
 		if err == ErrNotFound {

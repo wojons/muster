@@ -1,0 +1,360 @@
+{
+  "version": 1,
+  "skills": {
+    "accessibility-audit": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "10662da947413042405f749b80a9ccc83010bce3dbbdab3d6e724ee23c9886f7"
+    },
+    "adversarial-thinking": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "402dd95a146ba64d9f40d18d8518f7bd0712f09934eb4419ed0e6f8411466774"
+    },
+    "ai-collab-dev": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "c458b56f6cbcb0c1723e9146e6d81e058d77be79e97885169f2c572aff9a9b02"
+    },
+    "api-documentation": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "4b7d2d9e924f75a9fc643022772c310be62311aab14cf23496e5d8c1d00dd1f1"
+    },
+    "assumption-buster": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "6a63bdae5e9db039df39ff12e797f3d1779bf0f1dd2a6af1d5d716a6e745fd49"
+    },
+    "assumption-testing": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "d2c2aaf0511f3c9ef113d38e3cd43e6d6d9f01ca35610ab938aab755593d7b71"
+    },
+    "baby-steps": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "21c3c2825e369b3a3bbe1fd548de2a612d1ead36ef4817b9e93354e641a2a8ad"
+    },
+    "best-practice-guide": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "4731b757372d76530e1b4f0865ee2210175b65ea1001b76468664429044e2e4c"
+    },
+    "cloud-cost-optimization": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "585a73d6ce8d859a989266c93e90f94e9599899285b04d9e4ac02a47a66b525f"
+    },
+    "code-migration": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "51e1d3bceeb236cbe214c6c7766d0b3ef27b4613ca9ddeec4b45f32dd939852e"
+    },
+    "completeness-validator": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "72e97cfb9367a174187057618fe63a882cd05ac31ad5d103cb295451e6c01d99"
+    },
+    "context-pack": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "d7a7a498435b48010f70be4b4ce205ae24a93395752bf5d9477934030171af99"
+    },
+    "data-flow-architect": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "e079aaefbacb9d7263a2050c4d116b182a3c50327b704c09ad4a5a1da8e3717a"
+    },
+    "data-validation": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "96845c7e2b3c518a3fe54d7adc5db9425e1fda637fe29d8ee06462c61e9b3700"
+    },
+    "database-optimization": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "07f20cdb854716bd43f9906fc853135fd2a18e648dbc5a8f3f8c5de5fc86159d"
+    },
+    "dependency-upgrade": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "34c31c58745be958693f3c85898305ea16b4fc8490e9ff64cb0a6935e1f564d7"
+    },
+    "devils-advocate": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "bd664de6b7a2b0ec68025be1336450377011ae68d24e530fc4c8b27ba48ed3af"
+    },
+    "distributed-tracing-logs": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "7a8d3fbce2a86ca47472f5adca2a0f1709e1c920997f6c5b0fd42931e54af8fd"
+    },
+    "dogfooding": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "11c627f7d334c9f1a5a41744aa51d0bf12b5791fdfa40d0acb353d3f10a1acc3"
+    },
+    "exhaustive-specification": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "bb6082a9c89f080417fc0cab816b803c30d1f68098bab7d34e3fa5c3c9fb072e"
+    },
+    "gap-analysis": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "35b325d2739adc7376ab3fedb6464f2efb633659781b4124089982e1aa18cdd1"
+    },
+    "git-release": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "f42ada86d788ab13c9c284454d0b0f54930a975eda0302be4bb44a26160633de"
+    },
+    "hypercognitive-skill-compiler": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "bdcaaf6942caaf39c512ecb9893caadf92ed4e5dbcc97c9b9339dc13c9fca44f"
+    },
+    "incident-response": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "edcecf43c0c46b75505b934b0d23db97b5d363558cddc9aff7bd49088e9085b5"
+    },
+    "index": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "ed5f1b55defe20e7110b12688185519c6dea563aac4a3bb0ad1631d3eb3b88d0"
+    },
+    "log-analysis-parsing": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "071d613c5e990afe4a4985b4848ff4e92fe6379daf25f4f25b4f93c945e405b2"
+    },
+    "log-management-system": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "4c06dbc48b03cc637a64df81c76cd4710f2e44dcda68ab5d1f469ee8b33a9d16"
+    },
+    "logging-fundamentals": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "765241a3b82e99d7ba9bd9bc42419a7e293565beee7e3cc7274bf807ac98d5d2"
+    },
+    "logging-performance-optimization": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "fc14f87865231d2daea841bdc0835de3774d3df1140205c64bb442d5f1a35fdf"
+    },
+    "observability-logging": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "f8e506ea1c22fad1fa7610e7f3f4a3f1eb606d7a1e0cdd5c1f7e81b4763dd4ca"
+    },
+    "opencode-config": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "579167ae9fa57ba8ee5a532183ed1997b07fc0aa259f1d01ab612b8a72627c52"
+    },
+    "performance-profiling": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "17f372b7e60790252a3122c6664c091b2bb733b9bb04d5ca1cb00a26530d4592"
+    },
+    "ralph-wiggum-loop": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "6b0419d63572de1251aecd276cb025ce570580a84178e546f265b92beb9f402f"
+    },
+    "react-review": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "6c30909eff30e40b8874c1f708e4f85ab1004c749d21496c7fb3bdb3cbbb6345"
+    },
+    "reality-validation": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "4d1607f2f4c9cb96e84e072325928c0437a04430edc30247b9a8e208161423ce"
+    },
+    "redteam": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "9a0a633107a72836c519e6f3b56e7fc8a713eea7023b46436f638045c1237c16"
+    },
+    "security-scan": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "bf73381f1782301db0c3a8a9cdc5f6ec6b8e53a2a610876ce1d9e1dd48f5f55c"
+    },
+    "sherlock-debugging": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "a36793933021f05c27cb563c3b483b19833ec19acc21f0c32fdb29159bfb620c"
+    },
+    "skill-builder": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "cecf8b71653dca36137c7339e59522d4a6c21be8a7c510593b923d78a26781af"
+    },
+    "spec-gap-analysis": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "89db77c1479d24f738a4ea75303e9b073df19da0d1415d5050ed621dbe7d4bdb"
+    },
+    "stepwise-testing": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "bc40bc735ee1d499194f0561bba744e1cd83f54f98b894dd62ab46a75dfa38a3"
+    },
+    "test-coverage": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "7ab12d444424eb4a3e080e9f2537cc6af3d09d0f160927a9dfe3a2dde2cebba8"
+    },
+    "test-dependency-mapper": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "09677f0f099627ff3fcae9541fea98a562e0a1c7947a652c97d66a24d0a14bae"
+    },
+    "test-gap-analysis": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "1ff8947b1a305a2f5735a1944ec1323bb0356ddb4526ed9b21f82d8098c75109"
+    },
+    "test-orchestrator": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "b269a6428e24a2a7943d66a51fab63ef48527b89e05580e0ff113e96ff6b2f61"
+    },
+    "test-planning": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "bfe416b45b7b57d1a8540c056f4a3908df35020d9a9354f7e9000ea0722ec501"
+    },
+    "testing-accessibility": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "74c39e35970b658c4a1645d3e4ab7927983bc06cd5dfccc2fdbebdfa416baab6"
+    },
+    "testing-api": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "7fd09d4df89c3ffaf4833fbec4955e15b6609ac7f5d70dca5f5dc21a86d15760"
+    },
+    "testing-chaos": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "38291ccb76f43151ae0c6304407d59586fa25897b44ceb2b38f2118ec13d9c2a"
+    },
+    "testing-compatibility": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "7400fe2b9778c3344e9f786ca7567290d4e38490ebc0fe1c2744578bda68cdb7"
+    },
+    "testing-database": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "7c4f4ccb3778886774220170e526a5987b662475f17b7627020f23f05438687f"
+    },
+    "testing-e2e": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "daa13187840e051e1df3f0c88836de4d3f53c5f319ccebab85acc709019e703c"
+    },
+    "testing-ecosystem": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "61a650dedd2a849fbfa0fd4d07c28f31de052d491b43f06a923edc61e86eae35"
+    },
+    "testing-expected-results": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "a9076548a33ea901df7a53f50a1e79ab5bd2899bd5dbe9ea9ed39dc732070763"
+    },
+    "testing-functional-suite": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "d140494acbefe06f768d7c6158a38c472913bb4191e22cc47d38e05d2ad404ed"
+    },
+    "testing-integration": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "bd4316221d7cc8960bd40efca86faaae2b3dea919072406892188ae06c412d5f"
+    },
+    "testing-level-mvp": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "03083f959100637b8d50f7bff5664b0eac234c7467307094cdd7bff85db321f1"
+    },
+    "testing-level-poc": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "e6118107e11e4636adc2ac0e7418b7948ec91a1d66006b8dc2e05dd389440a2b"
+    },
+    "testing-level-production": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "6a9094f96b7d6da5faf3099173d11066fc1ad891e92df5a91aa879f705ddb52f"
+    },
+    "testing-level-selector": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "046e8c961714da5e5fccf03f002b5eb07c7c2693db55668cca45cba334f23505"
+    },
+    "testing-nonfunctional-suite": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "b72d2fdb993c9e3113f80df25ddc6ed225a5649eb2fd2afe2e1d87a78372c8d0"
+    },
+    "testing-performance": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "5821a1ad596f506e4aa7f5c6801cd3b92125e358451a394e19bbdb7df36c7079"
+    },
+    "testing-regression": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "fdf987b76ae360dc89e60659d81230c378e66ce7391952501664984039c2dc64"
+    },
+    "testing-security": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "58115677d052002ff55f8c7587ab0d1bc3d8391c0a5b5e9a08ca019d69f0edf3"
+    },
+    "testing-smoke": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "23d06e3621f45d17bfee547b5a7ed0b9d01cd9d40645bb9b0d9134e8d90da05c"
+    },
+    "testing-unit": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "8b96dea881bb742e721aaee7b32960904e703d086bd57e6efbb5e107d48e3541"
+    },
+    "testing-usability": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "9b0e4b8be6b0b18f0e91c0680d96d7466675621938985b827cebd2a71d8644bc"
+    },
+    "trust-but-verify": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "a6a5fa82f5b604029626641f42f33a39eb76098fe1d36d7a3477187bcd8b248a"
+    },
+    "vercel-deploy": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "d7c308a9932ea25c4a24b763f327d6ad8088d15161bb772fe78eecc382b02e6d"
+    },
+    "white-hat": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "e78307976f59e7d1f84b98f9e2a8993b71f5e38de179379ce933d1fc3c9e2f14"
+    },
+    "workflow-orchestrator": {
+      "source": "wojons/skills",
+      "sourceType": "github",
+      "computedHash": "c744946c920bb3afd40fdfa8886e01228cce726e241d1127d0cbece5ebe27596"
+    }
+  }
+}

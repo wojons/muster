@@ -1,0 +1,281 @@
+version: '3.8'
+
+services:
+  # Core API service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-1.0.0}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: muster/api:${VERSION:-latest}
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/muster
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+      - METRICS_PORT=9090
+      - OPENAPICLI_LOG_LEVEL=info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/openapi-cli", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - muster-network
+    profiles:
+      - full
+      - prod
+
+  # CLI service for one-off commands
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-1.0.0}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: muster/cli:${VERSION:-latest}
+    container_name: muster-cli
+    volumes:
+      - ~/.config/muster:/home/nonroot/.config/muster
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - OPENAPICLI_LOG_LEVEL=info
+      - OPENAPICLI_CONFIG_PATH=/home/nonroot/.config/muster
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/muster
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+    command: ["version"]
+    networks:
+      - muster-network
+    profiles:
+      - cli
+      - dev
+      - full
+
+  # Daemon mode
+  daemon:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-1.0.0}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: muster/daemon:${VERSION:-latest}
+    container_name: muster-daemon
+    ports:
+      - "8081:8080"
+    volumes:
+      - ~/.config/muster:/home/nonroot/.config/muster
+    environment:
+      - OPENAPICLI_MODE=daemon
+      - OPENAPICLI_DAEMON_SOCKET=0.0.0.0:8080
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/muster
+      - REDIS_URL=redis://redis:6379
+      - OPENAPICLI_LOG_LEVEL=info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["daemon", "start"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/openapi-cli", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - muster-network
+    profiles:
+      - daemon
+      - full
+      - prod
+
+  # MCP Server
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-1.0.0}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: muster/mcp-server:${VERSION:-latest}
+    container_name: muster-mcp-server
+    entrypoint: ["/usr/local/bin/openapi-mcp"]
+    command: ["--help"]
+    volumes:
+      - ~/.config/muster:/home/nonroot/.config/muster
+    environment:
+      - OPENAPICLI_LOG_LEVEL=debug
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/muster
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+    networks:
+      - muster-network
+    profiles:
+      - mcp
+      - full
+      - dev
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: muster-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: muster
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "5432:5432"
+    networks:
+      - muster-network
+    profiles:
+      - db
+      - full
+      - dev
+      - prod
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: muster-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6379:6379"
+    networks:
+      - muster-network
+    profiles:
+      - redis
+      - full
+      - dev
+      - prod
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: muster-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./deployments/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9091:9090"
+    depends_on:
+      - api
+    networks:
+      - muster-network
+    profiles:
+      - monitoring
+      - full
+      - prod
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: muster-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./deployments/docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deployments/docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - muster-network
+    profiles:
+      - monitoring
+      - full
+      - prod
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: muster-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    networks:
+      - muster-network
+    profiles:
+      - proxy
+      - full
+      - prod
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  muster-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

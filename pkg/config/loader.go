@@ -246,3 +246,91 @@ func (l *Loader) ApplyCLIFlags(cmd *cobra.Command, cfg *Config) error {
 	}
 	return nil
 }
+
+// ConfigManager provides high-level configuration management.
+// axiom:trace work_item=rebuild-foundation-03 spec=specs/02-Workflows.md plan=phase-97-2/task-97-2-1/step-97-2-1-2 impl=pkg/config/loader.go
+type ConfigManager struct {
+	cfg *Config
+}
+
+// NewConfigManager creates a new ConfigManager by loading configuration
+// from all configured sources.
+func NewConfigManager() (*ConfigManager, error) {
+	cfg, err := Load()
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+	return &ConfigManager{cfg: cfg}, nil
+}
+
+// Config returns the underlying configuration.
+func (cm *ConfigManager) Config() *Config {
+	return cm.cfg
+}
+
+// GetDefaultProfile returns the default profile name.
+func (cm *ConfigManager) GetDefaultProfile() string {
+	return cm.cfg.DefaultProfile
+}
+
+// ProfileManager provides profile-specific configuration operations.
+type ProfileManager struct {
+	cfg *Config
+}
+
+// NewProfileManager creates a new ProfileManager.
+func NewProfileManager(cm *ConfigManager) *ProfileManager {
+	return &ProfileManager{cfg: cm.cfg}
+}
+
+// List returns all configured profiles.
+func (pm *ProfileManager) List() []*Profile {
+	profiles := make([]*Profile, 0, len(pm.cfg.Profiles))
+	for name := range pm.cfg.Profiles {
+		p := pm.cfg.Profiles[name]
+		if p.BaseURL == "" {
+			p.BaseURL = name
+		}
+		profiles = append(profiles, &p)
+	}
+	return profiles
+}
+
+// Get returns a profile by name.
+func (pm *ProfileManager) Get(name string) (*Profile, error) {
+	profile, ok := pm.cfg.Profiles[name]
+	if !ok {
+		return nil, fmt.Errorf("profile %q not found", name)
+	}
+	if profile.BaseURL == "" {
+		profile.BaseURL = name
+	}
+	return &profile, nil
+}
+
+// Exists checks whether a profile with the given name exists.
+func (pm *ProfileManager) Exists(name string) bool {
+	_, ok := pm.cfg.Profiles[name]
+	return ok
+}
+
+// SetDefault sets the named profile as the default.
+func (pm *ProfileManager) SetDefault(name string) error {
+	if _, ok := pm.cfg.Profiles[name]; !ok {
+		return fmt.Errorf("profile %q not found", name)
+	}
+	pm.cfg.DefaultProfile = name
+	return nil
+}
+
+// Delete removes a profile by name.
+func (pm *ProfileManager) Delete(name string) error {
+	if _, ok := pm.cfg.Profiles[name]; !ok {
+		return fmt.Errorf("profile %q not found", name)
+	}
+	delete(pm.cfg.Profiles, name)
+	if pm.cfg.DefaultProfile == name {
+		pm.cfg.DefaultProfile = ""
+	}
+	return nil
+}

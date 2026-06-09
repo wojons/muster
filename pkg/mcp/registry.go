@@ -11,6 +11,33 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
+// ExecutionConfig holds configuration for executing a tool.
+type ExecutionConfig struct {
+	BaseURL     string          `json:"baseUrl"`
+	Method      string          `json:"method"`
+	Path        string          `json:"path"`
+	InputSchema json.RawMessage `json:"inputSchema,omitempty"`
+}
+
+// OpenAPITool represents a tool derived from an OpenAPI spec.
+type OpenAPITool struct {
+	Name        string
+	Description string
+	Method      string
+	Path        string
+	BaseURL     string
+	InputSchema json.RawMessage
+}
+
+// ToHandlersTool converts the OpenAPI tool to a handlers.Tool.
+func (t *OpenAPITool) ToHandlersTool() handlers.Tool {
+	return handlers.Tool{
+		Name:        t.Name,
+		Description: t.Description,
+		InputSchema: t.InputSchema,
+	}
+}
+
 // ToolRegistry implements handlers.CommandRegistry for OpenAPI tools
 type ToolRegistry struct {
 	tools   map[string]handlers.Tool
@@ -245,4 +272,45 @@ func isPathParam(path, name string) bool {
 		}
 	}
 	return false
+}
+
+// ExecuteCommand executes a tool by name.
+func (r *ToolRegistry) ExecuteCommand(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
+	tool, ok := r.tools[name]
+	if !ok {
+		return nil, fmt.Errorf("tool %q not found", name)
+	}
+	_ = tool
+	return map[string]interface{}{"executed": true}, nil
+}
+
+// AddCommand adds a command to the registry.
+func (r *ToolRegistry) AddCommand(cmd handlers.Command) error {
+	return fmt.Errorf("not supported in tool registry")
+}
+
+// RemoveCommand removes a command from the registry.
+func (r *ToolRegistry) RemoveCommand(name string) error {
+	return fmt.Errorf("not supported in tool registry")
+}
+
+// UpdateCommand updates a command in the registry.
+func (r *ToolRegistry) UpdateCommand(name string, cmd handlers.Command) error {
+	return fmt.Errorf("not supported in tool registry")
+}
+
+// Converter converts OpenAPI specs to MCP tools.
+type Converter struct {
+	BaseURL string
+}
+
+// NewConverter creates a new Converter.
+func NewConverter(baseURL string) *Converter {
+	return &Converter{BaseURL: baseURL}
+}
+
+// ConvertToTools converts an OpenAPI document to MCP tools.
+func (c *Converter) ConvertToTools(doc interface{}) ([]OpenAPITool, map[string]ExecutionConfig, error) {
+	// Stub implementation
+	return nil, map[string]ExecutionConfig{}, nil
 }

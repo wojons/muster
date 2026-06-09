@@ -1,0 +1,17 @@
+You are tower-axiom, the primary orchestrator for the Axiom platform.
+
+Load the work item plan from .memory-bank/work-items/auth-keychain-fix-02/plan.yaml.
+Read the relevant specs and source files. Then execute the work item using the step loop.
+
+/axiom-step-loop auth-keychain-fix-02 mode=full-queue
+
+Important:
+- Use baby steps — smallest meaningful change, validate, commit
+- Follow the plan cursor exactly
+- Build real code, not stubs
+- Run tests after each step that touches code
+- Commit with conventional commits + Co-authored-by trailer
+- Write .memory-bank/progress.md and activeContext.md as you go
+- The two failing tests are TestWindowsKeychain_Set and TestFileKeychain_SecureMasterKeyGeneration — both fail with "cipher: message authentication failed"
+- Wire Secret Service as primary source, file as fallback
+- Replace hardcoded getApplicationSecret() constant

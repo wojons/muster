@@ -146,11 +146,11 @@ func handleProxyStart(controller *daemon.Controller) error {
 	}
 
 	// Create simple proxy handler
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = fmt.Fprintf(w, `{"status":"ok","message":"Proxy is working","method":"%s","path":"%s"}`, r.Method, r.URL.Path)
-	}
+	})
 
 	if err := controller.StartWithSocket(handler); err != nil {
 		return fmt.Errorf("start proxy: %w", err)

@@ -218,3 +218,28 @@ func convertParameters(op *openapi.Operation) []handlers.Flag {
 
 	return flags
 }
+
+// ExecuteCommand executes an OpenAPI operation by name.
+func (r *OpenAPIRegistry) ExecuteCommand(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
+	for _, op := range r.operations {
+		if generateCommandName(op) == name {
+			return ExecuteHTTP(r.baseURL, op.Method, op.Path, params)
+		}
+	}
+	return nil, fmt.Errorf("command %q not found", name)
+}
+
+// AddCommand adds a command to the registry (not supported for OpenAPI-derived).
+func (r *OpenAPIRegistry) AddCommand(cmd handlers.Command) error {
+	return fmt.Errorf("openapi registry is read-only")
+}
+
+// RemoveCommand removes a command from the registry (not supported for OpenAPI-derived).
+func (r *OpenAPIRegistry) RemoveCommand(name string) error {
+	return fmt.Errorf("openapi registry is read-only")
+}
+
+// UpdateCommand updates a command in the registry (not supported for OpenAPI-derived).
+func (r *OpenAPIRegistry) UpdateCommand(name string, cmd handlers.Command) error {
+	return fmt.Errorf("openapi registry is read-only")
+}

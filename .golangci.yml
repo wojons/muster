@@ -1,0 +1,47 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    ## Removed unsupported linters for compatibility:
+    ## bodyclose, depguard, gocritic, gosimple, misspell, staticcheck, unconvert, unused
+
+linters-settings:
+  govet:
+    check-shadowing: true
+    enable-all: true
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+
+  misspell:
+    locale: US
+
+  staticcheck:
+    checks: [ "all" ]
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec

@@ -15,7 +15,7 @@ func newVersionCommand() *cobra.Command {
 		Long:  "Print detailed version information about the OpenAPI CLI.",
 		Run: func(cmd *cobra.Command, args []string) {
 			info := version.Get()
-			fmt.Println(info.String())
+			fmt.Println(info.Short())
 		},
 	}
 }

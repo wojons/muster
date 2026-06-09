@@ -65,7 +65,7 @@ func (h *Hook) Log(event *AuditEvent) error {
 	if h.logger == nil {
 		return nil // disabled
 	}
-	return h.logger.Log(event)
+	return h.logger.Log(context.Background(), event)
 }
 
 // LogCommand records a CLI command execution.

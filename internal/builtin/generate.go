@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/wojons/muster/pkg/cmdstore"
@@ -120,12 +119,10 @@ func commandsToMetadata(commands []*cobra.Command, specPath, baseURL string, doc
 	specHash := computeSpecHash(specPath)
 
 	metadata := &cmdstore.StoredData{
-		Version:     "1.0",
-		SpecPath:    specPath,
-		SpecHash:    specHash,
-		BaseURL:     baseURL,
-		GeneratedAt: time.Now(),
-		Commands:    commandMetadatas,
+		SpecPath: specPath,
+		SpecHash: specHash,
+		BaseURL:  baseURL,
+		Commands: commandMetadatas,
 	}
 
 	return metadata, nil

@@ -11,6 +11,28 @@ import (
 	"github.com/wojons/muster/pkg/mcp/handlers"
 )
 
+// JSONRPCRequest represents a JSON-RPC 2.0 request.
+type JSONRPCRequest struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      interface{}     `json:"id,omitempty"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+}
+
+// JSONRPCResponse represents a JSON-RPC 2.0 response.
+type JSONRPCResponse struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      interface{}     `json:"id,omitempty"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *JSONRPCError   `json:"error,omitempty"`
+}
+
+// JSONRPCError represents a JSON-RPC 2.0 error.
+type JSONRPCError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
 type Server struct {
 	stdin          io.Reader
 	stdout         io.Writer
@@ -90,11 +112,20 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *JSONRPCRequest) {
-	result, err := s.handlers.Handle(ctx, req.Method, req.Params)
+	handler := s.handlers.Get(req.Method)
+	if handler == nil {
+		s.sendError(req.ID, -32601, "Method not found")
+		return
+	}
+
+	result, err := handler.Handle(ctx, req.Params)
 
 	if err != nil {
-		mcpErr := handlers.HandleError(err)
-		s.sendError(req.ID, mcpErr.Code, mcpErr.Message)
+		if mcpErr, ok := err.(*handlers.MCPError); ok {
+			s.sendError(req.ID, mcpErr.Code, mcpErr.Message)
+		} else {
+			s.sendError(req.ID, -32000, err.Error())
+		}
 	} else {
 		s.sendResponse(req.ID, result)
 	}

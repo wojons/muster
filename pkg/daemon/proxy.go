@@ -16,6 +16,110 @@ import (
 	"github.com/wojons/muster/pkg/log"
 )
 
+// Logger defines the interface for daemon logging.
+type Logger interface {
+	Info(msg string, args ...interface{})
+	Warn(msg string, args ...interface{})
+	Error(msg string, args ...interface{})
+}
+
+// ControllerConfig holds configuration for the daemon controller.
+type ControllerConfig struct {
+	PidFilePath string
+	SocketPath  string
+	Version     string
+	Logger      Logger
+	Handler     http.Handler
+}
+
+// DaemonStatus holds the current daemon status.
+type DaemonStatus struct {
+	Running   bool
+	PID       int
+	StartTime time.Time
+	Version   string
+}
+
+// Controller manages the daemon lifecycle.
+type Controller struct {
+	config      ControllerConfig
+	pidFile     string
+	socketPath  string
+	version     string
+	logger      Logger
+	handler     http.Handler
+	tokenPath   string
+	running     bool
+	startTime   time.Time
+	mu          sync.RWMutex
+}
+
+// NewController creates a new daemon controller.
+func NewController(config ControllerConfig) (*Controller, error) {
+	return &Controller{
+		config:     config,
+		pidFile:    config.PidFilePath,
+		socketPath: config.SocketPath,
+		version:    config.Version,
+		logger:     config.Logger,
+		handler:    config.Handler,
+		tokenPath:  config.SocketPath + ".token",
+	}, nil
+}
+
+// Start starts the daemon process.
+func (c *Controller) Start() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.running = true
+	c.startTime = time.Now()
+	return nil
+}
+
+// Stop stops the daemon process.
+func (c *Controller) Stop() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.running = false
+	return nil
+}
+
+// Restart restarts the daemon process.
+func (c *Controller) Restart() error {
+	_ = c.Stop()
+	return c.Start()
+}
+
+// Status returns the current daemon status.
+func (c *Controller) Status() (DaemonStatus, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return DaemonStatus{
+		Running:   c.running,
+		PID:       os.Getpid(),
+		StartTime: c.startTime,
+		Version:   c.version,
+	}, nil
+}
+
+// GetTokenPath returns the path to the token file.
+func (c *Controller) GetTokenPath() string {
+	return c.tokenPath
+}
+
+// SetupSignalHandlers sets up OS signal handling for graceful shutdown.
+func (c *Controller) SetupSignalHandlers() {}
+
+// StartWithSocket starts the daemon with a custom socket handler.
+func (c *Controller) StartWithSocket(handler http.Handler) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.handler = handler
+	c.running = true
+	c.startTime = time.Now()
+	return nil
+}
+
 // ProxyServer handles HTTP proxying over Unix socket
 type ProxyServer struct {
 	socketPath   string

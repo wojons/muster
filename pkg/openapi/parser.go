@@ -2,11 +2,53 @@
 package openapi
 
 import (
+	"context"
+
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // Parser extracts operations and parameters from OpenAPI documents.
 type Parser struct{}
+
+// NewParser creates a new OpenAPI parser.
+func NewParser() *Parser {
+	return &Parser{}
+}
+
+// ParseOptions controls parsing behavior.
+type ParseOptions struct {
+	SkipValidation bool
+	MaxDepth       int
+}
+
+// DefaultParseOptions returns the default parse options.
+func DefaultParseOptions() ParseOptions {
+	return ParseOptions{
+		SkipValidation: false,
+		MaxDepth:       10,
+	}
+}
+
+// ParseResult holds the result of parsing an OpenAPI document.
+type ParseResult struct {
+	Version  string
+	Document *openapi3.T
+}
+
+// Parse parses an OpenAPI document from raw bytes.
+func (p *Parser) Parse(ctx context.Context, data []byte, opts ParseOptions) (*ParseResult, error) {
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData(data)
+	if err != nil {
+		return nil, err
+	}
+
+	version := doc.Info.Version
+	return &ParseResult{
+		Version:  version,
+		Document: doc,
+	}, nil
+}
 
 // Operation represents a single API operation extracted from an OpenAPI spec.
 type Operation struct {
@@ -63,17 +105,16 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 				continue
 			}
 
-		operation := &Operation{
-			ID:          op.OperationID,
-			Path:        path,
-			Method:      method,
-			Summary:     op.Summary,
-			Description: op.Description,
-			Tags:        op.Tags,
-			Parameters:  extractParameters(op.Parameters),
-		}
+			operation := &Operation{
+				ID:          op.OperationID,
+				Path:        path,
+				Method:      method,
+				Summary:     op.Summary,
+				Description: op.Description,
+				Tags:        op.Tags,
+				Parameters:  extractParameters(op.Parameters),
+			}
 
-			// Derive operation ID if not set
 			operations = append(operations, operation)
 		}
 	}

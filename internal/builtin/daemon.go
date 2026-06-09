@@ -115,9 +115,6 @@ func newDaemonStatusCommand() *cobra.Command {
 				fmt.Printf("Status: Running\n")
 				fmt.Printf("  PID: %d\n", status.PID)
 				fmt.Printf("  Started: %s\n", status.StartTime.Format("2006-01-02 15:04:05"))
-				if status.SocketPath != "" {
-					fmt.Printf("  Socket: %s\n", status.SocketPath)
-				}
 			} else {
 				fmt.Println("Status: Stopped")
 			}
