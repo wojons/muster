@@ -1,0 +1,110 @@
+work_item: prod-readiness-01
+mode: implement_feature
+verification_bar: high
+confidence_floor: 70
+phases:
+  - phase: 1
+    name: "Seccomp Bugfixes"
+    goal: "Fix genuine seccomp gaps: LimitFileAccess allowedPaths iteration, expand toSyscallName, trace lastFailedSyscall, document ApplyToProcess limitation"
+    tasks:
+      - task: 1.1
+        name: "Fix LimitFileAccess to iterate allowedPaths"
+        subtasks:
+          - subtask: 1.1.1
+            name: "Fix deny loop to honor allowedPaths parameter"
+            steps:
+              - step: "Read pkg/platform/seccomp.go LimitFileAccess method"
+              - step: "Fix deny logic to check each path against allowedPaths before denying"
+              - step: "Write unit test verifying allowedPaths are not denied"
+              - step: "Run go test -v ./pkg/platform/ -run Seccomp"
+          - subtask: 1.1.2
+            name: "Expand toSyscallName map beyond 4 syscalls"
+            steps:
+              - step: "Read pkg/platform/seccomp.go toSyscallName map"
+              - step: "Add missing common syscalls (open, read, write, close, stat, etc.)"
+              - step: "Verify mapping with seccomp-tools or manual review"
+      - task: 1.2
+        name: "Fix ApplyToProcess and lastFailedSyscall"
+        subtasks:
+          - subtask: 1.2.1
+            name: "Document ApplyToProcess limitation, add lastFailedSyscall tracking"
+            steps:
+              - step: "Add lastFailedSyscall field write in seccomp violation handler"
+              - step: "Document ApplyToProcess as 'not supported, use ApplyProfile' in code comments"
+              - step: "Run seccomp tests: go test -v ./pkg/platform/ -run Seccomp"
+  - phase: 2
+    name: "SELinux Verification"
+    goal: "Verify shell-based SELinux implementation works end-to-end on Linux"
+    tasks:
+      - task: 2.1
+        name: "Verify and document SELinux context operations"
+        subtasks:
+          - subtask: 2.1.1
+            name: "Test SELinux context get/set operations"
+            steps:
+              - step: "Read pkg/platform/selinux.go for current implementation"
+              - step: "Verify GetContext reads /proc/self/attr/current correctly"
+              - step: "Test SetContext validates input before writing"
+              - step: "Add SELinux_enabled build tag integration test"
+              - step: "Run: go test -v ./pkg/platform/ -run SELinux -tags selinux"
+  - phase: 3
+    name: "Daemon Test Verification"
+    goal: "Verify all daemon tests run and pass"
+    tasks:
+      - task: 3.1
+        name: "Run and verify daemon test suite"
+        subtasks:
+          - subtask: 3.1.1
+            name: "Run daemon tests with race detection"
+            steps:
+              - step: "Run: go test -v -race -count=1 ./cmd/daemon/..."
+              - step: "Document any failures or skipped tests"
+              - step: "Fix any genuine test bugs found"
+  - phase: 4
+    name: "Audit Logging Wiring"
+    goal: "Wire internal/audit into CLI and MCP entry points"
+    tasks:
+      - task: 4.1
+        name: "Wire audit logger into request paths"
+        subtasks:
+          - subtask: 4.1.1
+            name: "Connect audit logger to CLI entry point"
+            steps:
+              - step: "Read internal/audit/ to understand existing audit interfaces"
+              - step: "Wire audit.Log() calls into cmd/openapi-cli/ request execution path"
+              - step: "Add config flag to enable/disable audit logging"
+              - step: "Run: go build ./cmd/openapi-cli && go test -v ./internal/audit/..."
+          - subtask: 4.1.2
+            name: "Connect audit logger to MCP entry point"
+            steps:
+              - step: "Wire audit.Log() calls into cmd/mcp-server/ tool execution path"
+              - step: "Ensure audit events include user, action, resource, result"
+              - step: "Run: go build ./cmd/mcp-server && go test -v ./cmd/mcp-server/..."
+  - phase: 5
+    name: "Keychain Integration Verification"
+    goal: "Verify keychain fallback behavior and document Linux Secret Service"
+    tasks:
+      - task: 5.1
+        name: "Test and document keychain behavior"
+        subtasks:
+          - subtask: 5.1.1
+            name: "Verify FileKeychain fallback and document Secret Service"
+            steps:
+              - step: "Read pkg/auth/keychain.go and internal/platform/linux/keychain_secret_service_linux.go"
+              - step: "Verify FileKeychain fallback works when Secret Service unavailable"
+              - step: "Document keychain architecture in .memory-bank/systemPatterns.md"
+              - step: "Run: go test -v ./pkg/auth/ -run Keychain"
+  - phase: 6
+    name: "End-to-End Verification"
+    goal: "Build, test, and demonstrate all fixes working together"
+    tasks:
+      - task: 6.1
+        name: "Full build and test verification"
+        subtasks:
+          - subtask: 6.1.1
+            name: "Build all binaries and run full test suite"
+            steps:
+              - step: "Run: make build"
+              - step: "Run: go test -count=1 ./pkg/... ./cmd/..."
+              - step: "Verify all targeted tests pass"
+              - step: "Run: make demo"

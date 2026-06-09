@@ -1,0 +1,104 @@
+version: 1
+work_item:
+  id: "retry-backoff-01"
+  jira_key: null
+  repo: "muster"
+  pr_branch: "axiom/retry-backoff-01"
+meta_planning:
+  notes_md_path: ".memory-bank/work-items/retry-backoff-01/meta-planning.md"
+plan:
+  phases:
+    - id: "phase-1"
+      title: "Spec conformance audit"
+      tasks:
+        - id: "task-1"
+          title: "Cross-reference RELIABILITY-RETRY.md against implementation"
+          steps:
+            - id: "step-1-1"
+              title: "Read and catalog all spec requirements"
+              command: "/axiom-step"
+              spec_ref: "specs/RELIABILITY-RETRY.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "wc -l specs/RELIABILITY-RETRY.md"
+                  required: true
+                  timeout_seconds: 10
+            - id: "step-1-2"
+              title: "Map spec requirements to implementation files"
+              command: "/axiom-step"
+              spec_ref: "specs/RELIABILITY-RETRY.md,pkg/retry/"
+              inputs: {}
+              verification:
+                - type: "qa_agent"
+                  command: "grep -r 'BackoffType|JitterType|RetryConfig|NewRetrier' pkg/retry/ --include='*.go'"
+                  required: true
+                  timeout_seconds: 30
+            - id: "step-1-3"
+              title: "Identify gaps between spec and implementation"
+              command: "/axiom-step"
+              spec_ref: "specs/RELIABILITY-RETRY.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "test -f .memory-bank/work-items/retry-backoff-01/verification.md"
+                  required: false
+                  timeout_seconds: 10
+    - id: "phase-2"
+      title: "Test suite verification"
+      tasks:
+        - id: "task-2"
+          title: "Run retry and client test suites"
+          steps:
+            - id: "step-2-1"
+              title: "Run retry package tests"
+              command: "go test -v -count=1 ./pkg/retry/..."
+              spec_ref: "pkg/retry/retry_test.go"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go test -count=1 ./pkg/retry/... 2>&1 | tail -3"
+                  required: true
+                  timeout_seconds: 120
+            - id: "step-2-2"
+              title: "Run client retry tests"
+              command: "go test -v -count=1 -run Retry ./pkg/client/..."
+              spec_ref: "pkg/client/client_retry_test.go"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go test -count=1 -run Retry ./pkg/client/... 2>&1 | tail -3"
+                  required: true
+                  timeout_seconds: 120
+            - id: "step-2-3"
+              title: "Run race detector on retry tests"
+              command: "go test -race -count=1 -run Retry ./pkg/client/..."
+              spec_ref: "specs/RELIABILITY-RETRY.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go test -race -count=1 -run Retry ./pkg/client/... 2>&1 | tail -3"
+                  required: true
+                  timeout_seconds: 120
+    - id: "phase-3"
+      title: "Close gaps and document"
+      tasks:
+        - id: "task-3"
+          title: "Document spec coverage and add trace markers"
+          steps:
+            - id: "step-3-1"
+              title: "Add trace markers to retry package files"
+              command: "/axiom-step"
+              spec_ref: ".opencode/skills/traceability-doctrine/SKILL.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "grep -rn 'axiom:trace' pkg/retry/"
+                  required: true
+                  timeout_seconds: 10
+execution:
+  status: "pending"
+  cursor:
+    phase_id: "phase-1"
+    task_id: "task-1"
+    step_id: "step-1-1"

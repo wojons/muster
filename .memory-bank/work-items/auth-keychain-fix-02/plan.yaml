@@ -1,0 +1,144 @@
+version: 1
+work_item:
+  id: "auth-keychain-fix-02"
+  jira_key: null
+  repo: "muster"
+  pr_branch: "axiom/auth-keychain-fix-02"
+meta_planning:
+  notes_md_path: ".memory-bank/work-items/auth-keychain-fix-02/meta-planning.md"
+plan:
+  phases:
+    - id: "phase-1"
+      title: "Diagnose and fix failing tests"
+      tasks:
+        - id: "task-1"
+          title: "Capture and diagnose test failures"
+          steps:
+            - id: "step-1-1"
+              title: "Run failing tests to capture error output"
+              command: "go test -v -run 'TestWindowsKeychain_Set|TestFileKeychain_SecureMasterKeyGeneration' ./pkg/auth/"
+              spec_ref: "specs/API-AUTHENTICATION.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "test -f /tmp/auth-fail-output.txt"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-1-2"
+              title: "Root-cause analysis of cipher: message authentication failed"
+              command: "/axiom-step"
+              spec_ref: "pkg/auth/keychain.go#L490-L592"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "grep -q 'getApplicationSecret' pkg/auth/keychain.go"
+                  required: true
+                  timeout_seconds: 30
+        - id: "task-2"
+          title: "Fix hardcoded application secret"
+          steps:
+            - id: "step-2-1"
+              title: "Replace hardcoded getApplicationSecret() with runtime-generated value"
+              command: "/axiom-step"
+              spec_ref: "pkg/auth/keychain.go#L490-L494"
+              inputs: {}
+              verification:
+                - type: "qa_agent"
+                  command: "go test -v -run 'TestFileKeychain_SecureMasterKeyGeneration' ./pkg/auth/"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-2-2"
+              title: "Fix encrypt/decrypt consistency to use same secret source"
+              command: "/axiom-step"
+              spec_ref: "pkg/auth/keychain.go#L496-L586"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go test -v -run 'TestWindowsKeychain_Set|TestFileKeychain_SecureMasterKeyGeneration' ./pkg/auth/"
+                  required: true
+                  timeout_seconds: 60
+    - id: "phase-2"
+      title: "Wire Secret Service into master key path"
+      tasks:
+        - id: "task-3"
+          title: "Update getMasterKeyFromLinuxKeychain to try Secret Service first"
+          steps:
+            - id: "step-3-1"
+              title: "Refactor getMasterKeyFromLinuxKeychain to try Secret Service"
+              command: "/axiom-step"
+              spec_ref: "pkg/auth/keychain.go#L410-L425"
+              inputs: {}
+              verification:
+                - type: "qa_agent"
+                  command: "go build ./pkg/auth/"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-3-2"
+              title: "Add setMasterKeyOnLinuxKeychain for storing new keys to Secret Service"
+              command: "/axiom-step"
+              spec_ref: "internal/platform/linux/keyring_secret_service.go"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go vet ./pkg/auth/"
+                  required: true
+                  timeout_seconds: 30
+        - id: "task-4"
+          title: "Ensure fallback path works"
+          steps:
+            - id: "step-4-1"
+              title: "Verify file fallback when Secret Service unavailable"
+              command: "go test -v -run 'TestFileKeychain_NoWeakOSFallback' ./pkg/auth/"
+              spec_ref: "pkg/auth/keychain.go#L339-L374"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go test -v -run TestFileKeychain ./pkg/auth/"
+                  required: true
+                  timeout_seconds: 60
+    - id: "phase-3"
+      title: "Verification"
+      tasks:
+        - id: "task-5"
+          title: "Full test suite"
+          steps:
+            - id: "step-5-1"
+              title: "Run all pkg/auth tests"
+              command: "go test -v -count=1 ./pkg/auth/..."
+              spec_ref: "specs/API-AUTHENTICATION.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go test -count=1 ./pkg/auth/... 2>&1 | tail -5"
+                  required: true
+                  timeout_seconds: 120
+        - id: "task-6"
+          title: "Add trace markers and verify backward compatibility"
+          steps:
+            - id: "step-6-1"
+              title: "Add axiom:trace markers to changed functions"
+              command: "/axiom-step"
+              spec_ref: ".opencode/skills/traceability-doctrine/SKILL.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "grep -n 'axiom:trace' pkg/auth/keychain.go"
+                  required: true
+                  timeout_seconds: 10
+            - id: "step-6-2"
+              title: "Verify backward compatibility with old-format keys"
+              command: "go test -v -run TestFileKeychain ./pkg/auth/"
+              spec_ref: "pkg/auth/keychain.go#L546-L586"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go test -count=1 ./pkg/auth/... 2>&1 | grep -E '^(ok|FAIL)'"
+                  required: true
+                  timeout_seconds: 120
+execution:
+  status: "pending"
+  cursor:
+    phase_id: "phase-3"
+    task_id: "task-6"
+    step_id: "step-6-2"
+  status: "completed"

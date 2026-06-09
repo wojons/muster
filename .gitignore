@@ -1,0 +1,64 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test output
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Build artifacts
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Data files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Local configuration
+config.local.yaml
+.openapi-cli.yaml
+
+# MCP
+.mcp/
+
+# Cache
+.cache/
+
+# Merged specifications (generated files)
+merged-specs/
+
+.worktrees/*/
+_tmp/
+.graph-harness/

@@ -1,0 +1,293 @@
+version: 1
+work_item:
+  id: "prod-readiness-01-fix-linux-security-sec"
+  jira_key: null
+  repo: "anomalyco/muster"
+  pr_branch: "axiom/prod-readiness-01-fix-linux-security-sec"
+meta_planning:
+  notes_md_path: ".memory-bank/work-items/prod-readiness-01-fix-linux-security-sec/meta-planning.md"
+plan:
+  phases:
+    - id: "phase-1"
+      title: "Seccomp Defect Fixes"
+      tasks:
+        - id: "task-1-1"
+          title: "Fix LimitFileAccess allowedPaths handling"
+          steps:
+            - id: "step-1-1-1"
+              title: "Audit LimitFileAccess — verify allowedPaths is never read"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp.go"
+              verification:
+                - type: "command"
+                  command: "grep -n 'allowedPaths' pkg/platform/seccomp.go"
+                  required: true
+                  timeout_seconds: 30
+            - id: "step-1-1-2"
+              title: "Rewrite LimitFileAccess to iterate allowedPaths"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp.go"
+              verification:
+                - type: "qa_agent"
+                  command: "/axiom-verify"
+                  required: true
+                  timeout_seconds: 120
+            - id: "step-1-1-3"
+              title: "Add TestSeccompFilter_LimitFileAccess_RespectsPaths"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp_sandbox_test.go"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestSeccompFilter_LimitFileAccess ./pkg/platform/ 2>&1 | tail -20"
+                  required: true
+                  timeout_seconds: 120
+        - id: "task-1-2"
+          title: "ApplyToProcess disposition"
+          steps:
+            - id: "step-1-2-1"
+              title: "Replace hardcoded failure with doc comment"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp.go"
+              verification:
+                - type: "command"
+                  command: "go vet ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-1-2-2"
+              title: "Add doc link to Apply() alternative"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp.go"
+              verification:
+                - type: "command"
+                  command: "go vet ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+        - id: "task-1-3"
+          title: "Wire lastFailedSyscall recording"
+          steps:
+            - id: "step-1-3-1"
+              title: "Add recordFailedSyscall helper"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp.go"
+              verification:
+                - type: "command"
+                  command: "go build ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-1-3-2"
+              title: "Wire recordFailedSyscall into AllowSyscall/DenySyscall failures"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp.go"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestSeccomp_SyscallNumberConversion ./pkg/platform/ 2>&1 | tail -20"
+                  required: true
+                  timeout_seconds: 120
+            - id: "step-1-3-3"
+              title: "Add TestSeccomp_RecordFailedSyscall test"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestSeccomp_RecordFailedSyscall ./pkg/platform/ 2>&1 | tail -20"
+                  required: true
+                  timeout_seconds: 120
+        - id: "task-1-4"
+          title: "Expand toSyscallName"
+          steps:
+            - id: "step-1-4-1"
+              title: "Expand syscall name mapping to 20+ common syscalls"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp.go"
+              verification:
+                - type: "command"
+                  command: "go build ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-1-4-2"
+              title: "Add fallback fmt.Sprintf for unmapped numbers"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              inputs:
+                expected_files: "pkg/platform/seccomp.go"
+              verification:
+                - type: "command"
+                  command: "go vet ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-1-4-3"
+              title: "Verify coverage of syscalls used in profiles"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#security"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestSeccompFilter_SyscallNumberConversion ./pkg/platform/ 2>&1 | tail -20"
+                  required: true
+                  timeout_seconds: 120
+    - id: "phase-2"
+      title: "SELinux Fixes"
+      tasks:
+        - id: "task-2-1"
+          title: "Modernize SELinux detection"
+          steps:
+            - id: "step-2-1-1"
+              title: "Replace /selinux stat with getenforce + /sys/fs/selinux fallback chain"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#6-security"
+              inputs:
+                expected_files: "pkg/platform/selinux.go"
+              verification:
+                - type: "command"
+                  command: "go build ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-2-1-2"
+              title: "Add TestSELinux_ModernDetection unit test"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#6-security"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestSELinux_ModernDetection ./pkg/platform/ 2>&1 | tail -20"
+                  required: true
+                  timeout_seconds: 120
+        - id: "task-2-2"
+          title: "Robust GetFileContext parsing"
+          steps:
+            - id: "step-2-2-1"
+              title: "Replace ls -Z with stat --printf='%C'"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#6-security"
+              inputs:
+                expected_files: "pkg/platform/selinux.go"
+              verification:
+                - type: "command"
+                  command: "go build ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-2-2-2"
+              title: "Add TestSELinux_GetFileContext_Robust test"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#6-security"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestSELinux_GetFileContext_Robust ./pkg/platform/ 2>&1 | tail -20"
+                  required: true
+                  timeout_seconds: 120
+    - id: "phase-3"
+      title: "Linux Keychain (SecureStorage)"
+      tasks:
+        - id: "task-3-1"
+          title: "Implement LinuxKeychain via Secret Service D-Bus"
+          steps:
+            - id: "step-3-1-1"
+              title: "Implement Store() using org.freedesktop.secrets D-Bus"
+              command: "/axiom-step"
+              spec_ref: "specs/LINUX-IMPLEMENTATION.md#2-secret-service"
+              inputs:
+                expected_files: "pkg/platform/secure_storage.go"
+              verification:
+                - type: "command"
+                  command: "go build ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-3-1-2"
+              title: "Implement Retrieve/Delete/List using D-Bus search"
+              command: "/axiom-step"
+              spec_ref: "specs/LINUX-IMPLEMENTATION.md#2-secret-service"
+              inputs:
+                expected_files: "pkg/platform/secure_storage.go"
+              verification:
+                - type: "command"
+                  command: "go build ./pkg/platform/ 2>&1"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-3-1-3"
+              title: "Add TestLinuxKeychain_SecretService integration test"
+              command: "/axiom-step"
+              spec_ref: "specs/LINUX-IMPLEMENTATION.md#2-secret-service"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestLinuxKeychain ./pkg/platform/ 2>&1 | tail -30"
+                  required: true
+                  timeout_seconds: 120
+    - id: "phase-4"
+      title: "Integration & Validation"
+      tasks:
+        - id: "task-4-1"
+          title: "Integration tests and E2E proof"
+          steps:
+            - id: "step-4-1-1"
+              title: "Add TestSeccomp_E2E_RuntimeBlocks — verify filter actually blocks"
+              command: "/axiom-step"
+              spec_ref: "specs/SECURITY-TESTING.md"
+              inputs:
+                expected_files: "pkg/platform/seccomp_sandbox_test.go"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestSeccomp_E2E_RuntimeBlocks ./pkg/platform/ 2>&1 | tail -20"
+                  required: true
+                  timeout_seconds: 120
+            - id: "step-4-1-2"
+              title: "Add SELinux context round-trip integration test"
+              command: "/axiom-step"
+              spec_ref: "specs/PLATFORM-LINUX.md#6-security"
+              inputs:
+                expected_files: "pkg/platform/selinux_test.go"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 -run TestSELinux_RoundTrip ./pkg/platform/ 2>&1 | tail -20"
+                  required: true
+                  timeout_seconds: 120
+        - id: "task-4-2"
+          title: "Full validation pass"
+          steps:
+            - id: "step-4-2-1"
+              title: "Run full platform test suite"
+              command: "/axiom-step"
+              spec_ref: "specs/SECURITY-TESTING.md"
+              verification:
+                - type: "command"
+                  command: "go test -v -count=1 ./pkg/platform/... 2>&1 | tail -30"
+                  required: true
+                  timeout_seconds: 300
+            - id: "step-4-2-2"
+              title: "Run make lint, make vet, go build"
+              command: "/axiom-step"
+              spec_ref: "specs/SECURITY-AUDIT-CHECKLIST.md"
+              verification:
+                - type: "aggregate"
+                  command: "/axiom-verify"
+                  required: true
+                  timeout_seconds: 300
+                  inputs:
+                    commands:
+                      - "make lint"
+                      - "make vet"
+                      - "go build ./..."
+execution:
+  status: "complete"
+  cursor:
+    phase_id: "phase-4"
+    task_id: "task-4-2"
+    step_id: "step-4-2-2"
+  completed_phases:
+    - "phase-1"
+    - "phase-2"
+    - "phase-3"
+    - "phase-4"

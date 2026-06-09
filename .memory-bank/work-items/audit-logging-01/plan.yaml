@@ -1,0 +1,131 @@
+version: 1
+work_item:
+  id: "audit-logging-01"
+  jira_key: null
+  repo: "muster"
+  pr_branch: "axiom/audit-logging-01"
+meta_planning:
+  notes_md_path: ".memory-bank/work-items/audit-logging-01/meta-planning.md"
+plan:
+  phases:
+    - id: "phase-1"
+      title: "Implement DatabaseStorage"
+      tasks:
+        - id: "task-1"
+          title: "Build SQLite-backed audit storage"
+          steps:
+            - id: "step-1-1"
+              title: "Read migration schema and define DatabaseStorage struct"
+              command: "/axiom-step"
+              spec_ref: "migrations/00005_audit.sql"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "grep -q 'CREATE TABLE IF NOT EXISTS audit' migrations/00005_audit.sql"
+                  required: true
+                  timeout_seconds: 10
+            - id: "step-1-2"
+              title: "Implement DatabaseStorage with Write/Query/Close"
+              command: "/axiom-step"
+              spec_ref: "internal/audit/storage.go,internal/audit/logger.go#L12-L20"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go build ./internal/audit/"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-1-3"
+              title: "Add DatabaseStorage unit tests"
+              command: "/axiom-step"
+              spec_ref: "internal/audit/storage_test.go"
+              inputs: {}
+              verification:
+                - type: "qa_agent"
+                  command: "go test -v -run DatabaseStorage ./internal/audit/"
+                  required: true
+                  timeout_seconds: 60
+    - id: "phase-2"
+      title: "Wire Hook into CLI entry points"
+      tasks:
+        - id: "task-2"
+          title: "Connect audit hook to CLI command lifecycle"
+          steps:
+            - id: "step-2-1"
+              title: "Add Hook creation in CLI entry point"
+              command: "/axiom-step"
+              spec_ref: "internal/audit/hooks.go"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go build ./cmd/"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-2-2"
+              title: "Wire LogCommand into command execution path"
+              command: "/axiom-step"
+              spec_ref: "internal/audit/hooks.go#L72-L99"
+              inputs: {}
+              verification:
+                - type: "qa_agent"
+                  command: "go vet ./cmd/"
+                  required: true
+                  timeout_seconds: 30
+    - id: "phase-3"
+      title: "Wire Hook into MCP entry points"
+      tasks:
+        - id: "task-3"
+          title: "Connect audit hook to MCP server lifecycle"
+          steps:
+            - id: "step-3-1"
+              title: "Add Hook creation in MCP server setup"
+              command: "/axiom-step"
+              spec_ref: "internal/audit/hooks.go#LogToolCall"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go build ./cmd/mcp-server/"
+                  required: true
+                  timeout_seconds: 60
+            - id: "step-3-2"
+              title: "Wire LogToolCall into MCP tool handlers"
+              command: "/axiom-step"
+              spec_ref: "internal/audit/hooks.go#L101-L129"
+              inputs: {}
+              verification:
+                - type: "qa_agent"
+                  command: "go vet ./cmd/mcp-server/"
+                  required: true
+                  timeout_seconds: 30
+    - id: "phase-4"
+      title: "Verification"
+      tasks:
+        - id: "task-4"
+          title: "Full test suite and spec cross-reference"
+          steps:
+            - id: "step-4-1"
+              title: "Run all internal/audit tests"
+              command: "go test -v -count=1 ./internal/audit/..."
+              spec_ref: "specs/AUDIT-LOGGING.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "go test -count=1 ./internal/audit/... 2>&1 | tail -5"
+                  required: true
+                  timeout_seconds: 120
+            - id: "step-4-2"
+              title: "Cross-reference spec requirements checklist"
+              command: "/axiom-step"
+              spec_ref: "specs/AUDIT-LOGGING.md,specs/EVENTS-AUDIT.md"
+              inputs: {}
+              verification:
+                - type: "command"
+                  command: "grep -r 'axiom:trace' internal/audit/"
+                  required: true
+                  timeout_seconds: 10
+execution:
+  status: "completed"
+  status_note: "All 4 phases implemented: DatabaseStorage (SQLite), CLI audit wiring, MCP audit wiring verified, full test suite passing (104+ tests). Credential redaction already present."
+  cursor:
+    phase_id: "phase-4"
+    task_id: "task-4"
+    step_id: "step-4-2"

@@ -1,0 +1,30 @@
+You are tower-axiom, the primary orchestrator for the Axiom platform.
+
+## Context
+The Muster project (~/projects/muster) is at FUNCTIONALIS (Level 2/5) with 13% confidence. Three critical gaps need work items created. The project has 231 specs and existing work items at prod-readiness-01 and prod-readiness-01-fix-linux-security-sec.
+
+## Task
+Create work items for these 3 gaps. For each, run `/axiom-work-item <id> <goal> --kiss`:
+
+### 1. auth-keychain-fix-02
+Goal: Fix keychain key derivation on Linux. Currently `getMasterKeyFromLinuxKeychain()` in `pkg/auth/keychain.go` only uses file-based master key, ignoring D-Bus Secret Service implementation in `internal/platform/linux/keyring_secret_service.go`. Two failing tests: TestWindowsKeychain_Set and TestFileKeychain_SecureMasterKeyGeneration — both fail with "cipher: message authentication failed". Wire Secret Service as primary source, fall back to file. Replace hardcoded `getApplicationSecret()` constant with runtime-generated secret stored in master key.
+Relevant specs: specs/SEC-002 (if exists), specs/API-AUTHENTICATION.md
+Relevant code: pkg/auth/keychain.go:410-425, internal/platform/linux/keyring_secret_service.go
+
+### 2. audit-logging-01
+Goal: Implement audit logging per specs EVENTS-AUDIT.md and AUDIT-LOGGING.md. Directory `internal/audit/` exists with hooks.go but no actual logging implementation. Database migration `00005_audit.sql` exists. Implement: AuditEvent struct, AuditLogger with Log() method, credential redaction, audit hooks wired into CLI and MCP entry points.
+Relevant specs: specs/AUDIT-LOGGING.md, specs/EVENTS-AUDIT.md
+Relevant code: internal/audit/hooks.go, migrations/00005_audit.sql
+
+### 3. retry-backoff-01
+Goal: Implement retry/backoff mechanism per specs/RELIABILITY-RETRY.md (355-line spec). Implement: RetryConfig struct with maxRetries, BackoffType (constant/linear/exponential), JitterType. Retrier executor that wraps HTTP calls. Zero implementation currently exists — this is a core reliability feature.
+Relevant specs: specs/RELIABILITY-RETRY.md
+Relevant code: pkg/client/ (existing client with retry stubs)
+
+## Important
+- Use --kiss flag to prevent scope creep
+- Read memory bank context first (.memory-bank/work-items/_prompt.md, _index.md, TODO.md)
+- Create all three artifacts: meta-planning.md, plan.md, plan.yaml
+- Update TODO.md with new items
+- Update .memory-bank/work-items/_index.md
+- After all three are created, report summary
