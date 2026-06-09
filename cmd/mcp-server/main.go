@@ -6,9 +6,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -133,9 +135,9 @@ func main() {
 
 // loadAndRegisterTools loads OpenAPI spec and registers tools with MCP server
 func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
-	// Load OpenAPI spec
+	// Load OpenAPI spec (supports both file paths and URLs)
 	loader := openapi3.NewLoader()
-	doc, err := loader.LoadFromFile(config.SpecPath)
+	doc, err := loadSpec(loader, config.SpecPath)
 	if err != nil {
 		return fmt.Errorf("load spec: %w", err)
 	}
@@ -169,11 +171,34 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
 	return nil
 }
 
-// RegisterHandler adds a handler to the MCP server (extension method)
+// RegisterHandler adds a handler to the MCP server.
 func RegisterHandler(server *mcp.Server, handler handlers.Handler) {
-	// This would need to be implemented in pkg/mcp/server.go
-	// For now, just a placeholder
-	_ = handler
+	if server != nil {
+		server.RegisterHandler(handler)
+	}
+}
+
+// loadSpec loads an OpenAPI spec from a file path or URL.
+func loadSpec(loader *openapi3.Loader, specPath string) (*openapi3.T, error) {
+	// If specPath looks like a URL, load it from the network
+	parsed, err := url.Parse(strings.TrimSpace(specPath))
+	if err != nil {
+		return nil, fmt.Errorf("parse spec path %q: %w", specPath, err)
+	}
+	if parsed.Scheme == "http" || parsed.Scheme == "https" {
+		return loader.LoadFromURI(parsed)
+	}
+	// Otherwise, load from a local file
+	return loader.LoadFromFile(specPath)
+}
+
+// isURL returns true if the given path looks like an HTTP/HTTPS URL.
+func isURL(s string) bool {
+	u, err := url.Parse(strings.TrimSpace(s))
+	if err != nil {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
 }
 
 // mcpActorID returns the actor identifier for MCP audit events.

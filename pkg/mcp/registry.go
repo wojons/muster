@@ -193,9 +193,7 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 
 	// CRITICAL SECURITY FIX: Validate inputs against JSON Schema before execution
 	if err := e.validateArgs(config.InputSchema, args); err != nil {
-		return map[string]interface{}{
-			"error": err.Error(),
-		}, nil
+		return nil, fmt.Errorf("tool %q: %w", name, err)
 	}
 
 	// Build HTTP request
@@ -258,10 +256,7 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 	}
 
 	if result.StatusCode >= 400 {
-		return map[string]interface{}{
-			"error": fmt.Sprintf("HTTP error: %d", result.StatusCode),
-			"body":  string(result.Body),
-		}, nil
+		return nil, fmt.Errorf("HTTP %d: %s", result.StatusCode, string(result.Body))
 	}
 
 	// Parse and return JSON response

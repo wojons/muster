@@ -3,11 +3,11 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-09 18:28 CDT
+**Last run:** 2026-06-09 18:45 CDT
 **Last cron:** 2026-06-09 11:49 CDT (error — pre-build-fix)
-**Run status:** AC-001 ✅ AC-002 ✅. AC-003 delegated to Axiom (running now).
-**Summary:** AC-011 ✅. AC-001 ✅. AC-002 ✅ (full CRUD: request cmd + generated cmds, body-as-JSON, $ref resolution, all return 201). AC-003 🔄. AC-004–006 ⬜. AC-012–013 ⬜.
-**Key findings:** `$ref` body schemas resolve correctly now. Path params → positional args, body flags → JSON body, query params → URL params. All 32 ops work across 8 command groups. 5 commits this session.
+**Run status:** AC-001 ✅ AC-002 ✅ AC-003 ✅. AC-004 delegated to Axiom (running now).
+**Summary:** AC-011 ✅. AC-001 ✅. AC-002 ✅. AC-003 ✅ (multipart upload, auth 401/200, pagination page/limit). AC-004 🔄. AC-005–006 ⬜. AC-012–013 ⬜.
+**Key findings:** 6 commits this session. All 32 ops work. Auth: MUSTER_AUTH_TOKEN env var + --header flag. Pagination: page/limit only when explicitly set.
 
 ## Demo Infrastructure (Fake Apps)
 

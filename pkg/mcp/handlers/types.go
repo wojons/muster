@@ -275,19 +275,30 @@ func NewCallToolHandler(executor interface{}) Handler {
 			if err := json.Unmarshal(params, &req); err != nil {
 				return nil, &MCPError{Code: -32602, Message: "Invalid params"}
 			}
-			// Try to call executor via reflection/interface-based approach
+			// Try to call executor via duck-typed interface
 			if exec, ok := executor.(interface {
 				Execute(ctx context.Context, name string, args map[string]interface{}) (interface{}, error)
 			}); ok {
 				result, err := exec.Execute(ctx, req.Name, req.Arguments)
 				if err != nil {
-					return nil, err
+					// Return error as CallToolResult with isError=true
+					return &CallToolResult{
+						Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("Error: %v", err)}},
+						IsError: true,
+					}, nil
 				}
-				return result, nil
+				// Marshal result to JSON text for content
+				resultJSON, err := json.Marshal(result)
+				if err != nil {
+					return &CallToolResult{
+						Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("%v", result)}},
+					}, nil
+				}
+				return &CallToolResult{
+					Content: []ToolContent{{Type: "text", Text: string(resultJSON)}},
+				}, nil
 			}
-			return &CallToolResult{
-				Content: []ToolContent{{Type: "text", Text: "executed"}},
-			}, nil
+			return nil, &MCPError{Code: -32603, Message: "Tool executor not available"}
 		},
 	}
 }
