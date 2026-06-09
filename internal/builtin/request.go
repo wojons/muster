@@ -1,7 +1,9 @@
 package builtin
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -9,7 +11,6 @@ import (
 	"time"
 
 	"github.com/wojons/muster/pkg/request"
-	"github.com/wojons/muster/pkg/response"
 	"github.com/spf13/cobra"
 )
 
@@ -98,6 +99,12 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Request: %s %s\n", method, targetURL)
 		fmt.Fprintf(os.Stderr, "Status: %d %s\n", resp.StatusCode, resp.Status)
@@ -107,26 +114,20 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 		fmt.Fprintln(os.Stderr)
 	}
 
-	config := response.Config{
-		DefaultFormat:    output,
-		SupportedFormats: []string{"json", "yaml", "table"},
-		Writer:           os.Stdout,
-		VerboseErrors:    verbose,
-	}
-
-	handler := response.NewHandler(config)
-
-	options := response.ProcessingOptions{
-		Format: output,
-		Raw:    verbose,
-	}
-
-	err = handler.ProcessResponse(resp, options)
-	if err != nil {
-		if verbose {
-			fmt.Fprintf(os.Stderr, "Error processing response: %v\n", err)
+	// Print response body to stdout
+	if len(body) > 0 {
+		if output == "json" {
+			var data interface{}
+			if err := json.Unmarshal(body, &data); err == nil {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				_ = enc.Encode(data)
+			} else {
+				fmt.Fprintln(os.Stdout, string(body))
+			}
+		} else {
+			fmt.Fprintln(os.Stdout, string(body))
 		}
-		return fmt.Errorf("process response: %w", err)
 	}
 
 	if resp.StatusCode >= 400 {
