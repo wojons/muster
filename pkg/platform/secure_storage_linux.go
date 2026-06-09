@@ -105,7 +105,7 @@ func (k *LinuxKeychain) List(service string) ([]string, error) {
 // Close releases the keyring connection. Safe to call multiple times.
 func CloseLinuxKeychain() error {
 	if linuxKeyring != nil {
-		return linuxKeyring.Close()
+		return linuxKeyring.Disconnect()
 	}
 	return nil
 }

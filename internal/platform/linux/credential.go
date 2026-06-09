@@ -44,3 +44,6 @@ func (k *SecretServiceKeyring) Delete(ctx context.Context, key string) error {
 
 // ErrNotConnected is returned when the keyring is not connected.
 var ErrNotConnected = fmt.Errorf("secret service not connected")
+
+// ErrCredentialNotFound is returned when a credential lookup fails.
+var ErrCredentialNotFound = fmt.Errorf("credential not found")
