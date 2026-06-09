@@ -45,11 +45,24 @@ type CommandMetadata struct {
 	Flags       []FlagMetadata
 }
 
+// FlagKind classifies a flag as coming from path, query, header, or request body.
+type FlagKind string
+
+const (
+	FlagKindPath   FlagKind = "path"
+	FlagKindQuery  FlagKind = "query"
+	FlagKindHeader FlagKind = "header"
+	FlagKindBody   FlagKind = "body"
+)
+
 // FlagMetadata describes a command flag.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/cmdstore/store.go
 type FlagMetadata struct {
 	Name         string
 	Shorthand    string
 	Type         string
+	Kind         FlagKind `json:"kind,omitempty"`
+	JSONName     string   `json:"json_name,omitempty"` // original property name for body flags
 	Description  string
 	Default      string
 	DefaultValue string

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/wojons/muster/pkg/log"
@@ -121,6 +122,7 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 }
 
 // createRunHandler creates a handler that makes HTTP requests
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/cmdstore/loader.go
 func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -138,14 +140,67 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			}
 		}
 
-		// Add query parameters from flags
+		// Separate flags into body, query, and header groups
+		var bodyFlags []FlagMetadata
+		var queryFlags []FlagMetadata
+
 		for _, flagMeta := range meta.Flags {
+			switch flagMeta.Kind {
+			case FlagKindBody:
+				bodyFlags = append(bodyFlags, flagMeta)
+			case FlagKindHeader:
+				// Header flags are handled separately below
+			default:
+				queryFlags = append(queryFlags, flagMeta)
+			}
+		}
+
+		// Add query parameters from query-kind flags
+		for _, flagMeta := range queryFlags {
 			value, err := l.getFlagValue(cmd, flagMeta)
 			if err != nil {
 				continue
 			}
 			if value != nil {
 				builder.WithQueryParam(flagMeta.Name, fmt.Sprintf("%v", value))
+			}
+		}
+
+		// Build JSON body from body-kind flags (for POST/PUT/PATCH operations)
+		if len(bodyFlags) > 0 &&
+			(meta.Method == http.MethodPost || meta.Method == http.MethodPut || meta.Method == http.MethodPatch) {
+			bodyMap := make(map[string]interface{})
+			hasBody := false
+
+			for _, bodyFlag := range bodyFlags {
+				// Only include flags explicitly set by the user (matching generator behavior).
+				// Required flags are enforced by cobra so Changed will be true for them.
+				if cmd.Flag(bodyFlag.Name) == nil || !cmd.Flag(bodyFlag.Name).Changed {
+					continue
+				}
+
+				val, err := l.getFlagValue(cmd, bodyFlag)
+				if err != nil {
+					continue
+				}
+				if val != nil {
+					// Use the original JSON property name if available, otherwise the flag name
+					jsonKey := bodyFlag.Name
+					if bodyFlag.JSONName != "" {
+						jsonKey = bodyFlag.JSONName
+					}
+					bodyMap[jsonKey] = val
+					hasBody = true
+				}
+			}
+
+			if hasBody {
+				bodyJSON, err := json.Marshal(bodyMap)
+				if err != nil {
+					return fmt.Errorf("marshal request body: %w", err)
+				}
+				builder.JSONBody(string(bodyJSON))
+				builder.SetHeader("Content-Type", "application/json")
 			}
 		}
 

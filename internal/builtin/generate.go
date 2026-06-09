@@ -261,6 +261,7 @@ func singularize(s string) string {
 }
 
 // extractCommandMetadata recursively extracts metadata from command and subcommands
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=internal/builtin/generate.go
 func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *openapi3.T, metadata *[]cmdstore.CommandMetadata) {
 	// For each command, check if it's a leaf (operation) or a group
 	if cmd.HasSubCommands() {
@@ -274,6 +275,12 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 	// This is a leaf command (operation), create metadata
 	// Try to find matching operation from OpenAPI spec based on command name
 	path, method, args := extractOperationFromCommandAndSpec(cmd, doc)
+
+	// Determine which flags represent request body properties (vs query/header params).
+	// For POST/PUT/PATCH operations, flags that match requestBody schema properties
+	// should be serialized as JSON body, not query parameters.
+	// Maps normalized flag name → original JSON property name.
+	bodyFlagToJSON := extractBodyPropertyNames(doc, path, method)
 
 	cmdMeta := cmdstore.CommandMetadata{
 		Name:    cmd.Name(),
@@ -302,10 +309,75 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 			return
 		}
 
+		// Tag body flags so the loader can marshal them as JSON body
+		if jsonName, ok := bodyFlagToJSON[flag.Name]; ok {
+			flagMeta.Kind = cmdstore.FlagKindBody
+			flagMeta.JSONName = jsonName
+		}
+
 		cmdMeta.Flags = append(cmdMeta.Flags, flagMeta)
 	})
 
 	*metadata = append(*metadata, cmdMeta)
+}
+
+// extractBodyPropertyNames returns a map from normalized flag name to original
+// JSON property name for all request body properties in the given path+method.
+// Returns nil if no body schema exists.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=internal/builtin/generate.go
+func extractBodyPropertyNames(doc *openapi3.T, path, method string) map[string]string {
+	if doc == nil || path == "" || method == "" {
+		return nil
+	}
+
+	pathItem := doc.Paths.Find(path)
+	if pathItem == nil {
+		return nil
+	}
+
+	operation := pathItem.GetOperation(method)
+	if operation == nil || operation.RequestBody == nil || operation.RequestBody.Value == nil {
+		return nil
+	}
+
+	content := operation.RequestBody.Value.Content
+	if content == nil {
+		return nil
+	}
+
+	// Look for application/json request body content
+	var schema *openapi3.Schema
+	if jsonContent := content.Get("application/json"); jsonContent != nil && jsonContent.Schema != nil {
+		schema = jsonContent.Schema.Value
+	}
+	if schema == nil {
+		return nil
+	}
+
+	names := make(map[string]string)
+	for propName := range schema.Properties {
+		// Normalize the spec property name to match flag naming convention
+		normalized := normalizeFlagName(propName)
+		names[normalized] = propName // original name → JSON key
+	}
+	return names
+}
+
+// normalizeFlagName converts a camelCase name to kebab-lower flag name.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=internal/builtin/generate.go
+func normalizeFlagName(name string) string {
+	var result strings.Builder
+	for i, r := range name {
+		if r >= 'A' && r <= 'Z' {
+			if i > 0 {
+				result.WriteRune('-')
+			}
+			result.WriteRune(r + 32) // to lowercase
+		} else {
+			result.WriteRune(r)
+		}
+	}
+	return strings.ToLower(result.String())
 }
 
 // getFlagType determines the type of a flag

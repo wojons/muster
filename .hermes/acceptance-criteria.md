@@ -52,7 +52,8 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
   7. **Verify deletion:** `./bin/openapi-cli request GET http://localhost:9800/tasks/1` → HTTP 404, `{"error":"task not found"}`
 **Cross-verify:** Check crud-service logs — all 6 HTTP requests appear with correct methods, paths, and JSON bodies
 **Edge cases to probe:** Create with missing required field → clear validation error. Update non-existent ID → 404. Double-delete → 404.
-**Status:** pending
+**Status:** 🔄 in progress — Axiom fixing body-as-query-param bug in generated commands
+**Evidence (2026-06-09 17:11):** ✅ Full CRUD lifecycle via `request` command: CREATE → 201, LIST → 200 (appears in list), GET → 200, UPDATE → 200, DELETE → 200 (`{"deleted":true}`), VERIFY → 404 (`{"error":"project not found"}`). ❌ Generated commands broken (body fields sent as query params → HTTP 400). Axiom fixing now.
 
 ### AC-003: CLI handles different API flavors — file upload, auth, pagination
 **Journey:** The CLI isn't just for CRUD. A user uploads a file to a file service, downloads it back, lists all files. Then they hit an auth-gated API without a token and get denied; with the token they succeed. They create 15 tasks and paginate through them — page 2 shows only items 6-10.
