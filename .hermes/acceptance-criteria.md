@@ -3,10 +3,10 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-09 14:15 CDT
-**Run status:** 🔧 Spec complete — test project spec written, AC-011–013 added. Delegating Phase A (enhanced demo apps) to Axiom.
-**Summary:** AC-001 → partial. AC-002–006 → pending. AC-011 → in_progress (delegated to Axiom). AC-012–013 → pending (depend on AC-011).
-**Key findings:** 3 binaries compile. New test suite spec at `.hermes/test-project-spec.md`. 5 enhanced demo apps replacing basic `demo/`.
+**Last run:** 2026-06-09 14:40 CDT
+**Run status:** ✅ Phase A complete — 5 enhanced demo apps built, verified (all healthy, valid OpenAPI), committed. Phase B (test scripts) next.
+**Summary:** AC-011 ✅ passed. AC-012–013 pending. AC-001–006 pending (unblocked).
+**Key findings:** 5 apps: 53 OpenAPI paths, 99 operations across 15 files (7,197 lines). Content Hub correctly returns 401 without Bearer token. Permissions fixed — container can now read .hermes/ files.
 
 ## Demo Infrastructure (Fake Apps)
 
@@ -111,20 +111,6 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 **Edge cases to probe:** Create with Unicode title → all consumers preserve characters correctly. Create with long title (1000 chars) → all consumers handle it.
 **Status:** pending
 
-### AC-011: Enhanced demo apps (5 real-feeling APIs with OpenAPI specs) replace basic demo/
-**Journey:** A developer clones the Muster repo and runs `make test-integration`. Behind the scenes, 5 realistic demo applications spin up — each a standalone Flask service with its own complete OpenAPI 3.0 spec, seeded data, and health endpoints. These replace the current basic `demo/` services.
-**Expected at each step:**
-  1. All 5 apps in `tests/muster-test-suite/apps/`: Task Forge (:9800), File Vault (:9802), Content Hub (:9803), Metrics Engine (:9804), Orchestrator (:9805)
-  2. Each app has: `server.py` (Flask with logging, error handling), `openapi.json` (complete spec with all parameters and response codes), `seed.py` (populates realistic data)
-  3. `python3 task-forge/server.py &` → health check returns 200 at `/health`
-  4. All 5 apps start without errors and respond to health checks
-  5. Each app's `/openapi.json` endpoint returns valid, parseable OpenAPI 3.0 JSON
-  6. Each app's OpenAPI spec includes: `operationId`, typed `parameters`, `requestBody` schemas, `responses` with status codes, `servers` block with port
-**Spec reference:** `.hermes/test-project-spec.md` — full architecture, endpoint inventories, test coverage matrix
-**Status:** in_progress 🔄
-**Depends on:** Nothing — these replace current demo/, no Muster changes needed
-**Axiom work item:** WI-test-suite-phase-a
-
 ### AC-012: Test scripts exercise all 3 Muster consumers against the 5 demo apps
 **Journey:** With all 5 demo apps running and Muster binaries built, shell-based test scripts walk real user journeys: CLI creates/filters/uploads/publishes, MCP server exposes tools and executes calls, daemon proxies through Unix socket. Each script is a standalone shell script with clear pass/fail output.
 **Expected at each step:**
@@ -160,6 +146,11 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 **Axiom work item:** WI-test-suite-phase-c
 
 ## Passed Criteria
+
+### AC-011: Enhanced demo apps (5 real-feeling APIs with OpenAPI specs) ✅
+**Verified:** 2026-06-09 14:40 CDT
+**Evidence:** All 5 apps start healthy (HTTP 200), valid OpenAPI 3.0.3 specs (53 paths, 99 operations). Content Hub correctly returns 401 without Bearer token. 15 files, 7,197 lines. Committed as `3b49f74`.
+**Spec reference:** `.hermes/test-project-spec.md`
 
 <!-- Move verified criteria here when they pass -->
 
