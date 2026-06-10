@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/log"
 )
 
@@ -520,6 +521,25 @@ func NewProxyHandler(backendURL string) *ProxyHandler {
 		forwardedFor: true,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// NewProxyHandlerWithRateLimit creates a new proxy handler with token-bucket
+// rate limiting applied to outgoing proxy requests. ratePerSec is the number
+// of tokens added per second; burst is the maximum accumulated tokens.
+// When ratePerSec is <= 0, rate limiting is disabled.
+func NewProxyHandlerWithRateLimit(backendURL string, ratePerSec, burst int) *ProxyHandler {
+	transport := http.DefaultTransport
+	if ratePerSec > 0 {
+		transport = client.NewRateLimitRoundTripper(transport, ratePerSec, burst)
+	}
+	return &ProxyHandler{
+		backendURL:   backendURL,
+		forwardedFor: true,
+		httpClient: &http.Client{
+			Transport: transport,
+			Timeout:   30 * time.Second,
 		},
 	}
 }

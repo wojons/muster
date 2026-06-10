@@ -1,20 +1,22 @@
 package builtin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/wojons/muster/pkg/client"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/wojons/muster/pkg/request"
 	"github.com/spf13/cobra"
 )
 
-func newRequestCommand() *cobra.Command {
+func newRequestCommand(cfg *config.Config) *cobra.Command {
 	var (
 		headers  []string
 		params   []string
@@ -33,7 +35,7 @@ func newRequestCommand() *cobra.Command {
 			method := strings.ToUpper(args[0])
 			targetURL := args[1]
 
-			return handleRequest(method, targetURL, headers, params, output, verbose, timeout, httpBody)
+			return handleRequest(cfg, method, targetURL, headers, params, output, verbose, timeout, httpBody)
 		},
 	}
 
@@ -56,7 +58,7 @@ func validateURLScheme(scheme string) error {
 	return nil
 }
 
-func handleRequest(method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody string) error {
+func handleRequest(cfg *config.Config, method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody string) error {
 	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
 		return fmt.Errorf("parse URL: %w", err)
@@ -92,8 +94,14 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 		return fmt.Errorf("build request: %w", err)
 	}
 
-	client := &http.Client{Timeout: timeout}
-	resp, err := client.Do(httpReq)
+	// Build client options
+	var clientOpts []client.ClientOption
+	clientOpts = append(clientOpts, client.WithTimeout(timeout))
+	if cfg != nil && cfg.RateLimit.Enabled {
+		clientOpts = append(clientOpts, client.WithRateLimiter(cfg.RateLimit.RatePerSec, cfg.RateLimit.Burst))
+	}
+	httpClient := client.NewClient(clientOpts...)
+	resp, err := httpClient.Do(context.Background(), httpReq)
 	if err != nil {
 		return fmt.Errorf("execute request: %w", err)
 	}

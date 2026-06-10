@@ -24,6 +24,7 @@ type Config struct {
 
 	// Sub-configs
 	Cache     CacheConfig     `mapstructure:"cache"`
+	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
 	Auth      AuthConfig      `mapstructure:"auth"`
 	Daemon    DaemonConfig    `mapstructure:"daemon"`
 	Inventory InventoryConfig `mapstructure:"inventory"`
@@ -55,6 +56,13 @@ type CacheConfig struct {
 	MaxSize  int64         `mapstructure:"max_size"` // bytes
 	Redis    RedisConfig   `mapstructure:"redis"`
 	DiskPath string        `mapstructure:"disk_path"`
+}
+
+// RateLimitConfig represents request rate limiting configuration.
+type RateLimitConfig struct {
+	Enabled    bool `mapstructure:"enabled"`
+	RatePerSec int  `mapstructure:"rate_per_sec"` // tokens added per second
+	Burst      int  `mapstructure:"burst"`        // max accumulated tokens
 }
 
 // RedisConfig represents Redis connection configuration

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 	"github.com/wojons/muster/pkg/openapi"
 	"github.com/wojons/muster/pkg/request"
@@ -82,6 +83,24 @@ func NewExecutor(baseURL string, operations []*openapi.Operation) *OpenAPIExecut
 	}
 }
 
+// NewExecutorWithRateLimit creates a new executor with token-bucket rate
+// limiting applied to outgoing requests. ratePerSec is the number of tokens
+// added per second; burst is the maximum accumulated tokens.
+// When ratePerSec is <= 0, rate limiting is disabled.
+func NewExecutorWithRateLimit(baseURL string, operations []*openapi.Operation, ratePerSec, burst int) *OpenAPIExecutor {
+	transport := http.DefaultTransport
+	if ratePerSec > 0 {
+		transport = client.NewRateLimitRoundTripper(transport, ratePerSec, burst)
+	}
+	return &OpenAPIExecutor{
+		baseURL:    baseURL,
+		client: &http.Client{
+			Transport: transport,
+		},
+		operations: operations,
+	}
+}
+
 // Execute runs an OpenAPI operation by name.
 // For POST/PUT/PATCH methods, body parameters are JSON-encoded in the request body.
 // For GET/DELETE methods, parameters are sent as query parameters.
@@ -121,8 +140,15 @@ func (e *OpenAPIExecutor) Execute(ctx context.Context, name string, args map[str
 		}
 	}
 
-	// Execute request
-	resp, err := builder.Execute(ctx)
+	// Execute request using the executor's HTTP client (may be rate-limited).
+	// Build the request manually so we can use e.client instead of
+	// builder.Execute's internal bare http.Client{}.
+	req, err := builder.Build()
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	req = req.WithContext(ctx)
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("execute request: %w", err)
 	}
