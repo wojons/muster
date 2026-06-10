@@ -188,6 +188,32 @@ func extractOperationFromCommandAndSpec(cmd *cobra.Command, doc *openapi3.T) (pa
 	return "", "", nil
 }
 
+// getOperationServerURL extracts the server URL for a specific operation from the spec.
+// Resolution order: per-operation servers → path-level servers → root-level servers.
+func getOperationServerURL(doc *openapi3.T, path, method string) string {
+	if doc == nil || path == "" || method == "" {
+		return ""
+	}
+	pathItem := doc.Paths.Find(path)
+	if pathItem == nil {
+		return ""
+	}
+	operation := pathItem.GetOperation(method)
+	if operation == nil {
+		return ""
+	}
+	if operation.Servers != nil && len(*operation.Servers) > 0 && (*operation.Servers)[0] != nil {
+		return (*operation.Servers)[0].URL
+	}
+	if len(pathItem.Servers) > 0 && pathItem.Servers[0] != nil {
+		return pathItem.Servers[0].URL
+	}
+	if len(doc.Servers) > 0 && doc.Servers[0] != nil {
+		return doc.Servers[0].URL
+	}
+	return ""
+}
+
 // extractPathParamsFromPath extracts parameter names from a path template
 func extractPathParamsFromPath(path string) []string {
 	params := make([]string, 0)
@@ -282,13 +308,19 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 	// Determine if this operation supports multipart
 	hasMultipart, multipartFields := detectMultipartOperation(doc, path, method)
 
+	// Resolve per-operation server URL from the spec, falling back to the global base URL
+	operationBaseURL := getOperationServerURL(doc, path, method)
+	if operationBaseURL == "" {
+		operationBaseURL = baseURL
+	}
+
 	cmdMeta := cmdstore.CommandMetadata{
 		Name:    cmd.Name(),
 		Use:     cmd.Use,
 		Short:   cmd.Short,
 		Long:    cmd.Long,
 		Example: cmd.Example,
-		BaseURL: baseURL,
+		BaseURL: operationBaseURL,
 		Path:    path,
 		Method:  method,
 		Args:    args,

@@ -694,7 +694,12 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		builder := request.NewBuilder(g.config.BaseURL, op.Path, op.Method)
+		// Use per-operation server URL if available, falling back to config-level base URL
+		baseURL := op.ServerURL
+		if baseURL == "" {
+			baseURL = g.config.BaseURL
+		}
+		builder := request.NewBuilder(baseURL, op.Path, op.Method)
 
 		pathParams := g.extractPathParams(op.Path)
 		for i, param := range pathParams {

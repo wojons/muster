@@ -80,6 +80,7 @@ type Operation struct {
 	RequestBody     []RequestBodyProperty
 	HasMultiPart    bool                 // true if requestBody supports multipart/form-data
 	MultipartFields []RequestBodyProperty // non-file fields in multipart form
+	ServerURL       string               // resolved server URL for this operation
 }
 
 // Parameters is a convenience type for a slice of Parameter values.
@@ -128,6 +129,7 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 
 			// Extract tags from the operation-level tags field
 			// (kin-openapi puts operation tags in the operation struct)
+			serverURL := resolveServerURL(spec, pathItem, op)
 			operation := &Operation{
 				ID:          op.OperationID,
 				Path:        path,
@@ -137,6 +139,7 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 				Tags:        op.Tags,
 				Parameters:  extractParameters(op.Parameters),
 				RequestBody: extractRequestBodyProperties(spec, op.RequestBody),
+				ServerURL:   serverURL,
 			}
 
 			// Detect multipart/form-data support
@@ -150,6 +153,24 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 	}
 
 	return operations, nil
+}
+
+// resolveServerURL determines the server URL for an operation by checking:
+// 1. Per-operation servers (highest priority — operation.Servers is *Servers)
+// 2. Path-level servers (pathItem.Servers)
+// 3. Root-level servers (spec.Servers)
+// Returns empty string if no server is configured.
+func resolveServerURL(spec *openapi3.T, pathItem *openapi3.PathItem, operation *openapi3.Operation) string {
+	if operation.Servers != nil && len(*operation.Servers) > 0 && (*operation.Servers)[0] != nil {
+		return (*operation.Servers)[0].URL
+	}
+	if pathItem != nil && len(pathItem.Servers) > 0 && pathItem.Servers[0] != nil {
+		return pathItem.Servers[0].URL
+	}
+	if len(spec.Servers) > 0 && spec.Servers[0] != nil {
+		return spec.Servers[0].URL
+	}
+	return ""
 }
 
 // extractParameters converts OpenAPI parameter references to internal Parameter types.
