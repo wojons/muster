@@ -3,10 +3,9 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-09 19:00 CDT
-**Run status:** AC-001 ✅ AC-002 ✅ AC-003 ✅ AC-004 ✅. AC-005 delegated to Axiom.
-**Summary:** AC-011 ✅. AC-001 ✅. AC-002 ✅. AC-003 ✅. AC-004 ✅ (MCP tools/list + tools/call across 5 apps). AC-005 🔄. AC-006 ⬜. AC-012 ⬜. AC-013 ⬜.
-**Key findings:** 7 commits this session. 98 MCP tools across 5 services. MCP handles auth-gated endpoints, missing args, unknown tools gracefully.
+**Last run:** 2026-06-10 19:45 CDT
+**Run status:** AC-010 ✅ — rate limiter wired into CLI, daemon, MCP. 8 files changed, 365 lines. All 82 tests pass.
+**Summary:** Commit 3b3fd57: RateLimitConfig added to config. CLI request command uses WithRateLimiter when enabled. Daemon proxy has NewProxyHandlerWithRateLimit. MCP executor has NewExecutorWithRateLimit. 9 integration tests verify 429 blocking.
 
 ## Demo Infrastructure (Fake Apps)
 
@@ -187,7 +186,7 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
   6. Wait for TTL expiry → re-run → cache miss, backend gets hit again
 **Why deferred:** `pkg/cache` multi-tier (memory + Redis). Correctness first.
 
-### AC-010: Rate limiter prevents API abuse
+### AC-010: Rate limiter prevents API abuse ✅
 **Journey:** Muster is configured to allow 5 requests per second. A user fires 10 rapid requests — the first 5 succeed, the next 5 get rate-limited. After waiting a second, requests work again.
 **Expected at each step:**
   1. Start crud-service with rate limit: 5 req/s
@@ -195,4 +194,5 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
   3. First 5 → HTTP 200. Next 5 → HTTP 429 or queued
   4. Wait 1 second, fire again → HTTP 200
   5. crud-service never received more than 5 requests in any 1-second window
-**Why deferred:** `pkg/rate` token bucket. Depends on having enough operations to hit the limit.
+**Verified:** 2026-06-10 19:45 CDT
+**Evidence:** Commit 3b3fd57. RateLimitConfig added to config/types.go. CLI request.go uses WithRateLimiter when cfg.RateLimit.Enabled. Daemon ProxyHandler has NewProxyHandlerWithRateLimit constructor. MCP OpenAPIExecutor has NewExecutorWithRateLimit + fixed Execute to use e.client. 9 integration tests (daemon 3, MCP 3, builtin 3) all pass. Full suite: 82 tests clean.
