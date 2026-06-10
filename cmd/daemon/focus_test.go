@@ -232,13 +232,17 @@ func TestController_MultipleStartStop(t *testing.T) {
 			status, err := controller.Status()
 			require.NoError(t, err)
 			require.True(t, status.Running)
-
 			require.NotZero(t, status.PID, "PID should be set")
-		})
 
-		_ = os.Remove(pidFile)
-		_ = os.Remove(socketPath)
+			// Stop before next cycle
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_ = controller.Shutdown(ctx)
+		})
 	}
+
+	_ = os.Remove(pidFile)
+	_ = os.Remove(socketPath)
 }
 
 func TestStartWithSocket_HandlerSetup(t *testing.T) {

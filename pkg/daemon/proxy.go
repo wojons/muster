@@ -40,7 +40,8 @@ type DaemonStatus struct {
 	Version   string
 }
 
-// Controller manages the daemon lifecycle.
+// Controller manages the daemon lifecycle and Unix socket proxy.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md plan=phase-97-2/task-97-2-1/step-97-2-1-1
 type Controller struct {
 	config      ControllerConfig
 	pidFile     string
@@ -49,6 +50,7 @@ type Controller struct {
 	logger      Logger
 	handler     http.Handler
 	tokenPath   string
+	proxyServer *ProxyServer
 	running     bool
 	startTime   time.Time
 	mu          sync.RWMutex
@@ -71,8 +73,18 @@ func NewController(config ControllerConfig) (*Controller, error) {
 func (c *Controller) Start() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.running {
+		return fmt.Errorf("daemon is already running")
+	}
+
 	c.running = true
 	c.startTime = time.Now()
+
+	if c.logger != nil {
+		c.logger.Info("daemon started", "pid", os.Getpid())
+	}
+
 	return nil
 }
 
@@ -80,14 +92,54 @@ func (c *Controller) Start() error {
 func (c *Controller) Stop() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if !c.running {
+		return fmt.Errorf("daemon is not running")
+	}
+
+	if c.proxyServer != nil {
+		if err := c.proxyServer.Stop(); err != nil {
+			if c.logger != nil {
+				c.logger.Warn("proxy server stop error", "error", err.Error())
+			}
+		}
+		c.proxyServer = nil
+	}
+
 	c.running = false
+
+	if c.logger != nil {
+		c.logger.Info("daemon stopped")
+	}
+
 	return nil
 }
 
 // Restart restarts the daemon process.
 func (c *Controller) Restart() error {
-	_ = c.Stop()
-	return c.Start()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.running {
+		if c.proxyServer != nil {
+			if err := c.proxyServer.Stop(); err != nil {
+				if c.logger != nil {
+					c.logger.Warn("proxy server stop error during restart", "error", err.Error())
+				}
+			}
+			c.proxyServer = nil
+		}
+		c.running = false
+	}
+
+	c.running = true
+	c.startTime = time.Now()
+
+	if c.logger != nil {
+		c.logger.Info("daemon restarted")
+	}
+
+	return nil
 }
 
 // Status returns the current daemon status.
@@ -110,14 +162,121 @@ func (c *Controller) GetTokenPath() string {
 // SetupSignalHandlers sets up OS signal handling for graceful shutdown.
 func (c *Controller) SetupSignalHandlers() {}
 
-// StartWithSocket starts the daemon with a custom socket handler.
+// StartWithSocket starts the daemon with a custom socket handler, creating and starting
+// a real ProxyServer that listens on the Unix socket.
 func (c *Controller) StartWithSocket(handler http.Handler) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.running {
+		return fmt.Errorf("daemon is already running")
+	}
+
+	// Remove any stale socket file
+	if _, err := os.Stat(c.socketPath); err == nil {
+		if err := os.Remove(c.socketPath); err != nil {
+			return fmt.Errorf("remove stale socket %s: %w", c.socketPath, err)
+		}
+	}
+
+	// Ensure parent directory exists
+	socketDir := filepath.Dir(c.socketPath)
+	if err := os.MkdirAll(socketDir, 0755); err != nil {
+		return fmt.Errorf("create socket directory: %w", err)
+	}
+
+	// Create default handler if nil
+	if handler == nil {
+		handler = createDefaultHandler()
+	}
+
 	c.handler = handler
+
+	// Create and start the proxy server
+	proxy := NewProxyServer(c.socketPath, handler)
+	if err := proxy.Start(); err != nil {
+		return fmt.Errorf("start proxy server: %w", err)
+	}
+	c.proxyServer = proxy
+
 	c.running = true
 	c.startTime = time.Now()
+
+	if c.logger != nil {
+		c.logger.Info("proxy server started", "socket", c.socketPath)
+	}
+
 	return nil
+}
+
+// Shutdown gracefully shuts down the proxy server and cleans up resources.
+func (c *Controller) Shutdown(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.proxyServer != nil {
+		if err := c.proxyServer.Stop(); err != nil {
+			if c.logger != nil {
+				c.logger.Warn("proxy server stop error", "error", err.Error())
+			}
+		}
+		c.proxyServer = nil
+	}
+
+	c.running = false
+	return nil
+}
+
+// Kill immediately stops the proxy server without graceful shutdown.
+func (c *Controller) Kill() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.running {
+		return fmt.Errorf("daemon is not running")
+	}
+
+	if c.proxyServer != nil {
+		if c.proxyServer.listener != nil {
+			_ = c.proxyServer.listener.Close()
+		}
+		if err := os.Remove(c.socketPath); err != nil && !os.IsNotExist(err) {
+			if c.logger != nil {
+				c.logger.Warn("remove socket error", "error", err.Error(), "path", c.socketPath)
+			}
+		}
+		c.proxyServer = nil
+	}
+
+	c.running = false
+	return nil
+}
+
+// IsRunning returns whether the daemon is currently running.
+func (c *Controller) IsRunning() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.running
+}
+
+// ServeHTTP implements http.Handler by delegating to the proxy server's handler.
+func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c.mu.RLock()
+	handler := c.handler
+	c.mu.RUnlock()
+
+	if handler != nil {
+		handler.ServeHTTP(w, r)
+	} else {
+		http.Error(w, "no handler configured", http.StatusInternalServerError)
+	}
+}
+
+// Handler returns the current HTTP handler.
+func (c *Controller) Handler() http.Handler {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.handler
 }
 
 // ProxyServer handles HTTP proxying over Unix socket

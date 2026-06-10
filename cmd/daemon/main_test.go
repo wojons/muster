@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/wojons/muster/pkg/daemon"
 	"github.com/stretchr/testify/require"
@@ -200,16 +202,26 @@ func TestHandleStart_ControllerStartFailure(t *testing.T) {
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test-start.sock")
 
-	// Create controller with invalid config to cause Start() to fail
+	// Create controller and start it once
 	controller, err := daemon.NewController(daemon.ControllerConfig{
 		PidFilePath: "/nonexistent/path/to/pidfile/test.pid",
 		SocketPath:  socketPath,
 	})
 	require.NoError(t, err)
 
-	// Test the error path
+	// First start succeeds
 	err = controller.Start()
-	require.Error(t, err, "Controller start should fail with invalid path")
+	require.NoError(t, err, "first start should succeed")
+
+	// Second start should fail because already running
+	err = controller.Start()
+	require.Error(t, err, "second start should fail when already running")
+	require.Contains(t, err.Error(), "already running")
+
+	// Cleanup
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_ = controller.Shutdown(ctx)
 }
 
 func TestHandleStart_Success(t *testing.T) {
