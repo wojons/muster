@@ -3,11 +3,10 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-09 18:45 CDT
-**Last cron:** 2026-06-09 11:49 CDT (error — pre-build-fix)
-**Run status:** AC-001 ✅ AC-002 ✅ AC-003 ✅. AC-004 delegated to Axiom (running now).
-**Summary:** AC-011 ✅. AC-001 ✅. AC-002 ✅. AC-003 ✅ (multipart upload, auth 401/200, pagination page/limit). AC-004 🔄. AC-005–006 ⬜. AC-012–013 ⬜.
-**Key findings:** 6 commits this session. All 32 ops work. Auth: MUSTER_AUTH_TOKEN env var + --header flag. Pagination: page/limit only when explicitly set.
+**Last run:** 2026-06-09 19:00 CDT
+**Run status:** AC-001 ✅ AC-002 ✅ AC-003 ✅ AC-004 ✅. AC-005 delegated to Axiom.
+**Summary:** AC-011 ✅. AC-001 ✅. AC-002 ✅. AC-003 ✅. AC-004 ✅ (MCP tools/list + tools/call across 5 apps). AC-005 🔄. AC-006 ⬜. AC-012 ⬜. AC-013 ⬜.
+**Key findings:** 7 commits this session. 98 MCP tools across 5 services. MCP handles auth-gated endpoints, missing args, unknown tools gracefully.
 
 ## Demo Infrastructure (Fake Apps)
 
