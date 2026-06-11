@@ -26,12 +26,13 @@ func TestValidateDebianPackage_InvalidPackage(t *testing.T) {
 	}
 
 	result, err := ValidateDebianPackage(testFile)
-	if err == nil {
-		t.Fatal("expected error for invalid deb package")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != nil {
-		t.Logf("got partial result: %+v", result)
+	if result.Valid {
+		t.Fatal("expected invalid deb package to fail validation")
 	}
+	t.Logf("got partial result: %+v", result)
 }
 
 // TestValidateRPM_InvalidPackage tests validation of an invalid RPM package
@@ -47,16 +48,21 @@ func TestValidateRPM_InvalidPackage(t *testing.T) {
 	}
 
 	result, err := ValidateRPM(testFile)
-	if err == nil {
-		t.Fatal("expected error for invalid rpm package")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != nil {
-		t.Logf("got partial result: %+v", result)
+	if result.Valid {
+		t.Fatal("expected invalid rpm package to fail validation")
 	}
+	t.Logf("got partial result: %+v", result)
 }
 
 // TestValidateAlpine_InvalidPackage tests validation of an invalid APK package
 func TestValidateAlpine_InvalidPackage(t *testing.T) {
+	if !hasCommand("apk") {
+		t.Skip("apk not installed")
+	}
+
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "invalid.apk")
 	if err := os.WriteFile(testFile, []byte("not a valid apk package"), 0644); err != nil {
@@ -64,16 +70,20 @@ func TestValidateAlpine_InvalidPackage(t *testing.T) {
 	}
 
 	result, err := ValidateAlpine(testFile)
-	if err == nil {
-		t.Fatal("expected error for invalid apk package")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != nil {
-		t.Logf("got partial result: %+v", result)
+	if result.Valid {
+		t.Fatal("expected invalid apk package to fail validation")
 	}
+	t.Logf("got partial result: %+v", result)
 }
 
 // TestValidateArch_InvalidPackage tests validation of an invalid Arch package
 func TestValidateArch_InvalidPackage(t *testing.T) {
+	if !hasCommand("namcap") {
+		t.Skip("namcap not installed")
+	}
 	if !hasCommand("tar") {
 		t.Skip("tar not installed")
 	}
@@ -85,12 +95,13 @@ func TestValidateArch_InvalidPackage(t *testing.T) {
 	}
 
 	result, err := ValidateArch(testFile)
-	if err == nil {
-		t.Fatal("expected error for invalid arch package")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != nil {
-		t.Logf("got partial result: %+v", result)
+	if result.Valid {
+		t.Fatal("expected invalid arch package to fail validation")
 	}
+	t.Logf("got partial result: %+v", result)
 }
 
 // TestValidateBinary_InvalidBinary tests validation of an invalid ELF binary
