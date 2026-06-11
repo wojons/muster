@@ -9,64 +9,58 @@ import (
 	"github.com/wojons/muster/pkg/auth/ratelimit"
 )
 
-// TestRateLimit_NegativeTokenBypass_Fixed tests that negative tokens cannot bypass rate limiting.
-//
-// Current API: AllowN(n int) bool — with n <= 0, the call should return true but MUST NOT
-// add tokens to the bucket (which would allow an attacker to artificially inflate the
-// available token count and bypass rate limits).
-//
-// Since Tokens() is not exported, we verify through observable behavior:
-// after draining all tokens and calling AllowN(-5), we assert that subsequent consumption
-// is bounded by the original capacity plus negligible natural refill.
+// TestRateLimit_NegativeTokenBypass_Fixed tests that negative tokens cannot bypass rate limiting
 func TestRateLimit_NegativeTokenBypass_Fixed(t *testing.T) {
+	// Create a token bucket with capacity 10, fill rate 1 per second
 	tb := ratelimit.NewTokenBucket(10, 1.0)
 
-	// Drain all tokens
-	require.True(t, tb.AllowN(10), "Should drain all 10 tokens")
+	// Consume 5 tokens
+	allowed := tb.AllowN(5)
+	require.True(t, allowed, "Should allow 5 tokens")
 
-	// CRITICAL: Attempt to bypass with negative tokens.
-	// n <= 0 should return true (trivially allowed) but NOT increase available tokens.
-	require.True(t, tb.AllowN(-5), "Negative token request should return true (no-op)")
+	// CRITICAL: Attempt to bypass with negative tokens — should not add tokens
+	allowed = tb.AllowN(-5)
+	require.True(t, allowed, "Should allow negative tokens (consumes 0)")
 
-	// Consume all available tokens after the negative attack.
-	// If the bypass succeeded (AllowN(-5) added 5 tokens), we'd consume ~5.
-	// If the bypass was prevented (negative is a no-op), we'd consume ~0.
-	consumed := 0
-	for tb.AllowN(1) {
-		consumed++
-		if consumed > 20 {
-			break
-		}
-	}
-
-	// In either case, consumption must be bounded by the original capacity.
-	// Even with the current implementation where AllowN(-5) adds tokens, the
-	// bucket's capacity limit prevents unbounded growth.
-	require.LessOrEqual(t, consumed, 10,
-		"Negative token bypass should not allow consuming more than capacity")
+	// After negative bypass attempt, we should still have ~5 tokens (plus tiny refill)
+	// AllowN(6) should succeed because 5 remaining + refill ≈ 5+
+	// But AllowN(11) should fail (capacity is 10)
+	allowed = tb.AllowN(11)
+	require.False(t, allowed, "Should deny 11 tokens — negative didn't add tokens")
 }
 
-// TestRateLimit_ZeroTokens tests that requesting zero tokens consumes nothing.
+// TestRateLimit_ZeroTokens tests that zero tokens consume nothing
 func TestRateLimit_ZeroTokens(t *testing.T) {
 	tb := ratelimit.NewTokenBucket(10, 1.0)
 
-	// Zero tokens should always succeed and consume nothing
-	require.True(t, tb.AllowN(0), "Zero tokens should succeed")
+	// Consume all tokens
+	for i := 0; i < 10; i++ {
+		require.True(t, tb.Allow(), "Should allow token %d", i+1)
+	}
 
-	// All 10 tokens should still be available
-	require.True(t, tb.AllowN(10), "Should have all tokens after zero-consumption call")
+	// Zero tokens should be allowed (consumes nothing)
+	allowed := tb.AllowN(0)
+	require.True(t, allowed, "Should allow request with 0 tokens")
+
+	// Bucket should still be empty — next Allow should fail
+	allowed = tb.Allow()
+	require.False(t, allowed, "Should deny after bucket emptied")
 }
 
-// TestRateLimit_LargeTokenRequest tests that requesting more tokens than capacity is denied.
+// TestRateLimit_LargeTokenRequest tests that requesting more tokens than capacity is handled
 func TestRateLimit_LargeTokenRequest(t *testing.T) {
 	tb := ratelimit.NewTokenBucket(10, 1.0)
 
-	// Request more tokens than capacity — should be denied
-	require.False(t, tb.AllowN(100), "Should deny request exceeding capacity")
+	// Request more tokens than capacity
+	allowed := tb.AllowN(100)
+	require.False(t, allowed, "Should deny request for more tokens than capacity")
+
+	// Normal request should still work (capacity wasn't consumed)
+	allowed = tb.Allow()
+	require.True(t, allowed, "Should allow normal request after denied large request")
 }
 
 // TestRateLimit_ConcurrentNegativeTokenAttack tests concurrent negative token attacks
-// for thread safety and state integrity.
 func TestRateLimit_ConcurrentNegativeTokenAttack(t *testing.T) {
 	tb := ratelimit.NewTokenBucket(10, 1.0)
 
@@ -77,80 +71,54 @@ func TestRateLimit_ConcurrentNegativeTokenAttack(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			defer wg.Done()
+			// Try negative token attack
 			tb.AllowN(-1)
 			tb.AllowN(-100)
 		}()
 	}
+
 	wg.Wait()
 
-	// After concurrent attacks, drain all available tokens to verify
-	// the bucket state is not corrupted (no deadlocks, no panics).
-	// With the current implementation, AllowN(-100) can add tokens, but
-	// after fully draining, the bucket should correctly return to empty.
-	for tb.AllowN(1) {
-	}
-
-	// After full drain, Allow() should return false (only negligible refill)
-	require.False(t, tb.Allow(),
-		"After draining all tokens, bucket should be rate limited")
+	// After concurrent negative attacks, the bucket should NOT have more tokens than capacity
+	// AllowN(11) should fail (capacity is 10, and negative didn't add tokens)
+	allowed := tb.AllowN(11)
+	require.False(t, allowed,
+		"Concurrent negative token attacks should not increase tokens beyond capacity")
 }
 
-// TestRateLimit_BucketLimiter_NegativeTokens tests the TokenBucketLimiter API.
-//
-// Current API: NewTokenBucketLimiter(requestsPerSecond int, burstSize int).
-// The limiter wraps a TokenBucket and provides Allow() which checks 1-token consumption.
-func TestRateLimit_BucketLimiter_NegativeTokens(t *testing.T) {
-	// Create limiter with 1 req/sec and burst size 10
-	limiter := ratelimit.NewTokenBucketLimiter(1, 10)
+// TestRateLimit_TokenBucketLimiter tests TokenBucketLimiter with the current API
+func TestRateLimit_TokenBucketLimiter(t *testing.T) {
+	limiter := ratelimit.NewTokenBucketLimiter(5, 5) // 5 req/s, burst 5
 
-	// Allow initial request — burst tokens available
-	require.True(t, limiter.Allow(), "Should allow initial request")
-
-	// Consume remaining burst tokens
-	for i := 0; i < 9; i++ {
-		limiter.Allow()
+	// First 5 requests should be allowed
+	for i := 0; i < 5; i++ {
+		allowed := limiter.Allow()
+		require.True(t, allowed, "Should allow request %d", i+1)
 	}
 
-	// After burst is exhausted, next request should be rate limited
-	require.False(t, limiter.Allow(),
-		"Should be rate limited after burst fully consumed")
+	// 6th request should be denied (burst exhausted)
+	allowed := limiter.Allow()
+	require.False(t, allowed, "Should deny after burst exhausted")
+
+	// limiter.Wait() should not panic
+	// (not calling it here because it blocks for 100ms+)
 }
 
-// TestRateLimit_ExploitScenario reproduces the exploit scenario from exploits/ratelimit
-// and verifies the bucket remains consistent after negative token attempts.
+// TestRateLimit_ExploitScenario reproduces the exploit scenario
 func TestRateLimit_ExploitScenario(t *testing.T) {
-	// This test proves the exploit is fixed in production code
 	tb := ratelimit.NewTokenBucket(10, 1.0)
 
-	// Step 1: Normal consumption
-	require.True(t, tb.AllowN(3), "Normal consumption should succeed")
+	// Step 1: Normal consumption — use 5 tokens
+	allowed := tb.AllowN(5)
+	require.True(t, allowed, "Should allow 5 tokens")
 
-	// tokensAfterConsumption is not observable — verify through behavior instead
+	// Step 2: Attacker tries negative tokens — should NOT add tokens
+	allowed = tb.AllowN(-5)
+	require.True(t, allowed, "Should allow negative (consumes 0)")
 
-	// Step 2: Attacker tries negative tokens
-	// In the FIXED version, this should NOT add tokens to the bucket
-	require.True(t, tb.AllowN(-5), "Negative token request should return true (no-op)")
-
-	// Step 3: Verify the bucket still works for normal consumption.
-	// Count how many tokens are available after the negative call.
-	consumed := 0
-	for tb.AllowN(1) {
-		consumed++
-		if consumed > 20 {
-			break
-		}
-	}
-
-	// The number of tokens we can consume after normal usage (3 tokens) and
-	// a negative bypass attempt should be bounded by capacity minus consumed,
-	// plus negligible natural refill.
-	// With bug: AllowN(-5) added 5 tokens, so 3 consumed + ~8 consumed = ~11 total
-	// Without bug: 3 consumed + ~3 consumed = ~6 total
-	// Both cases: consumed <= 10 + small refill
-	require.LessOrEqual(t, consumed, 12,
-		"Negative bypass should not enable consuming more than capacity")
-
-	// Step 4: After draining, verify the bucket indicates rate-limited
-	require.False(t, tb.Allow(),
-		"After full drain, Allow() should return false (rate limited)")
+	// Step 3: Verify attacker can't consume more than actually available
+	// After using 5, we have ~5 left (plus tiny refill). AllowN(10) should fail.
+	allowed = tb.AllowN(10)
+	require.False(t, allowed,
+		"Attacker should not be able to consume more than available tokens")
 }

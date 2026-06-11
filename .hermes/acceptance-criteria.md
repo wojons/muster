@@ -3,9 +3,9 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-10 23:15 CST
-**Run status:** 🟢 All clear — AC-009 cache wiring complete. 12/12 cache RoundTripper tests pass. All existing tests pass (daemon, MCP, builtin, cache). 
-**Summary:** Axiom wired pkg/cache into pkg/client via CacheRoundTripper (same pattern as RateLimitRoundTripper). New files: pkg/client/cache.go (154 lines), pkg/client/cache_test.go (308 lines, 12 tests). Wired into CLI (internal/builtin/request.go: cache.NewMemoryCache when cfg.Cache.Enabled), daemon (NewProxyHandlerWithCache constructor), MCP (NewExecutorWithCache constructor). Backlog: AC-007 (WASM stubs need Wasmtime), daemon/MCP CLI flags for cache (constructors exist, need --cache-enabled flags in main.go).
+**Last run:** 2026-06-11 01:45 CST
+**Run status:** 🟡 Test regressions found — 7 packages with build failures. `go build ./...` clean. Delegating fixes to Axiom (3 parallel flash-model tasks). 2 assertion fixes applied directly (pkg/errors).
+**Summary:** 2026-06-11 staleness audit found 7 test packages failing to build: test/e2e (cache API mismatch), test/security (rate API mismatch), pkg/log (New undefined), pkg/platform (MacOSKeychain undefined), pkg/wasm (Validate undefined — AC-007 backlog), test/functional/states (harness.NewState undefined), test/functional/workflows (harness.NewSystem undefined). Additionally pkg/errors had 2 assertion failures (Severity default + Error string format) — fixed directly. Batch 1 delegated: cache e2e rewrite, rate security test rewrite, log test rewrite.
 
 ## Demo Infrastructure (Fake Apps)
 

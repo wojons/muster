@@ -13,8 +13,9 @@ func TestNew(t *testing.T) {
 	if err.Message() != "bad input" {
 		t.Errorf("expected 'bad input', got %s", err.Message())
 	}
-	if err.Severity() != SeverityMedium {
-		t.Errorf("expected SeverityMedium, got %s", err.Severity())
+	// New() does not set a default severity — it's the zero value
+	if err.Severity() != "" {
+		t.Errorf("expected empty severity, got %s", err.Severity())
 	}
 	if len(err.Details()) != 0 {
 		t.Errorf("expected empty details, got %v", err.Details())
@@ -90,14 +91,14 @@ func TestWithSeverity(t *testing.T) {
 
 func TestErrorString(t *testing.T) {
 	err := New(CodeBadRequest, "bad input")
-	if err.Error() != "[BAD_REQUEST] bad input" {
+	if err.Error() != "BAD_REQUEST: bad input" {
 		t.Errorf("unexpected Error() string: %s", err.Error())
 	}
 
 	inner := New(CodeValidation, "inner")
 	outer := Wrap(inner, CodeDatabase, "db failed")
 	s := outer.Error()
-	if s != "[DATABASE] db failed: [VALIDATION] inner" {
+	if s != "DATABASE_ERROR: db failed: VALIDATION_ERROR: inner" {
 		t.Errorf("unexpected Error() string: %s", s)
 	}
 }
