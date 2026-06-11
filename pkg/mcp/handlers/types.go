@@ -38,16 +38,15 @@ func (r *Registry) Get(method string) Handler {
 }
 
 // Handle looks up the handler for the given method and delegates to it.
-// Returns an error if no handler is registered for the method or if params is not valid JSON.
-// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/mcp/handlers/types.go
+// Returns an error if no handler is registered for the method.
 func (r *Registry) Handle(ctx context.Context, method string, params json.RawMessage) (interface{}, error) {
+	// Validate params is valid JSON
+	if len(params) > 0 && !json.Valid(params) {
+		return nil, fmt.Errorf("invalid JSON params: %s", string(params))
+	}
 	handler := r.Get(method)
 	if handler == nil {
 		return nil, fmt.Errorf("Method not found: %s", method)
-	}
-	// Validate params is valid JSON when non-empty
-	if len(params) > 0 && !json.Valid(params) {
-		return nil, &MCPError{Code: -32602, Message: "Invalid params: not valid JSON"}
 	}
 	return handler.Handle(ctx, params)
 }
