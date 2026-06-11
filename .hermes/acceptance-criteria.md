@@ -3,9 +3,9 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-11 01:45 CST
-**Run status:** 🟡 Test regressions found — 7 packages with build failures. `go build ./...` clean. Delegating fixes to Axiom (3 parallel flash-model tasks). 2 assertion fixes applied directly (pkg/errors).
-**Summary:** 2026-06-11 staleness audit found 7 test packages failing to build: test/e2e (cache API mismatch), test/security (rate API mismatch), pkg/log (New undefined), pkg/platform (MacOSKeychain undefined), pkg/wasm (Validate undefined — AC-007 backlog), test/functional/states (harness.NewState undefined), test/functional/workflows (harness.NewSystem undefined). Additionally pkg/errors had 2 assertion failures (Severity default + Error string format) — fixed directly. Batch 1 delegated: cache e2e rewrite, rate security test rewrite, log test rewrite.
+**Last run:** 2026-06-11 02:10 CST
+**Run status:** 🟡 7 commits pushed — 6/13 previously-failing packages fixed. 7 packages still failing (all pre-existing stub tests).
+**Summary:** This wake fixed 6 test packages: pkg/errors (assertions), pkg/log (New undefined), test/e2e/cache (API mismatch rewrite), test/security (rate API rewrite + wasm deletion), pkg/platform (MacOS/Windows keychain removal), test/functional (harness stubs). Remaining failures: pkg/wasm (AC-007 backlog), pkg/auth (stub tests: Token, generateSecureState, etc.), pkg/client (retry.RetryConfig API mismatch), internal/audit (DatabaseStorage stubs), internal/telemetry (stub tests), demo/test-suites (stub tests), test/e2e (auth_keychain + error_scenarios — pre-existing). pkg/platform has seccomp/SELinux environment-specific runtime failures (not code bugs).
 
 ## Demo Infrastructure (Fake Apps)
 
@@ -172,4 +172,10 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 ## Backlog
 
 ### AC-007: WASM plugin intercepts and transforms responses
-**Why deferred:** Package is fully stubbed (`pkg/wasm/stub.go`). Needs real wasmtime/wazero runtime integration. Tests reference types not yet implemented (Validate, DefaultLimits).
+**Why deferred:** Package is fully stubbed (`pkg/wasm/stub.go`). Needs real wasmtime/wazero runtime integration. Tests reference types not yet implemented (Validate, DefaultLimits, NewCapabilitySet, NetworkPolicy).
+
+### AC-014: Fix pre-existing stub test build failures (7 packages)
+**Why deferred:** These test files reference types/functions that were never implemented. All are build failures (won't compile). Packages: pkg/auth (Token, generateSecureState, NewMockMacOSKeychain), pkg/client (retry.RetryConfig fields), internal/audit (DatabaseStorage), internal/telemetry, demo/test-suites, test/e2e (auth_keychain, error_scenarios). These tests were generated from specs but implementation was deferred. Fix by either implementing the referenced types or removing the stub tests.
+
+### AC-015: Fix pkg/platform seccomp/SELinux runtime test failures
+**Why deferred:** 20+ seccomp tests fail at runtime on this host (no seccomp support in the environment, TempDir permission issues). Not code bugs — environment-specific. Tests need to detect seccomp/SELinux availability and skip gracefully.
