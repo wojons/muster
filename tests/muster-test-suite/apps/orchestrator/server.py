@@ -122,7 +122,7 @@ def _advance_execution(exec_id):
             step["completed_at"] = _now()
             step["output"] = {"result": f"step-{step['step_id']}-ok"}
             ex["progress"] = int(((idx + 1) / total) * 100)
-            break
+            continue  # process ALL pending steps, not just one
 
     # Check if all done
     if all(s["status"] == "completed" for s in steps):
