@@ -30,6 +30,7 @@ type MCPServerConfig struct {
 	CommandTimeout        time.Duration
 	SpecPath              string // Path to OpenAPI spec file
 	BaseURL               string // Base URL for API operations
+	WasmPlugin            string // Path to WASM plugin for response transformation
 }
 
 var (
@@ -38,6 +39,7 @@ var (
 	logLevelFlag  = flag.String("log-level", "info", "Log level")
 	logOutputFlag = flag.String("log-output", "stderr", "Log output destination")
 	auditFlag     = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
+	wasmPluginFlag = flag.String("wasm-plugin", "", "Path to WASM plugin for response transformation")
 )
 
 func loadConfig() *MCPServerConfig {
@@ -51,6 +53,7 @@ func loadConfig() *MCPServerConfig {
 		CommandTimeout:        30 * time.Second,
 		SpecPath:              *specPathFlag,
 		BaseURL:               *baseURLFlag,
+		WasmPlugin:            *wasmPluginFlag,
 	}
 }
 

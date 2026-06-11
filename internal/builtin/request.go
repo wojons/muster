@@ -14,17 +14,19 @@ import (
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/config"
 	"github.com/wojons/muster/pkg/request"
+	"github.com/wojons/muster/pkg/wasm"
 	"github.com/spf13/cobra"
 )
 
 func newRequestCommand(cfg *config.Config) *cobra.Command {
 	var (
-		headers  []string
-		params   []string
-		output   string
-		verbose  bool
-		timeout  time.Duration
-		httpBody string
+		headers    []string
+		params     []string
+		output     string
+		verbose    bool
+		timeout    time.Duration
+		httpBody   string
+		wasmPlugin string
 	)
 
 	cmd := &cobra.Command{
@@ -36,7 +38,7 @@ func newRequestCommand(cfg *config.Config) *cobra.Command {
 			method := strings.ToUpper(args[0])
 			targetURL := args[1]
 
-			return handleRequest(cfg, method, targetURL, headers, params, output, verbose, timeout, httpBody)
+			return handleRequest(cfg, method, targetURL, headers, params, output, verbose, timeout, httpBody, wasmPlugin)
 		},
 	}
 
@@ -46,6 +48,7 @@ func newRequestCommand(cfg *config.Config) *cobra.Command {
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "Request timeout")
 	cmd.Flags().StringVarP(&httpBody, "body", "b", "", "Request body for POST/PUT requests")
+	cmd.Flags().StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 
 	return cmd
 }
@@ -59,7 +62,7 @@ func validateURLScheme(scheme string) error {
 	return nil
 }
 
-func handleRequest(cfg *config.Config, method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody string) error {
+func handleRequest(cfg *config.Config, method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody string, wasmPlugin string) error {
 	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
 		return fmt.Errorf("parse URL: %w", err)
@@ -118,6 +121,22 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read response body: %w", err)
+	}
+
+	// Apply WASM plugin transformation if configured
+	if wasmPlugin != "" {
+		interceptor := wasm.NewInterceptor()
+		if err := interceptor.LoadPlugin(context.Background(), wasmPlugin); err != nil {
+			return fmt.Errorf("wasm: load plugin %q: %w", wasmPlugin, err)
+		}
+		defer interceptor.Close(context.Background())
+
+		contentType := resp.Header.Get("Content-Type")
+		transformed, err := interceptor.TransformResponseBody(context.Background(), body, contentType, wasmPlugin)
+		if err != nil {
+			return fmt.Errorf("wasm: transform response: %w", err)
+		}
+		body = transformed
 	}
 
 	if verbose {

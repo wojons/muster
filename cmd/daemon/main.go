@@ -23,9 +23,10 @@ var (
 
 // Command-line flags
 var (
-	backendURL string
-	socketPath string
-	pidFile    string
+	backendURL  string
+	socketPath  string
+	pidFile     string
+	wasmPlugin  string
 )
 
 func main() {
@@ -66,6 +67,7 @@ func run() error {
 	flagSet.StringVar(&backendURL, "backend-url", "", "Backend URL for proxy mode")
 	flagSet.StringVar(&socketPath, "socket-path", "/tmp/muster-daemon.sock", "Path for Unix domain socket")
 	flagSet.StringVar(&pidFile, "pid-file", "", "Path for PID file (default: <socket-path>.pid")
+	flagSet.StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 	err := flagSet.Parse(flagArgs)
 	if err != nil {
 		return err
