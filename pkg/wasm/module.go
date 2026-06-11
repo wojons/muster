@@ -24,6 +24,7 @@ import (
 // WASM instance (modules are stateless by design).
 type ModuleManager struct {
 	mu      sync.RWMutex
+	execMu  sync.Mutex
 	modules map[string]*LoadedModule
 	limits  *SandboxLimits
 }
@@ -60,15 +61,19 @@ func (m *ModuleManager) Load(ctx context.Context, path string) (*LoadedModule, e
 		return nil, fmt.Errorf("wasm: read module file %q: %w", path, err)
 	}
 
-	// Validate by attempting compilation
+	// Validate by attempting compilation. Serialize with execMu
+	// to prevent races with concurrent Transform calls.
+	m.execMu.Lock()
 	rt := wazero.NewRuntime(ctx)
 	compiled, err := rt.CompileModule(ctx, wasmBytes)
 	if err != nil {
 		rt.Close(ctx)
+		m.execMu.Unlock()
 		return nil, fmt.Errorf("wasm: compile module %q: %w", path, err)
 	}
 	compiled.Close(ctx)
 	rt.Close(ctx)
+	m.execMu.Unlock()
 
 	lm := &LoadedModule{
 		Name:      compiled.Name(),
@@ -138,11 +143,13 @@ func (m *ModuleManager) Transform(ctx context.Context, lm *LoadedModule, jsonDat
 	execCtx, execCancel := context.WithTimeout(ctx, timeout)
 	defer execCancel()
 
-	// Create a fresh wazero runtime that we control from outside
-	wasmRT := wazero.NewRuntime(execCtx)
-	defer wasmRT.Close(execCtx)
+	// Serialize all WASM execution to prevent wazero concurrency panics.
+	// The lock is held across runtime creation, execution, and cleanup so
+	// that no two goroutines ever interact with wazero simultaneously.
+	m.execMu.Lock()
 
-	// Result channels
+	wasmRT := wazero.NewRuntime(execCtx)
+
 	type result struct {
 		data []byte
 		err  error
@@ -156,9 +163,15 @@ func (m *ModuleManager) Transform(ctx context.Context, lm *LoadedModule, jsonDat
 
 	select {
 	case <-execCtx.Done():
-		// Timeout or cancellation — wasmRT.Close will be called by deferred cleanup
+		// On timeout, release the lock immediately but do NOT close the runtime.
+		// The goroutine may still be executing WASM code; closing the runtime
+		// concurrently corrupts wazero internals and hangs subsequent calls.
+		// The abandoned runtime and goroutine will be GC'd after the process exits.
+		m.execMu.Unlock()
 		return nil, fmt.Errorf("wasm: execution timed out for module %q", lm.Name)
 	case res := <-resultCh:
+		wasmRT.Close(context.Background())
+		m.execMu.Unlock()
 		return res.data, res.err
 	}
 }
