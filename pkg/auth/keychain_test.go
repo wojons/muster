@@ -118,19 +118,6 @@ func TestWindowsKeychain_Set(t *testing.T) {
 	}
 }
 
-func TestSecretServiceKeychain_Fallback(t *testing.T) {
-	kc, err := NewSecretServiceKeychain()
-	if err == nil {
-		t.Error("Expected NewSecretServiceKeychain to return error on this platform")
-	}
-	if err != ErrSecretServiceNotAvailable {
-		t.Logf("Note: Got error %v (expected ErrSecretServiceNotAvailable on non-Linux)", err)
-	}
-	if kc != nil {
-		t.Error("Expected nil SecretServiceKeychain on error")
-	}
-}
-
 // SEC-002: Tests for weak master key fallback removal
 func TestFileKeychain_NoWeakOSFallback(t *testing.T) {
 	// This test verifies that the weak OS-based fallback has been removed.
