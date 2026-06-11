@@ -651,12 +651,11 @@ func TestRetryWithExponentialBackoff(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := retry.RetryConfig{
-		MaxAttempts:     5,
-		InitialDelay:    50 * time.Millisecond,
-		MaxDelay:        500 * time.Millisecond,
-		BackoffStrategy: retry.BackoffExponential,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		MaxAttempts:  5,
+		InitialDelay: 50 * time.Millisecond,
+		MaxDelay:     500 * time.Millisecond,
+		BackoffType:  "exponential",
+		Jitter:       false,
 	}
 
 	cli := client.NewClient(

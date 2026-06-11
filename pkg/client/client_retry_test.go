@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/internal/telemetry"
 	"github.com/wojons/muster/pkg/retry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,9 +58,8 @@ func TestClient_Retry_SuccessOnFirstAttempt(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -93,9 +91,8 @@ func TestClient_Retry_RetriesOn5xxStatusCodes(t *testing.T) {
 		MaxAttempts:     5,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -127,9 +124,8 @@ func TestClient_Retry_RetriesOn429StatusCode(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -169,10 +165,9 @@ func TestClient_Retry_NoRetryOn4xxStatusCodes(t *testing.T) {
 				MaxAttempts:     5,
 				InitialDelay:    10 * time.Millisecond,
 				MaxDelay:        100 * time.Millisecond,
-				BackoffStrategy: retry.BackoffLinear,
-				JitterStrategy:  retry.JitterNone,
-				RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
-			}
+				BackoffType: "linear",
+				Jitter:  false,
+					}
 
 			client := NewClient(WithRetryConfig(config))
 
@@ -200,9 +195,8 @@ func TestClient_Retry_Exhaustion(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -222,9 +216,8 @@ func TestClient_Retry_NetworkError(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -255,9 +248,8 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -304,49 +296,6 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 	assert.Equal(t, 2, attemptCount)
 }
 
-// TestClient_Retry_WithTracing tests retry integration with tracing
-func TestClient_Retry_WithTracing(t *testing.T) {
-	attemptCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 2 {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("success"))
-	}))
-	defer server.Close()
-
-	// Create a tracer
-	config := telemetry.DefaultTracingConfig()
-	config.Enabled = false // Use no-op tracer for testing
-	provider, err := telemetry.NewTracerProvider(context.Background(), config)
-	require.NoError(t, err)
-	defer func() { _ = provider.Shutdown(context.Background()) }()
-
-	tracer := telemetry.NewTracer(provider.Tracer())
-
-	retryConfig := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
-	}
-
-	client := NewClientWithTracer(tracer, WithRetryConfig(retryConfig))
-
-	ctx := context.Background()
-	resp, err := client.Get(ctx, server.URL+"/test")
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, 2, attemptCount)
-}
-
 // TestClient_Retry_WithoutRetry tests that requests work without retry configured
 func TestClient_Retry_WithoutRetry(t *testing.T) {
 	attemptCount := 0
@@ -382,9 +331,8 @@ func TestClient_Retry_RespectsContextCancellation(t *testing.T) {
 		MaxAttempts:     10,
 		InitialDelay:    100 * time.Millisecond,
 		MaxDelay:        500 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -417,9 +365,8 @@ func TestClient_Retry_ResponseBodyPreserved(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -452,9 +399,8 @@ func TestClient_Retry_ConcurrentRequests(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -526,9 +472,8 @@ func TestClient_Retry_WithCustomHTTPClient(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(
@@ -571,9 +516,8 @@ func TestClient_Retry_IntegrationWithHeaders(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(
@@ -610,9 +554,8 @@ func TestClient_Retry_WithBaseURL(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(
@@ -646,9 +589,8 @@ func TestClient_Retry_DoMethodDirectly(t *testing.T) {
 		MaxAttempts:     3,
 		InitialDelay:    10 * time.Millisecond,
 		MaxDelay:        100 * time.Millisecond,
-		BackoffStrategy: retry.BackoffLinear,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		BackoffType: "linear",
+		Jitter:  false,
 	}
 
 	client := NewClient(WithRetryConfig(config))

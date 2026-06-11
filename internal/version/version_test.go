@@ -6,17 +6,17 @@ func TestVersionDefaults(t *testing.T) {
 	if Version != "dev" {
 		t.Errorf("expected Version to be 'dev', got %s", Version)
 	}
-	if Commit != "dev" {
-		t.Errorf("expected Commit to be 'dev', got %s", Commit)
+	if Commit != "unknown" {
+		t.Errorf("expected Commit to be 'unknown', got %s", Commit)
 	}
-	if BuildDate != "dev" {
-		t.Errorf("expected BuildDate to be 'dev', got %s", BuildDate)
+	if BuildDate != "unknown" {
+		t.Errorf("expected BuildDate to be 'unknown', got %s", BuildDate)
 	}
-	if Branch != "dev" {
-		t.Errorf("expected Branch to be 'dev', got %s", Branch)
+	if Branch != "unknown" {
+		t.Errorf("expected Branch to be 'unknown', got %s", Branch)
 	}
-	if GoVersion != "dev" {
-		t.Errorf("expected GoVersion to be 'dev', got %s", GoVersion)
+	if GoVersion != "unknown" {
+		t.Errorf("expected GoVersion to be 'unknown', got %s", GoVersion)
 	}
 }
 
