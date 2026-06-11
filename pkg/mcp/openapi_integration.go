@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"time"
+
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/wojons/muster/pkg/cache"
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 	"github.com/wojons/muster/pkg/openapi"
@@ -97,6 +100,22 @@ func NewExecutorWithRateLimit(baseURL string, operations []*openapi.Operation, r
 		client: &http.Client{
 			Transport: transport,
 		},
+		operations: operations,
+	}
+}
+
+// NewExecutorWithCache creates a new executor that caches GET responses.
+// c is the cache implementation; ttl controls how long cached responses
+// are stored. The caller retains ownership of the cache and is responsible
+// for calling Close when no longer needed.
+//
+// This composes with NewExecutorWithRateLimit: callers may create an
+// OpenAPIExecutor directly and compose their own transport chain.
+func NewExecutorWithCache(baseURL string, operations []*openapi.Operation, c cache.Cache, ttl time.Duration) *OpenAPIExecutor {
+	transport := client.NewCacheRoundTripper(http.DefaultTransport, c, ttl)
+	return &OpenAPIExecutor{
+		baseURL:    baseURL,
+		client:     &http.Client{Transport: transport},
 		operations: operations,
 	}
 }

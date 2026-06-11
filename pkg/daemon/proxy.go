@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wojons/muster/pkg/cache"
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/log"
 )
@@ -534,6 +535,25 @@ func NewProxyHandlerWithRateLimit(backendURL string, ratePerSec, burst int) *Pro
 	if ratePerSec > 0 {
 		transport = client.NewRateLimitRoundTripper(transport, ratePerSec, burst)
 	}
+	return &ProxyHandler{
+		backendURL:   backendURL,
+		forwardedFor: true,
+		httpClient: &http.Client{
+			Transport: transport,
+			Timeout:   30 * time.Second,
+		},
+	}
+}
+
+// NewProxyHandlerWithCache creates a new proxy handler that caches GET
+// responses from the backend. c is the cache implementation; ttl controls
+// how long cached responses are stored. The caller retains ownership of
+// the cache and is responsible for calling Close when no longer needed.
+//
+// This composes with NewProxyHandlerWithRateLimit: callers may create a
+// ProxyHandler directly and compose their own transport chain.
+func NewProxyHandlerWithCache(backendURL string, c cache.Cache, ttl time.Duration) *ProxyHandler {
+	transport := client.NewCacheRoundTripper(http.DefaultTransport, c, ttl)
 	return &ProxyHandler{
 		backendURL:   backendURL,
 		forwardedFor: true,

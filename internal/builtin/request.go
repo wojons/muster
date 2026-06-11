@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wojons/muster/pkg/cache"
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/config"
 	"github.com/wojons/muster/pkg/request"
@@ -99,6 +100,12 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 	clientOpts = append(clientOpts, client.WithTimeout(timeout))
 	if cfg != nil && cfg.RateLimit.Enabled {
 		clientOpts = append(clientOpts, client.WithRateLimiter(cfg.RateLimit.RatePerSec, cfg.RateLimit.Burst))
+	}
+	if cfg != nil && cfg.Cache.Enabled {
+		c := cache.NewMemoryCache(int(cfg.Cache.MaxSize))
+		// NOTE: cache is created per-request here; for long-running consumers
+		// (daemon, MCP server), a shared cache should be created at startup.
+		clientOpts = append(clientOpts, client.WithCache(c, cfg.Cache.TTL))
 	}
 	httpClient := client.NewClient(clientOpts...)
 	resp, err := httpClient.Do(context.Background(), httpReq)
