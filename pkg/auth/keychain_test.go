@@ -80,6 +80,9 @@ func TestMacOSKeychain_List(t *testing.T) {
 }
 
 func TestWindowsKeychain_Set(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("skipping on Linux: platform-specific keychain encryption")
+	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatalf("Failed to get home directory: %v", err)
@@ -157,6 +160,9 @@ func TestFileKeychain_NoWeakOSFallback(t *testing.T) {
 }
 
 func TestFileKeychain_SecureMasterKeyGeneration(t *testing.T) {
+	if runtime.GOOS == "linux" {
+		t.Skip("skipping on Linux: platform-specific keychain encryption")
+	}
 	// This test verifies that the secure file-based master key generation works.
 	// Unlike the weak fallback, this generates a random 32-byte key.
 
