@@ -180,5 +180,6 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 **Fixed (2026-06-11 06:20):** demo/test-suites (WASM stub extended with DefaultLimits, NetworkPolicy, Config, Capabilities, RevokeCapability, Validate methods — all 11 subtests pass). Commit 8e99faa. pkg/wasm (stub extended with the same — still has 2 cosmetic Validate() message ordering mismatches but package compiles). Commits 8e99faa, 502727e.
 **Remaining:** None. All 7 packages build and test clean.
 
-### AC-015: Fix pkg/platform seccomp/SELinux runtime test failures
-**Why deferred:** 20+ seccomp tests fail at runtime on this host (no seccomp support in the environment, TempDir permission issues). Not code bugs — environment-specific. Tests need to detect seccomp/SELinux availability and skip gracefully.
+### AC-015: Fix pkg/platform seccomp/SELinux runtime test failures ✅ RESOLVED
+**Verified:** 2026-06-11
+**Evidence:** Added `seccompAvailable(t)` helper (probes kernel by creating+loading a minimal filter) and `selinuxAvailable(t)` helper (checks `isSELinuxEnabled()`). All 23 platform tests that require seccomp/SELinux now SKIP gracefully when the host lacks kernel support. Full test suite: 0 failures across all packages. Commits: a562554.
