@@ -329,6 +329,24 @@ func (m *Manager) FetchOpenAPISpec(ctx context.Context, inv *Inventory) (*OpenAP
 	return doc, nil
 }
 
+func (m *Manager) AddFromData(host string, data []byte) error {
+	inv, err := m.parseInventory(data)
+	if err != nil {
+		return fmt.Errorf("parse failed: %w", err)
+	}
+
+	if err := m.validator.Validate(inv); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
+	if err := m.cache.Store(host, inv, ""); err != nil {
+		return fmt.Errorf("store failed: %w", err)
+	}
+
+	m.versioner.Track(host, inv)
+	return nil
+}
+
 func (m *Manager) ListCached() ([]CachedInventory, error) {
 	return m.cache.ListAll()
 }

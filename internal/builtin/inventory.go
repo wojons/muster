@@ -2,7 +2,9 @@ package builtin
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/openapi-cli/openapi-cli/pkg/inventory"
 	"github.com/spf13/cobra"
 )
 
@@ -17,6 +19,8 @@ func newInventoryCommand() *cobra.Command {
 	cmd.AddCommand(newInventoryFetchCommand())
 	cmd.AddCommand(newInventoryListCommand())
 	cmd.AddCommand(newInventoryValidateCommand())
+	cmd.AddCommand(newInventoryAddCommand())
+	cmd.AddCommand(newInventoryRemoveCommand())
 
 	return cmd
 }
@@ -126,6 +130,84 @@ func newInventoryValidateCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&host, "host", "", "Host URL to validate (required)")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+
+	return cmd
+}
+
+func newInventoryAddCommand() *cobra.Command {
+	var (
+		host string
+		file string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "Add inventory from file",
+		Long:  "Add an API inventory entry from a local JSON file.",
+		Example: `  # Add inventory from file
+  openapi-cli inventory add --host https://api.example.com --file inventory.json`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if host == "" {
+				return fmt.Errorf("--host is required")
+			}
+			if file == "" {
+				return fmt.Errorf("--file is required")
+			}
+
+			data, err := os.ReadFile(file)
+			if err != nil {
+				return fmt.Errorf("failed to read file: %w", err)
+			}
+
+			mgr, err := inventory.NewManager(inventory.ManagerConfig{})
+			if err != nil {
+				return fmt.Errorf("failed to create inventory manager: %w", err)
+			}
+
+			if err := mgr.AddFromData(host, data); err != nil {
+				return fmt.Errorf("failed to add inventory: %w", err)
+			}
+
+			fmt.Printf("Inventory added for host: %s\n", host)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&host, "host", "", "Host URL (required)")
+	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to inventory JSON file (required)")
+
+	return cmd
+}
+
+func newInventoryRemoveCommand() *cobra.Command {
+	var host string
+
+	cmd := &cobra.Command{
+		Use:   "remove",
+		Short: "Remove cached inventory",
+		Long:  "Remove a cached API inventory entry for the specified host.",
+		Example: `  # Remove inventory for a host
+  openapi-cli inventory remove --host https://api.example.com`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if host == "" {
+				return fmt.Errorf("--host is required")
+			}
+
+			mgr, err := inventory.NewManager(inventory.ManagerConfig{})
+			if err != nil {
+				return fmt.Errorf("failed to create inventory manager: %w", err)
+			}
+
+			if err := mgr.PurgeCache(host); err != nil {
+				return fmt.Errorf("failed to remove inventory: %w", err)
+			}
+
+			fmt.Printf("Inventory removed for host: %s\n", host)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&host, "host", "", "Host URL to remove (required)")
 
 	return cmd
 }

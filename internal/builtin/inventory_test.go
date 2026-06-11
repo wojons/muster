@@ -58,6 +58,32 @@ func TestNewInventoryCommand(t *testing.T) {
 		}
 		assert.True(t, hasValidate)
 	})
+
+	t.Run("has add subcommand", func(t *testing.T) {
+		cmd := newInventoryCommand()
+
+		hasAdd := false
+		for _, subCmd := range cmd.Commands() {
+			if subCmd.Name() == "add" {
+				hasAdd = true
+				break
+			}
+		}
+		assert.True(t, hasAdd)
+	})
+
+	t.Run("has remove subcommand", func(t *testing.T) {
+		cmd := newInventoryCommand()
+
+		hasRemove := false
+		for _, subCmd := range cmd.Commands() {
+			if subCmd.Name() == "remove" {
+				hasRemove = true
+				break
+			}
+		}
+		assert.True(t, hasRemove)
+	})
 }
 
 func TestNewInventoryFetchCommand(t *testing.T) {
@@ -321,10 +347,10 @@ func TestNewInventoryValidateCommand(t *testing.T) {
 }
 
 func TestInventoryCommandStructure(t *testing.T) {
-	t.Run("inventory command has three subcommands", func(t *testing.T) {
+	t.Run("inventory command has five subcommands", func(t *testing.T) {
 		cmd := newInventoryCommand()
 
-		assert.Equal(t, 3, len(cmd.Commands()))
+		assert.Equal(t, 5, len(cmd.Commands()))
 	})
 
 	t.Run("all subcommands have descriptions", func(t *testing.T) {
@@ -342,5 +368,117 @@ func TestInventoryCommandStructure(t *testing.T) {
 		for _, subCmd := range inventoryCmd.Commands() {
 			assert.NotNil(t, subCmd.RunE, "subcommand %s missing RunE", subCmd.Name())
 		}
+	})
+}
+
+func TestNewInventoryAddCommand(t *testing.T) {
+	t.Run("creates add command", func(t *testing.T) {
+		cmd := newInventoryAddCommand()
+
+		assert.NotNil(t, cmd)
+		assert.Equal(t, "add", cmd.Name())
+		assert.Equal(t, "Add inventory from file", cmd.Short)
+	})
+
+	t.Run("has host flag", func(t *testing.T) {
+		cmd := newInventoryAddCommand()
+
+		flag := cmd.Flags().Lookup("host")
+		assert.NotNil(t, flag)
+	})
+
+	t.Run("has file flag", func(t *testing.T) {
+		cmd := newInventoryAddCommand()
+
+		flag := cmd.Flags().Lookup("file")
+		assert.NotNil(t, flag)
+	})
+
+	t.Run("requires host flag", func(t *testing.T) {
+		cmd := newInventoryAddCommand()
+
+		err := cmd.RunE(cmd, []string{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--host is required")
+	})
+
+	t.Run("requires file flag", func(t *testing.T) {
+		cmd := newInventoryAddCommand()
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+
+		err := cmd.RunE(cmd, []string{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--file is required")
+	})
+
+	t.Run("fails on missing file", func(t *testing.T) {
+		cmd := newInventoryAddCommand()
+		_ = cmd.Flags().Set("host", "https://api.example.com")
+		_ = cmd.Flags().Set("file", "/tmp/nonexistent-inventory.json")
+
+		err := cmd.RunE(cmd, []string{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read file")
+	})
+
+	t.Run("has example usage", func(t *testing.T) {
+		cmd := newInventoryAddCommand()
+
+		assert.NotEmpty(t, cmd.Example)
+		assert.Contains(t, cmd.Example, "--host")
+		assert.Contains(t, cmd.Example, "--file")
+	})
+}
+
+func TestNewInventoryRemoveCommand(t *testing.T) {
+	t.Run("creates remove command", func(t *testing.T) {
+		cmd := newInventoryRemoveCommand()
+
+		assert.NotNil(t, cmd)
+		assert.Equal(t, "remove", cmd.Name())
+		assert.Equal(t, "Remove cached inventory", cmd.Short)
+	})
+
+	t.Run("has host flag", func(t *testing.T) {
+		cmd := newInventoryRemoveCommand()
+
+		flag := cmd.Flags().Lookup("host")
+		assert.NotNil(t, flag)
+	})
+
+	t.Run("requires host flag", func(t *testing.T) {
+		cmd := newInventoryRemoveCommand()
+
+		err := cmd.RunE(cmd, []string{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--host is required")
+	})
+
+	t.Run("executes successfully for non-existent host", func(t *testing.T) {
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		cmd := newInventoryRemoveCommand()
+		_ = cmd.Flags().Set("host", "https://nonexistent.example.com")
+
+		err := cmd.RunE(cmd, []string{})
+
+		_ = w.Close()
+		os.Stdout = oldStdout
+
+		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		output := buf.String()
+		assert.Contains(t, output, "Inventory removed for host")
+	})
+
+	t.Run("has example usage", func(t *testing.T) {
+		cmd := newInventoryRemoveCommand()
+
+		assert.NotEmpty(t, cmd.Example)
+		assert.Contains(t, cmd.Example, "--host")
 	})
 }
