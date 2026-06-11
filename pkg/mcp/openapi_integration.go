@@ -374,6 +374,79 @@ func (r *OpenAPIRegistry) AddCommand(cmd handlers.Command) error {
 	return fmt.Errorf("openapi registry is read-only")
 }
 
+// ListTools implements handlers.ToolLister by returning tools with populated InputSchema.
+// Each tool's InputSchema is built from the OpenAPI operation's parameters as a JSON Schema object.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/mcp/openapi_integration.go
+func (r *OpenAPIRegistry) ListTools() []handlers.Tool {
+	tools := make([]handlers.Tool, 0, len(r.operations))
+
+	for _, op := range r.operations {
+		name := generateCommandName(op)
+
+		description := op.Summary
+		if op.Description != "" {
+			description = op.Description
+		}
+		if description == "" {
+			description = fmt.Sprintf("%s %s", op.Method, op.Path)
+		}
+
+		// Build JSON Schema properties from operation parameters
+		properties := make(map[string]interface{})
+		required := make([]string, 0)
+
+		for _, param := range op.Parameters {
+			propMap := map[string]interface{}{
+				"type": paramTypeToJSONSchema(param.Type),
+				"in":   param.In,
+			}
+			if param.Description != "" {
+				propMap["description"] = param.Description
+			}
+			properties[param.Name] = propMap
+			if param.Required {
+				required = append(required, param.Name)
+			}
+		}
+
+		// Add request body properties
+		for _, bodyProp := range op.RequestBody {
+			propMap := map[string]interface{}{
+				"type": bodyPropTypeToJSONSchema(bodyProp.Type),
+			}
+			if bodyProp.Description != "" {
+				propMap["description"] = bodyProp.Description
+			}
+			properties[bodyProp.Name] = propMap
+			if bodyProp.Required {
+				required = append(required, bodyProp.Name)
+			}
+		}
+
+		schema := map[string]interface{}{
+			"type":       "object",
+			"properties": properties,
+		}
+		if len(required) > 0 {
+			schema["required"] = required
+		}
+
+		schemaJSON, err := json.Marshal(schema)
+		if err != nil {
+			// Fallback: empty schema
+			schemaJSON = json.RawMessage(`{"type":"object","properties":{}}`)
+		}
+
+		tools = append(tools, handlers.Tool{
+			Name:        name,
+			Description: description,
+			InputSchema: schemaJSON,
+		})
+	}
+
+	return tools
+}
+
 // Operations returns the underlying OpenAPI operations.
 func (r *OpenAPIRegistry) Operations() []*openapi.Operation {
 	return r.operations
