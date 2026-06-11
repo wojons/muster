@@ -18,6 +18,7 @@ func TestSandboxEscape_Prevention(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("sandbox tests only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	tests := []struct {
 		name          string

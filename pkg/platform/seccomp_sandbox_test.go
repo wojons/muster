@@ -20,12 +20,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// seccompAvailable checks if seccomp kernel support is available.
+// It attempts to create and load a minimal seccomp filter; if the kernel
+// lacks CONFIG_SECCOMP (common in containers), it skips the test.
+//
+// axiom:trace work_item=ac-015-platform-test-guards spec=specs/02-Workflows.md impl=pkg/platform/seccomp_sandbox_test.go
+func seccompAvailable(t *testing.T) {
+	t.Helper()
+	filter, err := seccomp.NewFilter(seccomp.ActAllow)
+	if err != nil {
+		t.Skipf("seccomp not available: cannot create filter: %v", err)
+		return
+	}
+	if err := filter.Load(); err != nil {
+		filter.Release()
+		t.Skipf("seccomp not available: cannot load filter (kernel may lack CONFIG_SECCOMP): %v", err)
+		return
+	}
+	filter.Release()
+}
+
 // TestSeccompFilter_AllowSyscall_BlocksDeniedSyscalls tests that denied syscalls are blocked
 func TestSeccompFilter_AllowSyscall_BlocksDeniedSyscalls(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
-
+	seccompAvailable(t)
 	sf := NewSeccompFilter(SeccompModeFilter)
 
 	// Allow only read syscalls
@@ -56,6 +76,7 @@ func TestSeccompFilter_DenySyscall_BlocksSyscalls(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 
@@ -86,6 +107,7 @@ func TestSeccompFilter_ApplyProfile_Minimal(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	err := sf.ApplyProfile(SeccompProfileMinimal)
@@ -115,6 +137,7 @@ func TestSeccompFilter_ApplyProfile_Standard(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	err := sf.ApplyProfile(SeccompProfileStandard)
@@ -143,6 +166,7 @@ func TestSeccompFilter_ApplyProfile_Relaxed(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	err := sf.ApplyProfile(SeccompProfileRelaxed)
@@ -171,6 +195,7 @@ func TestSeccompFilter_AllowReadOnly_BlocksWriteSyscalls(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	err := sf.AllowReadOnly()
@@ -198,6 +223,7 @@ func TestSeccompFilter_DenyWrite_BlocksWriteSyscalls(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	err := sf.DenyWrite()
@@ -226,6 +252,7 @@ func TestSeccompFilter_SetSocketRestriction_RestrictsNetwork(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Test with connect denied
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -250,6 +277,7 @@ func TestSeccompFilter_EnableNetworkRestriction_RestrictsNetworkIO(t *testing.T)
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Test with no network access
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -448,6 +476,7 @@ func TestSeccompFilter_ApplyToProcess_Unsupported(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	err := sf.ApplyProfile(SeccompProfileMinimal)
@@ -465,6 +494,7 @@ func TestSeccompFilter_SandboxExecution_Integration(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Test that we can create a filter, apply it, and verify syscalls
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -497,6 +527,7 @@ func TestSeccompFilter_ConcurrentAccess(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	err := sf.ApplyProfile(SeccompProfileMinimal)
@@ -543,6 +574,7 @@ func TestSeccompFilter_CapabilityRestrictions_Integration(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Create filter with network restricted
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -561,6 +593,7 @@ func TestSeccompFilter_FilesystemIsolation_Integration(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Create temporary directory
 	tmpDir := t.TempDir()
@@ -587,6 +620,7 @@ func TestSeccompFilter_PrivilegeEscalation_Prevention(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Create minimal profile (most restrictive)
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -637,6 +671,7 @@ func TestSeccompFilter_MemoryLimits_Integration(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Seccomp doesn't directly limit memory, but we test the filter works with memory-related syscalls
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -660,6 +695,7 @@ func TestSeccompFilter_TimeoutEnforcement(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Test that we can create and apply filters within a timeout
 	done := make(chan error, 1)
@@ -690,6 +726,7 @@ func TestSeccompFilter_ResourceLimiter_Integration(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Create filter with resource restrictions
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -716,6 +753,7 @@ func TestSeccompFilter_NetworkNamespaceIsolation(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Test network isolation by restricting all network I/O
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -743,6 +781,7 @@ func TestSeccompFilter_DangerousSyscalls_Blocked(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Use minimal profile (most restrictive)
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -777,6 +816,7 @@ func TestSeccompFilter_SandboxEscape_Prevention(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Create a restricted sandbox
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -822,6 +862,7 @@ func TestSeccompFilter_RealProcess_SyscallsBlocked(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Create a test program that attempts a blocked syscall
 	testCode := `

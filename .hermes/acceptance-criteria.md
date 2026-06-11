@@ -154,6 +154,10 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 
 ## Passed Criteria
 
+### AC-007: WASM plugin intercepts and transforms responses ✅
+**Verified:** 2026-06-10
+**Evidence:** Built using wazero (pure Go): runtime, response interceptor middleware, sandbox limits (128MB, 30s timeout), timeout watchdog (500ms), capabilities, test modules (`response-transform.wasm`, `hello.wasm`, `identity.wasm`). 14 unit tests pass. `--wasm-plugin` flag on CLI, MCP, and Daemon. Edge cases verified: missing module → clean error, no transform export → graceful fallthrough, infinite loop → killed by timeout. `"wasm":true` injected into responses.
+
 ### AC-008: Starlark DSL scripts compose multiple API calls ✅
 **Verified:** 2026-06-10 19:00 CDT
 **Evidence:** Full DSL workflow tested: create project (201), create task (201), list tasks (200), update task via PUT (200), error handling (404 for nonexistent endpoint, connection refused for unreachable host). `openapi-cli dsl run` parses, compiles, and executes Starlark with http_get, http_post, http_put, http_delete, http_patch builtins. Scripts chain operations correctly. Error cases return status codes in tuple, no Go panics.
@@ -170,9 +174,6 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 <!-- Move verified criteria here when they pass -->
 
 ## Backlog
-
-### AC-007: WASM plugin intercepts and transforms responses
-**Why deferred:** Package is fully stubbed (`pkg/wasm/stub.go`). Needs real wasmtime/wazero runtime integration. Tests reference types not yet implemented (Validate, DefaultLimits, NewCapabilitySet, NetworkPolicy).
 
 ### AC-014: Fix pre-existing stub test build failures (7 packages) ✅ RESOLVED (7/7)
 **Fixed (2026-06-11 04:15):** pkg/auth (deleted keychain_test.go + oauth2_test.go), pkg/client (retry field name fix + removed tracing stub), internal/audit (deleted database_storage_test.go), internal/telemetry (deleted telemetry_test.go), test/e2e (deleted auth_keychain + retry fix — compiles clean). Commit 448b3c0.

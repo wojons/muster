@@ -6,9 +6,31 @@ package platform
 import (
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+// selinuxAvailable checks if SELinux is enabled and usable on this host.
+// Skips the test with a clear message if SELinux is unavailable or disabled.
+//
+// axiom:trace work_item=ac-015-platform-test-guards spec=specs/02-Workflows.md impl=pkg/platform/selinux_test.go
+func selinuxAvailable(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS != "linux" {
+		t.Skip("SELinux only supported on Linux")
+	}
+	if _, err := os.Stat("/sys/fs/selinux"); os.IsNotExist(err) {
+		t.Skip("SELinux not available (/sys/fs/selinux missing)")
+	}
+	out, err := exec.Command("getenforce").Output()
+	if err != nil {
+		t.Skipf("SELinux not available (getenforce failed): %v", err)
+	}
+	if strings.TrimSpace(string(out)) == "Disabled" {
+		t.Skip("SELinux is disabled")
+	}
+}
 
 func TestNewSELinux(t *testing.T) {
 	selinux, err := NewSELinux()
@@ -262,6 +284,8 @@ func TestSELinux_ModernDetection(t *testing.T) {
 //
 // axiom:trace work_item=prod-readiness-01-fix-linux-security-sec spec=specs/PLATFORM-LINUX.md#6-security plan=phase-2/task-2-2/step-2-2-2 impl=pkg/platform/selinux.go test=pkg/platform/selinux_test.go
 func TestSELinux_GetFileContext_Robust(t *testing.T) {
+	selinuxAvailable(t)
+
 	selinux, err := NewSELinux()
 	if err != nil {
 		t.Fatalf("Failed to create SELinux interface: %v", err)
