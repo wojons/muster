@@ -82,7 +82,7 @@ func TestInfo_String_Format(t *testing.T) {
 		t.Errorf("Expected to contain build date, got '%s'", result)
 	}
 
-	if !strings.Contains(result, "darwin/arm64") {
+	if !strings.Contains(result, fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)) {
 		t.Errorf("Expected to contain platform, got '%s'", result)
 	}
 
