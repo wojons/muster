@@ -24,7 +24,19 @@ type SandboxLimits struct {
 // Validate checks that the sandbox limits are valid.
 func (l *SandboxLimits) Validate() error {
 	if l.MaxMemory == 0 {
-		return fmt.Errorf("wasm: MaxMemory must be > 0")
+		return fmt.Errorf("wasm: memory limit must be > 0")
+	}
+	if l.MaxFuel == 0 {
+		return fmt.Errorf("wasm: fuel limit must be > 0")
+	}
+	if l.MaxExecutionTime == 0 {
+		return fmt.Errorf("wasm: execution time limit must be > 0")
+	}
+	if l.MaxFileSize == 0 {
+		return fmt.Errorf("wasm: file size limit must be > 0")
+	}
+	if l.MaxFileDescriptors == 0 {
+		return fmt.Errorf("wasm: file descriptor limit must be > 0")
 	}
 	return nil
 }

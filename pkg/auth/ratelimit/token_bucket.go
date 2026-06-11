@@ -36,6 +36,10 @@ func (tb *TokenBucket) Allow() bool {
 // AllowN checks if n tokens can be consumed.
 // Returns true if allowed, false if rate limited.
 func (tb *TokenBucket) AllowN(n int) bool {
+	if n <= 0 {
+		return true
+	}
+
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
 
