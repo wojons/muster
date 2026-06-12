@@ -80,11 +80,30 @@ func newInventoryListCommand() *cobra.Command {
 		Short: "List cached inventories",
 		Long:  "List all cached API inventories.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("Cached inventories:")
-			if cacheDir != "" {
-				fmt.Printf("Cache directory: %s\n", cacheDir)
+			mgr, err := inventory.NewManager(inventory.ManagerConfig{
+				CacheDir: cacheDir,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create inventory manager: %w", err)
 			}
-			fmt.Println("No cached inventories found")
+
+			entries, err := mgr.ListCached()
+			if err != nil {
+				return fmt.Errorf("failed to list cached inventories: %w", err)
+			}
+
+			if len(entries) == 0 {
+				fmt.Printf("No cached inventories found\nCache directory: %s\n", cacheDir)
+				return nil
+			}
+
+			fmt.Println("Cached inventories:")
+			for _, entry := range entries {
+				fmt.Printf("  Host: %s\n", entry.Host)
+				fmt.Printf("    Version:   %s\n", entry.Version)
+				fmt.Printf("    Cached at: %s\n", entry.CachedAt.Format("2006-01-02 15:04:05"))
+			}
+
 			return nil
 		},
 	}
