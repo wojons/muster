@@ -57,10 +57,10 @@ type AuthConfig struct {
 
 // MTLSConfig represents mTLS authentication configuration
 type MTLSConfig struct {
-	Enabled  bool   `mapstructure:"enabled"`
-	CertPath string `mapstructure:"cert_path"`
-	KeyPath  string `mapstructure:"key_path"`
-	CAPath   string `mapstructure:"ca_path"`
+	Enabled  bool   `mapstructure:"enabled" yaml:"enabled"`
+	CertPath string `mapstructure:"cert_path" yaml:"cert_path"`
+	KeyPath  string `mapstructure:"key_path" yaml:"key_path"`
+	CAPath   string `mapstructure:"ca_path" yaml:"ca_path"`
 }
 
 // KeychainConfig represents keychain integration settings
