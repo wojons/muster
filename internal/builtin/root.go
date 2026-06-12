@@ -28,6 +28,7 @@ and serves them via MCP protocol.`,
 	root.AddCommand(newCompletionCommand())
 	root.AddCommand(newInitCommand())
 	root.AddCommand(newAuthCommand())
+	root.AddCommand(newWebhookCommand())
 	root.AddCommand(newInventoryCommand())
 	root.AddCommand(newModulesCommand())
 	root.AddCommand(newGenerateCommand(cfg))
