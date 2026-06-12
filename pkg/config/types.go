@@ -52,6 +52,15 @@ type AuthConfig struct {
 	DefaultProvider string                 `mapstructure:"default_provider"`
 	Providers       map[string]interface{} `mapstructure:"providers"`
 	Keychain        KeychainConfig         `mapstructure:"keychain"`
+	MTLS            MTLSConfig             `mapstructure:"mtls"`
+}
+
+// MTLSConfig represents mTLS authentication configuration
+type MTLSConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	CertPath string `mapstructure:"cert_path"`
+	KeyPath  string `mapstructure:"key_path"`
+	CAPath   string `mapstructure:"ca_path"`
 }
 
 // KeychainConfig represents keychain integration settings

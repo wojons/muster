@@ -1,11 +1,20 @@
 package builtin
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/openapi-cli/openapi-cli/pkg/auth"
+	"github.com/openapi-cli/openapi-cli/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -34,6 +43,7 @@ func newAuthCommand() *cobra.Command {
 	cmd.AddCommand(newAuthAddCommand())
 	cmd.AddCommand(newAuthListCommand())
 	cmd.AddCommand(newAuthRemoveCommand())
+	cmd.AddCommand(newAuthMTLSCommand())
 
 	return cmd
 }
@@ -246,4 +256,243 @@ func newAuthRemoveCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// newAuthMTLSCommand creates the auth mtls command group
+func newAuthMTLSCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "mtls",
+		Short: "Manage mTLS certificates",
+		Long:  "Generate, view, and configure mTLS client certificates.",
+	}
+
+	cmd.AddCommand(newAuthMTLSGenerateCommand())
+	cmd.AddCommand(newAuthMTLSInfoCommand())
+	cmd.AddCommand(newAuthMTLSConfigureCommand())
+
+	return cmd
+}
+
+func mtlsConfigDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("home directory: %w", err)
+	}
+	return filepath.Join(home, ".config", "openapi-cli", "mtls"), nil
+}
+
+// newAuthMTLSGenerateCommand creates the auth mtls generate command
+func newAuthMTLSGenerateCommand() *cobra.Command {
+	var commonName string
+
+	cmd := &cobra.Command{
+		Use:   "generate",
+		Short: "Generate self-signed client certificate",
+		Long:  "Generate a self-signed mTLS client certificate and private key.",
+		Example: `  # Generate with default common name
+  openapi-cli auth mtls generate
+
+  # Generate with custom common name
+  openapi-cli auth mtls generate --common-name my-client`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir, err := mtlsConfigDir()
+			if err != nil {
+				return err
+			}
+			if err := os.MkdirAll(dir, 0700); err != nil {
+				return fmt.Errorf("create mtls directory: %w", err)
+			}
+
+			priv, err := rsa.GenerateKey(rand.Reader, 2048)
+			if err != nil {
+				return fmt.Errorf("generate key: %w", err)
+			}
+
+			serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+			if err != nil {
+				return fmt.Errorf("generate serial: %w", err)
+			}
+
+			now := time.Now()
+			template := &x509.Certificate{
+				SerialNumber: serial,
+				Subject: pkix.Name{
+					CommonName: commonName,
+				},
+				NotBefore:             now,
+				NotAfter:              now.Add(365 * 24 * time.Hour),
+				BasicConstraintsValid: true,
+				KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+				ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+			}
+
+			certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+			if err != nil {
+				return fmt.Errorf("create certificate: %w", err)
+			}
+
+			certPath := filepath.Join(dir, "client.crt")
+			keyPath := filepath.Join(dir, "client.key")
+
+			certFile, err := os.Create(certPath)
+			if err != nil {
+				return fmt.Errorf("create cert file: %w", err)
+			}
+			defer certFile.Close()
+			if err := pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: certDER}); err != nil {
+				return fmt.Errorf("encode cert: %w", err)
+			}
+
+			keyFile, err := os.Create(keyPath)
+			if err != nil {
+				return fmt.Errorf("create key file: %w", err)
+			}
+			defer keyFile.Close()
+			if err := pem.Encode(keyFile, &pem.Block{
+				Type:  "RSA PRIVATE KEY",
+				Bytes: x509.MarshalPKCS1PrivateKey(priv),
+			}); err != nil {
+				return fmt.Errorf("encode key: %w", err)
+			}
+
+			cert, err := x509.ParseCertificate(certDER)
+			if err != nil {
+				return fmt.Errorf("parse cert: %w", err)
+			}
+
+			fmt.Printf("Certificate generated:\n")
+			fmt.Printf("  Cert path: %s\n", certPath)
+			fmt.Printf("  Key path:  %s\n", keyPath)
+			fmt.Printf("  Common Name: %s\n", commonName)
+			fmt.Printf("  Expiration: %s\n", cert.NotAfter.Format(time.RFC3339))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&commonName, "common-name", "muster-client", "Certificate common name")
+
+	return cmd
+}
+
+// newAuthMTLSInfoCommand creates the auth mtls info command
+func newAuthMTLSInfoCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "info <cert-path>",
+		Short: "Display certificate information",
+		Long:  "Load and display detailed information about an mTLS certificate.",
+		Example: `  # Show certificate info
+  openapi-cli auth mtls info ~/.config/openapi-cli/mtls/client.crt`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			certPEM, err := os.ReadFile(args[0])
+			if err != nil {
+				return fmt.Errorf("read certificate: %w", err)
+			}
+
+			block, _ := pem.Decode(certPEM)
+			if block == nil {
+				return fmt.Errorf("failed to parse certificate PEM")
+			}
+
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return fmt.Errorf("parse certificate: %w", err)
+			}
+
+			fmt.Printf("Common Name: %s\n", cert.Subject.CommonName)
+			fmt.Printf("Valid From: %s\n", cert.NotBefore.Format(time.RFC3339))
+			fmt.Printf("Valid To:   %s\n", cert.NotAfter.Format(time.RFC3339))
+			fmt.Printf("Issuer:     %s\n", cert.Issuer.CommonName)
+			fmt.Printf("Serial:     %s\n", cert.SerialNumber.String())
+
+			var keyUsage []string
+			if cert.KeyUsage&x509.KeyUsageDigitalSignature != 0 {
+				keyUsage = append(keyUsage, "Digital Signature")
+			}
+			if cert.KeyUsage&x509.KeyUsageKeyEncipherment != 0 {
+				keyUsage = append(keyUsage, "Key Encipherment")
+			}
+			if cert.KeyUsage&x509.KeyUsageCertSign != 0 {
+				keyUsage = append(keyUsage, "Certificate Sign")
+			}
+			fmt.Printf("Key Usage:  %v\n", keyUsage)
+
+			var extKeyUsage []string
+			for _, eku := range cert.ExtKeyUsage {
+				switch eku {
+				case x509.ExtKeyUsageServerAuth:
+					extKeyUsage = append(extKeyUsage, "Server Auth")
+				case x509.ExtKeyUsageClientAuth:
+					extKeyUsage = append(extKeyUsage, "Client Auth")
+				case x509.ExtKeyUsageCodeSigning:
+					extKeyUsage = append(extKeyUsage, "Code Signing")
+				default:
+					extKeyUsage = append(extKeyUsage, fmt.Sprintf("Unknown (%d)", eku))
+				}
+			}
+			fmt.Printf("Extended Key Usage: %v\n", extKeyUsage)
+
+			expired := time.Now().After(cert.NotAfter)
+			if expired {
+				fmt.Println("Status: EXPIRED")
+			} else {
+				fmt.Println("Status: Valid")
+			}
+
+			return nil
+		},
+	}
+}
+
+// newAuthMTLSConfigureCommand creates the auth mtls configure command
+func newAuthMTLSConfigureCommand() *cobra.Command {
+	var certPath, keyPath, caPath string
+
+	cmd := &cobra.Command{
+		Use:   "configure",
+		Short: "Configure mTLS certificate paths",
+		Long:  "Store mTLS certificate, key, and CA paths for use in API requests.",
+		Example: `  # Configure mTLS paths
+  openapi-cli auth mtls configure --cert ~/.config/openapi-cli/mtls/client.crt --key ~/.config/openapi-cli/mtls/client.key --ca /path/to/ca.crt`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if certPath == "" || keyPath == "" {
+				return fmt.Errorf("--cert and --key are required")
+			}
+
+			cm, err := config.NewConfigManager()
+			if err != nil {
+				return fmt.Errorf("initialize config: %w", err)
+			}
+
+			if err := cm.Set("auth.mtls.enabled", true); err != nil {
+				return fmt.Errorf("set mtls enabled: %w", err)
+			}
+			if err := cm.Set("auth.mtls.cert_path", certPath); err != nil {
+				return fmt.Errorf("set cert path: %w", err)
+			}
+			if err := cm.Set("auth.mtls.key_path", keyPath); err != nil {
+				return fmt.Errorf("set key path: %w", err)
+			}
+			if caPath != "" {
+				if err := cm.Set("auth.mtls.ca_path", caPath); err != nil {
+					return fmt.Errorf("set ca path: %w", err)
+				}
+			}
+
+			fmt.Println("mTLS configuration saved:")
+			fmt.Printf("  Cert path: %s\n", certPath)
+			fmt.Printf("  Key path:  %s\n", keyPath)
+			if caPath != "" {
+				fmt.Printf("  CA path:   %s\n", caPath)
+			}
+			fmt.Println("mTLS: enabled")
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&certPath, "cert", "", "Path to client certificate file")
+	cmd.Flags().StringVar(&keyPath, "key", "", "Path to client private key file")
+	cmd.Flags().StringVar(&caPath, "ca", "", "Path to CA certificate file")
+
+	return cmd
 }

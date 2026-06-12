@@ -172,6 +172,22 @@ func (cm *ConfigManager) Set(key string, value interface{}) error {
 		if v, ok := value.(int); ok {
 			cm.config.Cache.TTL = time.Duration(v)
 		}
+	case "auth.mtls.enabled":
+		if v, ok := value.(bool); ok {
+			cm.config.Auth.MTLS.Enabled = v
+		}
+	case "auth.mtls.cert_path":
+		if v, ok := value.(string); ok {
+			cm.config.Auth.MTLS.CertPath = v
+		}
+	case "auth.mtls.key_path":
+		if v, ok := value.(string); ok {
+			cm.config.Auth.MTLS.KeyPath = v
+		}
+	case "auth.mtls.ca_path":
+		if v, ok := value.(string); ok {
+			cm.config.Auth.MTLS.CAPath = v
+		}
 	}
 
 	return cm.save()

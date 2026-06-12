@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openapi-cli/openapi-cli/pkg/auth"
+	"github.com/openapi-cli/openapi-cli/pkg/config"
 	"github.com/openapi-cli/openapi-cli/pkg/request"
 	"github.com/openapi-cli/openapi-cli/pkg/response"
 	"github.com/spf13/cobra"
@@ -44,6 +46,35 @@ func newRequestCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&httpBody, "body", "b", "", "Request body for POST/PUT requests")
 
 	return cmd
+}
+
+// newHTTPClient creates an HTTP client, using mTLS if configured.
+func newHTTPClient(timeout time.Duration) (*http.Client, error) {
+	cfg, err := config.NewConfigManager()
+	if err != nil {
+		return &http.Client{Timeout: timeout}, nil
+	}
+
+	mtlsCfg := cfg.Get().Auth.MTLS
+	if !mtlsCfg.Enabled {
+		return &http.Client{Timeout: timeout}, nil
+	}
+
+	certPath := mtlsCfg.CertPath
+	keyPath := mtlsCfg.KeyPath
+	caPath := mtlsCfg.CAPath
+
+	if certPath == "" || keyPath == "" {
+		return nil, fmt.Errorf("mTLS is enabled but certificate paths are not configured - run 'auth mtls configure'")
+	}
+
+	certManager := auth.NewCertificateManager(certPath, keyPath, caPath, "")
+	client, err := auth.CreateMTLSClient(certManager)
+	if err != nil {
+		return nil, fmt.Errorf("create mTLS client: %w", err)
+	}
+	client.Timeout = timeout
+	return client, nil
 }
 
 // validateURLScheme checks if the URL scheme is safe for HTTP requests.
@@ -98,7 +129,10 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 		return fmt.Errorf("build request: %w", err)
 	}
 
-	client := &http.Client{Timeout: timeout}
+	client, err := newHTTPClient(timeout)
+	if err != nil {
+		return err
+	}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("execute request: %w", err)
