@@ -34,6 +34,7 @@ func isValidSHA256(sha256Str string) bool {
 }
 
 type CacheEntry struct {
+	Host       string     `json:"host"`
 	Inventory  *Inventory `json:"inventory"`
 	ETag       string     `json:"etag"`
 	CachedAt   time.Time  `json:"cached_at"`
@@ -91,6 +92,7 @@ func (c *InventoryCache) Store(host string, inv *Inventory, etag string) error {
 	hostDir := c.hostDir(host)
 
 	entry := &CacheEntry{
+		Host:       host,
 		Inventory:  inv,
 		ETag:       etag,
 		CachedAt:   time.Now(),
@@ -176,7 +178,7 @@ func (c *InventoryCache) ListAll() ([]CachedInventory, error) {
 		}
 
 		cached = append(cached, CachedInventory{
-			Host:       entry.Name(),
+			Host:       cacheEntry.Host,
 			Version:    cacheEntry.Inventory.APIVersion,
 			CachedAt:   cacheEntry.CachedAt,
 			AccessedAt: cacheEntry.AccessedAt,
