@@ -43,6 +43,10 @@ type ControllerConfig struct {
 
 // NewController creates a new daemon controller
 func NewController(cfg ControllerConfig) (*Controller, error) {
+	if cfg.SocketPath == "" {
+		cfg.SocketPath = "/tmp/openapi-cli.sock"
+	}
+
 	pidManager, err := NewManager(Config{
 		PidFilePath: cfg.PidFilePath,
 		SocketPath:  cfg.SocketPath,
@@ -159,27 +163,19 @@ func (c *Controller) Start() error {
 		}
 	}
 
-	// Generate and save authentication token
-	if err := c.tokenManager.Generate(); err != nil {
-		return fmt.Errorf("failed to generate auth token: %w", err)
-	}
+	// Create default handler with health check endpoints
+	handler := createDefaultHandler()
 
-	if err := c.tokenManager.Save(); err != nil {
-		return fmt.Errorf("failed to save auth token: %w", err)
-	}
-
-	c.logger.Info("auth token generated: path=%s", c.tokenPath)
-
-	// For macOS/Linux, we would fork the process
-	// For this implementation, we'll assume the caller will handle forking
-	// and just acquire the PID lock
-	if err := c.pidManager.Acquire(); err != nil {
-		// Clean up token on failure
-		_ = c.tokenManager.Cleanup()
+	// Start the socket listener (handles token gen, PID acquire, listener setup)
+	if err := c.StartWithSocket(handler.ServeHTTP); err != nil {
 		return err
 	}
 
-	c.logger.Info("daemon started: pid=%d", os.Getpid())
+	c.logger.Info("daemon started: pid=%d, socket=%s", os.Getpid(), c.socketPath)
+
+	// Set up signal handlers for graceful shutdown
+	c.SetupSignalHandlers()
+
 	return nil
 }
 
@@ -222,16 +218,18 @@ func (c *Controller) Stop() error {
 			c.logger.Warn("daemon did not shut down gracefully, force killing: pid=%d", pid)
 			_ = process.Kill()
 
-			// Clean up PID file
+			// Clean up PID file and socket
 			_ = c.pidManager.Release()
+			_ = os.Remove(c.socketPath)
 
 			return nil
 		case <-ticker.C:
 			// Check if process still running
 			if !isProcessRunning(pid) {
 				c.logger.Info("daemon stopped: pid=%d", pid)
-				// Clean up PID file
+				// Clean up PID file and socket
 				_ = c.pidManager.Release()
+				_ = os.Remove(c.socketPath)
 				return nil
 			}
 		}
