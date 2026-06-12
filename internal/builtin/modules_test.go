@@ -347,10 +347,10 @@ func TestNewModulesRemoveCommand(t *testing.T) {
 }
 
 func TestModulesCommandStructure(t *testing.T) {
-	t.Run("modules command has three subcommands", func(t *testing.T) {
+	t.Run("modules command has four subcommands", func(t *testing.T) {
 		cmd := newModulesCommand()
 
-		assert.Equal(t, 3, len(cmd.Commands()))
+		assert.Equal(t, 4, len(cmd.Commands()))
 	})
 
 	t.Run("all subcommands have descriptions", func(t *testing.T) {
@@ -368,5 +368,122 @@ func TestModulesCommandStructure(t *testing.T) {
 		for _, subCmd := range modulesCmd.Commands() {
 			assert.NotNil(t, subCmd.RunE, "subcommand %s missing RunE", subCmd.Name())
 		}
+	})
+}
+
+func TestNewModulesRunCommand(t *testing.T) {
+	t.Run("creates run command", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+
+		assert.NotNil(t, cmd)
+		assert.Equal(t, "run", cmd.Name())
+		assert.Equal(t, "Execute a WASM module", cmd.Short)
+	})
+
+	t.Run("requires exactly one argument", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+
+		err := cmd.Args(cmd, []string{})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "accepts 1 arg")
+	})
+
+	t.Run("has function flag", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+
+		flag := cmd.Flags().Lookup("function")
+		assert.NotNil(t, flag)
+		assert.Equal(t, "", flag.DefValue)
+	})
+
+	t.Run("has arg flag", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+
+		flag := cmd.Flags().Lookup("arg")
+		assert.NotNil(t, flag)
+	})
+
+	t.Run("fails with nonexistent file", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+
+		err := cmd.RunE(cmd, []string{"/nonexistent/module.wasm"})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read module")
+	})
+
+	t.Run("executes a valid wasm module", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+
+		err := cmd.RunE(cmd, []string{"testdata/hello.wasm"})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("executes with custom function name", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+		cmd.Flags().Set("function", "hello")
+
+		err := cmd.RunE(cmd, []string{"testdata/hello.wasm"})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("executes with arguments", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+		cmd.Flags().Set("function", "transform")
+		cmd.Flags().Set("arg", "42")
+
+		err := cmd.RunE(cmd, []string{"testdata/transform.wasm"})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("has example usage", func(t *testing.T) {
+		cmd := newModulesRunCommand()
+
+		assert.NotEmpty(t, cmd.Example)
+		assert.Contains(t, cmd.Example, "modules run")
+	})
+}
+
+func TestDefaultFunctionName(t *testing.T) {
+	t.Run("derives from simple filename", func(t *testing.T) {
+		assert.Equal(t, "hello", defaultFunctionName("hello.wasm"))
+	})
+
+	t.Run("derives from path", func(t *testing.T) {
+		assert.Equal(t, "transform", defaultFunctionName("/path/to/transform.wasm"))
+	})
+
+	t.Run("handles no extension", func(t *testing.T) {
+		assert.Equal(t, "module", defaultFunctionName("module"))
+	})
+
+	t.Run("handles empty filename", func(t *testing.T) {
+		assert.Equal(t, "hello", defaultFunctionName(".wasm"))
+	})
+}
+
+func TestParseIntArg(t *testing.T) {
+	t.Run("parses positive integer", func(t *testing.T) {
+		assert.Equal(t, int32(42), parseIntArg("42"))
+	})
+
+	t.Run("parses negative integer", func(t *testing.T) {
+		assert.Equal(t, int32(-5), parseIntArg("-5"))
+	})
+
+	t.Run("parses zero", func(t *testing.T) {
+		assert.Equal(t, int32(0), parseIntArg("0"))
+	})
+
+	t.Run("returns string for non-integer", func(t *testing.T) {
+		assert.Equal(t, "hello", parseIntArg("hello"))
+	})
+
+	t.Run("returns string for empty", func(t *testing.T) {
+		assert.Equal(t, "", parseIntArg(""))
 	})
 }

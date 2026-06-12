@@ -223,10 +223,10 @@ func (sm *SQLiteManager) deleteUserCache(ctx context.Context, cache CacheDeleter
 
 func (sm *SQLiteManager) redactUserLogs(ctx context.Context, tx *sql.Tx, userID string) int {
 	query := `UPDATE audit 
-			  SET data = json_set(data, '$.user_id', '[REDACTED]')
+			  SET data = REPLACE(data, ?, '[REDACTED]')
 			  WHERE user_id = ?`
 
-	result, err := tx.ExecContext(ctx, query, userID)
+	result, err := tx.ExecContext(ctx, query, userID, userID)
 	if err != nil {
 		sm.log.Warn("GDPR erasure: failed to redact logs",
 			zap.String("user_id", userID),

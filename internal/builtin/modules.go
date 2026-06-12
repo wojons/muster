@@ -2,7 +2,11 @@ package builtin
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/openapi-cli/openapi-cli/pkg/wasm"
 	"github.com/spf13/cobra"
 )
 
@@ -17,6 +21,7 @@ func newModulesCommand() *cobra.Command {
 	cmd.AddCommand(newModulesInstallCommand())
 	cmd.AddCommand(newModulesListCommand())
 	cmd.AddCommand(newModulesRemoveCommand())
+	cmd.AddCommand(newModulesRunCommand())
 
 	return cmd
 }
@@ -140,4 +145,85 @@ func newModulesRemoveCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force removal without confirmation")
 
 	return cmd
+}
+
+// newModulesRunCommand creates the modules run command
+func newModulesRunCommand() *cobra.Command {
+	var (
+		functionName  string
+		funcArgValues []string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "run [module-file]",
+		Short: "Execute a WASM module",
+		Long:  "Load and execute a compiled WASM module using the sandboxed runtime.",
+		Example: `  # Run a module with default function
+  openapi-cli modules run hello.wasm
+
+  # Run with a specific function
+  openapi-cli modules run transform.wasm --function transform
+
+  # Run with a numerical argument
+  openapi-cli modules run transform.wasm --function transform --arg 42`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
+			modulePath := cmdArgs[0]
+
+			data, err := os.ReadFile(modulePath)
+			if err != nil {
+				return fmt.Errorf("failed to read module: %w", err)
+			}
+
+			if functionName == "" {
+				functionName = defaultFunctionName(modulePath)
+			}
+
+			runtime := wasm.NewRuntime(wasm.DefaultRuntimeConfig(), wasm.DefaultLimits())
+			if err := runtime.GrantCapability("stdio.stdout"); err != nil {
+				return fmt.Errorf("failed to grant capability: %w", err)
+			}
+
+			var wasmArgs []interface{}
+			for _, a := range funcArgValues {
+				wasmArgs = append(wasmArgs, parseIntArg(a))
+			}
+
+			result, err := runtime.Execute(data, functionName, wasmArgs...)
+			if err != nil {
+				return fmt.Errorf("execution error: %w", err)
+			}
+
+			fmt.Printf("Success: %t\n", result.Success)
+			fmt.Printf("Output: %v\n", result.Output)
+			fmt.Printf("Duration: %s\n", result.Duration)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&functionName, "function", "f", "", "Function name to execute (default: derived from filename)")
+	cmd.Flags().StringArrayVar(&funcArgValues, "arg", nil, "Function argument (can be specified multiple times)")
+
+	return cmd
+}
+
+// defaultFunctionName derives a default function name from a module filename.
+// e.g., "hello.wasm" -> "hello", "path/to/transform.wasm" -> "transform"
+func defaultFunctionName(path string) string {
+	base := filepath.Base(path)
+	ext := filepath.Ext(base)
+	name := strings.TrimSuffix(base, ext)
+	if name == "" {
+		return "hello"
+	}
+	return name
+}
+
+// parseIntArg converts a string argument to an int32 for WASM interop.
+func parseIntArg(s string) interface{} {
+	var v int32
+	if _, err := fmt.Sscanf(s, "%d", &v); err == nil {
+		return v
+	}
+	return s
 }

@@ -1,0 +1,8 @@
+Hello from Muster!
+
+This is a test file for the demo file-service upload feature.
+It can be uploaded via:
+  curl -F "file=@testdata/hello.txt" http://localhost:9802/files
+
+Then downloaded via:
+  curl http://localhost:9802/files/hello.txt

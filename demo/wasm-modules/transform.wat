@@ -2,18 +2,13 @@
 ;; Compilation: wat2wasm transform.wat -o transform.wasm
 
 (module
-  ;; Import function from host
-  (import "env" "log" (func $log (param i32 i32)))
+  (memory (export "memory") 1)
 
-  ;; Memory export
-  (export "memory" (memory 1))
-
-  ;; Export the transform function
   (export "transform" (func $transform))
 
-  ;; Simple transformation function
   (func $transform (param $input i32) (result i32)
-    ;; Return 0 for success
-    i32.const 0
+    local.get $input
+    i32.const 1
+    i32.add
   )
 )

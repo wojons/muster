@@ -22,7 +22,7 @@ func TestCapabilityRestrictions_Default(t *testing.T) {
 	// Get current process capabilities
 	caps, err := os.ReadFile("/proc/self/status")
 	if err != nil {
-		t.Skip("cannot read process status: %v", err)
+		t.Skipf("cannot read process status: %v", err)
 	}
 
 	_ = caps
@@ -142,7 +142,7 @@ func TestCapabilityRestrictions_BoundingSet(t *testing.T) {
 	// Read bounding set from /proc/self/status
 	data, err := os.ReadFile("/proc/self/status")
 	if err != nil {
-		t.Skip("cannot read process status: %v", err)
+		t.Skipf("cannot read process status: %v", err)
 	}
 
 	_ = data

@@ -5,14 +5,12 @@ package platform
 
 import (
 	"os"
-	"path/filepath"
 	"runtime"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestSandboxEscape_Prevention tests various sandbox escape attempts

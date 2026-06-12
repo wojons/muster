@@ -557,7 +557,7 @@ func (s *SQLRBACStore) AssignRoleToUser(ctx context.Context, assignment *HIPAAUs
 func (s *SQLRBACStore) RemoveRoleFromUser(ctx context.Context, tenantID, userID, roleID string) error {
 	query := `
 		UPDATE hipaa_user_roles
-		SET is_active = FALSE
+		SET is_active = 0
 		WHERE user_id = ? AND role_id = ? AND tenant_id = ?
 	`
 
@@ -576,7 +576,7 @@ func (s *SQLRBACStore) GetUserRoles(ctx context.Context, tenantID, userID string
 		       r.minimum_necessary, r.created_by, r.created_at, r.updated_at
 		FROM hipaa_roles r
 		INNER JOIN hipaa_user_roles ur ON r.id = ur.role_id
-		WHERE ur.user_id = ? AND ur.tenant_id = ? AND ur.is_active = TRUE
+		WHERE ur.user_id = ? AND ur.tenant_id = ? AND ur.is_active = 1
 	`
 
 	rows, err := s.db.QueryContext(ctx, query, userID, tenantID)
@@ -628,7 +628,7 @@ func (s *SQLRBACStore) GetUsersByRole(ctx context.Context, tenantID, roleID stri
 		       u.failed_login_attempts, u.account_locked_until, u.created_at, u.updated_at
 		FROM hipaa_users u
 		INNER JOIN hipaa_user_roles ur ON u.id = ur.user_id
-		WHERE ur.role_id = ? AND ur.tenant_id = ? AND ur.is_active = TRUE
+		WHERE ur.role_id = ? AND ur.tenant_id = ? AND ur.is_active = 1
 	`
 
 	args := []interface{}{roleID, tenantID}
@@ -932,7 +932,7 @@ func (s *SQLRBACStore) GetAccessLogs(ctx context.Context, tenantID string, opts 
 			args = append(args, opts.Result)
 		}
 		if opts.BreakGlassOnly {
-			query += " AND break_glass_used = TRUE"
+			query += " AND break_glass_used = 1"
 		}
 		if opts.UserID != "" {
 			query += " AND user_id = ?"

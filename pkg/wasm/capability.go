@@ -63,16 +63,21 @@ func (cs *CapabilitySet) Grant(capability string) error {
 }
 
 // Check verifies if a capability is granted.
+// Supports both "category.resource" and "category" formats.
+// A dotless capability checks if ANY resource is granted for that category.
 func (cs *CapabilitySet) Check(capability string) bool {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
 
 	parts := strings.Split(capability, ".")
+	category := parts[0]
+
 	if len(parts) < 2 {
-		return false
+		_, hasCap := cs.capabilities[category]
+		_, hasWild := cs.wildcards[category]
+		return hasCap || hasWild
 	}
 
-	category := parts[0]
 	resource := strings.Join(parts[1:], ".")
 
 	for _, r := range cs.capabilities[category] {

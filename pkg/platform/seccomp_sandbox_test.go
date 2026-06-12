@@ -314,8 +314,7 @@ func TestSeccompFilter_EnableStrictMode_KillsProcess(t *testing.T) {
 	// (Loading it would kill the test process)
 	filter, err := seccomp.NewFilter(seccomp.ActKill)
 	require.NoError(t, err)
-	err = filter.Release()
-	require.NoError(t, err)
+	filter.Release()
 
 	// Also test the method exists and can create filter
 	err = sf.EnableStrictMode()

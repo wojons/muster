@@ -66,7 +66,7 @@ func (sf *SeccompFilter) AllowSyscall(syscallID uintptr) error {
 	}
 
 	id := uint32(syscallID)
-	if err := sf.filter.AddRule(seccomp.Syscall(id), seccomp.ActAllow); err != nil {
+	if err := sf.filter.AddRule(seccomp.ScmpSyscall(id), seccomp.ActAllow); err != nil {
 		return fmt.Errorf("failed to allow syscall %d: %w", syscallID, err)
 	}
 	sf.allowed[id] = true
@@ -84,7 +84,7 @@ func (sf *SeccompFilter) DenySyscall(syscallID uintptr) error {
 	}
 
 	id := uint32(syscallID)
-	if err := sf.filter.AddRule(seccomp.Syscall(id), seccomp.ActErrno.SetReturnCode(int16(syscall.EPERM))); err != nil {
+	if err := sf.filter.AddRule(seccomp.ScmpSyscall(id), seccomp.ActErrno.SetReturnCode(int16(syscall.EPERM))); err != nil {
 		return fmt.Errorf("failed to deny syscall %d: %w", syscallID, err)
 	}
 	sf.denied[id] = true
@@ -453,7 +453,7 @@ func (sf *SeccompFilter) addSyscalls(names []string) error {
 		if err != nil {
 			continue
 		}
-		if err := sf.filter.AddRule(seccomp.Syscall(id), seccomp.ActAllow); err != nil {
+	if err := sf.filter.AddRule(seccomp.ScmpSyscall(id), seccomp.ActAllow); err != nil {
 			return fmt.Errorf("failed to add syscall %s: %w", name, err)
 		}
 		sf.allowed[uint32(id)] = true

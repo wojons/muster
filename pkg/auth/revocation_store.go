@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mattn/go-sqlite3"
+	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
 type RevocationCache struct {
@@ -54,11 +54,8 @@ func (s *DatabaseRevocationStore) Revoke(token string, expiresAt time.Time) erro
 	)
 
 	if err != nil {
-		var sqliteErr sqlite3.Error
-		if ok := errors.As(err, &sqliteErr); ok {
-			if sqliteErr.Code == sqlite3.ErrConstraint {
-				return fmt.Errorf("token revocation constraint violation: %w", err)
-			}
+		if errors.Is(err, sqlite3.ErrConstraint) {
+			return fmt.Errorf("token revocation constraint violation: %w", err)
 		}
 		return fmt.Errorf("failed to revoke token: %w", err)
 	}
@@ -131,11 +128,8 @@ func (s *DatabaseRevocationStore) RevokeWithReason(token, reason string, expires
 	)
 
 	if err != nil {
-		var sqliteErr sqlite3.Error
-		if ok := errors.As(err, &sqliteErr); ok {
-			if sqliteErr.Code == sqlite3.ErrConstraint {
-				return fmt.Errorf("token revocation constraint violation: %w", err)
-			}
+		if errors.Is(err, sqlite3.ErrConstraint) {
+			return fmt.Errorf("token revocation constraint violation: %w", err)
 		}
 		return fmt.Errorf("failed to revoke token: %w", err)
 	}

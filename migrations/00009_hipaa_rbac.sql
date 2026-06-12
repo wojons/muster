@@ -225,6 +225,8 @@ INSERT INTO hipaa_permissions (id, role_id, resource, action, scope) VALUES
     ('perm_comp_breakglass_read', 'role_compliance_default', 'break_glass', 'read', 'all'),
     ('perm_comp_breakglass_approve', 'role_compliance_default', 'break_glass', 'approve', 'all');
 
+-- +goose StatementEnd
+
 -- +goose Down
 -- +goose StatementBegin
 

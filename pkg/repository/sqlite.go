@@ -206,7 +206,11 @@ func (sm *SQLiteManager) IsEncrypted() bool {
 		return false
 	}
 
-	// Try to get cipher_version - will fail if not encrypted or SQLCipher not available
+	if sm.cfg == nil || sm.cfg.EncryptionKey == "" {
+		return false
+	}
+
+	// Verify encryption is active by checking cipher_version
 	var cipherVersion string
 	err := sm.db.QueryRow("PRAGMA cipher_version").Scan(&cipherVersion)
 	return err == nil && cipherVersion != ""

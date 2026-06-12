@@ -96,6 +96,7 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, moduleBytes []byte, fu
 	// Create Wasmtime engine with epoch interruption for timeout enforcement
 	// Epoch interruption allows cooperative preemption of long-running WASM code
 	config := wasmtime.NewConfig()
+	config.SetConsumeFuel(true)
 	if executionTimeout > 0 {
 		config.SetEpochInterruption(true)
 	}

@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "host": "http://localhost:9801",
+  "specs": [
+    {"name": "crud-api", "path": "/openapi.json", "version": "1.0.0"},
+    {"name": "auth-api", "path": "/auth-openapi.json", "version": "2.0.0"}
+  ]
+}

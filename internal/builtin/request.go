@@ -67,9 +67,13 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 
 	builder := request.NewBuilder(parsedURL.Scheme+"://"+parsedURL.Host, parsedURL.Path, method)
 
+	contentTypeSet := false
 	for _, h := range headers {
 		parts := strings.SplitN(h, ":", 2)
 		if len(parts) == 2 {
+			if strings.EqualFold(strings.TrimSpace(parts[0]), "Content-Type") {
+				contentTypeSet = true
+			}
 			builder.WithHeader(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
 		}
 	}
@@ -82,7 +86,10 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 	}
 
 	if httpBody != "" && (method == "POST" || method == "PUT" || method == "PATCH") {
-		builder.JSONBody(httpBody)
+		builder.WithBody(httpBody)
+		if !contentTypeSet {
+			builder.WithHeader("Content-Type", "application/json")
+		}
 	}
 
 	builder.WithTimeout(timeout)

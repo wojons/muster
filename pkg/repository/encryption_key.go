@@ -50,20 +50,7 @@ func NewEncryptionKeyManager(cfg *EncryptionKeyConfig) (*EncryptionKeyManager, e
 		cfg.Iterations = DefaultKeyDerivationIterations
 	}
 
-	// Generate or use provided master key
-	var masterKey []byte
-	if len(cfg.MasterKey) > 0 {
-		masterKey = cfg.MasterKey
-	} else {
-		// Generate a random master key
-		masterKey = make([]byte, 32)
-		if _, err := rand.Read(masterKey); err != nil {
-			return nil, fmt.Errorf("generate master key: %w", err)
-		}
-	}
-
-	// Generate or load salt
-	var salt []byte
+	// Determine key path
 	keyPath := cfg.KeyPath
 	if keyPath == "" {
 		// Default key path in user's config directory
@@ -91,6 +78,28 @@ func NewEncryptionKeyManager(cfg *EncryptionKeyConfig) (*EncryptionKeyManager, e
 		}
 	}
 
+	// Generate or use provided master key
+	var masterKey []byte
+	if len(cfg.MasterKey) > 0 {
+		masterKey = cfg.MasterKey
+	} else {
+		// Try to load existing master key (for consistency across sessions)
+		masterKey, err = loadKey(keyPath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return nil, fmt.Errorf("load master key: %w", err)
+			}
+			// Generate a new random master key and persist it
+			masterKey = make([]byte, KeySize)
+			if _, err := rand.Read(masterKey); err != nil {
+				return nil, fmt.Errorf("generate master key: %w", err)
+			}
+			if err := saveKey(keyPath, masterKey); err != nil {
+				return nil, fmt.Errorf("save master key: %w", err)
+			}
+		}
+	}
+
 	mgr := &EncryptionKeyManager{
 		keyPath:    keyPath,
 		masterKey:  masterKey,
@@ -105,10 +114,6 @@ func NewEncryptionKeyManager(cfg *EncryptionKeyConfig) (*EncryptionKeyManager, e
 func (m *EncryptionKeyManager) DeriveKey() ([]byte, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-
-	if !m.initialized {
-		return nil, fmt.Errorf("key manager not initialized")
-	}
 
 	// Derive key using PBKDF2-HMAC-SHA256
 	key := pbkdf2.Key(m.masterKey, m.salt, m.iterations, KeySize, sha256.New)
@@ -166,6 +171,11 @@ func (m *EncryptionKeyManager) RotateKey(newMasterKey []byte) error {
 		return fmt.Errorf("save new salt: %w", err)
 	}
 
+	// Save new master key
+	if err := saveKey(m.keyPath, newMasterKey); err != nil {
+		return fmt.Errorf("save new master key: %w", err)
+	}
+
 	// Update in-memory values
 	m.masterKey = newMasterKey
 	m.salt = newSalt
@@ -187,6 +197,36 @@ func loadSalt(path string) ([]byte, error) {
 	}
 
 	return salt, nil
+}
+
+func loadKey(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := hex.DecodeString(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("decode key: %w", err)
+	}
+
+	return key, nil
+}
+
+func saveKey(path string, key []byte) error {
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("create key directory: %w", err)
+	}
+
+	// Write key with secure permissions
+	hexKey := hex.EncodeToString(key)
+	if err := os.WriteFile(path, []byte(hexKey), 0600); err != nil {
+		return fmt.Errorf("write key: %w", err)
+	}
+
+	return nil
 }
 
 func saveSalt(path string, salt []byte) error {

@@ -91,7 +91,7 @@ func TestSQLiteManager_CreateResidencyPolicy(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	allowedRegions := []DataRegion{DataRegionEU, DataRegionUK}
@@ -116,7 +116,7 @@ func TestSQLiteManager_CreateResidencyPolicy_InvalidMode(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	_, err = sm.CreateResidencyPolicy(ctx, "Test", "Test policy", []DataRegion{DataRegionUS}, "invalid")
@@ -133,7 +133,7 @@ func TestSQLiteManager_UpdateResidencyPolicy(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	// Create policy
@@ -164,7 +164,7 @@ func TestSQLiteManager_DeleteResidencyPolicy(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	// Create policy
@@ -190,7 +190,7 @@ func TestSQLiteManager_GetResidencyPolicy(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	// Create policy
@@ -218,7 +218,7 @@ func TestSQLiteManager_GetResidencyPolicy_NotFound(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	_, err = sm.GetResidencyPolicy(ctx, 999)
@@ -235,7 +235,7 @@ func TestSQLiteManager_GetActiveResidencyPolicy(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	// No policy exists
@@ -373,7 +373,7 @@ func TestResidencyEnforcer_AuthorizeWrite_Strict_Blocked(t *testing.T) {
 	// Run migrations to create violations table
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -399,7 +399,7 @@ func TestResidencyEnforcer_AuthorizeWrite_Audit(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -434,7 +434,7 @@ func TestResidencyEnforcer_GetViolations_Pagination(t *testing.T) {
 	// Run migrations
 	mm, err := NewMigrationManager(sm.db, "../../migrations", logger)
 	require.NoError(t, err)
-	err = mm.Up()
+	err = mm.UpTo(8)
 	require.NoError(t, err)
 
 	ctx := context.Background()
