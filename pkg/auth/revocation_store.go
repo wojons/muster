@@ -3,11 +3,9 @@ package auth
 import (
 	"crypto/sha256"
 	"database/sql"
-	"errors"
 	"fmt"
+	"strings"
 	"time"
-
-	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
 type RevocationCache struct {
@@ -54,7 +52,7 @@ func (s *DatabaseRevocationStore) Revoke(token string, expiresAt time.Time) erro
 	)
 
 	if err != nil {
-		if errors.Is(err, sqlite3.ErrConstraint) {
+		if strings.Contains(err.Error(), "UNIQUE constraint") {
 			return fmt.Errorf("token revocation constraint violation: %w", err)
 		}
 		return fmt.Errorf("failed to revoke token: %w", err)
@@ -128,7 +126,7 @@ func (s *DatabaseRevocationStore) RevokeWithReason(token, reason string, expires
 	)
 
 	if err != nil {
-		if errors.Is(err, sqlite3.ErrConstraint) {
+		if strings.Contains(err.Error(), "UNIQUE constraint") {
 			return fmt.Errorf("token revocation constraint violation: %w", err)
 		}
 		return fmt.Errorf("failed to revoke token: %w", err)
