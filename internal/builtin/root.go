@@ -34,6 +34,8 @@ and serves them via MCP protocol.`,
 	root.AddCommand(newRequestCommand())
 	root.AddCommand(newDaemonCommand())
 	root.AddCommand(newDslCommand())
+	root.AddCommand(newAuditCommand())
+	root.AddCommand(newTenantCommand())
 
 	// Load and add persisted commands from storage
 	loadPersistedCommands(root, cfg)
