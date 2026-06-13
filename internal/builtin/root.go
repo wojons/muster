@@ -58,7 +58,7 @@ and serves them via MCP protocol.`,
 	root.AddCommand(newGenerateCommand(cfg))
 	root.AddCommand(newRequestCommand(cfg))
 	root.AddCommand(newDaemonCommand())
-	root.AddCommand(newDslCommand())
+	// root.AddCommand(newDslCommand()) // TODO: implement DSL command
 
 	// Load and add persisted commands from storage
 	loadPersistedCommands(root, cfg)
