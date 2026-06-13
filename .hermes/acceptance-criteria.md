@@ -3,19 +3,19 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-13 10:15 CST
-**Run status:** 🟢 AC-001 through AC-015 all pass. Adding 9 new demo ACs (D01-D09) — 5 full dummy products + 10 demo scripts.
-**Summary:** All core ACs resolved. Building demo/ showcase: Task Forge, ByteStash, Inkwell, Pulse, ChainLink — 5 dummy products with seed data. 10 self-documenting demo scripts. One-command run-all.sh.
+**Last run:** 2026-06-14 02:30 CST
+**Run status:** 🟢 ALL CRITERIA PASSED. AC-001 through AC-015 ✅. AC-D01 through AC-D09 ✅ (re-verified 2026-06-14 02:30). Demo: 23/23 checks (build + services + seeds + 10 demos). Full test suite: 0 failures. `go vet` clean. `go build ./...` clean.
+**Summary:** Muster is functionally complete. All acceptance criteria pass. Committed demo script improvements (90f5365). Backlog: AC-016 (Redis cache), AC-017 (test coverage), AC-018 (D-Bus Secret Service). See Obsidian Projects/Muster for full run report.
 
 ## Demo Infrastructure (Fake Apps)
 
 Muster needs things to talk to. These fake services get spun up during testing:
 
-> **Note:** AC-011 is currently building 5 enhanced demo apps in `tests/muster-test-suite/apps/`. The table below shows the TARGET state. Current `demo/` directory has simpler versions (crud-service, file-service, auth-service, spec-provider) that will be replaced.
+> **Note:** The 5 enhanced demo apps live in `demo/services/` (task-forge :9801, bytestash :9802, inkwell :9803, pulse :9804, chainlink :9805). Each serves its own `/openapi.json`. All 5 verified healthy and working (2026-06-14).
 
 | Service | Port | Language | What it provides |
 |---------|------|----------|-----------------|
-| **Task Forge** | 9800 | Python Flask | Project management API — projects, tasks, comments, milestones, tags. Nested resources, query filters, PATCH partial updates, pagination, search |
+| **Task Forge** | 9801 | Python Flask | Project management API — projects, tasks, comments, milestones, tags. Nested resources, query filters, PATCH partial updates, pagination, search |
 | **File Vault** | 9802 | Python Flask | File storage API — multipart upload, binary download, folder hierarchy, sharing, soft delete (trash/recover) |
 | **Content Hub** | 9803 | Python Flask | Blog/CMS with role-based auth (reader/author/editor/admin) — posts, comments, draft→publish workflow |
 | **Metrics Engine** | 9804 | Python Flask | Time-series analytics — bulk insert, range queries, aggregations (avg/min/max/sum), multi-series, dashboard CRUD |
@@ -183,65 +183,63 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 ### AC-015: Fix pkg/platform seccomp/SELinux runtime test failures ✅ RESOLVED
 **Verified:** 2026-06-11
 **Evidence:** Added `seccompAvailable(t)` helper (probes kernel by creating+loading a minimal filter) and `selinuxAvailable(t)` helper (checks `isSELinuxEnabled()`). All 23 platform tests that require seccomp/SELinux now SKIP gracefully when the host lacks kernel support. Full test suite: 0 failures across all packages. Commits: a562554.
-## Active Criteria — Demo Projects
 
-> These 5 dummy systems live in `demo/services/`. Each is a self-contained Flask app with seed data.
-> Run: `./demo/run-all.sh` — builds Muster, starts all 5, runs 10 demos, prints pass/fail, cleans up.
+### AC-016: Redis cache implementation
+**Goal:** `pkg/cache/redis.go` is a stub (all methods return ErrRedisNotImplemented). Implement a real Redis-backed cache.
+**How to verify:** Start Redis, configure Muster with Redis cache backend, create task via CLI, list tasks — second request hits cache (Redis key visible, no HTTP request logged).
+**Status:** pending
+**Why deferred:** Requires Redis instance. Currently blocked on infrastructure setup.
+**Source:** `pkg/cache/redis.go` — entire file is stub
 
-### AC-D01: Task Forge — Project Management Platform
-**What:** Full CRUD for projects, tasks, comments, milestones. Tags with many-to-many, PATCH partial updates, search, filters, pagination.
-**Port:** 9801
-**Seed data:** "Acme Corp Website Redesign" — 2 projects, 3 milestones, 15 tasks across 3 users, 40 comments
-**Demo script:** `demo/demos/02-crud-lifecycle.sh` — create project → create tasks → list → filter by tag → update status → delete
-**Verification:** `curl http://localhost:9801/health` → 200, `curl http://localhost:9801/openapi.json` → valid spec with 14+ paths
+### AC-017: Unit test coverage for untested packages
+**Goal:** 10 untested packages have zero test coverage: `pkg/dsl`, `pkg/openapi`, `pkg/request`, `pkg/response`, `pkg/rate`, `pkg/retry`, `pkg/repository`, `pkg/repository/sql`, `pkg/cmdstore`, `test/functional/harness`, `test/util`. Add basic unit tests to each.
+**How to verify:** `go test -cover ./pkg/dsl/ ./pkg/openapi/ ...` — each package >50% coverage.
+**Status:** pending
+**Why deferred:** 11 packages, ~30-50 tests needed. Good Axiom batch work.
 
-### AC-D02: ByteStash — Cloud File Storage
-**What:** Folders, files, multipart upload, binary download, trash (soft delete with recover/permanent delete), sharing links
-**Port:** 9802
-**Seed data:** "Marketing Assets" (8 files), "Engineering" (5 binaries), "HR" (3 docs) — organized in folders
-**Demo script:** `demo/demos/03-file-workflow.sh` — upload file → list folder → download → verify content → trash → recover → permanent delete
-**Verification:** Upload an actual binary, download it, `diff` confirms byte-identical
+### AC-018: D-Bus Secret Service for credential storage
+**Goal:** `internal/platform/linux/keyring_secret_service.go` and `credential.go` have 7 TODO stubs for D-Bus Secret Service protocol. Implement real D-Bus communication.
+**How to verify:** Set a credential via Muster → read it back → verify it's stored in the system keyring (not in plaintext config).
+**Status:** pending
+**Why deferred:** Requires D-Bus integration testing. Complex cross-process protocol. Lowest priority of remaining work.
+**Source:** `internal/platform/linux/keyring_secret_service.go` (lines 41, 50, 59) + `credential.go` (lines 23, 32, 41)
 
-### AC-D03: Inkwell — Blog / CMS Platform
-**What:** Posts, comments, 4 auth roles (reader/author/editor/admin). Draft → review → publish workflow. Comment moderation queue. Role-gated endpoints.
-**Port:** 9803
-**Seed data:** 5 authors, 12 posts at various stages (draft/review/published), threaded comments, pre-set Bearer tokens per role
-**Demo script:** `demo/demos/04-auth-spectrum.sh` — hit as reader (can only read published), author (can create/edit own), editor (can review), admin (can publish/delete). Verify 401/403/200 per role.
+## Passed Criteria — Demo Projects ✅
 
-### AC-D04: Pulse — Metrics & Analytics Dashboard
-**What:** Series, data points, dashboards, alerts. Bulk insert, range queries, 4 aggregation types (avg/min/max/sum), time-window filters.
-**Port:** 9804
-**Seed data:** "CPU Usage", "Request Latency", "Error Rate" — 50 data points each over 24h. 2 dashboards, 3 alert definitions.
-**Demo script:** `demo/demos/05-analytics-pipeline.sh` — bulk insert 10 points → range query → avg aggregation → create alert → list dashboards
+> All 9 demo ACs verified 2026-06-13 22:00 CST. `demo/run-all.sh` — 23/23 checks pass (3 builds + 5 services + 5 seeds + 10 demos).
 
-### AC-D05: ChainLink — Workflow Automation Engine
-**What:** Workflows → steps → executions → webhooks. Multi-step chained execution, async job polling, callback URLs, retry logic.
-**Port:** 9805
-**Seed data:** "User Onboarding" (4-step: create account → send email → provision resources → notify admin), "Data Pipeline" (3-step: ingest → transform → export). Pre-registered webhook callbacks.
-**Demo script:** `demo/demos/06-workflow-orchestration.sh` — create workflow → trigger execution → poll status → verify all steps completed
+### AC-D01: Task Forge — Project Management Platform ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** 5 demo services all healthy, all seed data loaded, 10/10 demo scripts pass.
 
-### AC-D06: Demo Scripts — 10 Self-Documenting Shell Scripts
-**What:** Each script is 20-50 lines, prints what it does, shows actual output, ends with `✓ PASS` or `✗ FAIL`. Uses `set -e`, colored output, clear error messages.
-| # | Script | What it shows |
-|---|--------|--------------|
-| 01 | `demo/demos/01-discover-all.sh` | Discover all 5 systems at once, display 70+ endpoints |
-| 02 | `demo/demos/02-crud-lifecycle.sh` | Full create→read→update→delete against Task Forge |
-| 03 | `demo/demos/03-file-workflow.sh` | Upload/download/trash/recover via ByteStash |
-| 04 | `demo/demos/04-auth-spectrum.sh` | Reader→author→editor→admin against Inkwell |
-| 05 | `demo/demos/05-analytics-pipeline.sh` | Bulk insert, range query, aggregation via Pulse |
-| 06 | `demo/demos/06-workflow-orchestration.sh` | Trigger ChainLink workflow, poll until done |
-| 07 | `demo/demos/07-daemon-proxy.sh` | Start daemon, proxy all 5 systems through Unix socket |
-| 08 | `demo/demos/08-mcp-ai-agent.sh` | Start MCP server, tools/list shows 70+ tools, tools/call one live |
-| 09 | `demo/demos/09-wasm-transform.sh` | Load WASM plugin, see `"wasm": true` in every response |
-| 10 | `demo/demos/10-dsl-chaining.sh` | Starlark script: create task → get project → add comment → mark done |
+### AC-D02: ByteStash — Cloud File Storage ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** ByteStash :9802 healthy. demo 03-file-workflow.sh: upload/download/trash/recover/permanent-delete verified.
 
-### AC-D07: `run-all.sh` — One Command, Full Demo
-**What:** `cd demo && ./run-all.sh` does everything. Builds Muster binaries, starts all 5 services, waits for health checks, runs all 10 demo scripts, prints summary (`N passed, M failed`), cleans up all processes on exit (trap EXIT). Supports `--keep-running` to leave services up for manual exploration.
-**Verification:** Exit code = number of failures. Re-running produces identical results.
+### AC-D03: Inkwell — Blog / CMS Platform ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** Inkwell :9803 healthy. demo 04-auth-spectrum.sh: reader/author/editor/admin role gates verified (401/403/200).
 
-### AC-D08: Demo WASM Module
-**What:** `demo/wasm/response-transform.wasm` — a compiled WASM module (wazero) that intercepts responses and injects `"wasm": true`. Source at `demo/wasm/transform.go`. Used by demo 09.
-**Verification:** `./bin/openapi-cli request GET http://localhost:9801/tasks --wasm-plugin demo/wasm/response-transform.wasm` → response contains `"wasm": true`
+### AC-D04: Pulse — Metrics & Analytics Dashboard ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** Pulse :9804 healthy. demo 05-analytics-pipeline.sh: bulk insert, range query, aggregation verified.
 
-### AC-D09: README.md — Quickstart Guide
-**What:** `demo/README.md` — 30-second quickstart: prerequisites (Go, Python3, Flask), one command to run, what you'll see. Links to individual demo scripts for exploring.
+### AC-D05: ChainLink — Workflow Automation Engine ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** ChainLink :9805 healthy. demo 06-workflow-orchestration.sh: create, trigger, poll, verify workflow steps.
+
+### AC-D06: Demo Scripts — 10 Self-Documenting Shell Scripts ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** All 10 scripts pass (01-discover through 10-dsl-chaining) with clean exit codes.
+
+### AC-D07: `run-all.sh` — One Command, Full Demo ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** `demo/run-all.sh` exit 0, 23/23 checks, cleanup via trap EXIT confirmed.
+
+### AC-D08: Demo WASM Module ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** `response-transform.wasm` exists, demo 09-wasm-transform.sh passes.
+
+### AC-D09: README.md — Quickstart Guide ✅
+**Verified:** 2026-06-13 22:00 CST
+**Evidence:** `demo/README.md` exists with prerequisites, one-command quickstart, demo script index.
