@@ -3,8 +3,10 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -96,6 +98,7 @@ type AuditLogger struct {
 	storage AuditStorage
 	events  chan *AuditEvent
 	done    chan struct{}
+	wg      sync.WaitGroup
 }
 
 // AuditStorage is the interface for audit event persistence.
@@ -104,8 +107,9 @@ type AuditStorage interface {
 	Close() error
 }
 
-// FileStorage writes audit events to a file.
+// FileStorage writes audit events to a file as JSON lines.
 type FileStorage struct {
+	mu   sync.Mutex
 	file *os.File
 }
 
@@ -126,7 +130,21 @@ func NewFileStorage(path string, opts FileStorageOptions) (*FileStorage, error) 
 }
 
 func (fs *FileStorage) Write(event *AuditEvent) error {
-	return nil
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	if event.Timestamp.IsZero() {
+		event.Timestamp = time.Now().UTC()
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+
+	_, err = fs.file.Write(data)
+	return err
 }
 
 func (fs *FileStorage) Close() error {
@@ -135,13 +153,43 @@ func (fs *FileStorage) Close() error {
 
 var _ AuditStorage = (*FileStorage)(nil)
 
-// NewAuditLogger creates a new audit logger.
+// NewAuditLogger creates a new audit logger and starts a background
+// goroutine that consumes events from the channel and writes them to storage.
 func NewAuditLogger(config AuditConfig, storage AuditStorage) *AuditLogger {
-	return &AuditLogger{
+	l := &AuditLogger{
 		config:  config,
 		storage: storage,
 		events:  make(chan *AuditEvent, config.BufferSize),
 		done:    make(chan struct{}),
+	}
+	l.wg.Add(1)
+	go l.consume()
+	return l
+}
+
+// consume reads events from the channel and writes them to storage.
+// It runs until Close() is called.
+func (l *AuditLogger) consume() {
+	defer l.wg.Done()
+	for {
+		select {
+		case event := <-l.events:
+			if l.storage != nil {
+				_ = l.storage.Write(event)
+			}
+		case <-l.done:
+			// Drain remaining events before shutting down.
+			for {
+				select {
+				case event := <-l.events:
+					if l.storage != nil {
+						_ = l.storage.Write(event)
+					}
+				default:
+					return
+				}
+			}
+		}
 	}
 }
 
@@ -155,10 +203,15 @@ func (l *AuditLogger) Log(ctx context.Context, event *AuditEvent) error {
 	}
 }
 
-// Close shuts down the audit logger.
+// Close shuts down the audit logger, waits for the consumer goroutine
+// to drain remaining events, then closes the storage.
 func (l *AuditLogger) Close() error {
 	close(l.done)
-	return l.storage.Close()
+	l.wg.Wait()
+	if l.storage != nil {
+		return l.storage.Close()
+	}
+	return nil
 }
 
 var _ = io.Discard

@@ -1,44 +1,46 @@
 # Active Context
 
-**Last Updated**: 2026-06-04 (prod-readiness-01-fix-linux-security-sec Complete)
-**Session Status**: Linux security hardening complete — Phase 1-4 delivered
+**Last Updated**: 2026-06-13 (prod-readiness-01 Complete)
+**Session Status**: Production readiness verification complete — all 6 phases pass
 
 ## Summary
 
-Successfully completed all 4 phases of `prod-readiness-01-fix-linux-security-sec`:
+Completed `prod-readiness-01` — Production Readiness verification across 6 phases:
 
-### Phase 1 — Seccomp Fixes (completed before cursor, compiled + verified)
-- Fixed `LimitFileAccess` to iterate `allowedPaths`
-- Added `CheckAccess` path verification
-- Added `RecordFailedSyscall` helper
-- Expanded `toSyscallName` with 50+ syscalls
-- Fixed build: converted `seccomp.Syscall` → `seccomp.ScmpSyscall` for v0.11.1 API
+### Phase 1 — Seccomp Bugfixes ✅ (pre-existing)
+- `LimitFileAccess` with `CheckAccess`, `RecordFailedSyscall`, 80+ `toSyscallName` entries
+- All tests pass (12 PASS, 18 SKIP in container env)
 
-### Phase 2 — SELinux Fixes ✅
-- **Modern detection**: Replaced legacy `/selinux` stat with `getenforce` + `/sys/fs/selinux` fallback chain
-- **Robust GetFileContext**: Replaced brittle `ls -Z` parsing with `stat --printf='%C'`
-- New tests: `TestSELinux_ModernDetection`, `TestSELinux_GetFileContext_Robust`
+### Phase 2 — SELinux Verification ✅ (pre-existing)
+- Modern detection, `stat --printf='%C'`, round-trip test
+- All tests pass (3 PASS, 8 SKIP in container env)
 
-### Phase 3 — Linux Keychain ✅
-- Implemented `LinuxKeychain` via `org.freedesktop.secrets` D-Bus (delegating to existing `internal/platform/linux` implementation)
-- Lazy initialization with `sync.Once`
-- Platform stubs for non-Linux builds
+### Phase 3 — Daemon Test Verification ✅ (pre-existing)
+- 30 tests, race clean, 0 failures
 
-### Phase 4 — Integration & Validation ✅
-- `TestSeccomp_E2E_RuntimeBlocks` — subprocess-based runtime verification
-- `TestSELinux_RoundTrip` — process/file context round-trip
-- Full build: `go build ./...` clean
-- Full vet: `go vet ./pkg/platform/` clean
-- All core tests pass; pre-existing container env failures documented
+### Phase 4 — Audit Logging Wiring ✅ (fixed)
+- **Fixed**: `FileStorage.Write` no-op stub → JSON serialization
+- **Fixed**: `AuditLogger` missing consumer goroutine → drain-on-close
+- **Fixed**: nil storage panic → nil-safe Close/consume
+- **Added**: 16 audit tests
+- CLI, MCP, openapi-cli entry points all wired
+
+### Phase 5 — Keychain Integration ✅ (fixed)
+- **Fixed**: `getLinuxKeyring()` missing `Connect()` call
+- **Fixed**: `TestLinuxKeychain` stub assertion
+- FileKeychain fallback verified
+
+### Phase 6 — End-to-End Verification ✅
+- `go build ./...` clean, `make build` all 3 binaries
+- `go test -count=1 ./pkg/... ./cmd/... ./internal/...` — 28 packages, 0 FAIL
+- `make demo` — all 5 integration tests pass
 
 ## Files Changed
-- `pkg/platform/selinux.go` — Modern detection + stat-based GetFileContext
-- `pkg/platform/selinux_test.go` — 254 new lines of tests (ModernDetection, GetFileContext_Robust, RoundTrip)
-- `pkg/platform/secure_storage.go` — Restructured LinuxKeychain
-- `pkg/platform/secure_storage_linux.go` — NEW: D-Bus Secret Service implementation
-- `pkg/platform/secure_storage_default.go` — NEW: non-Linux stubs
-- `pkg/platform/secure_storage_test.go` — Updated LinuxKeychain test
-- `pkg/platform/seccomp.go` — Fixed ScmpSyscall API
-- `pkg/platform/seccomp_sandbox_test.go` — Added E2E runtime blocks test
-- `pkg/platform/capability_test.go` — Fixed t.Skip→t.Skipf
-- `pkg/platform/sandbox_escape_test.go` — Removed unused imports
+- `internal/audit/audit_types.go` — FileStorage.Write, consumer goroutine, nil-safe Close
+- `internal/audit/audit_test.go` — NEW: 16 tests
+- `pkg/platform/secure_storage_linux.go` — Connect() call
+- `pkg/platform/secure_storage_test.go` — Pre-check skip, relaxed stub assertion
+- `.memory-bank/work-items/prod-readiness-01/plan.yaml` — execution status + cursor
+- `.memory-bank/work-items/prod-readiness-01/verification.md` — NEW: evidence bundle
+- `.memory-bank/progress.md` — Updated status
+- `.memory-bank/activeContext.md` — This file

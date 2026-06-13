@@ -30,6 +30,9 @@ var (
 func getLinuxKeyring() (*linuxkr.SecretServiceKeyring, error) {
 	linuxKeyringOnce.Do(func() {
 		linuxKeyring, linuxKeyringErr = linuxkr.NewSecretServiceKeyring()
+		if linuxKeyringErr == nil {
+			linuxKeyringErr = linuxKeyring.Connect()
+		}
 	})
 	if linuxKeyringErr != nil {
 		return nil, fmt.Errorf("Linux keychain unavailable: %w", linuxKeyringErr)
