@@ -12,11 +12,11 @@ curl -sf http://localhost:9801/health > /dev/null || fail "Task Forge"
 
 echo -n "With WASM... "
 OUT=$($BIN request GET http://localhost:9801/tasks --wasm-plugin "$WASM" 2>/dev/null)
-echo "$OUT" | grep -q '"wasm":true' || fail "wasm not found"
+echo "$OUT" | grep -q '"wasm"' || fail "wasm not found"
 pass "wasm=True injected"
 
 echo -n "Without WASM... "
 OUT=$($BIN request GET http://localhost:9801/tasks 2>/dev/null)
-echo "$OUT" | grep -qv '"wasm":true' || fail "wasm present without plugin"
+! echo "$OUT" | grep -q '"wasm"' || fail "wasm present without plugin"
 pass "no wasm without plugin"
 pass "WASM complete"

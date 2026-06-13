@@ -286,6 +286,30 @@ def abort_upload(upload_id):
     upload["status"] = "aborted"
     return jsonify({"aborted": True, "upload_id": upload_id})
 
+@app.route("/uploads/<upload_id>", methods=["GET"])
+def get_upload(upload_id):
+    """Get upload status — used by demo to extract file_id after completion."""
+    if upload_id not in multipart_uploads:
+        return jsonify({"error": "upload not found"}), 404
+    return jsonify(multipart_uploads[upload_id])
+
+@app.route("/uploads/<upload_id>/parts/<int:part_number>", methods=["PUT"])
+def upload_part_path(upload_id, part_number):
+    """Upload a part with part_number as a path segment (demo compatibility)."""
+    if upload_id not in multipart_uploads:
+        return jsonify({"error": "upload not found"}), 404
+    upload = multipart_uploads[upload_id]
+    if upload["status"] != "in_progress":
+        return jsonify({"error": "upload not in progress"}), 400
+    data = request.get_data()
+    part_path = _part_path(upload_id, part_number)
+    with open(part_path, "wb") as f:
+        f.write(data)
+    if part_number not in upload["parts_received"]:
+        upload["parts_received"].append(part_number)
+    upload["total_parts"] = max(upload.get("total_parts", 0), part_number)
+    return jsonify({"status": "received", "part": part_number, "size": len(data)})
+
 # ── Trash (Soft Delete / Recover / Permanent Delete) ────────
 
 def _soft_delete(item_type, item_id):
