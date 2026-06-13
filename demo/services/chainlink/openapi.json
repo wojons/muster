@@ -1,0 +1,372 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ChainLink API",
+    "version": "1.0.0",
+    "description": "Workflow automation engine — define multi-step workflows with dependencies, execute them asynchronously, poll for status, and register webhook callbacks."
+  },
+  "servers": [{"url": "http://localhost:9805"}],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Health"}}}
+          }
+        }
+      }
+    },
+    "/workflows": {
+      "get": {
+        "summary": "List all workflows",
+        "parameters": [
+          {"name": "q", "in": "query", "schema": {"type": "string"}, "description": "Search query"},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}, "description": "Page number"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}, "description": "Items per page"}
+        ],
+        "responses": {
+          "200": {"description": "Workflow list", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Workflow"}}}}}
+        }
+      },
+      "post": {
+        "summary": "Create a workflow",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateWorkflow"}}}
+        },
+        "responses": {
+          "201": {"description": "Workflow created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Workflow"}}}}
+        }
+      }
+    },
+    "/workflows/{workflow_id}": {
+      "parameters": [
+        {"name": "workflow_id", "in": "path", "required": true, "schema": {"type": "string"}}
+      ],
+      "get": {
+        "summary": "Get a workflow by ID",
+        "responses": {
+          "200": {"description": "Workflow", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Workflow"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "patch": {
+        "summary": "Update a workflow (partial)",
+        "requestBody": {
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdateWorkflow"}}}
+        },
+        "responses": {
+          "200": {"description": "Updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Workflow"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete a workflow (cascades to steps and executions)",
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/workflows/{workflow_id}/execute": {
+      "parameters": [
+        {"name": "workflow_id", "in": "path", "required": true, "schema": {"type": "string"}}
+      ],
+      "post": {
+        "summary": "Execute a workflow asynchronously",
+        "description": "Triggers execution of all steps in order. Returns 202 immediately with an execution ID for polling.",
+        "requestBody": {
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ExecuteRequest"}}}
+        },
+        "responses": {
+          "202": {
+            "description": "Execution accepted",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ExecutionAccepted"}}}
+          },
+          "400": {"description": "Workflow has no steps"},
+          "404": {"description": "Workflow not found"}
+        }
+      }
+    },
+    "/workflows/{workflow_id}/steps": {
+      "parameters": [
+        {"name": "workflow_id", "in": "path", "required": true, "schema": {"type": "string"}}
+      ],
+      "get": {
+        "summary": "List steps in a workflow (ordered)",
+        "responses": {
+          "200": {"description": "Step list", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Step"}}}}},
+          "404": {"description": "Workflow not found"}
+        }
+      },
+      "post": {
+        "summary": "Add a step to a workflow",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateStep"}}}
+        },
+        "responses": {
+          "201": {"description": "Step created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Step"}}}},
+          "404": {"description": "Workflow not found"}
+        }
+      }
+    },
+    "/steps/{step_id}": {
+      "parameters": [
+        {"name": "step_id", "in": "path", "required": true, "schema": {"type": "string"}}
+      ],
+      "get": {
+        "summary": "Get a step by ID",
+        "responses": {
+          "200": {"description": "Step", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Step"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "patch": {
+        "summary": "Update a step (partial)",
+        "requestBody": {
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdateStep"}}}
+        },
+        "responses": {
+          "200": {"description": "Updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Step"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete a step",
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/executions": {
+      "get": {
+        "summary": "List all executions",
+        "parameters": [
+          {"name": "workflow_id", "in": "query", "schema": {"type": "string"}, "description": "Filter by workflow ID"},
+          {"name": "status", "in": "query", "schema": {"type": "string", "enum": ["pending", "running", "done", "failed"]}, "description": "Filter by status"},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}}
+        ],
+        "responses": {
+          "200": {"description": "Execution list", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Execution"}}}}}
+        }
+      }
+    },
+    "/executions/{execution_id}": {
+      "parameters": [
+        {"name": "execution_id", "in": "path", "required": true, "schema": {"type": "string"}}
+      ],
+      "get": {
+        "summary": "Poll execution status",
+        "description": "Check the current status of an async execution. Returns step_results once the run completes.",
+        "responses": {
+          "200": {"description": "Execution details", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Execution"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete an execution record",
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/webhooks": {
+      "get": {
+        "summary": "List all webhooks",
+        "responses": {
+          "200": {"description": "Webhook list", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Webhook"}}}}}
+        }
+      },
+      "post": {
+        "summary": "Register a webhook",
+        "description": "Webhooks fire when executions complete. Filter by event type (e.g., execution.done, execution.failed, execution.*).",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateWebhook"}}}
+        },
+        "responses": {
+          "201": {"description": "Webhook registered", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Webhook"}}}}
+        }
+      }
+    },
+    "/webhooks/{webhook_id}": {
+      "parameters": [
+        {"name": "webhook_id", "in": "path", "required": true, "schema": {"type": "string"}}
+      ],
+      "get": {
+        "summary": "Get a webhook by ID",
+        "responses": {
+          "200": {"description": "Webhook", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Webhook"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete a webhook",
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string", "example": "healthy"},
+          "workflows_count": {"type": "integer"},
+          "steps_count": {"type": "integer"},
+          "executions_count": {"type": "integer"},
+          "webhooks_count": {"type": "integer"}
+        }
+      },
+      "Workflow": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "status": {"type": "string", "enum": ["active", "inactive"]},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateWorkflow": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "status": {"type": "string", "enum": ["active", "inactive"], "default": "active"}
+        }
+      },
+      "UpdateWorkflow": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "status": {"type": "string", "enum": ["active", "inactive"]}
+        }
+      },
+      "Step": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "workflow_id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "order": {"type": "integer"},
+          "depends_on": {"type": "string", "description": "Step ID this step depends on (null for first step)"},
+          "retry_count": {"type": "integer", "description": "Max retries on failure"},
+          "timeout_seconds": {"type": "integer", "description": "Step timeout in seconds"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateStep": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "order": {"type": "integer"},
+          "depends_on": {"type": "string"},
+          "retry_count": {"type": "integer", "default": 3},
+          "timeout_seconds": {"type": "integer", "default": 30}
+        }
+      },
+      "UpdateStep": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "order": {"type": "integer"},
+          "depends_on": {"type": "string"},
+          "retry_count": {"type": "integer"},
+          "timeout_seconds": {"type": "integer"}
+        }
+      },
+      "Execution": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "workflow_id": {"type": "string"},
+          "status": {"type": "string", "enum": ["pending", "running", "done", "failed"]},
+          "current_step": {"type": "string", "description": "Currently executing step ID (null if not running)"},
+          "started_at": {"type": "string", "format": "date-time", "nullable": true},
+          "completed_at": {"type": "string", "format": "date-time", "nullable": true},
+          "step_results": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/StepResult"}
+          },
+          "callback_url": {"type": "string", "nullable": true},
+          "payload": {"type": "object"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "StepResult": {
+        "type": "object",
+        "properties": {
+          "step_id": {"type": "string"},
+          "step_name": {"type": "string"},
+          "status": {"type": "string", "enum": ["running", "done", "failed", "skipped"]},
+          "started_at": {"type": "string", "format": "date-time"},
+          "completed_at": {"type": "string", "format": "date-time"},
+          "error": {"type": "string"},
+          "retries": {"type": "integer"}
+        }
+      },
+      "ExecutionAccepted": {
+        "type": "object",
+        "properties": {
+          "execution_id": {"type": "string"},
+          "status": {"type": "string", "example": "pending"}
+        }
+      },
+      "ExecuteRequest": {
+        "type": "object",
+        "properties": {
+          "callback_url": {"type": "string", "description": "URL to POST result to on completion"},
+          "payload": {"type": "object", "description": "Arbitrary payload passed through to execution"}
+        }
+      },
+      "Webhook": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "url": {"type": "string", "format": "uri"},
+          "events": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Event types: execution.*, execution.done, execution.failed"
+          },
+          "secret": {"type": "string"},
+          "active": {"type": "boolean"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateWebhook": {
+        "type": "object",
+        "required": ["name", "url"],
+        "properties": {
+          "name": {"type": "string"},
+          "url": {"type": "string", "format": "uri"},
+          "events": {
+            "type": "array",
+            "items": {"type": "string"},
+            "default": ["execution.*"]
+          },
+          "secret": {"type": "string"},
+          "active": {"type": "boolean", "default": true}
+        }
+      }
+    }
+  }
+}

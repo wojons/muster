@@ -1,0 +1,572 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Pulse API",
+    "version": "1.0.0",
+    "description": "Metrics dashboard service — time-series data, dashboards with panels, and threshold-alerting. Supports bulk data-point insertion, range queries with time-window filters, and four aggregation types (avg, min, max, sum)."
+  },
+  "servers": [{"url": "http://localhost:9804"}],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Health"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series": {
+      "get": {
+        "summary": "List all metric series",
+        "tags": ["Series"],
+        "parameters": [
+          {"name": "q", "in": "query", "schema": {"type": "string"}, "description": "Search query (matches name, description)"},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}, "description": "Page number"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}, "description": "Items per page"}
+        ],
+        "responses": {
+          "200": {
+            "description": "Series list",
+            "content": {
+              "application/json": {
+                "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Series"}}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new metric series",
+        "tags": ["Series"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CreateSeries"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Series"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/series/{series_id}": {
+      "parameters": [
+        {"name": "series_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Series ID"}
+      ],
+      "get": {
+        "summary": "Get a metric series",
+        "tags": ["Series"],
+        "responses": {
+          "200": {"description": "Series", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Series"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "patch": {
+        "summary": "Update a metric series (partial)",
+        "tags": ["Series"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateSeries"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Series"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete a metric series and its data points",
+        "tags": ["Series"],
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/series/{series_id}/data": {
+      "parameters": [
+        {"name": "series_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Series ID"}
+      ],
+      "get": {
+        "summary": "Query data points for a series with optional time range and aggregation",
+        "tags": ["Data Points"],
+        "parameters": [
+          {"name": "since", "in": "query", "schema": {"type": "string", "format": "date-time"}, "description": "ISO timestamp — lower bound (inclusive)"},
+          {"name": "until", "in": "query", "schema": {"type": "string", "format": "date-time"}, "description": "ISO timestamp — upper bound (inclusive)"},
+          {"name": "aggregate", "in": "query", "schema": {"type": "string", "enum": ["avg", "min", "max", "sum"]}, "description": "Aggregate instead of returning raw points"},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}, "description": "Page number (ignored when aggregate is set)"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 100}, "description": "Points per page (ignored when aggregate is set)"}
+        ],
+        "responses": {
+          "200": {
+            "description": "Data points or aggregation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {"$ref": "#/components/schemas/AggregationResult"},
+                    {"type": "array", "items": {"$ref": "#/components/schemas/DataPoint"}}
+                  ]
+                }
+              }
+            }
+          },
+          "400": {"description": "Invalid aggregate type"},
+          "404": {"description": "Series not found"}
+        }
+      },
+      "post": {
+        "summary": "Bulk-insert data points into a series",
+        "tags": ["Data Points"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/BulkInsertRequest"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Inserted",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/BulkInsertResponse"}
+              }
+            }
+          },
+          "400": {"description": "Invalid payload"},
+          "404": {"description": "Series not found"}
+        }
+      }
+    },
+    "/series/{series_id}/data/{dp_index}": {
+      "parameters": [
+        {"name": "series_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Series ID"},
+        {"name": "dp_index", "in": "path", "required": true, "schema": {"type": "integer"}, "description": "Index of the data point in the series list"}
+      ],
+      "get": {
+        "summary": "Get a single data point by index",
+        "tags": ["Data Points"],
+        "responses": {
+          "200": {"description": "Data point", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IndexedDataPoint"}}}},
+          "404": {"description": "Series or index not found"}
+        }
+      },
+      "patch": {
+        "summary": "Update a single data point by index",
+        "tags": ["Data Points"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateDataPoint"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/IndexedDataPoint"}}}},
+          "404": {"description": "Series or index not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete a single data point by index",
+        "tags": ["Data Points"],
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Series or index not found"}
+        }
+      }
+    },
+    "/dashboards": {
+      "get": {
+        "summary": "List all dashboards",
+        "tags": ["Dashboards"],
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}, "description": "Page number"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}, "description": "Items per page"}
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard list",
+            "content": {
+              "application/json": {
+                "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Dashboard"}}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new dashboard",
+        "tags": ["Dashboards"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CreateDashboard"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Dashboard"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dashboards/{dashboard_id}": {
+      "parameters": [
+        {"name": "dashboard_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Dashboard ID"}
+      ],
+      "get": {
+        "summary": "Get a dashboard",
+        "tags": ["Dashboards"],
+        "responses": {
+          "200": {"description": "Dashboard", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Dashboard"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "patch": {
+        "summary": "Update a dashboard (partial)",
+        "tags": ["Dashboards"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateDashboard"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Dashboard"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete a dashboard",
+        "tags": ["Dashboards"],
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/alerts": {
+      "get": {
+        "summary": "List all alerts, optionally filtered by series",
+        "tags": ["Alerts"],
+        "parameters": [
+          {"name": "series_id", "in": "query", "schema": {"type": "string"}, "description": "Filter by series ID"},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}, "description": "Page number"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}, "description": "Items per page"}
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert list",
+            "content": {
+              "application/json": {
+                "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Alert"}}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new alert rule",
+        "tags": ["Alerts"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CreateAlert"}
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Alert"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/alerts/{alert_id}": {
+      "parameters": [
+        {"name": "alert_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Alert ID"}
+      ],
+      "get": {
+        "summary": "Get an alert",
+        "tags": ["Alerts"],
+        "responses": {
+          "200": {"description": "Alert", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Alert"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "patch": {
+        "summary": "Update an alert (partial)",
+        "tags": ["Alerts"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateAlert"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Alert"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete an alert",
+        "tags": ["Alerts"],
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/alerts/{alert_id}/evaluate": {
+      "parameters": [
+        {"name": "alert_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Alert ID"},
+        {"name": "since", "in": "query", "schema": {"type": "string", "format": "date-time"}, "description": "ISO timestamp — lower bound"},
+        {"name": "until", "in": "query", "schema": {"type": "string", "format": "date-time"}, "description": "ISO timestamp — upper bound"}
+      ],
+      "get": {
+        "summary": "Evaluate an alert against its series data",
+        "tags": ["Alerts"],
+        "responses": {
+          "200": {
+            "description": "Evaluation result",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/AlertEvaluation"}
+              }
+            }
+          },
+          "404": {"description": "Alert or series not found"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string", "example": "healthy"},
+          "series_count": {"type": "integer"},
+          "data_points_count": {"type": "integer"},
+          "dashboards_count": {"type": "integer"},
+          "alerts_count": {"type": "integer"}
+        }
+      },
+      "DataPoint": {
+        "type": "object",
+        "properties": {
+          "timestamp": {"type": "string", "format": "date-time", "description": "ISO 8601 timestamp"},
+          "value": {"type": "number", "format": "float"}
+        },
+        "required": ["timestamp", "value"]
+      },
+      "IndexedDataPoint": {
+        "type": "object",
+        "properties": {
+          "index": {"type": "integer"},
+          "timestamp": {"type": "string", "format": "date-time"},
+          "value": {"type": "number", "format": "float"}
+        }
+      },
+      "UpdateDataPoint": {
+        "type": "object",
+        "properties": {
+          "timestamp": {"type": "string", "format": "date-time"},
+          "value": {"type": "number", "format": "float"}
+        }
+      },
+      "Series": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "unit": {"type": "string"},
+          "data_points": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/DataPoint"}
+          },
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateSeries": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string", "description": "Human-readable metric name"},
+          "description": {"type": "string"},
+          "unit": {"type": "string", "description": "e.g. %, ms, count"}
+        }
+      },
+      "UpdateSeries": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "unit": {"type": "string"}
+        }
+      },
+      "BulkInsertRequest": {
+        "type": "object",
+        "properties": {
+          "points": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/DataPoint"}
+          }
+        },
+        "required": ["points"]
+      },
+      "BulkInsertResponse": {
+        "type": "object",
+        "properties": {
+          "series_id": {"type": "string"},
+          "inserted": {"type": "integer"}
+        }
+      },
+      "AggregationResult": {
+        "type": "object",
+        "properties": {
+          "series_id": {"type": "string"},
+          "aggregate": {"type": "string", "enum": ["avg", "min", "max", "sum"]},
+          "value": {"type": "number", "format": "float", "nullable": true},
+          "count": {"type": "integer"}
+        }
+      },
+      "DashboardPanel": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string", "description": "Panel title"},
+          "type": {"type": "string", "enum": ["line", "bar", "gauge", "stat", "table"], "description": "Chart type"},
+          "series_id": {"type": "string", "description": "Reference to a metric series"},
+          "aggregate": {"type": "string", "enum": ["avg", "min", "max", "sum", "none"], "description": "Aggregation or 'none' for raw series"},
+          "width": {"type": "integer", "description": "Grid width in columns (1–12)"}
+        },
+        "required": ["title", "type", "series_id"]
+      },
+      "Dashboard": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "panels": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/DashboardPanel"}
+          },
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateDashboard": {
+        "type": "object",
+        "required": ["name", "panels"],
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "panels": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/DashboardPanel"}
+          }
+        }
+      },
+      "UpdateDashboard": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "panels": {
+            "type": "array",
+            "items": {"$ref": "#/components/schemas/DashboardPanel"}
+          }
+        }
+      },
+      "Alert": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "series_id": {"type": "string"},
+          "condition": {"type": "string", "enum": ["gt", "lt", "gte", "lte"], "description": "Comparison operator"},
+          "threshold": {"type": "number", "format": "float"},
+          "aggregate": {"type": "string", "enum": ["avg", "min", "max", "sum"], "description": "Aggregation used for evaluation"},
+          "description": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateAlert": {
+        "type": "object",
+        "required": ["name", "series_id", "condition", "threshold"],
+        "properties": {
+          "name": {"type": "string"},
+          "series_id": {"type": "string"},
+          "condition": {"type": "string", "enum": ["gt", "lt", "gte", "lte"]},
+          "threshold": {"type": "number", "format": "float"},
+          "aggregate": {"type": "string", "enum": ["avg", "min", "max", "sum"]},
+          "description": {"type": "string"}
+        }
+      },
+      "UpdateAlert": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "condition": {"type": "string", "enum": ["gt", "lt", "gte", "lte"]},
+          "threshold": {"type": "number", "format": "float"},
+          "aggregate": {"type": "string", "enum": ["avg", "min", "max", "sum"]},
+          "series_id": {"type": "string"}
+        }
+      },
+      "AlertEvaluation": {
+        "type": "object",
+        "properties": {
+          "alert_id": {"type": "string"},
+          "alert_name": {"type": "string"},
+          "aggregate": {"type": "string"},
+          "value": {"type": "number", "format": "float", "nullable": true},
+          "condition": {"type": "string"},
+          "threshold": {"type": "number", "format": "float"},
+          "triggered": {"type": "boolean"},
+          "point_count": {"type": "integer"}
+        }
+      }
+    }
+  }
+}

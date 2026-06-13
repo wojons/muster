@@ -1,0 +1,138 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Task Forge API",
+    "version": "1.0.0",
+    "description": "Project management platform — projects, tasks, comments, milestones, and tags."
+  },
+  "servers": [{"url": "http://localhost:9801"}],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {"200": {"description": "Healthy", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Health"}}}}}
+      }
+    },
+    "/projects": {
+      "get": {
+        "summary": "List all projects",
+        "parameters": [
+          {"name": "q", "in": "query", "schema": {"type": "string"}, "description": "Search query"},
+          {"name": "page", "in": "query", "schema": {"type": "integer"}, "description": "Page number"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer"}, "description": "Items per page"}
+        ],
+        "responses": {"200": {"description": "Project list"}}
+      },
+      "post": {
+        "summary": "Create project",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateProject"}}}},
+        "responses": {"201": {"description": "Created"}}
+      }
+    },
+    "/projects/{project_id}": {
+      "parameters": [{"name": "project_id", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {"summary": "Get project", "responses": {"200": {"description": "Project"}, "404": {"description": "Not found"}}},
+      "patch": {
+        "summary": "Update project (partial)",
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdateProject"}}}},
+        "responses": {"200": {"description": "Updated"}}
+      },
+      "delete": {"summary": "Delete project", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/projects/{project_id}/tasks": {
+      "parameters": [{"name": "project_id", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {
+        "summary": "List tasks in project",
+        "parameters": [
+          {"name": "status", "in": "query", "schema": {"type": "string"}},
+          {"name": "tag", "in": "query", "schema": {"type": "string"}},
+          {"name": "page", "in": "query", "schema": {"type": "integer"}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer"}}
+        ],
+        "responses": {"200": {"description": "Task list"}}
+      },
+      "post": {
+        "summary": "Create task in project",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateTask"}}}},
+        "responses": {"201": {"description": "Created"}}
+      }
+    },
+    "/tasks": {
+      "get": {
+        "summary": "List all tasks",
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer"}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer"}}
+        ],
+        "responses": {"200": {"description": "Task list"}}
+      }
+    },
+    "/tasks/{task_id}": {
+      "parameters": [{"name": "task_id", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {"summary": "Get task", "responses": {"200": {"description": "Task"}, "404": {"description": "Not found"}}},
+      "patch": {
+        "summary": "Update task (partial)",
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdateTask"}}}},
+        "responses": {"200": {"description": "Updated"}}
+      },
+      "put": {
+        "summary": "Update task (full)",
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdateTask"}}}},
+        "responses": {"200": {"description": "Updated"}}
+      },
+      "delete": {"summary": "Delete task", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/tasks/{task_id}/comments": {
+      "parameters": [{"name": "task_id", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {"summary": "List comments on task", "responses": {"200": {"description": "Comment list"}}},
+      "post": {
+        "summary": "Add comment to task",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateComment"}}}},
+        "responses": {"201": {"description": "Created"}}
+      }
+    },
+    "/comments/{comment_id}": {
+      "parameters": [{"name": "comment_id", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "delete": {"summary": "Delete comment", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/projects/{project_id}/milestones": {
+      "parameters": [{"name": "project_id", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {"summary": "List milestones", "responses": {"200": {"description": "Milestone list"}}},
+      "post": {
+        "summary": "Create milestone",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateMilestone"}}}},
+        "responses": {"201": {"description": "Created"}}
+      }
+    },
+    "/milestones/{milestone_id}": {
+      "parameters": [{"name": "milestone_id", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {"summary": "Get milestone", "responses": {"200": {"description": "Milestone"}}},
+      "delete": {"summary": "Delete milestone", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/tags": {
+      "get": {"summary": "List all tags", "responses": {"200": {"description": "Tag list"}}},
+      "post": {
+        "summary": "Create tag",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateTag"}}}},
+        "responses": {"201": {"description": "Created"}}
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Health": {"type": "object", "properties": {"status": {"type": "string"}, "projects_count": {"type": "integer"}, "tasks_count": {"type": "integer"}}},
+      "Project": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "description": {"type": "string"}, "status": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "created_at": {"type": "string"}, "updated_at": {"type": "string"}}},
+      "CreateProject": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}, "description": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}}},
+      "UpdateProject": {"type": "object", "properties": {"name": {"type": "string"}, "description": {"type": "string"}, "status": {"type": "string"}}},
+      "Task": {"type": "object", "properties": {"id": {"type": "string"}, "project_id": {"type": "string"}, "title": {"type": "string"}, "description": {"type": "string"}, "status": {"type": "string", "enum": ["todo", "in_progress", "done"]}, "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"]}, "assignee": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "milestone_id": {"type": "string"}, "created_at": {"type": "string"}, "updated_at": {"type": "string"}}},
+      "CreateTask": {"type": "object", "required": ["title"], "properties": {"title": {"type": "string"}, "description": {"type": "string"}, "status": {"type": "string"}, "priority": {"type": "string"}, "assignee": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "milestone_id": {"type": "string"}}},
+      "UpdateTask": {"type": "object", "properties": {"title": {"type": "string"}, "description": {"type": "string"}, "status": {"type": "string"}, "priority": {"type": "string"}, "assignee": {"type": "string"}, "milestone_id": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}}},
+      "Comment": {"type": "object", "properties": {"id": {"type": "string"}, "task_id": {"type": "string"}, "author": {"type": "string"}, "body": {"type": "string"}, "created_at": {"type": "string"}}},
+      "CreateComment": {"type": "object", "required": ["body"], "properties": {"body": {"type": "string"}, "author": {"type": "string"}}},
+      "Milestone": {"type": "object", "properties": {"id": {"type": "string"}, "project_id": {"type": "string"}, "name": {"type": "string"}, "description": {"type": "string"}, "due_date": {"type": "string"}, "status": {"type": "string"}, "created_at": {"type": "string"}}},
+      "CreateMilestone": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}, "description": {"type": "string"}, "due_date": {"type": "string"}, "status": {"type": "string"}}},
+      "Tag": {"type": "object", "properties": {"id": {"type": "string"}, "name": {"type": "string"}, "color": {"type": "string"}}},
+      "CreateTag": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}, "color": {"type": "string"}}}
+    }
+  }
+}
