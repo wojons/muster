@@ -10,7 +10,7 @@ BIN=./bin/openapi-daemon; SOCK=/tmp/muster-demo-daemon.sock
 [ -x "$BIN" ] || fail "$BIN not found"
 
 echo -n "Starting daemon... "
-$BIN proxy --backend-url http://localhost:9801 --socket-path "$SOCK" &
+$BIN proxy --backend-url http://localhost:9801 --socket-path "$SOCK" &>/dev/null &
 DPID=$!; sleep 2
 curl -sf --unix-socket "$SOCK" http://localhost/health > /dev/null || fail "health"
 pass "daemon on $SOCK"
@@ -20,7 +20,7 @@ curl -sf --unix-socket "$SOCK" http://localhost/tasks | python3 -c "import sys,j
 pass "task list via proxy"
 
 echo -n "Proxy POST... "
-curl -sf --unix-socket "$SOCK" -X POST http://localhost/tasks -H "Content-Type: application/json" -d '{"title":"via daemon"}' | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('id') else 1)" || fail "create"
+curl -sf --unix-socket "$SOCK" -X POST http://localhost/projects/1/tasks -H "Content-Type: application/json" -d '{"title":"via daemon"}' | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('id') else 1)" || fail "create"
 pass "created via proxy"
 
 kill $DPID 2>/dev/null; rm -f "$SOCK"

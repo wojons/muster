@@ -11,7 +11,7 @@ BIN=./bin/openapi-cli; WASM=demo/wasm/response-transform.wasm
 curl -sf http://localhost:9801/health > /dev/null || fail "Task Forge"
 
 echo -n "With WASM... "
-WT=$($BIN request GET http://localhost:9801/tasks --wasm-plugin "$WASM" 2>&1 | python3 -c "import sys,json; print(json.load(sys.stdin).get('wasm',''))" 2>/dev/null || echo "")
+WT=$($BIN request GET http://localhost:9801/tasks --wasm-plugin "$WASM" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('wasm',''))" 2>/dev/null || echo "")
 [ "$WT" = "True" ] || fail "wasm not found, got: $WT"
 pass "wasm=True injected"
 
