@@ -1,0 +1,37 @@
+You are tower-axiom. Work on the Muster project at /workspace.
+
+## Work Item: Add inventory add/remove subcommands and wire them to pkg/inventory
+
+### Background
+The CLI's `inventory` command (internal/builtin/inventory.go) currently has `fetch`, `list`, `validate` subcommands — but they're all STUBS that just print placeholder messages. The AC requires `inventory add --name <name> --url <url>` and `inventory list` to actually work with real inventory data.
+
+### What to build
+
+1. **Add `inventory add` subcommand** to internal/builtin/inventory.go:
+   - Flags: `--name` (required, string), `--url` (required, string)
+   - Behavior: Use pkg/inventory package to add an inventory source
+   - The pkg/inventory package at /workspace/pkg/inventory/ has InMemoryStore, Cache, and protocol types ready to use
+
+2. **Add `inventory remove` subcommand** to internal/builtin/inventory.go:
+   - Flags: `--name` (required, string)
+   - Behavior: Remove inventory source by name
+
+3. **Wire `inventory list` to real data** — make it show actual cached inventories instead of "No cached inventories found"
+
+4. **Wire `inventory fetch` to real data** — make it actually fetch from the configured URL instead of printing "Inventory fetched successfully"
+
+### Files to modify
+- internal/builtin/inventory.go (add add/remove commands, wire list/fetch)
+- internal/builtin/inventory_test.go (add tests for new commands)
+- internal/builtin/root.go (the add/remove commands will be auto-registered via AddCommand in newInventoryCommand)
+
+### Requirements
+- Use pkg/inventory package for data storage (InMemoryStore, Cache, Fetcher)
+- Read the pkg/inventory source files to understand the available types and functions
+- Add tests that verify the commands register and respond correctly
+- Run `go build ./...` and `go test ./internal/builtin/` to verify
+- DO NOT create or switch branches
+- Commit your changes with message "feat: add inventory add/remove subcommands"
+
+### Package path note
+The Go module is "github.com/openapi-cli/openapi-cli". Use this for imports.

@@ -1,0 +1,35 @@
+You are tower-axiom. Build real code, verify each step, commit.
+
+**Goal:** Wire mTLS auth into the Muster CLI so users can generate certs and make mTLS-authenticated requests.
+
+**What already exists:**
+- `pkg/auth/mtls.go` — FULL infrastructure: CertificateManager, CreateMTLSClient(), GenerateSelfSignedCert(), LoadCertificate(), SaveCertificate(), Validate(). Also TLSConfig and DefaultTLSConfig(). All with proper error handling.
+- `internal/builtin/init.go` — `init` command has `--mtls` flag that sets `config.Set("auth.mtls.enabled", true)` and prints "mTLS: enabled". It also stores cert-path, key-path, ca-path from flags.
+- `pkg/auth/mtls_test.go` — 350+ lines of unit tests for the infra layer.
+
+**What needs to be built:**
+
+1. **`auth mtls` subcommand in `internal/builtin/auth.go`:**
+   - `auth mtls generate` — generates self-signed client cert, saves cert PEM + key PEM to `~/.muster/mtls/` directory. Accepts --common-name flag (default: "muster-client"). Outputs cert path, key path, and expiration.
+   - `auth mtls info <cert-path>` — loads and displays cert info (CN, valid from/to, key usage, issuer).
+   - `auth mtls configure --cert <path> --key <path> --ca <path>` — stores cert/key/CA paths in config for use by the request pipeline. Also sets `auth.mtls.enabled=true`.
+
+2. **Wire mTLS into the request pipeline** in `internal/builtin/request.go`:
+   - Before making HTTP requests, check if `auth.mtls.enabled` is true
+   - If enabled, load cert/key/CA from config paths, create an mTLS HTTP client via `pkg/auth.CreateMTLSClient()`, and use it for the request
+   - The current `init --mtls` flag already stores the paths — make `request` actually USE them
+
+3. **Tests:** Add tests for the new subcommands in `internal/builtin/auth_test.go`. Full CLI tests with temp certs.
+
+**CRITICAL: Container has NO Python. DO NOT install anything or run Python code. Just WRITE Go files. Testing happens on the host.**
+
+**DO NOT:**
+- Touch pkg/auth/mtls.go (it's already correct)
+- Create new packages
+- Add new dependencies
+- Change the existing auth add/list/remove commands
+- Create or switch git branches
+
+Use baby steps. Build the subcommands first, verify with `go build ./...`, wire the request pipeline, add tests, commit.
+
+**Model hint for speed:** If generating >3 new files, use parallel approach. Verify build after each subcommand addition.
