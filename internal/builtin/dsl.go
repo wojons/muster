@@ -7,49 +7,31 @@ import (
 	"os"
 	"strings"
 
-	"github.com/wojons/muster/pkg/dsl"
 	"github.com/spf13/cobra"
+	"github.com/wojons/muster/pkg/dsl"
 	"go.starlark.net/starlark"
 )
 
-// newDslCommand creates the 'dsl' subcommand for running Starlark DSL scripts.
-// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md plan=phase-97-2/task-97-2-1/step-97-2-1-1
 func newDslCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "dsl",
-		Short: "Starlark DSL workflow commands",
-		Long:  `Run Starlark DSL scripts for workflow chaining and API orchestration.`,
-	}
-
-	cmd.AddCommand(newDslRunCommand())
-
-	return cmd
-}
-
-// newDslRunCommand creates the 'dsl run <file.star>' subcommand.
-func newDslRunCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "run <file.star>",
-		Short: "Execute a Starlark DSL script",
-		Long: `Execute a Starlark DSL script that can chain HTTP API calls.
-
-Available builtins:
-  http_get(url)          — HTTP GET, returns response body as string
-  http_post(url, body?)  — HTTP POST with optional JSON body, returns response body as string
-  http_put(url, body?)   — HTTP PUT with optional JSON body, returns response body as string
-  http_delete(url)       — HTTP DELETE, returns response body as string`,
-		Args: cobra.ExactArgs(1),
-		RunE: runDslScript,
+		Use:   "dsl run <file.star>",
+		Short: "Run a Starlark DSL script with HTTP builtins",
+		Long: `Execute a .star Starlark script with built-in HTTP functions:
+  http_get(url) -> response body string
+  http_post(url, body) -> response body string
+  http_put(url, body) -> response body string
+  http_delete(url) -> response body string`,
+		Args: cobra.ExactArgs(2),
+		RunE: runDsl,
 	}
 }
 
-// runDslScript reads, parses, compiles, and executes a Starlark DSL script.
-func runDslScript(cmd *cobra.Command, args []string) error {
-	filename := args[0]
+func runDsl(cmd *cobra.Command, args []string) error {
+	filePath := args[1]
 
-	src, err := os.ReadFile(filename)
+	src, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("read script %s: %w", filename, err)
+		return fmt.Errorf("reading script: %w", err)
 	}
 
 	builtins := map[string]interface{}{
@@ -61,97 +43,91 @@ func runDslScript(cmd *cobra.Command, args []string) error {
 
 	interp := dsl.NewInterpreter(builtins)
 
-	ast, err := interp.Parse(string(src), filename)
+	ast, err := interp.Parse(string(src), filePath)
 	if err != nil {
-		return fmt.Errorf("parse %s: %w", filename, err)
+		return fmt.Errorf("parse error: %w", err)
 	}
 
-	program, err := interp.Compile(ast)
+	prog, err := interp.Compile(ast)
 	if err != nil {
-		return fmt.Errorf("compile %s: %w", filename, err)
+		return fmt.Errorf("compile error: %w", err)
 	}
 
-	globals, err := interp.Exec(program)
+	globals, err := interp.Exec(prog)
 	if err != nil {
-		return fmt.Errorf("execute %s: %w", filename, err)
+		return fmt.Errorf("execution error: %w", err)
 	}
 
-	// Print any top-level string results
 	for name, val := range globals {
-		if s, ok := starlark.AsString(val); ok {
-			fmt.Printf("%s = %s\n", name, s)
-		} else {
-			fmt.Printf("%s = %s\n", name, val.String())
-		}
+		fmt.Printf("%s = %s\n", name, val.String())
 	}
 
 	return nil
 }
 
-// ── HTTP builtins ────────────────────────────────────────────────────────────
+// --- HTTP builtins ---
 
-// httpGetBuiltin performs an HTTP GET and returns the response body as a Starlark string.
 func httpGetBuiltin(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var url string
 	if err := starlark.UnpackArgs("http_get", args, kwargs, "url", &url); err != nil {
-		return nil, err
+		return starlark.None, err
 	}
-	return doHTTPRequest(http.MethodGet, url, "")
+	resp, err := http.Get(url)
+	if err != nil {
+		return starlark.None, fmt.Errorf("http_get %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return starlark.Tuple{starlark.MakeInt(int(resp.StatusCode)), starlark.String(strings.TrimSpace(string(body)))}, nil
 }
 
-// httpPostBuiltin performs an HTTP POST with an optional JSON body.
 func httpPostBuiltin(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var url, body string
 	if err := starlark.UnpackArgs("http_post", args, kwargs, "url", &url, "body?", &body); err != nil {
-		return nil, err
+		return starlark.None, err
 	}
-	return doHTTPRequest(http.MethodPost, url, body)
+	resp, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		return starlark.None, fmt.Errorf("http_post %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	return starlark.Tuple{starlark.MakeInt(int(resp.StatusCode)), starlark.String(strings.TrimSpace(string(respBody)))}, nil
 }
 
-// httpPutBuiltin performs an HTTP PUT with an optional JSON body.
 func httpPutBuiltin(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var url, body string
 	if err := starlark.UnpackArgs("http_put", args, kwargs, "url", &url, "body?", &body); err != nil {
-		return nil, err
+		return starlark.None, err
 	}
-	return doHTTPRequest(http.MethodPut, url, body)
+	req, err := http.NewRequest("PUT", url, strings.NewReader(body))
+	if err != nil {
+		return starlark.None, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return starlark.None, fmt.Errorf("http_put %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	return starlark.Tuple{starlark.MakeInt(int(resp.StatusCode)), starlark.String(strings.TrimSpace(string(respBody)))}, nil
 }
 
-// httpDeleteBuiltin performs an HTTP DELETE and returns the response body as a Starlark string.
 func httpDeleteBuiltin(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var url string
 	if err := starlark.UnpackArgs("http_delete", args, kwargs, "url", &url); err != nil {
-		return nil, err
+		return starlark.None, err
 	}
-	return doHTTPRequest(http.MethodDelete, url, "")
-}
-
-// doHTTPRequest executes an HTTP request and returns the response body as a Starlark string.
-func doHTTPRequest(method, url, body string) (starlark.Value, error) {
-	var bodyReader io.Reader
-	if body != "" {
-		bodyReader = strings.NewReader(body)
-	}
-
-	req, err := http.NewRequest(method, url, bodyReader)
+	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("http %s %s: %w", method, url, err)
+		return starlark.None, err
 	}
-
-	if body != "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http %s %s: %w", method, url, err)
+		return starlark.None, fmt.Errorf("http_delete %s: %w", url, err)
 	}
 	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response %s %s: %w", method, url, err)
-	}
-
-	return starlark.String(string(respBytes)), nil
+	body, _ := io.ReadAll(resp.Body)
+	return starlark.Tuple{starlark.MakeInt(int(resp.StatusCode)), starlark.String(strings.TrimSpace(string(body)))}, nil
 }
