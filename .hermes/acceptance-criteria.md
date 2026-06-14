@@ -3,8 +3,8 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-15 12:15 CST
-**Run status:** 🟢 ALL ACTIVE CRITERIA PASS. **Found + fixed:** `pkg/auth/ratelimit` integration tests broken by API drift (11 tests now pass with `-tags=integration`). `pkg/cmdstore` integration tests: 9/9 pass. Demo: 23/23 checks. Full test suite: 0 failures. `go vet` clean. `go build ./...` clean. `go test -tags=integration` clean.
+**Last run:** 2026-06-15 07:45 CST
+**Run status:** 🟢 ALL ACTIVE CRITERIA PASS. **Found + fixed:** `pkg/events` orphan — 10 integration tests were written but package had no source. Implemented worker-pool dispatcher (event.go, handler.go, dispatcher.go — 10/10 tests pass). CLI HTTP client TODO resolved (wired to package-level `httpClient` var). `pkg/auth/ratelimit` integration tests pass. `pkg/cmdstore` integration tests: 9/9 pass. Demo: 23/23 checks. Full test suite: 0 failures (unit + integration). `go vet` clean. `go build ./...` clean. Commit: 6934efc.
 
 ## Demo Infrastructure (Fake Apps)
 
