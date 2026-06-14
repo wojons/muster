@@ -3,8 +3,8 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-15 07:45 CST
-**Run status:** 🟢 ALL ACTIVE CRITERIA PASS. **Found + fixed:** `pkg/events` orphan — 10 integration tests were written but package had no source. Implemented worker-pool dispatcher (event.go, handler.go, dispatcher.go — 10/10 tests pass). CLI HTTP client TODO resolved (wired to package-level `httpClient` var). `pkg/auth/ratelimit` integration tests pass. `pkg/cmdstore` integration tests: 9/9 pass. Demo: 23/23 checks. Full test suite: 0 failures (unit + integration). `go vet` clean. `go build ./...` clean. Commit: 6934efc.
+**Last run:** 2026-06-14 16:32 UTC
+**Run status:** 🟢 ALL CLEAR. **Verified:** 36 packages, 0 failures. `go vet` clean. `go build ./...` clean. Demo: 23/23 checks. Integration tests: all passing. **NEW TESTS ADDED:** `pkg/events` (738 lines, 94.4% coverage) and `internal/monitoring` (195 lines, 100% coverage). Commit `6c1a545`. **NOTE:** Container opencode-muster has 50+ zombie processes (stale `opencode run` + `mcp-searxng` from June 13). Host opencode works as fallback. Docker restart pending security approval. **Remaining zero-coverage:** `exploits/wasm` (intentionally untested), `test/util` (test utility), `test/functional/harness` (test utility), `internal/platform/linux` (D-Bus stubs, deferred AC-018), `pkg/cmdstore` (40.2% integration-only), `pkg/auth/ratelimit` (70.4% integration-only). **Backlog unchanged:** AC-016 (Redis) blocked on infra, AC-018 (D-Bus) deferred.
 
 ## Demo Infrastructure (Fake Apps)
 
@@ -193,7 +193,7 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 ### AC-017: Unit test coverage for untested packages
 **Goal:** 17 packages have zero test coverage. Add basic unit tests to highest-impact packages first.
 **How to verify:** `go test -cover ./pkg/repository/ ./pkg/repository/sql/ ./pkg/cmdstore/ ./pkg/openapi/ ./pkg/request/` — each package >50% coverage.
-**Status:** in_progress (7/8 zero-coverage packages done)
+**Status:** in_progress (12/13 zero-coverage packages done)
 **Axiom work items:**
 - WI-017-rate: completed pkg/rate (8 tests passing, 100% coverage, commit d4c2b73)
 - WI-017-cmdstore: completed pkg/cmdstore (9 integration tests, 40.2% coverage, commits 455ef55 + 0a9c9ea)
@@ -205,8 +205,9 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 - WI-017-dsl: completed pkg/dsl (22 tests, **94.1%** coverage, commit 245c311)
 - WI-017-repository-sql: completed pkg/repository/sql (26 tests, **60.7%** coverage, commit 38f29f1)
 - WI-017-auth: completed pkg/auth (41 tests, **24.6%** coverage, commit 16aeb54)
-**Remaining:** pkg/auth (24.6% — keychain needs system keyring for higher coverage). **2026-06-15:** Fixed `pkg/auth/ratelimit` integration tests — were broken by API drift (Allow→Allow/AllowN change, BucketConfig removed). All 11 tests + 9 cmdstore integration tests now pass with `-tags=integration`. Commit 8225565.
-**Notes:** Root cause of prior container failures found: `chmod 600` files (tokenbucket.go) blocked container UID 1001 reads. Fixed with `setfacl -R -m u:1001:rwx`. Proven pattern: `ollama-cloud/deepseek-v4-flash` works (~60s for small package). `opencode-go/` prefix may cause silent session deadlock. Next run can dispatch 3-5 parallel packages.
+- WI-017-events: completed pkg/events (738 lines, **94.4%** coverage, commit 6c1a545)
+- WI-017-monitoring: completed internal/monitoring (195 lines, **100%** coverage, commit 6c1a545)
+**Remaining:** pkg/auth (24.6% — keychain needs system keyring for higher coverage). **2026-06-14:** Added unit tests for `pkg/events` (was 0% unit, now 94.4%) and `internal/monitoring` (was 0%, now 100%). Host opencode used as fallback — container has 50+ zombie processes. Commit 6c1a545.
 
 ### AC-018: D-Bus Secret Service for credential storage
 **Goal:** `internal/platform/linux/keyring_secret_service.go` and `credential.go` have 7 TODO stubs for D-Bus Secret Service protocol. Implement real D-Bus communication.
