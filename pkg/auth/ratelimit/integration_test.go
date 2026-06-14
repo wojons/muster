@@ -19,11 +19,11 @@ func TestTokenBucket_Integration_BasicRateLimiting(t *testing.T) {
 
 	// Should allow 10 requests immediately (burst)
 	for i := 0; i < 10; i++ {
-		assert.True(t, bucket.Allow(1), "Request %d should be allowed", i+1)
+		assert.True(t, bucket.Allow(), "Request %d should be allowed", i+1)
 	}
 
 	// 11th request should be rate limited
-	assert.False(t, bucket.Allow(1), "11th request should be rate limited")
+	assert.False(t, bucket.Allow(), "11th request should be rate limited")
 }
 
 // TestTokenBucket_Integration_TokenRefill tests token refill over time
@@ -33,19 +33,19 @@ func TestTokenBucket_Integration_TokenRefill(t *testing.T) {
 
 	// Consume all tokens
 	for i := 0; i < 5; i++ {
-		assert.True(t, bucket.Allow(1), "Request %d should be allowed", i+1)
+		assert.True(t, bucket.Allow(), "Request %d should be allowed", i+1)
 	}
 
 	// Should be rate limited
-	assert.False(t, bucket.Allow(1), "Should be rate limited after consuming all tokens")
+	assert.False(t, bucket.Allow(), "Should be rate limited after consuming all tokens")
 
 	// Wait for refill (2 tokens/sec, so 1 second = 2 tokens)
 	time.Sleep(1100 * time.Millisecond)
 
 	// Should allow 2 more requests
-	assert.True(t, bucket.Allow(1), "Should allow after refill")
-	assert.True(t, bucket.Allow(1), "Should allow after refill")
-	assert.False(t, bucket.Allow(1), "Should be rate limited again")
+	assert.True(t, bucket.Allow(), "Should allow after refill")
+	assert.True(t, bucket.Allow(), "Should allow after refill")
+	assert.False(t, bucket.Allow(), "Should be rate limited again")
 }
 
 // TestTokenBucket_Integration_BurstBehavior tests burst capability
@@ -56,7 +56,7 @@ func TestTokenBucket_Integration_BurstBehavior(t *testing.T) {
 	// Should allow 100 requests immediately (burst)
 	allowed := 0
 	for i := 0; i < 100; i++ {
-		if bucket.Allow(1) {
+		if bucket.Allow() {
 			allowed++
 		}
 	}
@@ -64,7 +64,7 @@ func TestTokenBucket_Integration_BurstBehavior(t *testing.T) {
 
 	// Wait a bit, should get 1 more token (0.1 tokens/sec)
 	time.Sleep(11 * time.Second)
-	assert.True(t, bucket.Allow(1), "Should allow after waiting for refill")
+	assert.True(t, bucket.Allow(), "Should allow after waiting for refill")
 }
 
 // TestTokenBucket_Integration_ConcurrentAccess tests thread safety
@@ -80,7 +80,7 @@ func TestTokenBucket_Integration_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			allowed <- bucket.Allow(1)
+			allowed <- bucket.Allow()
 		}()
 	}
 
@@ -111,16 +111,16 @@ func TestTokenBucket_Integration_MultipleTokens(t *testing.T) {
 	bucket := ratelimit.NewTokenBucket(10, 1.0)
 
 	// Consume 5 tokens at once
-	assert.True(t, bucket.Allow(5), "Should allow consuming 5 tokens")
+	assert.True(t, bucket.AllowN(5), "Should allow consuming 5 tokens")
 
 	// Try to consume 6 more (only 5 left)
-	assert.False(t, bucket.Allow(6), "Should not allow consuming 6 tokens")
+	assert.False(t, bucket.AllowN(6), "Should not allow consuming 6 tokens")
 
 	// But should allow consuming 5
-	assert.True(t, bucket.Allow(5), "Should allow consuming remaining 5 tokens")
+	assert.True(t, bucket.AllowN(5), "Should allow consuming remaining 5 tokens")
 
 	// Now should be empty
-	assert.False(t, bucket.Allow(1), "Should be empty")
+	assert.False(t, bucket.Allow(), "Should be empty")
 }
 
 // TestTokenBucket_Integration_ZeroTokens tests edge case of 0 tokens
@@ -128,12 +128,12 @@ func TestTokenBucket_Integration_ZeroTokens(t *testing.T) {
 	bucket := ratelimit.NewTokenBucket(10, 1.0)
 
 	// Consuming 0 tokens should always succeed
-	assert.True(t, bucket.Allow(0), "Should allow 0 token consumption")
-	assert.True(t, bucket.Allow(0), "Should allow 0 token consumption")
+	assert.True(t, bucket.AllowN(0), "Should allow 0 token consumption")
+	assert.True(t, bucket.AllowN(0), "Should allow 0 token consumption")
 
 	// Should still have all tokens
 	for i := 0; i < 10; i++ {
-		assert.True(t, bucket.Allow(1), "Should still have tokens")
+		assert.True(t, bucket.Allow(), "Should still have tokens")
 	}
 }
 
@@ -142,43 +142,38 @@ func TestTokenBucket_Integration_NegativeTokens(t *testing.T) {
 	bucket := ratelimit.NewTokenBucket(10, 1.0)
 
 	// Consuming negative tokens returns true (no tokens consumed)
-	assert.True(t, bucket.Allow(-1), "Negative tokens should be allowed (no consumption)")
-	assert.True(t, bucket.Allow(-5), "Negative tokens should be allowed (no consumption)")
+	assert.True(t, bucket.AllowN(-1), "Negative tokens should be allowed (no consumption)")
+	assert.True(t, bucket.AllowN(-5), "Negative tokens should be allowed (no consumption)")
 
 	// Should still have all tokens available
 	for i := 0; i < 10; i++ {
-		assert.True(t, bucket.Allow(1), "Should still have tokens after negative request")
+		assert.True(t, bucket.Allow(), "Should still have tokens after negative request")
 	}
 }
 
 // TestTokenBucketLimiter_Integration_WithHTTPClient tests integration with HTTP client
 func TestTokenBucketLimiter_Integration_WithHTTPClient(t *testing.T) {
-	// Create limiter with capacity 5, fill rate 2/sec
-	config := ratelimit.BucketConfig{
-		Capacity: 5,
-		FillRate: 2.0,
-	}
-	limiter := ratelimit.NewTokenBucketLimiter(config)
+	// Create limiter with 2 req/sec, burst 5
+	limiter := ratelimit.NewTokenBucketLimiter(2, 5)
 
-	// Simulate 10 requests from same client
-	clientID := "client-123"
+	// Simulate 10 requests
 	allowed := 0
 	for i := 0; i < 10; i++ {
-		if limiter.Allow(clientID, 1) {
+		if limiter.Allow() {
 			allowed++
 			// Simulate HTTP request
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
-	// Should allow at least 5 (capacity)
-	assert.GreaterOrEqual(t, allowed, 5, "Should allow at least capacity requests")
+	// Should allow at least 5 (burst capacity)
+	assert.GreaterOrEqual(t, allowed, 5, "Should allow at least burst capacity requests")
 
-	// Wait for refill
+	// Wait for refill (2 tokens/sec)
 	time.Sleep(1100 * time.Millisecond)
 
 	// Should allow more after refill
-	if limiter.Allow(clientID, 1) {
+	if limiter.Allow() {
 		allowed++
 	}
 
@@ -198,7 +193,7 @@ func TestTokenBucket_Integration_HighThroughput(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			results <- bucket.Allow(1)
+			results <- bucket.Allow()
 		}()
 	}
 
@@ -229,14 +224,14 @@ func TestTokenBucket_Integration_LongRunning(t *testing.T) {
 
 	// Consume initial capacity
 	for i := 0; i < 5; i++ {
-		assert.True(t, bucket.Allow(1))
+		assert.True(t, bucket.Allow())
 	}
 
 	// Test over 5 seconds
 	allowed := 0
 	for i := 0; i < 5; i++ {
 		time.Sleep(1100 * time.Millisecond)
-		if bucket.Allow(1) {
+		if bucket.Allow() {
 			allowed++
 		}
 	}
@@ -251,11 +246,11 @@ func TestTokenBucket_Integration_VariedConsumption(t *testing.T) {
 	bucket := ratelimit.NewTokenBucket(100, 10.0)
 
 	// Consume different amounts
-	assert.True(t, bucket.Allow(10), "Should allow 10 tokens")
-	assert.True(t, bucket.Allow(20), "Should allow 20 tokens")
-	assert.True(t, bucket.Allow(30), "Should allow 30 tokens")
+	assert.True(t, bucket.AllowN(10), "Should allow 10 tokens")
+	assert.True(t, bucket.AllowN(20), "Should allow 20 tokens")
+	assert.True(t, bucket.AllowN(30), "Should allow 30 tokens")
 
 	// Remaining: 100 - 60 = 40
-	assert.True(t, bucket.Allow(40), "Should allow remaining 40 tokens")
-	assert.False(t, bucket.Allow(1), "Should reject when empty")
+	assert.True(t, bucket.AllowN(40), "Should allow remaining 40 tokens")
+	assert.False(t, bucket.Allow(), "Should reject when empty")
 }
