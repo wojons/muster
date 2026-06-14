@@ -129,6 +129,29 @@ func (cs *CommandStore) Save(data *StoredData) error {
 	return nil
 }
 
+// Clear removes all stored commands and resets the store state.
+func (cs *CommandStore) Clear() error {
+	cs.commands = make([]CommandMetadata, 0)
+	cs.meta = nil
+	cs.loaded = true
+	if cs.path != "" {
+		return cs.persistToDisk()
+	}
+	return nil
+}
+
+// UpdateBaseURL updates the base URL for stored commands and persists to disk.
+func (cs *CommandStore) UpdateBaseURL(url string) error {
+	if cs.meta == nil {
+		cs.meta = &CommandMetadata{}
+	}
+	cs.meta.BaseURL = url
+	if cs.path != "" {
+		return cs.persistToDisk()
+	}
+	return nil
+}
+
 // persistToDisk writes the stored data as JSON to disk.
 func (cs *CommandStore) persistToDisk() error {
 	if cs.path == "" {
