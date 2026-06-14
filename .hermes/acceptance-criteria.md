@@ -3,8 +3,8 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-15 08:30 CST
-**Run status:** 🟢 ALL ACTIVE CRITERIA PASS. 7 Axiom delegations completed — **6 zero-coverage packages tested.** Demo: 23/23 checks. Full test suite: 0 failures. `go vet` clean. `go build ./...` clean. Model: `opencode/deepseek-v4-flash-free` (working).
+**Last run:** 2026-06-15 12:15 CST
+**Run status:** 🟢 ALL ACTIVE CRITERIA PASS. **Found + fixed:** `pkg/auth/ratelimit` integration tests broken by API drift (11 tests now pass with `-tags=integration`). `pkg/cmdstore` integration tests: 9/9 pass. Demo: 23/23 checks. Full test suite: 0 failures. `go vet` clean. `go build ./...` clean. `go test -tags=integration` clean.
 
 ## Demo Infrastructure (Fake Apps)
 
@@ -205,7 +205,7 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 - WI-017-dsl: completed pkg/dsl (22 tests, **94.1%** coverage, commit 245c311)
 - WI-017-repository-sql: completed pkg/repository/sql (26 tests, **60.7%** coverage, commit 38f29f1)
 - WI-017-auth: completed pkg/auth (41 tests, **24.6%** coverage, commit 16aeb54)
-**Remaining:** pkg/auth (24.6% — keychain needs system keyring for higher coverage)
+**Remaining:** pkg/auth (24.6% — keychain needs system keyring for higher coverage). **2026-06-15:** Fixed `pkg/auth/ratelimit` integration tests — were broken by API drift (Allow→Allow/AllowN change, BucketConfig removed). All 11 tests + 9 cmdstore integration tests now pass with `-tags=integration`. Commit 8225565.
 **Notes:** Root cause of prior container failures found: `chmod 600` files (tokenbucket.go) blocked container UID 1001 reads. Fixed with `setfacl -R -m u:1001:rwx`. Proven pattern: `ollama-cloud/deepseek-v4-flash` works (~60s for small package). `opencode-go/` prefix may cause silent session deadlock. Next run can dispatch 3-5 parallel packages.
 
 ### AC-018: D-Bus Secret Service for credential storage
