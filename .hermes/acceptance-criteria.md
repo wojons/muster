@@ -3,8 +3,8 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-14 16:32 UTC
-**Run status:** 🟢 ALL CLEAR. **Verified:** 36 packages, 0 failures. `go vet` clean. `go build ./...` clean. Demo: 23/23 checks. Integration tests: all passing. **NEW TESTS ADDED:** `pkg/events` (738 lines, 94.4% coverage) and `internal/monitoring` (195 lines, 100% coverage). Commit `6c1a545`. **NOTE:** Container opencode-muster has 50+ zombie processes (stale `opencode run` + `mcp-searxng` from June 13). Host opencode works as fallback. Docker restart pending security approval. **Remaining zero-coverage:** `exploits/wasm` (intentionally untested), `test/util` (test utility), `test/functional/harness` (test utility), `internal/platform/linux` (D-Bus stubs, deferred AC-018), `pkg/cmdstore` (40.2% integration-only), `pkg/auth/ratelimit` (70.4% integration-only). **Backlog unchanged:** AC-016 (Redis) blocked on infra, AC-018 (D-Bus) deferred.
+**Last run:** 2026-06-14 18:55 UTC
+**Run status:** 🟢 ALL CLEAR. **Verified:** 36 packages, 0 failures. `go vet` clean. `go build ./...` clean. Demo: 23/23 checks. Integration tests: all passing. **THIS WAKE:** Added unit tests for `pkg/cmdstore` (store_test.go: 25 tests, 446 lines + loader_test.go: 4 tests, 67 lines → 39.3% coverage, up from 0% unit). Commits 8972412, a01f81e. Container opencode-muster stall on first dispatch; host opencode used as fallback (2 of 3 Axiom dispatches produced code). **Remaining zero-coverage:** `exploits/wasm`, `test/util`, `test/functional/harness`, `internal/platform/linux` (D-Bus), `pkg/auth/ratelimit` (70.4% integration-only). **Gaps found:** cmdstore loader.go 60%+ untested (LoadCommands, createRunHandler, executeAndReadResponse, getFlagValue need tests). Makefile missing `skill-*` targets referenced in AGENTS.md. test/functional/workflows/cli_workflow_test.go has 2 TODO stubs. **Backlog unchanged:** AC-016 (Redis) blocked on infra, AC-018 (D-Bus) deferred.
 
 ## Demo Infrastructure (Fake Apps)
 
@@ -193,10 +193,10 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 ### AC-017: Unit test coverage for untested packages
 **Goal:** 17 packages have zero test coverage. Add basic unit tests to highest-impact packages first.
 **How to verify:** `go test -cover ./pkg/repository/ ./pkg/repository/sql/ ./pkg/cmdstore/ ./pkg/openapi/ ./pkg/request/` — each package >50% coverage.
-**Status:** in_progress (12/13 zero-coverage packages done)
+**Status:** in_progress (13/13 zero-coverage packages done, cmdstore now has unit tests)
 **Axiom work items:**
 - WI-017-rate: completed pkg/rate (8 tests passing, 100% coverage, commit d4c2b73)
-- WI-017-cmdstore: completed pkg/cmdstore (9 integration tests, 40.2% coverage, commits 455ef55 + 0a9c9ea)
+- WI-017-cmdstore: ✅ unit tests added (29 tests: 25 store + 4 loader, **39.3%** coverage, commits 8972412 + a01f81e)
 - WI-017-response: completed pkg/response (23 subtests, 94.1% coverage, commit f12be68)
 - WI-017-retry: completed pkg/retry (22 tests, **100%** coverage, commit 185baa4)
 - WI-017-repository: completed pkg/repository (16 tests, **94.4%** coverage, commit 2cd4005)
@@ -207,7 +207,7 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 - WI-017-auth: completed pkg/auth (41 tests, **24.6%** coverage, commit 16aeb54)
 - WI-017-events: completed pkg/events (738 lines, **94.4%** coverage, commit 6c1a545)
 - WI-017-monitoring: completed internal/monitoring (195 lines, **100%** coverage, commit 6c1a545)
-**Remaining:** pkg/auth (24.6% — keychain needs system keyring for higher coverage). **2026-06-14:** Added unit tests for `pkg/events` (was 0% unit, now 94.4%) and `internal/monitoring` (was 0%, now 100%). Host opencode used as fallback — container has 50+ zombie processes. Commit 6c1a545.
+**Remaining:** pkg/auth (24.6% — keychain needs system keyring for higher coverage). pkg/cmdstore loader.go methods (LoadCommands, createRunHandler, executeAndReadResponse, getFlagValue) still untested — 39.3% total. **2026-06-14 18:55:** Added unit tests for `pkg/cmdstore`: store_test.go (25 tests, 446 lines) + loader_test.go (4 tests, 67 lines → 39.3% coverage). Host opencode used — container stall on first dispatch.
 
 ### AC-018: D-Bus Secret Service for credential storage
 **Goal:** `internal/platform/linux/keyring_secret_service.go` and `credential.go` have 7 TODO stubs for D-Bus Secret Service protocol. Implement real D-Bus communication.
