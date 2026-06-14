@@ -370,9 +370,9 @@ func TestCommandStore_Integration_EmptyStore(t *testing.T) {
 	require.NotNil(t, commands)
 	require.Len(t, commands, 0)
 
-	// Load data returns nil
+	// Load data returns error on empty store
 	data, err := store.Load()
-	require.NoError(t, err)
+	require.Error(t, err)
 	assert.Nil(t, data)
 }
 
