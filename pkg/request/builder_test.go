@@ -1,8 +1,11 @@
 package request
 
 import (
+	"context"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -707,4 +710,143 @@ func TestWithContentType(t *testing.T) {
 	if b.contentType != "application/xml" {
 		t.Errorf("expected contentType 'application/xml', got %q", b.contentType)
 	}
+}
+
+func TestWithTimeout(t *testing.T) {
+	b := NewBuilder("https://api.example.com")
+	// WithTimeout is currently a no-op; verify it doesn't panic.
+	b.WithTimeout(30)
+	b.WithTimeout("30s")
+}
+
+func TestWithFileUpload(t *testing.T) {
+	// Create a temp file to upload
+	dir := t.TempDir()
+	filePath := dir + "/test.txt"
+	if err := writeFile(filePath, "hello world"); err != nil {
+		t.Fatal(err)
+	}
+
+	b := NewBuilder("https://api.example.com", "/upload", "POST")
+	result := b.WithFileUpload("file", filePath)
+	if result != b {
+		t.Error("WithFileUpload should return the same builder for chaining")
+	}
+}
+
+func TestWithMultipartField(t *testing.T) {
+	dir := t.TempDir()
+	filePath := dir + "/test.txt"
+	if err := writeFile(filePath, "data"); err != nil {
+		t.Fatal(err)
+	}
+
+	b := NewBuilder("https://api.example.com", "/upload", "POST")
+	b.WithFileUpload("file", filePath)
+	result := b.WithMultipartField("description", "test upload")
+	if result != b {
+		t.Error("WithMultipartField should return the same builder for chaining")
+	}
+}
+
+func TestBuilder_Execute(t *testing.T) {
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/test", http.MethodGet)
+	resp, err := b.Execute(ctxb)
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestBuilder_Execute_POST(t *testing.T) {
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		body, _ := io.ReadAll(r.Body)
+		if string(body) != `{"name":"test"}` {
+			t.Errorf("unexpected body: %s", string(body))
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"id":"abc"}`))
+	})
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/items", http.MethodPost)
+	b.JSONBody(`{"name":"test"}`)
+	resp, err := b.Execute(ctxb)
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("expected 201, got %d", resp.StatusCode)
+	}
+}
+
+func TestBuilder_ExecuteWithResult(t *testing.T) {
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"key":"value"}`))
+	})
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/data", http.MethodGet)
+	result, err := b.ExecuteWithResult(ctxb)
+	if err != nil {
+		t.Fatalf("ExecuteWithResult() returned error: %v", err)
+	}
+	if result.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", result.StatusCode)
+	}
+	if string(result.Body) != `{"key":"value"}` {
+		t.Errorf("expected body %q, got %q", `{"key":"value"}`, string(result.Body))
+	}
+	if ct := result.Headers.Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type 'application/json', got %q", ct)
+	}
+}
+
+func TestBuilder_ExecuteWithResult_Error(t *testing.T) {
+	// Point at a server that returns an error
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"server error"}`))
+	})
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/fail", http.MethodGet)
+	result, err := b.ExecuteWithResult(ctxb)
+	if err != nil {
+		t.Fatalf("ExecuteWithResult() returned unexpected error: %v", err)
+	}
+	if result.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", result.StatusCode)
+	}
+}
+
+// Test helpers
+
+func writeFile(path, content string) error {
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+var ctxb = context.Background()
+
+// newTestServer creates an httptest server with the given handler function.
+func newTestServer(handler func(http.ResponseWriter, *http.Request)) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(handler))
 }
