@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,42 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 )
+
+// ---------------------------------------------------------------------------
+// lockedBuffer — mutex-protected bytes.Buffer for concurrent read/write
+// ---------------------------------------------------------------------------
+
+// lockedBuffer wraps bytes.Buffer with a sync.Mutex so it is safe for
+// concurrent reads and writes (e.g., when a server goroutine writes to it
+// while the test goroutine reads from it).
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (lb *lockedBuffer) Write(p []byte) (n int, err error) {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	return lb.buf.Write(p)
+}
+
+func (lb *lockedBuffer) String() string {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	return lb.buf.String()
+}
+
+func (lb *lockedBuffer) Len() int {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	return lb.buf.Len()
+}
+
+func (lb *lockedBuffer) Bytes() []byte {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+	return lb.buf.Bytes()
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -68,11 +105,11 @@ func parseResponse(t *testing.T, data []byte) JSONRPCResponse {
 // runServerInBackground starts the server in a goroutine and returns a shutdown
 // function that stops it. The server reads from stdinPipeR and writes to
 // stdoutBuf/stderrBuf.
-func runServerInBackground(t *testing.T) (stdin io.WriteCloser, stdoutBuf *bytes.Buffer, stderrBuf *bytes.Buffer, shutdown func()) {
+func runServerInBackground(t *testing.T) (stdin io.WriteCloser, stdoutBuf *lockedBuffer, stderrBuf *lockedBuffer, shutdown func()) {
 	t.Helper()
 	stdinR, stdinW := io.Pipe()
-	stdoutBuf = &bytes.Buffer{}
-	stderrBuf = &bytes.Buffer{}
+	stdoutBuf = &lockedBuffer{}
+	stderrBuf = &lockedBuffer{}
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	server := NewServer(stdinR, stdoutBuf, stderrBuf)
@@ -97,7 +134,7 @@ func runServerInBackground(t *testing.T) (stdin io.WriteCloser, stdoutBuf *bytes
 }
 
 // waitForOutput waits up to the given duration for stdout to have content.
-func waitForOutput(t *testing.T, buf *bytes.Buffer, timeout time.Duration) []byte {
+func waitForOutput(t *testing.T, buf *lockedBuffer, timeout time.Duration) []byte {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
