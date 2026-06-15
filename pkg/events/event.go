@@ -1,14 +1,14 @@
-// Package events provides an event dispatcher for the Muster system.
-// It supports publish/subscribe patterns with filtering, priority ordering,
-// retry logic, and dead-letter queues.
 package events
 
-// EventType identifies the category of an event.
+// EventType represents the type/category of an event.
 type EventType string
 
-// Event represents a published event in the system.
+// Event represents a single event to be dispatched.
 type Event struct {
-	Type   EventType
-	Data   []byte
+	// Type is the event type used for routing to subscribers.
+	Type EventType
+	// Data holds the event payload as raw bytes.
+	Data []byte
+	// Source identifies where the event originated.
 	Source string
 }

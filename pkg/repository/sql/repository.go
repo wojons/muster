@@ -14,7 +14,7 @@ type Driver string
 
 const (
 	// DriverSQLite is the SQLite driver identifier.
-	DriverSQLite Driver = "sqlite3"
+	DriverSQLite Driver = "sqlite"
 )
 
 // sqlRepository is the shared base for SQL-backed repository implementations.

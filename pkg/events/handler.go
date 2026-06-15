@@ -2,15 +2,14 @@ package events
 
 import "context"
 
-// Handler processes events dispatched by the Dispatcher.
-// Handlers are registered for specific event types.
+// Handler defines the interface that event handlers must implement.
 type Handler interface {
-	// Handle processes an event. Returns an error if processing fails.
+	// Handle processes an event and returns an error if processing fails.
 	Handle(ctx context.Context, event *Event) error
 
-	// Name returns a human-readable name for this handler.
+	// Name returns a human-readable name for the handler.
 	Name() string
 
-	// Supports returns true if this handler can process events of the given type.
+	// Supports returns true if the handler can process the given event type.
 	Supports(eventType EventType) bool
 }

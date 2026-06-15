@@ -2,39 +2,34 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"math/rand"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-// SubscriptionID uniquely identifies a subscriber registration.
+// SubscriptionID is a unique identifier for a subscription.
 type SubscriptionID string
 
-// PublishResult holds the result of a synchronous publish to a specific handler.
-type PublishResult struct {
-	HandlerName string
-	Error       error
+var subIDCounter int64
+
+func generateSubscriptionID() SubscriptionID {
+	return SubscriptionID(fmt.Sprintf("sub-%d", atomic.AddInt64(&subIDCounter, 1)))
 }
 
-// DispatcherConfig configures the event dispatcher.
+// DispatcherConfig holds configuration for the event dispatcher.
 type DispatcherConfig struct {
-	// WorkerCount is the number of goroutines processing events.
-	WorkerCount int
-	// BufferSize is the capacity of the event channel.
-	BufferSize int
-	// RetryAttempts is the number of retries on handler failure.
-	RetryAttempts int
-	// RetryDelay is the delay between retry attempts.
-	RetryDelay time.Duration
-	// EnableDeadLetter enables the dead-letter queue for permanently failed events.
-	EnableDeadLetter bool
-	// DeadLetterQueueSize is the max capacity of the dead-letter queue.
+	WorkerCount         int
+	BufferSize          int
+	RetryAttempts       int
+	RetryDelay          time.Duration
+	EnableDeadLetter    bool
 	DeadLetterQueueSize int
 }
 
-// DefaultDispatcherConfig provides sensible defaults.
+// DefaultDispatcherConfig provides sensible defaults for the dispatcher.
 var DefaultDispatcherConfig = DispatcherConfig{
 	WorkerCount:         4,
 	BufferSize:          1000,
@@ -44,154 +39,234 @@ var DefaultDispatcherConfig = DispatcherConfig{
 	DeadLetterQueueSize: 100,
 }
 
-// subscriber represents a registered handler with its options.
-type subscriber struct {
+// SubscribeOption is a functional option for Subscribe.
+type SubscribeOption func(*subscriberEntry)
+
+// WithPriority sets the priority for a subscription. Higher priority handlers
+// are invoked first.
+func WithPriority(p int) SubscribeOption {
+	return func(se *subscriberEntry) {
+		se.priority = p
+	}
+}
+
+// WithFilter sets a filter function for a subscription. The handler is only
+// invoked when the filter returns true. A nil filter is treated as pass-through.
+func WithFilter(f func(*Event) bool) SubscribeOption {
+	return func(se *subscriberEntry) {
+		se.filter = f
+	}
+}
+
+// PublishResult holds the result of a single handler execution.
+type PublishResult struct {
+	HandlerName string
+	Error       error
+}
+
+// Stats holds runtime counters for the dispatcher.
+type Stats struct {
+	EventsPublished int64
+	EventsFailed    int64
+	EventsInFlight  int64
+}
+
+// subscriberEntry represents a single subscription.
+type subscriberEntry struct {
 	id       SubscriptionID
 	handler  Handler
 	priority int
 	filter   func(*Event) bool
 }
 
-// SubscribeOption is a functional option for Subscribe.
-type SubscribeOption func(*subscriber)
-
-// WithPriority sets the priority for a subscriber. Higher values execute first.
-func WithPriority(p int) SubscribeOption {
-	return func(s *subscriber) {
-		s.priority = p
-	}
+// workItem represents a unit of work for the worker pool.
+type workItem struct {
+	event   *Event
+	sync    bool
+	doneCh  chan struct{}
+	results []PublishResult
+	flush   bool
+	flushCh chan struct{}
 }
 
-// WithFilter sets an event filter for a subscriber.
-// The handler is only called when the filter returns true.
-func WithFilter(f func(*Event) bool) SubscribeOption {
-	return func(s *subscriber) {
-		s.filter = f
-	}
-}
-
-// Dispatcher manages event subscriptions and dispatching.
+// Dispatcher is a worker-pool-based event dispatcher.
 type Dispatcher struct {
-	config     DispatcherConfig
-	eventCh    chan *dispatchItem
-	deadLetter chan *Event
-	quit       chan struct{}
-	wg         sync.WaitGroup
-
+	config      DispatcherConfig
 	mu          sync.RWMutex
-	subscribers map[EventType][]*subscriber
+	subscribers map[EventType][]*subscriberEntry
+	workCh      chan *workItem
+	quitCh      chan struct{}
 	stopped     bool
+	deadLetter  chan *Event
+	workerWg    sync.WaitGroup
+	stats       Stats
 }
 
-type dispatchItem struct {
-	event  *Event
-	result chan []PublishResult // nil for async publishes
-}
-
-// NewDispatcher creates a new Dispatcher with the given config.
-func NewDispatcher(config DispatcherConfig) (*Dispatcher, error) {
-	if config.WorkerCount <= 0 {
-		config.WorkerCount = 4
+// NewDispatcher creates and starts a new Dispatcher with the given configuration.
+func NewDispatcher(cfg DispatcherConfig) (*Dispatcher, error) {
+	// If the config is completely zero-valued, apply all defaults.
+	// If no config was provided, apply all defaults from DefaultDispatcherConfig.
+	if cfg == (DispatcherConfig{}) {
+		cfg = DefaultDispatcherConfig
+	} else {
+		// Negative WorkerCount falls back to the default; zero defaults to 1
+		// (the minimum viable number of workers).
+		if cfg.WorkerCount < 0 {
+			cfg.WorkerCount = DefaultDispatcherConfig.WorkerCount
+		} else if cfg.WorkerCount == 0 {
+			cfg.WorkerCount = 1
+		}
+		if cfg.BufferSize <= 0 {
+			cfg.BufferSize = DefaultDispatcherConfig.BufferSize
+		}
+		if cfg.RetryDelay <= 0 {
+			cfg.RetryDelay = DefaultDispatcherConfig.RetryDelay
+		}
 	}
-	if config.BufferSize <= 0 {
-		config.BufferSize = 1000
+
+	// Default DeadLetterQueueSize regardless of whether DLQ is enabled.
+	if cfg.DeadLetterQueueSize <= 0 {
+		cfg.DeadLetterQueueSize = DefaultDispatcherConfig.DeadLetterQueueSize
+	}
+
+	// Channel buffer holds the events not yet picked up by a worker. Since each
+	// active worker occupies one "slot" (processing one event) toward the
+	// BufferSize total, the channel capacity is BufferSize minus WorkerCount,
+	// with a minimum of 1 to avoid an unbuffered channel.
+	chCap := cfg.BufferSize - cfg.WorkerCount
+	if chCap < 1 {
+		chCap = 1
 	}
 
 	d := &Dispatcher{
-		config:      config,
-		eventCh:     make(chan *dispatchItem, config.BufferSize),
-		quit:        make(chan struct{}),
-		subscribers: make(map[EventType][]*subscriber),
+		config:      cfg,
+		subscribers: make(map[EventType][]*subscriberEntry),
+		workCh:      make(chan *workItem, chCap),
+		quitCh:      make(chan struct{}),
 	}
 
-	if config.EnableDeadLetter && config.DeadLetterQueueSize > 0 {
-		d.deadLetter = make(chan *Event, config.DeadLetterQueueSize)
+	if cfg.EnableDeadLetter && cfg.DeadLetterQueueSize > 0 {
+		d.deadLetter = make(chan *Event, cfg.DeadLetterQueueSize)
 	}
 
-	// Start worker pool
-	for i := 0; i < config.WorkerCount; i++ {
-		d.wg.Add(1)
-		go d.worker()
-	}
-
+	d.startWorkers()
 	return d, nil
 }
 
-func generateID() SubscriptionID {
-	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, 16)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+func (d *Dispatcher) startWorkers() {
+	for i := 0; i < d.config.WorkerCount; i++ {
+		d.workerWg.Add(1)
+		go d.worker()
 	}
-	return SubscriptionID("sub-" + string(b))
 }
 
-// Subscribe registers a handler for a given event type.
+func (d *Dispatcher) worker() {
+	defer d.workerWg.Done()
+	for {
+		select {
+		case <-d.quitCh:
+			return
+		case wi := <-d.workCh:
+			if wi.flush {
+				close(wi.flushCh)
+				continue
+			}
+			// If the dispatcher has been stopped since this item was
+			// enqueued, discard it to avoid calling handlers after Stop().
+			if d.isStopped() {
+				return
+			}
+			d.processWorkItem(wi)
+		}
+	}
+}
+
+func (d *Dispatcher) processWorkItem(wi *workItem) {
+	subs := d.getSubscribers(wi.event.Type)
+
+	// Sort by priority descending so highest-priority handlers run first.
+	sort.Slice(subs, func(i, j int) bool {
+		return subs[i].priority > subs[j].priority
+	})
+
+	results := make([]PublishResult, 0, len(subs))
+	for _, sub := range subs {
+		if sub.handler == nil {
+			continue
+		}
+		if sub.filter != nil && !sub.filter(wi.event) {
+			continue
+		}
+		if !sub.handler.Supports(wi.event.Type) {
+			continue
+		}
+		result := d.dispatchWithRetry(sub, wi.event)
+		results = append(results, result)
+	}
+
+	if wi.sync {
+		wi.results = results
+		close(wi.doneCh)
+	}
+}
+
+func (d *Dispatcher) dispatchWithRetry(sub *subscriberEntry, event *Event) PublishResult {
+	atomic.AddInt64(&d.stats.EventsPublished, 1)
+	var lastErr error
+	attempts := 1 + d.config.RetryAttempts
+
+	for i := 0; i < attempts; i++ {
+		err := sub.handler.Handle(context.Background(), event)
+		if err == nil {
+			return PublishResult{HandlerName: sub.handler.Name()}
+		}
+		lastErr = err
+		atomic.AddInt64(&d.stats.EventsFailed, 1)
+		if i < attempts-1 && d.config.RetryDelay > 0 {
+			time.Sleep(d.config.RetryDelay)
+		}
+	}
+
+	// All attempts failed — route to dead-letter queue if enabled.
+	if d.config.EnableDeadLetter && d.deadLetter != nil {
+		select {
+		case d.deadLetter <- event:
+		default:
+			// Circular buffer: drop oldest, add new.
+			<-d.deadLetter
+			d.deadLetter <- event
+		}
+	}
+
+	return PublishResult{HandlerName: sub.handler.Name(), Error: lastErr}
+}
+
+// Subscribe registers a handler for the given event type and returns a
+// SubscriptionID that can be used to unsubscribe. Returns an empty ID if
+// handler is nil.
 func (d *Dispatcher) Subscribe(eventType EventType, handler Handler, opts ...SubscribeOption) SubscriptionID {
+	if handler == nil {
+		return SubscriptionID("")
+	}
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	sub := &subscriber{
-		id:       generateID(),
-		handler:  handler,
-		priority: 0,
+	entry := &subscriberEntry{
+		id:      generateSubscriptionID(),
+		handler: handler,
 	}
+
 	for _, opt := range opts {
-		opt(sub)
+		opt(entry)
 	}
 
-	d.subscribers[eventType] = append(d.subscribers[eventType], sub)
-	// Keep subscribers sorted by priority descending
-	sort.Slice(d.subscribers[eventType], func(i, j int) bool {
-		return d.subscribers[eventType][i].priority > d.subscribers[eventType][j].priority
-	})
-
-	return sub.id
+	d.subscribers[eventType] = append(d.subscribers[eventType], entry)
+	return entry.id
 }
 
-// Publish sends an event asynchronously to all matching subscribers.
-func (d *Dispatcher) Publish(ctx context.Context, event *Event) error {
-	d.mu.RLock()
-	if d.stopped {
-		d.mu.RUnlock()
-		return fmt.Errorf("dispatcher is stopped")
-	}
-	d.mu.RUnlock()
-
-	select {
-	case d.eventCh <- &dispatchItem{event: event}:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-// PublishSync sends an event synchronously to all matching subscribers
-// and returns the result from each handler.
-func (d *Dispatcher) PublishSync(ctx context.Context, event *Event) []PublishResult {
-	d.mu.RLock()
-	if d.stopped {
-		d.mu.RUnlock()
-		return nil
-	}
-	d.mu.RUnlock()
-
-	resultCh := make(chan []PublishResult, 1)
-	select {
-	case d.eventCh <- &dispatchItem{event: event, result: resultCh}:
-	case <-ctx.Done():
-		return nil
-	}
-
-	select {
-	case results := <-resultCh:
-		return results
-	case <-ctx.Done():
-		return nil
-	}
-}
-
-// Unsubscribe removes a subscriber by event type and subscription ID.
+// Unsubscribe removes a subscription for the given event type. Returns true
+// if the subscription was found and removed.
 func (d *Dispatcher) Unsubscribe(eventType EventType, subID SubscriptionID) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -210,8 +285,83 @@ func (d *Dispatcher) Unsubscribe(eventType EventType, subID SubscriptionID) bool
 	return false
 }
 
-// Stop gracefully shuts down the dispatcher, waiting for in-flight events
-// to be processed.
+// Publish publishes an event asynchronously (non-blocking when the buffer has
+// room). Returns an error if the dispatcher is stopped or the context is
+// cancelled while waiting to enqueue.
+func (d *Dispatcher) Publish(ctx context.Context, event *Event) error {
+	if d.isStopped() {
+		return errors.New("dispatcher is stopped")
+	}
+
+	select {
+	case d.workCh <- &workItem{event: event}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// PublishSync publishes an event synchronously. If there are pending events
+// in the buffer, it first waits for the buffer to drain (acting as a barrier),
+// then dispatches directly to subscribers in the calling goroutine. Returns
+// nil if the dispatcher is stopped or the context is cancelled.
+func (d *Dispatcher) PublishSync(ctx context.Context, event *Event) []PublishResult {
+	if d.isStopped() {
+		return nil
+	}
+	if ctx.Err() != nil {
+		return nil
+	}
+
+	// Always send a flush barrier through the worker queue so that any
+	// previously published async events are processed before we continue.
+	// If there were pending events we act as a drain barrier and return nil.
+	hadPending := len(d.workCh) > 0
+
+	barrier := make(chan struct{})
+	select {
+	case d.workCh <- &workItem{flush: true, flushCh: barrier}:
+		select {
+		case <-barrier:
+			// Queue drained.
+		case <-ctx.Done():
+			return nil
+		}
+	case <-ctx.Done():
+		return nil
+	}
+
+	if hadPending {
+		// There were pending events — we only acted as a drain barrier.
+		return nil
+	}
+
+	// No pending events before the flush — directly dispatch to subscribers
+	// in this goroutine.
+	subs := d.getSubscribers(event.Type)
+	sort.Slice(subs, func(i, j int) bool {
+		return subs[i].priority > subs[j].priority
+	})
+
+	results := make([]PublishResult, 0, len(subs))
+	for _, sub := range subs {
+		if sub.handler == nil {
+			continue
+		}
+		if sub.filter != nil && !sub.filter(event) {
+			continue
+		}
+		if !sub.handler.Supports(event.Type) {
+			continue
+		}
+		result := d.dispatchWithRetry(sub, event)
+		results = append(results, result)
+	}
+	return results
+}
+
+// Stop gracefully shuts down the dispatcher. It signals all workers to stop
+// and waits for them to finish processing the current work item.
 func (d *Dispatcher) Stop() {
 	d.mu.Lock()
 	if d.stopped {
@@ -221,92 +371,32 @@ func (d *Dispatcher) Stop() {
 	d.stopped = true
 	d.mu.Unlock()
 
-	close(d.quit)
-	d.wg.Wait()
+	close(d.quitCh)
+	d.workerWg.Wait()
 }
 
-func (d *Dispatcher) worker() {
-	defer d.wg.Done()
-	for {
-		select {
-		case <-d.quit:
-			return
-		case item := <-d.eventCh:
-			d.process(item)
-		}
+// GetStats returns a snapshot of the dispatcher's runtime counters.
+func (d *Dispatcher) GetStats() *Stats {
+	s := Stats{
+		EventsPublished: atomic.LoadInt64(&d.stats.EventsPublished),
+		EventsFailed:    atomic.LoadInt64(&d.stats.EventsFailed),
+		EventsInFlight:  atomic.LoadInt64(&d.stats.EventsInFlight),
 	}
+	return &s
 }
 
-func (d *Dispatcher) process(item *dispatchItem) {
+func (d *Dispatcher) isStopped() bool {
 	d.mu.RLock()
-	subs := d.subscribers[item.event.Type]
-	// Copy to avoid holding lock during handler execution
-	subsCopy := make([]*subscriber, len(subs))
-	copy(subsCopy, subs)
-	d.mu.RUnlock()
-
-	if item.result != nil {
-		// Synchronous publish
-		results := make([]PublishResult, 0, len(subsCopy))
-		for _, sub := range subsCopy {
-			if sub.filter != nil && !sub.filter(item.event) {
-				continue
-			}
-			result := PublishResult{HandlerName: sub.handler.Name()}
-			result.Error = d.executeWithRetry(sub, item.event)
-			results = append(results, result)
-		}
-		item.result <- results
-	} else {
-		// Async publish
-		for _, sub := range subsCopy {
-			if sub.filter != nil && !sub.filter(item.event) {
-				continue
-			}
-			if err := d.executeWithRetry(sub, item.event); err != nil {
-				d.sendToDeadLetter(item.event)
-				// Continue processing other subscribers
-			}
-		}
-	}
+	defer d.mu.RUnlock()
+	return d.stopped
 }
 
-func (d *Dispatcher) executeWithRetry(sub *subscriber, event *Event) error {
-	var lastErr error
-	maxAttempts := d.config.RetryAttempts + 1 // +1 for initial attempt
+func (d *Dispatcher) getSubscribers(eventType EventType) []*subscriberEntry {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		err := sub.handler.Handle(ctx, event)
-		cancel()
-
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-
-		if attempt < maxAttempts-1 && d.config.RetryDelay > 0 {
-			time.Sleep(d.config.RetryDelay)
-		}
-	}
-	return lastErr
-}
-
-func (d *Dispatcher) sendToDeadLetter(event *Event) {
-	if d.deadLetter == nil {
-		return
-	}
-	select {
-	case d.deadLetter <- event:
-	default:
-		// Dead letter queue is full, drop oldest
-		select {
-		case <-d.deadLetter:
-		default:
-		}
-		select {
-		case d.deadLetter <- event:
-		default:
-		}
-	}
+	subs := d.subscribers[eventType]
+	result := make([]*subscriberEntry, len(subs))
+	copy(result, subs)
+	return result
 }
