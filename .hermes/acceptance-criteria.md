@@ -3,8 +3,8 @@
 > Written and maintained by Hermes from user conversations.
 > Hermes tests these as a real user — spins up fake services, walks full journeys.
 
-**Last run:** 2026-06-14 21:45 UTC
-**Run status:** 🟡 WORKING (Axiom blocked — provider latency). **Verified:** 35/36 packages passing. `go vet` clean. `go build ./...` clean. Demo: 23/23 checks. **THIS WAKE:** Fixed seccomp probe crash with cached probe (commit 299cd3b). Corrected cmdstore coverage to 91.3% (prior AC reported 39.3%). pkg/mcp 6.6% coverage — Axiom dispatched but container models timing out (120s+ for trivial prompts). **Gaps:** pkg/generator (27.6%), pkg/daemon (15.7%), pkg/config (39.9%), pkg/auth (23.9%). Makefile missing skill-* targets. 2 TODO stubs in cli_workflow_test.go.
+**Last run:** 2026-06-15 08:40 UTC
+**Run status:** 🟢 WORKING. **Verified:** 37/37 packages passing. `go vet` clean. `go build ./...` clean. **Demo:** 23/23 checks pass. **Container:** Healthy — zombie processes cleared, `opencode run` works. **Commit 044adeb:** Axiom-authored pkg/mcp tests (2,309 lines — coverage 6.6% → 90.0%) + pkg/events refactor. **Commit ccd9817:** Fixed driver mismatch (modernc→mattn). **Active delegations:** 3× parallel coverage tasks (pkg/generator, pkg/daemon, pkg/config). **Gaps:** pkg/generator (27.6% — dispatched), pkg/daemon (15.7% — dispatched), pkg/config (39.9% — dispatched), pkg/auth (23.9%). Redis stub (AC-016, infra blocked). D-Bus stubs (AC-018, deferred).
 
 ## Demo Infrastructure (Fake Apps)
 
@@ -193,7 +193,7 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 ### AC-017: Unit test coverage for untested packages
 **Goal:** 17 packages have zero test coverage. Add basic unit tests to highest-impact packages first.
 **How to verify:** `go test -cover ./pkg/repository/ ./pkg/repository/sql/ ./pkg/cmdstore/ ./pkg/openapi/ ./pkg/request/` — each package >50% coverage.
-**Status:** in_progress (13/13 zero-coverage packages done; now targeting low-coverage packages)
+**Status:** in_progress (13/13 zero-coverage packages done; 3 new delegations active)
 **Axiom work items:**
 - WI-017-rate: completed pkg/rate (8 tests passing, 100% coverage, commit d4c2b73)
 - WI-017-cmdstore: ✅ unit tests added (29 tests: 25 store + 4 loader, **91.3%** coverage, commits 8972412 + a01f81e)
@@ -207,8 +207,11 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 - WI-017-auth: completed pkg/auth (41 tests, **24.6%** coverage, commit 16aeb54)
 - WI-017-events: completed pkg/events (738 lines, **94.4%** coverage, commit 6c1a545)
 - WI-017-monitoring: completed internal/monitoring (195 lines, **100%** coverage, commit 6c1a545)
-- **WI-017-mcp:** 🔄 dispatched 2026-06-14 21:30 — add unit tests for pkg/mcp (6.6% → target 50%+). Focus: registry.go, openapi_integration.go, server.go.
-**Remaining low-coverage:** pkg/mcp (6.6% → dispatched), pkg/generator (27.6%), pkg/daemon (15.7%), pkg/config (39.9%), pkg/auth (23.9% — keychain needs system keyring for higher coverage).
+- **WI-017-mcp:** ✅ RESOLVED 2026-06-15 — Axiom-authored tests (2,309 lines across 3 files: server_test.go 587L, registry_test.go 836L, openapi_integration_test.go 886L). Coverage jumped from 6.6% → 90.0%. Commit 044adeb. Fixed driver mismatch (modernc→mattn) in ccd9817.
+- **WI-017-generator:** 🔄 DISPATCHED 2026-06-15 08:40 — targeting >60% (from 27.6%). Pure functions: Config.Validate, normalizeFlagName, operationName, crudName, extractPathParams, singularize, computeHash, httpAction.
+- **WI-017-daemon:** 🔄 DISPATCHED 2026-06-15 08:40 — targeting >50% (from 15.7%). Pure functions: TokenManager (CRUD + auth headers), sanitizeProxyPath, isHopHeader, isHealthEndpoint.
+- **WI-017-config:** 🔄 DISPATCHED 2026-06-15 08:40 — targeting >60% (from 39.9%). Pure functions: parseDuration, parseInt, NewLoader.
+**Remaining low-coverage:** pkg/auth (23.9% — keychain needs system keyring for higher coverage).
 
 ### AC-018: D-Bus Secret Service for credential storage
 **Goal:** `internal/platform/linux/keyring_secret_service.go` and `credential.go` have 7 TODO stubs for D-Bus Secret Service protocol. Implement real D-Bus communication.
@@ -216,6 +219,11 @@ The spec-provider concept is absorbed into each app's own `/openapi.json` endpoi
 **Status:** pending
 **Why deferred:** Requires D-Bus integration testing. Complex cross-process protocol. Lowest priority of remaining work.
 **Source:** `internal/platform/linux/keyring_secret_service.go` (lines 41, 50, 59) + `credential.go` (lines 23, 32, 41)
+
+### AC-019: Fix OpenCode container deadlock — restore Axiom delegation ✅ RESOLVED
+**Verified:** 2026-06-15 08:40 UTC
+**How to verify:** `docker exec opencode-muster opencode run --pure --model opencode-go/deepseek-v4-flash --dangerously-skip-permissions "Say hello in exactly 3 words"` → "Hello there world!" in <30s.
+**Evidence:** Container healthy — `docker top` shows only `opencode serve` and `task-forge/server.py`. All 6 zombie processes from June 13-14 are gone. Model catalog resolved: `opencode-go/deepseek-v4-flash`, `opencode-go/deepseek-v4-pro` both available. Successfully dispatched and completed 2 code contributions (044adeb — pkg/mcp tests, ccd9817 — driver fix).
 
 ## Passed Criteria — Demo Projects ✅
 

@@ -633,7 +633,7 @@ func TestConfig_Defaults(t *testing.T) {
 	t.Run("zero-value sub-configs are non-nil structs", func(t *testing.T) {
 		var cfg Config
 		assert.Empty(t, cfg.Cache.Type)
-		assert.Equal(t, 0, cfg.Cache.MaxSize)
+		assert.Equal(t, int64(0), cfg.Cache.MaxSize)
 		assert.Equal(t, false, cfg.RateLimit.Enabled)
 	})
 
