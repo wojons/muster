@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // ErrNotFound is returned when a requested entity is not found.
@@ -95,7 +95,7 @@ type SQLiteStore struct {
 
 // NewSQLiteStore opens or creates a SQLite database at the given path.
 func NewSQLiteStore(path string) (*SQLiteStore, error) {
-	db, err := sql.Open("sqlite", path)
+	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite database: %w", err)
 	}
