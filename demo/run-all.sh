@@ -42,7 +42,7 @@ SERVICES=(
 for entry in "${SERVICES[@]}"; do
   SCRIPT="${entry%%:*}"; REST="${entry#*:}"; PORT="${REST%%:*}"; NAME="${REST#*:}"
   echo -n "  $NAME (:$PORT)... "
-  PORT=$PORT python3 "$SCRIPT" &>/dev/null &
+  PORT=$PORT python3.11 "$SCRIPT" &>/dev/null &
   PIDS+=($!)
   # Wait for health
   for i in $(seq 1 20); do
@@ -60,7 +60,7 @@ for dir in demo/services/*/; do
   name=$(basename "$dir")
   [ -f "$dir/seed.py" ] || continue
   echo -n "  $name... "
-  python3 "$dir/seed.py" > /dev/null 2>&1 && pass "$name seeded" || fail_msg "$name seed failed"
+  python3.11 "$dir/seed.py" > /dev/null 2>&1 && pass "$name seeded" || fail_msg "$name seed failed"
 done
 
 # ── Run Demos ────────────────────────────────────────────────
