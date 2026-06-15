@@ -59,7 +59,6 @@ func TestCommands_LoadsFromDisk(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "commands.json")
 
-	// Write data to disk
 	stored := StoredData{
 		Version:  "1.0",
 		Commands: []CommandMetadata{{Name: "disk-cmd", Method: "GET", Path: "/api/test"}},
@@ -118,7 +117,6 @@ func TestHasData_WithFileOnDisk(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "data.json")
 
-	// Write a non-empty file
 	err := os.WriteFile(path, []byte("{}"), 0644)
 	require.NoError(t, err)
 
@@ -192,6 +190,29 @@ func TestLoad_FromDisk(t *testing.T) {
 	assert.Equal(t, "disk-load", meta.Name)
 }
 
+func TestLoad_FromDisk_Error(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.json")
+	os.WriteFile(path, []byte("{invalid json}"), 0644)
+
+	cs := NewCommandStore(path)
+	meta, err := cs.Load()
+	require.Error(t, err)
+	assert.Nil(t, meta)
+	assert.Contains(t, err.Error(), "unmarshal")
+}
+
+func TestLoad_WithPathAndEmptyDisk(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nonexistent.json")
+
+	cs := NewCommandStore(path)
+	meta, err := cs.Load()
+	require.Error(t, err)
+	assert.Nil(t, meta)
+	assert.Contains(t, err.Error(), "no stored data")
+}
+
 // --- Save ---
 
 func TestSave_WithData(t *testing.T) {
@@ -235,11 +256,9 @@ func TestSave_PersistsToDisk(t *testing.T) {
 	err := cs.Save(data)
 	require.NoError(t, err)
 
-	// Verify file was written
 	_, err = os.Stat(path)
 	require.NoError(t, err, "file should exist after save")
 
-	// Read back and verify
 	cs2 := NewCommandStore(path)
 	cmds, err := cs2.Commands()
 	require.NoError(t, err)
@@ -272,17 +291,14 @@ func TestClear_WithPath(t *testing.T) {
 	err := cs.Save(data)
 	require.NoError(t, err)
 
-	// Verify file exists
 	_, err = os.Stat(path)
 	require.NoError(t, err)
 
-	// Clear
 	err = cs.Clear()
 	require.NoError(t, err)
 	assert.Empty(t, cs.commands)
 	assert.Nil(t, cs.meta)
 
-	// File should still exist (written with empty data)
 	_, err = os.Stat(path)
 	require.NoError(t, err, "file should still exist after clear")
 }
@@ -312,7 +328,6 @@ func TestUpdateBaseURL_WithPath(t *testing.T) {
 	path := filepath.Join(dir, "baseurl.json")
 
 	cs := NewCommandStore(path)
-	// Must save data first so loadFromDisk can populate cs.meta
 	err := cs.Save(&StoredData{
 		Commands: []CommandMetadata{{Name: "test"}},
 	})
@@ -321,7 +336,6 @@ func TestUpdateBaseURL_WithPath(t *testing.T) {
 	err = cs.UpdateBaseURL("https://updated.example.com")
 	require.NoError(t, err)
 
-	// Verify persisted
 	cs2 := NewCommandStore(path)
 	meta, err := cs2.Load()
 	require.NoError(t, err)
@@ -348,11 +362,9 @@ func TestPersistToDisk_WritesFile(t *testing.T) {
 	err := cs.persistToDisk()
 	require.NoError(t, err)
 
-	// Verify file exists
 	_, err = os.Stat(path)
 	require.NoError(t, err)
 
-	// Read and verify content
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 
@@ -425,7 +437,7 @@ func TestLoadFromDisk_ValidData(t *testing.T) {
 
 // --- LoadCommands (compatibility shim) ---
 
-func TestLoadCommands(t *testing.T) {
+func TestLoadCommandsCompat(t *testing.T) {
 	cs := NewCommandStore()
 	cs.commands = []CommandMetadata{{Name: "compat-cmd"}}
 	cs.loaded = true
@@ -438,7 +450,7 @@ func TestLoadCommands(t *testing.T) {
 
 // --- ReconstructCommand (compatibility shim) ---
 
-func TestReconstructCommand(t *testing.T) {
+func TestReconstructCommandCompat(t *testing.T) {
 	meta := CommandMetadata{Name: "test-cmd"}
 	result, err := ReconstructCommand(context.Background(), meta)
 	require.NoError(t, err)
