@@ -20,6 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// seccompNotAvailable caches the seccomp probe result to avoid repeated
+// cgo calls that can crash (pthread_create failures in libseccomp after
+// multiple filter-load attempts in restricted environments).
+var seccompNotAvailable bool
+
 // seccompAvailable checks if seccomp kernel support is available.
 // It attempts to create and load a minimal seccomp filter; if the kernel
 // lacks CONFIG_SECCOMP (common in containers), it skips the test.
@@ -27,13 +32,19 @@ import (
 // axiom:trace work_item=ac-015-platform-test-guards spec=specs/02-Workflows.md impl=pkg/platform/seccomp_sandbox_test.go
 func seccompAvailable(t *testing.T) {
 	t.Helper()
+	if seccompNotAvailable {
+		t.Skip("seccomp not available (cached from prior probe)")
+		return
+	}
 	filter, err := seccomp.NewFilter(seccomp.ActAllow)
 	if err != nil {
+		seccompNotAvailable = true
 		t.Skipf("seccomp not available: cannot create filter: %v", err)
 		return
 	}
 	if err := filter.Load(); err != nil {
 		filter.Release()
+		seccompNotAvailable = true
 		t.Skipf("seccomp not available: cannot load filter (kernel may lack CONFIG_SECCOMP): %v", err)
 		return
 	}
