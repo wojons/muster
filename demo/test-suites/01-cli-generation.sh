@@ -13,13 +13,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-BINARY="${BINARY:-./bin/muster}"
+BINARY="${BINARY:-./bin/openapi-cli}"
 SPECS_DIR="./demo/openapi-specs"
 
 echo "Step 1: Check binary exists"
 echo "----------------------------"
 if [ ! -f "$BINARY" ]; then
-    echo -e "${YELLOW}Building muster binary...${NC}"
+    echo -e "${YELLOW}Building openapi-cli binary...${NC}"
     cd ../..
     make build > /dev/null 2>&1 || {
         echo -e "${RED}FAIL: Could not build binary${NC}"
@@ -49,7 +49,7 @@ fi
 echo ""
 echo "Step 3: Test CLI version command"
 echo "--------------------------------"
-if $BINARY version 2>/dev/null | grep -q "muster"; then
+if $BINARY version 2>/dev/null | grep -q "openapi-cli"; then
     echo -e "${GREEN}✓ CLI version command works${NC}"
 else
     echo -e "${YELLOW}⚠ Version command may not work as expected${NC}"

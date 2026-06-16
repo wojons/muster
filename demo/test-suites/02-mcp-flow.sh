@@ -13,7 +13,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-BINARY="${BINARY:-./bin/muster}"
+BINARY="${BINARY:-./bin/openapi-cli}"
 MCP_DIR="../../pkg/mcp"
 
 echo "Step 1: Check MCP binary exists"
@@ -24,7 +24,7 @@ if [ ! -f "$BINARY" ]; then
     make build-mcp > /dev/null 2>&1 || {
         echo -e "${YELLOW}⚠ Could not build MCP server${NC}"
         # Continue anyway - MCP may be part of main binary
-        BINARY="../../bin/muster"
+        BINARY="../../bin/openapi-cli"
         if [ ! -f "$BINARY" ]; then
             make build > /dev/null 2>&1
         fi
@@ -34,7 +34,7 @@ fi
 
 if [ ! -f "$BINARY" ]; then
     echo -e "${YELLOW}⚠ MCP binary not found, will test main binary${NC}"
-    BINARY="../../bin/muster"
+    BINARY="../../bin/openapi-cli"
 fi
 
 echo ""
