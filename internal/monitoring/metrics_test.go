@@ -634,8 +634,8 @@ func TestHealthHandlers_HTTPMethods(t *testing.T) {
 	healthPaths := []string{"/health", "/health/live", "/health/ready", "/health/startup"}
 
 	for _, path := range healthPaths {
-		t.Run(fmt.Sprintf("%s_POST", path), func(t *testing.T) {
-			resp, err := http.Post("http://localhost"+addr+path, "application/json", nil)
+		t.Run(fmt.Sprintf("%s_GET", path), func(t *testing.T) {
+			resp, err := http.Get("http://localhost" + addr + path)
 			require.NoError(t, err)
 			defer func() { _ = resp.Body.Close() }()
 
