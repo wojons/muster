@@ -858,8 +858,9 @@ func TestSingularizeEdgeCases(t *testing.T) {
 		{"buses", "bus"},
 		{"queries", "query"},
 		{"flies", "fly"},
-		{"status", "statu"},  // BUG: singularize naively strips trailing 's', should be "status"
-		{"bus", "bu"},        // BUG: same naivety, should be "bus"
+		{"status", "status"},
+		{"bus", "bus"},
+		{"series", "series"},
 		{"kiss", "kiss"},
 	}
 

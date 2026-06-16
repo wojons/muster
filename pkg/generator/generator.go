@@ -879,6 +879,15 @@ func (g *Generator) extractPathParams(path string) []string {
 }
 
 func singularize(s string) string {
+	// Words that end in 's' but are not plural forms — return unchanged.
+	exceptions := map[string]bool{
+		"status": true,
+		"bus":    true,
+		"series": true,
+	}
+	if exceptions[s] {
+		return s
+	}
 	if strings.HasSuffix(s, "ies") {
 		return strings.TrimSuffix(s, "ies") + "y"
 	}
