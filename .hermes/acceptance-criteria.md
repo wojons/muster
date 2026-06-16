@@ -4,6 +4,11 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
+**Last run:** 2026-06-16 04:15 UTC
+**Run status:** 🟢 ALL-CLEAR. 37/37 packages pass. `go vet` clean. `go build ./...` clean. `make build` clean. **Demo:** 6/6 test suites pass. **Container:** Healthy (Up 14+ hours).
+**New this run:** Fixed demo test scripts binary name (muster→openapi-cli, commit 96ffb2a). Fixed health endpoint test (POST→GET, commit 011fe6a).
+**Gaps found:** TenantDBManager stubs (no DB persistence), demo services on axiom/audit-logging-01 branch never merged to main. 
+**Backlog:** AC-200 (self-update, deferred-release-pipeline). AC-240: Merge demo services from axiom branch. AC-250: Wire tenant persistence (stubs→real DB).
 
 ## Demo Infrastructure (Fake Apps)
 
