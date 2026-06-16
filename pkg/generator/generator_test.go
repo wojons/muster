@@ -154,6 +154,9 @@ func TestSingularize(t *testing.T) {
 		{"data", "data"},
 		{"", ""},
 		{"test", "test"},
+		{"status", "status"},
+		{"bus", "bus"},
+		{"series", "series"},
 	}
 
 	for _, tc := range tests {
