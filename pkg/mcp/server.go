@@ -8,8 +8,30 @@ import (
 	"io"
 	"sync"
 
-	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/mcp/handlers"
 )
+
+// JSONRPCRequest represents a JSON-RPC 2.0 request.
+type JSONRPCRequest struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      interface{}     `json:"id,omitempty"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+}
+
+// JSONRPCResponse represents a JSON-RPC 2.0 response.
+type JSONRPCResponse struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      interface{}     `json:"id,omitempty"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *JSONRPCError   `json:"error,omitempty"`
+}
+
+// JSONRPCError represents a JSON-RPC 2.0 error.
+type JSONRPCError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
 
 type Server struct {
 	stdin          io.Reader
@@ -46,17 +68,17 @@ func (s *Server) registerHandlers() {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	// CRITICAL FIX: Track this goroutine so Shutdown() waits for it to complete
-	s.wg.Add(1)
-	defer s.wg.Done()
-
 	scanner := bufio.NewScanner(s.stdin)
 
 	for scanner.Scan() {
 		select {
 		case <-s.shutdownChan:
+			// Wait for in-flight request goroutines before returning
+			s.wg.Wait()
 			return nil
 		case <-ctx.Done():
+			// Wait for in-flight request goroutines before returning
+			s.wg.Wait()
 			return ctx.Err()
 		default:
 		}
@@ -72,29 +94,36 @@ func (s *Server) Run(ctx context.Context) error {
 			continue
 		}
 
-		// CRITICAL FIX: Acquire semaphore before spawning goroutine to prevent unbounded spawn
-		// If semaphore is full, block until slot available (prevents DoS)
+		// Acquire semaphore before spawning goroutine to prevent unbounded spawn
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
 			s.concurrencySem <- struct{}{}
 			defer func() { <-s.concurrencySem }()
-
 			s.handleRequest(ctx, &req)
 		}()
 	}
 
-	// CRITICAL FIX: Notify doneChan before waiting for in-flight requests
-	// This prevents Shutdown() from blocking when Run() exits early
+	// Wait for all in-flight request goroutines to complete before returning
+	s.wg.Wait()
 	return scanner.Err()
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *JSONRPCRequest) {
-	result, err := s.handlers.Handle(ctx, req.Method, req.Params)
+	handler := s.handlers.Get(req.Method)
+	if handler == nil {
+		s.sendError(req.ID, -32601, "Method not found")
+		return
+	}
+
+	result, err := handler.Handle(ctx, req.Params)
 
 	if err != nil {
-		mcpErr := handlers.HandleError(err)
-		s.sendError(req.ID, mcpErr.Code, mcpErr.Message)
+		if mcpErr, ok := err.(*handlers.MCPError); ok {
+			s.sendError(req.ID, mcpErr.Code, mcpErr.Message)
+		} else {
+			s.sendError(req.ID, -32000, err.Error())
+		}
 	} else {
 		s.sendResponse(req.ID, result)
 	}

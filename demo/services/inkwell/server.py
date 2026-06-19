@@ -20,11 +20,15 @@ TOKENS = {
 }
 
 UNPROTECTED = {"/health", "/openapi.json"}
+UNPROTECTED_GET = {"/posts"}
 
 
 @app.before_request
 def auth_middleware():
+    g.token_info = None
     if request.path in UNPROTECTED:
+        return
+    if request.method == "GET" and request.path in UNPROTECTED_GET:
         return
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
@@ -36,6 +40,8 @@ def auth_middleware():
 
 
 def role():
+    if g.token_info is None:
+        return "reader"
     return g.token_info["role"]
 
 

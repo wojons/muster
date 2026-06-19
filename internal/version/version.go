@@ -1,48 +1,39 @@
+// Package version provides build-time version information.
+// These variables are set via ldflags at build time.
 package version
 
-import (
-	"fmt"
-	"runtime"
-)
+import "fmt"
 
-// Build-time variables (set via ldflags)
+// Build-time variables, injected by the build system.
 var (
 	Version   = "dev"
 	Commit    = "unknown"
 	BuildDate = "unknown"
+	Branch    = "unknown"
+	GoVersion = "unknown"
 )
 
-// Info contains version information
+// Info holds version information.
 type Info struct {
-	Version   string `json:"version"`
-	Commit    string `json:"commit"`
-	BuildDate string `json:"build_date"`
-	GoVersion string `json:"go_version"`
-	Platform  string `json:"platform"`
+	Version   string
+	Commit    string
+	BuildDate string
+	Branch    string
+	GoVersion string
 }
 
-// Get returns current version info
+// Short returns a short version string.
+func (i Info) Short() string {
+	return fmt.Sprintf("%s (%s)", i.Version, i.Commit)
+}
+
+// Get returns the current version info.
 func Get() Info {
 	return Info{
 		Version:   Version,
 		Commit:    Commit,
 		BuildDate: BuildDate,
-		GoVersion: runtime.Version(),
-		Platform:  fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		Branch:    Branch,
+		GoVersion: GoVersion,
 	}
-}
-
-// String returns formatted version string
-func (i Info) String() string {
-	return fmt.Sprintf("openapi-cli version %s (commit: %s, built: %s)\n%s/%s %s",
-		i.Version, i.Commit, i.BuildDate, runtime.GOOS, runtime.GOARCH, runtime.Version())
-}
-
-// Short returns a short version string
-func (i Info) Short() string {
-	commit := i.Commit
-	if len(commit) > 7 {
-		commit = commit[:7]
-	}
-	return fmt.Sprintf("%s (%s)", i.Version, commit)
 }

@@ -3,7 +3,7 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/openapi-cli/openapi-cli/pkg/daemon"
+	"github.com/wojons/muster/pkg/daemon"
 	"github.com/spf13/cobra"
 )
 
@@ -44,16 +44,10 @@ func newDaemonStartCommand() *cobra.Command {
 			}
 
 			fmt.Println("✓ Daemon started successfully")
-			reportedPath := socketPath
-			if reportedPath == "" {
-				reportedPath = "/tmp/openapi-cli.sock"
+			if socketPath != "" {
+				fmt.Printf("  Socket: %s\n", socketPath)
 			}
-			fmt.Printf("  Socket: %s\n", reportedPath)
-
-			// Block forever to keep the daemon alive.
-			// The socket listener runs in a goroutine and handles requests.
-			// The signal handler waits for SIGTERM/SIGINT to shut down.
-			select {}
+			return nil
 		},
 	}
 
@@ -121,9 +115,6 @@ func newDaemonStatusCommand() *cobra.Command {
 				fmt.Printf("Status: Running\n")
 				fmt.Printf("  PID: %d\n", status.PID)
 				fmt.Printf("  Started: %s\n", status.StartTime.Format("2006-01-02 15:04:05"))
-				if status.SocketPath != "" {
-					fmt.Printf("  Socket: %s\n", status.SocketPath)
-				}
 			} else {
 				fmt.Println("Status: Stopped")
 			}

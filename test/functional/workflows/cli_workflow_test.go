@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/test/functional/harness"
+	"github.com/wojons/muster/test/functional/harness"
 )
 
 // TestSystem_Initialization tests that the system can start, initialize, and reach ready state.

@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/generator"
-	"github.com/openapi-cli/openapi-cli/pkg/mcp"
-	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
-	"github.com/openapi-cli/openapi-cli/pkg/request"
+	"github.com/wojons/muster/pkg/generator"
+	"github.com/wojons/muster/pkg/mcp"
+	"github.com/wojons/muster/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/openapi"
+	"github.com/wojons/muster/pkg/request"
 )
 
 // TestFullStackIntegration is the ultimate REAL integration test that proves

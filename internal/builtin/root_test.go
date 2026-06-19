@@ -3,7 +3,7 @@ package builtin
 import (
 	"testing"
 
-	"github.com/openapi-cli/openapi-cli/pkg/config"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -218,7 +218,6 @@ func TestLoadPersistedCommands(t *testing.T) {
 			"generate",
 			"request",
 			"daemon",
-			"audit",
 		}
 
 		actualCommands := make(map[string]bool)
@@ -247,7 +246,6 @@ func TestRootCommandStructure(t *testing.T) {
 		builtInCommands := []string{
 			"version", "config", "help", "completion", "init",
 			"auth", "inventory", "modules", "generate", "request", "daemon",
-			"audit",
 		}
 
 		for _, cmd := range root.Commands() {

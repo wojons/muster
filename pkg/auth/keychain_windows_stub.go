@@ -1,28 +1,31 @@
-//go:build !windows
-// +build !windows
-
 package auth
 
-// Stub types for non-Windows platforms
-
+// windowsKeychainNative is a stub keychain implementation used when the
+// native Windows Credential Manager is not available. On Windows, a real
+// implementation in a _windows.go file overrides this stub.
 type windowsKeychainNative struct{}
 
-func NewWindowsKeychainNative() *windowsKeychainNative {
-	return nil
+// NewWindowsKeychainNative creates a new Windows keychain native client.
+func NewWindowsKeychainNative() (*windowsKeychainNative, error) {
+	return &windowsKeychainNative{}, nil
 }
 
-func (k *windowsKeychainNative) Set(service, account, password string) error {
-	return nil
+// Set stores a credential. Stub implementation returns ErrSecretServiceNotAvailable.
+func (w *windowsKeychainNative) Set(service, account, password string) error {
+	return ErrSecretServiceNotAvailable
 }
 
-func (k *windowsKeychainNative) Get(service, account string) (string, error) {
-	return "", nil
+// Get retrieves a credential. Stub implementation returns ErrSecretServiceNotAvailable.
+func (w *windowsKeychainNative) Get(service, account string) (string, error) {
+	return "", ErrSecretServiceNotAvailable
 }
 
-func (k *windowsKeychainNative) Delete(service, account string) error {
-	return nil
+// Delete removes a credential. Stub implementation returns ErrSecretServiceNotAvailable.
+func (w *windowsKeychainNative) Delete(service, account string) error {
+	return ErrSecretServiceNotAvailable
 }
 
-func (k *windowsKeychainNative) List(service string) ([]Account, error) {
+// List returns stored accounts. Stub implementation returns nil.
+func (w *windowsKeychainNative) List(service string) ([]Account, error) {
 	return nil, nil
 }

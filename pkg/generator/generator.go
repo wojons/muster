@@ -117,6 +117,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -125,9 +126,9 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/openapi-cli/openapi-cli/pkg/log"
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
-	"github.com/openapi-cli/openapi-cli/pkg/request"
+	"github.com/wojons/muster/pkg/log"
+	"github.com/wojons/muster/pkg/openapi"
+	"github.com/wojons/muster/pkg/request"
 	"github.com/spf13/cobra"
 )
 
@@ -314,6 +315,9 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation) *cobra.Command 
 	return cmd
 }
 
+// addFlags adds CLI flags for the operation's parameters and request body properties.
+// For multipart operations, adds a --file flag instead of per-property body flags.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/generator/generator.go
 func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 	for _, param := range op.Parameters {
 		if param.In == "path" {
@@ -326,7 +330,7 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 
 		switch param.Type {
 		case "string":
-			g.addStringFlag(cmd, flagName, shorthand, param, description)
+			g.addStringFlag(cmd, flagName, shorthand, &param, description)
 		case "integer":
 			defaultVal := 0
 			if param.Default != nil {
@@ -352,6 +356,93 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		}
 
 		if param.Required {
+			_ = cmd.MarkFlagRequired(flagName)
+		}
+	}
+
+	// For multipart operations, add --file flag alongside any JSON body flags
+	if op.HasMultiPart {
+		cmd.Flags().StringP("file", "f", "", "File path to upload (multipart/form-data)")
+		// Add non-file multipart form fields
+		for _, field := range op.MultipartFields {
+			flagName := g.normalizeFlagName(field.Name)
+			description := field.Description
+			if description == "" {
+				description = fmt.Sprintf("%s (form field)", field.Name)
+			}
+			cmd.Flags().StringP(flagName, "", "", description)
+		}
+	}
+
+	// Add flags for request body properties (for POST/PUT/PATCH operations)
+	// Build a set of multipart flag names to avoid duplicates
+	multipartFlagNames := make(map[string]bool)
+	for _, field := range op.MultipartFields {
+		multipartFlagNames[g.normalizeFlagName(field.Name)] = true
+	}
+
+	for _, bodyProp := range op.RequestBody {
+		flagName := g.normalizeFlagName(bodyProp.Name)
+		// Skip if already added as a multipart field
+		if multipartFlagNames[flagName] {
+			continue
+		}
+		shorthand := g.inferShorthand(bodyProp.Name)
+		description := bodyProp.Description
+		if description == "" {
+			description = fmt.Sprintf("%s (request body)", bodyProp.Name)
+		}
+
+		switch bodyProp.Type {
+		case "string":
+			defaultVal := ""
+			if bodyProp.Default != nil {
+				defaultVal = fmt.Sprintf("%v", bodyProp.Default)
+			}
+			if len(bodyProp.Enum) > 0 {
+				allowed := make([]string, len(bodyProp.Enum))
+				for i, v := range bodyProp.Enum {
+					allowed[i] = fmt.Sprintf("%v", v)
+				}
+				description = fmt.Sprintf("%s (allowed: %s)", description, strings.Join(allowed, ", "))
+			}
+			cmd.Flags().StringP(flagName, shorthand, defaultVal, description)
+		case "integer":
+			defaultVal := 0
+			if bodyProp.Default != nil {
+				switch v := bodyProp.Default.(type) {
+				case float64:
+					defaultVal = int(v)
+				case int:
+					defaultVal = v
+				case int64:
+					defaultVal = int(v)
+				}
+			}
+			cmd.Flags().IntP(flagName, shorthand, defaultVal, description)
+		case "number":
+			defaultVal := 0.0
+			if bodyProp.Default != nil {
+				if v, ok := bodyProp.Default.(float64); ok {
+					defaultVal = v
+				}
+			}
+			cmd.Flags().Float64P(flagName, shorthand, defaultVal, description)
+		case "boolean":
+			defaultVal := false
+			if bodyProp.Default != nil {
+				if v, ok := bodyProp.Default.(bool); ok {
+					defaultVal = v
+				}
+			}
+			cmd.Flags().BoolP(flagName, shorthand, defaultVal, description)
+		case "array":
+			cmd.Flags().StringSliceP(flagName, shorthand, nil, description)
+		default:
+			cmd.Flags().StringP(flagName, shorthand, "", description)
+		}
+
+		if bodyProp.Required {
 			_ = cmd.MarkFlagRequired(flagName)
 		}
 	}
@@ -603,7 +694,12 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		builder := request.NewBuilder(g.config.BaseURL, op.Path, op.Method)
+		// Use per-operation server URL if available, falling back to config-level base URL
+		baseURL := op.ServerURL
+		if baseURL == "" {
+			baseURL = g.config.BaseURL
+		}
+		builder := request.NewBuilder(baseURL, op.Path, op.Method)
 
 		pathParams := g.extractPathParams(op.Path)
 		for i, param := range pathParams {
@@ -620,7 +716,6 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 				if err != nil {
 					return fmt.Errorf("get flag %s: %w", param.Name, err)
 				}
-				// Check if flag was actually set
 				flagName := g.normalizeFlagName(param.Name)
 				if cmd.Flag(flagName) != nil && cmd.Flag(flagName).Changed {
 					builder.WithQueryParam(param.Name, fmt.Sprintf("%v", value))
@@ -632,30 +727,125 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 			if param.In == "header" {
 				value, _ := cmd.Flags().GetString(g.normalizeFlagName(param.Name))
 				if value != "" {
-					builder.WithHeader(param.Name, value)
+					builder.SetHeader(param.Name, value)
 				}
 			}
 		}
 
-		resp, err := builder.Execute(ctx)
-		if err != nil {
-			return fmt.Errorf("execute request: %w", err)
+		// Handle multipart file upload
+		if op.HasMultiPart {
+			filePath, _ := cmd.Flags().GetString("file")
+			if filePath != "" {
+				builder.WithFileUpload("file", filePath)
+				// Add multipart non-file fields
+				for _, field := range op.MultipartFields {
+					flagName := g.normalizeFlagName(field.Name)
+					if cmd.Flag(flagName) != nil && cmd.Flag(flagName).Changed {
+						val, _ := cmd.Flags().GetString(flagName)
+						builder.WithMultipartField(field.Name, val)
+					}
+				}
+				return executeAndPrint(builder, cmd, ctx)
+			}
+			// No file provided — fall through to JSON body path below
 		}
-		defer func() { _ = resp.Body.Close() }()
 
-		if resp.StatusCode >= 400 {
-			return fmt.Errorf("HTTP error: %s", resp.Status)
+		// Build JSON body from request body property flags (for POST/PUT/PATCH)
+		if len(op.RequestBody) > 0 &&
+			(op.Method == http.MethodPost || op.Method == http.MethodPut || op.Method == http.MethodPatch) {
+			bodyMap := make(map[string]interface{})
+			hasBodyFlag := false
+
+			for _, bodyProp := range op.RequestBody {
+				flagName := g.normalizeFlagName(bodyProp.Name)
+				if cmd.Flag(flagName) == nil {
+					continue
+				}
+
+				switch bodyProp.Type {
+				case "string":
+					val, _ := cmd.Flags().GetString(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				case "integer":
+					val, _ := cmd.Flags().GetInt(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				case "number":
+					val, _ := cmd.Flags().GetFloat64(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				case "boolean":
+					val, _ := cmd.Flags().GetBool(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				case "array":
+					val, _ := cmd.Flags().GetStringSlice(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				default:
+					val, _ := cmd.Flags().GetString(flagName)
+					if cmd.Flag(flagName).Changed {
+						bodyMap[bodyProp.Name] = val
+						hasBodyFlag = true
+					}
+				}
+			}
+
+			if hasBodyFlag {
+				bodyJSON, err := json.Marshal(bodyMap)
+				if err != nil {
+					return fmt.Errorf("marshal request body: %w", err)
+				}
+				builder.JSONBody(string(bodyJSON))
+				builder.SetHeader("Content-Type", "application/json")
+			}
 		}
 
-		// Log response status
-		logger := log.FromContext(ctx)
-		logger.Info().
-			Int("status_code", resp.StatusCode).
-			Str("status", resp.Status).
-			Msg("HTTP response received")
-
-		return nil
+		return executeAndPrint(builder, cmd, ctx)
 	}
+}
+
+// executeAndPrint sends the request and prints the response body.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/generator/generator.go
+func executeAndPrint(builder *request.Builder, cmd *cobra.Command, ctx context.Context) error {
+	resp, err := builder.Execute(ctx)
+	if err != nil {
+		return fmt.Errorf("execute request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Read and print response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+	if len(body) > 0 {
+		fmt.Fprintln(cmd.OutOrStdout(), string(body))
+	}
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("HTTP error: %s", resp.Status)
+	}
+
+	// Log response status
+	logger := log.FromContext(ctx)
+	logger.Info().
+		Int("status_code", resp.StatusCode).
+		Str("status", resp.Status).
+		Msg("HTTP response received")
+
+	return nil
 }
 
 func (g *Generator) getFlagValue(cmd *cobra.Command, name, paramType string) (interface{}, error) {
@@ -689,15 +879,6 @@ func (g *Generator) extractPathParams(path string) []string {
 }
 
 func singularize(s string) string {
-	// Words that end in 's' but are not plural forms — return unchanged.
-	exceptions := map[string]bool{
-		"status": true,
-		"bus":    true,
-		"series": true,
-	}
-	if exceptions[s] {
-		return s
-	}
 	if strings.HasSuffix(s, "ies") {
 		return strings.TrimSuffix(s, "ies") + "y"
 	}

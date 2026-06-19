@@ -38,12 +38,13 @@ var (
 
 // SeccompFilter provides Linux seccomp BPF filtering for syscall restriction
 type SeccompFilter struct {
-	mode    SeccompFilterMode
-	filter  *seccomp.ScmpFilter
-	profile SeccompProfile
-	allowed map[uint32]bool
-	denied  map[uint32]bool
-	loaded  bool
+	mode         SeccompFilterMode
+	filter       *seccomp.ScmpFilter
+	profile      SeccompProfile
+	allowed      map[uint32]bool
+	denied       map[uint32]bool
+	allowedPaths []string
+	loaded       bool
 }
 
 // NewSeccompFilter creates a new seccomp filter
@@ -218,11 +219,24 @@ func (sf *SeccompFilter) SetSocketRestriction(allowBind, allowConnect bool) erro
 	return nil
 }
 
-// LimitFileAccess restricts file system access
+// LimitFileAccess restricts file system access.
+//
+// seccomp operates at the syscall level, not the filesystem-path level.
+// Path-based access control requires additional mechanisms (SELinux, BPF
+// argument inspection, or a higher-level wrapper). allowedPaths is recorded
+// for use by callers (e.g. a path-aware sandbox layer) but does not alter
+// the syscall-level deny rules applied here.
+//
+// Use CheckAccess(path) after calling LimitFileAccess to programmatically
+// ask whether a path was declared allowed.
 func (sf *SeccompFilter) LimitFileAccess(allowedPaths []string) error {
 	if len(allowedPaths) == 0 {
 		return fmt.Errorf("no allowed paths specified")
 	}
+
+	// Record allowed paths so higher-level wrappers can inspect them.
+	sf.allowedPaths = make([]string, len(allowedPaths))
+	copy(sf.allowedPaths, allowedPaths)
 
 	fileSyscalls := []string{
 		"open", "openat", "creat",
@@ -243,6 +257,21 @@ func (sf *SeccompFilter) LimitFileAccess(allowedPaths []string) error {
 	}
 
 	return nil
+}
+
+// CheckAccess returns true if path was listed in allowedPaths (or a parent
+// directory prefix-match). Call this after LimitFileAccess.
+func (sf *SeccompFilter) CheckAccess(path string) bool {
+	for _, allowed := range sf.allowedPaths {
+		if path == allowed {
+			return true
+		}
+		// Allow sub-paths of declared directories
+		if len(path) > len(allowed) && path[:len(allowed)] == allowed && path[len(allowed)] == '/' {
+			return true
+		}
+	}
+	return false
 }
 
 // EnableNetworkRestriction restricts network I/O
@@ -453,7 +482,7 @@ func (sf *SeccompFilter) addSyscalls(names []string) error {
 		if err != nil {
 			continue
 		}
-	if err := sf.filter.AddRule(seccomp.ScmpSyscall(id), seccomp.ActAllow); err != nil {
+		if err := sf.filter.AddRule(seccomp.ScmpSyscall(id), seccomp.ActAllow); err != nil {
 			return fmt.Errorf("failed to add syscall %s: %w", name, err)
 		}
 		sf.allowed[uint32(id)] = true
@@ -483,18 +512,285 @@ const (
 	SYS_STAT  uintptr = 4
 )
 
-// toSyscallName converts syscall number to name
+// RecordFailedSyscall records the last syscall that was denied by seccomp.
+// Call this from seccomp notification handlers or BPF action callbacks.
+func RecordFailedSyscall(syscallNum, arch uintptr) {
+	failedMutex.Lock()
+	lastFailedSyscall = syscallNum
+	lastFailedArch = arch
+	failedMutex.Unlock()
+}
+
+// toSyscallName converts syscall number to a human-readable name.
+//
+// The mapping is populated at init time from the libseccomp syscall table
+// when available (Linux). The switch below provides the common x86-64
+// numbering for offline / non-Linux reference. Use ToSyscallName() for
+// the runtime-resolved name when accuracy matters.
 func toSyscallName(num uintptr) string {
 	switch num {
+	// File I/O
 	case 0:
 		return "read"
 	case 1:
 		return "write"
 	case 2:
 		return "open"
+	case 3:
+		return "close"
 	case 4:
 		return "stat"
+	case 5:
+		return "fstat"
+	case 6:
+		return "lstat"
+	case 8:
+		return "lseek"
+	case 9:
+		return "mmap"
+	case 10:
+		return "mprotect"
+	case 11:
+		return "munmap"
+	case 12:
+		return "brk"
+	case 17:
+		return "pread64"
+	case 18:
+		return "pwrite64"
+	case 21:
+		return "access"
+	case 22:
+		return "pipe"
+	case 32:
+		return "dup"
+	case 33:
+		return "dup2"
+	case 72:
+		return "fcntl"
+	case 85:
+		return "creat"
+	case 87:
+		return "unlink"
+	case 88:
+		return "symlink"
+	case 89:
+		return "readlink"
+	case 257:
+		return "openat"
+	case 258:
+		return "mkdirat"
+	case 263:
+		return "unlinkat"
+	case 264:
+		return "renameat"
+	case 267:
+		return "readlinkat"
+	case 276:
+		return "renameat2"
+	// Process / Signals
+	case 13:
+		return "rt_sigaction"
+	case 14:
+		return "rt_sigprocmask"
+	case 15:
+		return "rt_sigreturn"
+	case 39:
+		return "getpid"
+	case 56:
+		return "clone"
+	case 57:
+		return "fork"
+	case 58:
+		return "vfork"
+	case 59:
+		return "execve"
+	case 60:
+		return "exit"
+	case 61:
+		return "wait4"
+	case 62:
+		return "kill"
+	case 110:
+		return "gettid"
+	case 157:
+		return "prctl"
+	case 158:
+		return "arch_prctl"
+	case 231:
+		return "exit_group"
+	// Sockets / Network
+	case 41:
+		return "socket"
+	case 42:
+		return "connect"
+	case 43:
+		return "accept"
+	case 49:
+		return "bind"
+	case 50:
+		return "listen"
+	case 44:
+		return "sendto"
+	case 45:
+		return "recvfrom"
+	case 46:
+		return "sendmsg"
+	case 47:
+		return "recvmsg"
+	case 48:
+		return "shutdown"
+	case 54:
+		return "setsockopt"
+	case 55:
+		return "getsockopt"
+	// Filesystem
+	case 79:
+		return "getcwd"
+	case 80:
+		return "chdir"
+	case 83:
+		return "mkdir"
+	case 84:
+		return "rmdir"
+	case 90:
+		return "chmod"
+	case 91:
+		return "fchmod"
+	case 268:
+		return "fchmodat"
+	case 92:
+		return "chown"
+	case 93:
+		return "fchown"
+	case 94:
+		return "lchown"
+	case 260:
+		return "fchownat"
+	case 74:
+		return "fsync"
+	case 75:
+		return "fdatasync"
+	case 162:
+		return "syncfs"
+	case 76:
+		return "ftruncate"
+	case 77:
+		return "truncate"
+	// IO Multiplexing
+	case 23:
+		return "select"
+	case 7:
+		return "poll"
+	case 213:
+		return "epoll_create"
+	case 291:
+		return "epoll_create1"
+	case 233:
+		return "epoll_ctl"
+	case 232:
+		return "epoll_wait"
+	case 281:
+		return "epoll_pwait"
+	// Time
+	case 201:
+		return "time"
+	case 96:
+		return "gettimeofday"
+	case 228:
+		return "clock_gettime"
+	case 229:
+		return "clock_getres"
+	case 35:
+		return "nanosleep"
+	case 230:
+		return "clock_nanosleep"
+	// Memory / Futex
+	case 202:
+		return "futex"
+	case 16:
+		return "ioctl"
+	case 19:
+		return "readv"
+	case 20:
+		return "writev"
+	case 218:
+		return "set_tid_address"
+	case 273:
+		return "set_robust_list"
+	case 204:
+		return "sched_getaffinity"
+	case 318:
+		return "getrandom"
+	case 293:
+		return "pipe2"
+	case 288:
+		return "accept4"
+	case 320:
+		return "memfd_create"
+	case 321:
+		return "memfd_secret"
+	case 322:
+		return "execveat"
+	case 247:
+		return "waitid"
+	case 200:
+		return "tkill"
+	case 234:
+		return "tgkill"
+	case 109:
+		return "setpgid"
+	case 121:
+		return "getpgid"
+	case 112:
+		return "setsid"
+	case 124:
+		return "getsid"
+	case 125:
+		return "capget"
+	case 126:
+		return "capset"
+	case 323:
+		return "userfaultfd"
+	case 101:
+		return "ptrace"
+	case 135:
+		return "personality"
+	case 275:
+		return "mknod"
+	case 259:
+		return "mknodat"
+	case 282:
+		return "signalfd"
+	case 289:
+		return "signalfd4"
+	case 283:
+		return "timerfd_create"
+	case 287:
+		return "timerfd_settime"
+	case 286:
+		return "timerfd_gettime"
+	case 307:
+		return "sendmmsg"
+	case 299:
+		return "recvmmsg"
+	case 304:
+		return "socketpair"
 	default:
 		return "unknown"
 	}
+}
+
+// ToSyscallName resolves the syscall number using the libseccomp table
+// when available (Linux only). Falls back to the static toSyscallName
+// mapping on non-Linux or when resolution fails.
+func ToSyscallName(num uintptr) string {
+	if runtime.GOOS == "linux" {
+		id := seccomp.ScmpSyscall(num)
+		name, err := id.GetName()
+		if err == nil {
+			return name
+		}
+	}
+	return toSyscallName(num)
 }

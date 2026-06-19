@@ -1,50 +1,33 @@
+// Package errors provides structured error types for the Muster application.
+// It implements the AppError pattern with error codes, severity levels,
+// contextual details, and error wrapping support.
 package errors
 
 import (
 	"fmt"
+	"strings"
 )
 
+// Code represents an error code categorization.
 type Code string
 
+// Common error codes.
 const (
-	CodeGeneric            Code = "GENERIC"
-	CodeBadRequest         Code = "BAD_REQUEST"
-	CodeUnauthorized       Code = "UNAUTHORIZED"
-	CodeForbidden          Code = "FORBIDDEN"
-	CodeNotFound           Code = "NOT_FOUND"
-	CodeConflict           Code = "CONFLICT"
-	CodeInternal           Code = "INTERNAL_ERROR"
-	CodeServiceUnavailable Code = "SERVICE_UNAVAILABLE"
-	CodeTimeout            Code = "TIMEOUT"
-	CodeRateLimitExceeded  Code = "RATE_LIMIT_EXCEEDED"
-	CodeInvalidInput       Code = "INVALID_INPUT"
-	CodeValidation         Code = "VALIDATION_ERROR"
-	CodeConfig             Code = "CONFIGURATION_ERROR"
-	CodeNetwork            Code = "NETWORK_ERROR"
-	CodeDatabase           Code = "DATABASE_ERROR"
-	CodeResource           Code = "RESOURCE_ERROR"
-	CodeAuthentication     Code = "AUTHENTICATION_ERROR"
-	CodeAuthorization      Code = "AUTHORIZATION_ERROR"
-	CodeTokenExpired       Code = "TOKEN_EXPIRED"
-	CodeTokenInvalid       Code = "TOKEN_INVALID"
-	CodeKeychainError      Code = "KEYCHAIN_ERROR"
-	CodeOAuth              Code = "OAUTH_ERROR"
-	CodeMTLS               Code = "MTLS_ERROR"
-	CodeInventory          Code = "INVENTORY_ERROR"
-	CodeOpenAPI            Code = "OPENAPI_ERROR"
-	CodeParsing            Code = "PARSING_ERROR"
-	CodeWASM               Code = "WASM_ERROR"
-	CodeExecution          Code = "EXECUTION_ERROR"
-	CodeCapability         Code = "CAPABILITY_ERROR"
-	CodeCache              Code = "CACHE_ERROR"
-	CodeLock               Code = "LOCK_ERROR"
-	CodeConcurrent         Code = "CONCURRENT_ERROR"
-	CodeSerialization      Code = "SERIALIZATION_ERROR"
-	CodeDeserialization    Code = "DESERIALIZATION_ERROR"
+	CodeBadRequest   Code = "BAD_REQUEST"
+	CodeNotFound     Code = "NOT_FOUND"
+	CodeValidation   Code = "VALIDATION_ERROR"
+	CodeGeneric      Code = "GENERIC_ERROR"
+	CodeDatabase     Code = "DATABASE_ERROR"
+	CodeUnauthorized Code = "UNAUTHORIZED"
+	CodeInternal     Code = "INTERNAL_ERROR"
+	CodeTimeout      Code = "TIMEOUT"
+	CodeRateLimit    Code = "RATE_LIMITED"
 )
 
+// Severity indicates the seriousness of an error.
 type Severity string
 
+// Severity levels.
 const (
 	SeverityCritical Severity = "critical"
 	SeverityHigh     Severity = "high"
@@ -53,162 +36,146 @@ const (
 	SeverityInfo     Severity = "info"
 )
 
+// AppError is a structured application error with code, message, severity,
+// contextual details, and optional wrapped cause.
 type AppError struct {
 	code     Code
 	message  string
-	cause    error
-	details  map[string]interface{}
 	severity Severity
+	details  map[string]interface{}
+	cause    error
 }
 
-func (e *AppError) Error() string {
-	msg := e.message
-	if cause := e.cause; cause != nil {
-		msg = fmt.Sprintf("%s: %v", msg, cause)
+// New creates a new AppError with the given code and message.
+func New(code Code, message string) *AppError {
+	return &AppError{
+		code:    code,
+		message: message,
+		details: make(map[string]interface{}),
 	}
-	return msg
 }
 
-func (e *AppError) Unwrap() error {
-	return e.cause
+// Wrap wraps an existing error with a new code and message.
+// The original error becomes the cause.
+func Wrap(err error, code Code, message string) *AppError {
+	appErr := New(code, message)
+	appErr.cause = err
+	return appErr
 }
 
+// Code returns the error code.
 func (e *AppError) Code() Code {
+	if e == nil {
+		return ""
+	}
 	return e.code
 }
 
+// Message returns the error message.
 func (e *AppError) Message() string {
+	if e == nil {
+		return ""
+	}
 	return e.message
 }
 
-func (e *AppError) Details() map[string]interface{} {
-	return e.details
-}
-
+// Severity returns the error severity level.
 func (e *AppError) Severity() Severity {
+	if e == nil {
+		return ""
+	}
 	return e.severity
 }
 
-func (e *AppError) Is(target error) bool {
-	t, ok := target.(*AppError)
-	if !ok {
-		return false
+// Details returns the error's contextual details map.
+func (e *AppError) Details() map[string]interface{} {
+	if e == nil {
+		return nil
 	}
-	return e.code == t.code
+	return e.details
 }
 
-func New(code Code, message string) *AppError {
-	return &AppError{
-		code:     code,
-		message:  message,
-		details:  make(map[string]interface{}),
-		severity: SeverityMedium,
+// Unwrap returns the wrapped cause error, implementing the standard
+// errors.Unwrap interface for use with errors.Is and errors.As.
+func (e *AppError) Unwrap() error {
+	if e == nil {
+		return nil
 	}
+	return e.cause
 }
 
-func Wrap(err error, code Code, message string) *AppError {
-	return &AppError{
-		code:     code,
-		message:  message,
-		cause:    err,
-		details:  make(map[string]interface{}),
-		severity: SeverityMedium,
+// Error implements the error interface.
+func (e *AppError) Error() string {
+	if e == nil {
+		return ""
 	}
+	var sb strings.Builder
+	sb.WriteString(string(e.code))
+	sb.WriteString(": ")
+	sb.WriteString(e.message)
+	if e.cause != nil {
+		sb.WriteString(": ")
+		sb.WriteString(e.cause.Error())
+	}
+	return sb.String()
 }
 
+// WithDetail adds a contextual detail to the error.
+// Returns the error for method chaining.
 func (e *AppError) WithDetail(key string, value interface{}) *AppError {
+	if e == nil {
+		return nil
+	}
+	if e.details == nil {
+		e.details = make(map[string]interface{})
+	}
 	e.details[key] = value
 	return e
 }
 
-func (e *AppError) WithDetails(details map[string]interface{}) *AppError {
-	for k, v := range details {
-		e.details[k] = v
-	}
-	return e
-}
-
-func (e *AppError) WithCause(err error) *AppError {
-	e.cause = err
-	return e
-}
-
+// WithSeverity sets the severity level of the error.
+// Returns the error for method chaining.
 func (e *AppError) WithSeverity(severity Severity) *AppError {
+	if e == nil {
+		return nil
+	}
 	e.severity = severity
 	return e
 }
 
+// IsError checks whether the given error (or any error in its chain)
+// has the specified code. Returns false if err is nil.
 func IsError(err error, code Code) bool {
 	if err == nil {
 		return false
 	}
-	e, ok := err.(*AppError)
-	if !ok {
-		return false
+	if appErr, ok := err.(*AppError); ok {
+		if appErr.Code() == code {
+			return true
+		}
 	}
-	return e.code == code
+	// Walk the error chain
+	for {
+		unwrapped := err
+		if u, ok := err.(interface{ Unwrap() error }); ok {
+			unwrapped = u.Unwrap()
+			if unwrapped == nil {
+				break
+			}
+			if appErr, ok := unwrapped.(*AppError); ok {
+				if appErr.Code() == code {
+					return true
+				}
+			}
+			err = unwrapped
+		} else {
+			break
+		}
+	}
+	return false
 }
 
-func GetCode(err error) Code {
-	if err == nil {
-		return CodeGeneric
-	}
-	e, ok := err.(*AppError)
-	if !ok {
-		return CodeGeneric
-	}
-	return e.code
-}
-
-func Format(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
-}
-
-var (
-	ErrGeneric            = New(CodeGeneric, "An error occurred")
-	ErrBadRequest         = New(CodeBadRequest, "Bad request")
-	ErrUnauthorized       = New(CodeUnauthorized, "Unauthorized")
-	ErrForbidden          = New(CodeForbidden, "Forbidden")
-	ErrNotFound           = New(CodeNotFound, "Resource not found")
-	ErrConflict           = New(CodeConflict, "Conflict")
-	ErrInternal           = New(CodeInternal, "Internal error")
-	ErrServiceUnavailable = New(CodeServiceUnavailable, "Service unavailable")
-	ErrTimeout            = New(CodeTimeout, "Request timeout")
-	ErrRateLimitExceeded  = New(CodeRateLimitExceeded, "Rate limit exceeded")
-	ErrInvalidInput       = New(CodeInvalidInput, "Invalid input")
-	ErrValidation         = New(CodeValidation, "Validation error")
-	ErrConfig             = New(CodeConfig, "Configuration error")
-	ErrNetwork            = New(CodeNetwork, "Network error")
-	ErrDatabase           = New(CodeDatabase, "Database error")
-	ErrResource           = New(CodeResource, "Resource error")
-	ErrAuthentication     = New(CodeAuthentication, "Authentication error")
-	ErrAuthorization      = New(CodeAuthorization, "Authorization error")
-	ErrTokenExpired       = New(CodeTokenExpired, "Token expired")
-	ErrTokenInvalid       = New(CodeTokenInvalid, "Token invalid")
-	ErrKeychain           = New(CodeKeychainError, "Keychain error")
-	ErrOAuth              = New(CodeOAuth, "OAuth error")
-	ErrMTLS               = New(CodeMTLS, "mTLS error")
-	ErrInventory          = New(CodeInventory, "Inventory error")
-	ErrOpenAPI            = New(CodeOpenAPI, "OpenAPI error")
-	ErrParsing            = New(CodeParsing, "Parsing error")
-	ErrWASM               = New(CodeWASM, "WASM error")
-	ErrExecution          = New(CodeExecution, "Execution error")
-	ErrCapability         = New(CodeCapability, "Capability error")
-	ErrCache              = New(CodeCache, "Cache error")
-	ErrLock               = New(CodeLock, "Lock error")
-	ErrConcurrent         = New(CodeConcurrent, "Concurrent error")
-	ErrSerialization      = New(CodeSerialization, "Serialization error")
-	ErrDeserialization    = New(CodeDeserialization, "Deserialization error")
-)
-
-type Error interface {
-	Error() string
-	Code() Code
-	Message() string
-	Severity() Severity
-	Details() map[string]interface{}
-	Is(target error) bool
+// Errorf creates a new AppError with a formatted message.
+func Errorf(code Code, format string, args ...interface{}) *AppError {
+	return New(code, fmt.Sprintf(format, args...))
 }

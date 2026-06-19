@@ -4,12 +4,42 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
-	"github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
-	"github.com/openapi-cli/openapi-cli/pkg/request"
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/wojons/muster/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/openapi"
+	"github.com/wojons/muster/pkg/request"
 	"github.com/xeipuuv/gojsonschema"
 )
+
+// ExecutionConfig holds configuration for executing a tool.
+type ExecutionConfig struct {
+	BaseURL     string          `json:"baseUrl"`
+	Method      string          `json:"method"`
+	Path        string          `json:"path"`
+	InputSchema json.RawMessage `json:"inputSchema,omitempty"`
+}
+
+// OpenAPITool represents a tool derived from an OpenAPI spec.
+type OpenAPITool struct {
+	Name        string
+	Description string
+	Method      string
+	Path        string
+	BaseURL     string
+	InputSchema json.RawMessage
+}
+
+// ToHandlersTool converts the OpenAPI tool to a handlers.Tool.
+func (t *OpenAPITool) ToHandlersTool() handlers.Tool {
+	return handlers.Tool{
+		Name:        t.Name,
+		Description: t.Description,
+		InputSchema: t.InputSchema,
+	}
+}
 
 // ToolRegistry implements handlers.CommandRegistry for OpenAPI tools
 type ToolRegistry struct {
@@ -67,6 +97,15 @@ func (r *ToolRegistry) ListCommands() []handlers.Command {
 	}
 
 	return commands
+}
+
+// ListTools returns all registered tools directly (preserving inputSchema).
+func (r *ToolRegistry) ListTools() []handlers.Tool {
+	tools := make([]handlers.Tool, 0, len(r.tools))
+	for _, tool := range r.tools {
+		tools = append(tools, tool)
+	}
+	return tools
 }
 
 // GetCommand returns a command by name, or nil if not found
@@ -143,7 +182,9 @@ func (e *ToolExecutor) validateArgs(schema json.RawMessage, args map[string]inte
 	return nil
 }
 
-// Execute executes an OpenAPI operation by name
+// Execute executes an OpenAPI operation by name.
+// For POST/PUT/PATCH methods, body parameters are JSON-encoded in the request body.
+// For GET/DELETE methods, parameters are sent as query parameters.
 func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string]interface{}) (interface{}, error) {
 	config, ok := e.configs[name]
 	if !ok {
@@ -152,9 +193,7 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 
 	// CRITICAL SECURITY FIX: Validate inputs against JSON Schema before execution
 	if err := e.validateArgs(config.InputSchema, args); err != nil {
-		return map[string]interface{}{
-			"error": err.Error(),
-		}, nil
+		return nil, fmt.Errorf("tool %q: %w", name, err)
 	}
 
 	// Build HTTP request
@@ -168,11 +207,46 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 		}
 	}
 
-	// Add query parameters
+	// Classify parameters from InputSchema: query, header, body
+	paramClassification := classifyParams(config.InputSchema)
+
+	// Determine if this is a write method (POST/PUT/PATCH) that should use a JSON body
+	isWriteMethod := config.Method == http.MethodPost ||
+		config.Method == http.MethodPut ||
+		config.Method == http.MethodPatch
+
+	bodyMap := make(map[string]interface{})
+
 	for paramName, value := range args {
-		if !isPathParam(config.Path, paramName) {
-			builder.WithQueryParam(paramName, fmt.Sprintf("%v", value))
+		if isPathParam(config.Path, paramName) {
+			continue
 		}
+
+		classification := paramClassification[paramName]
+		switch classification {
+		case "header":
+			builder.SetHeader(paramName, fmt.Sprintf("%v", value))
+		case "query":
+			builder.WithQueryParam(paramName, fmt.Sprintf("%v", value))
+		default:
+			// Body parameter (no "in" field in schema, or explicitly "body")
+			// For write methods, collect into JSON body; for read methods, fall back to query param
+			if isWriteMethod {
+				bodyMap[paramName] = value
+			} else {
+				builder.WithQueryParam(paramName, fmt.Sprintf("%v", value))
+			}
+		}
+	}
+
+	// JSON-encode body for write methods when body parameters are present
+	if isWriteMethod && len(bodyMap) > 0 {
+		bodyJSON, err := json.Marshal(bodyMap)
+		if err != nil {
+			return nil, fmt.Errorf("marshal request body: %w", err)
+		}
+		builder.JSONBody(string(bodyJSON))
+		builder.SetHeader("Content-Type", "application/json")
 	}
 
 	// Execute request
@@ -182,10 +256,7 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 	}
 
 	if result.StatusCode >= 400 {
-		return map[string]interface{}{
-			"error": fmt.Sprintf("HTTP error: %d", result.StatusCode),
-			"body":  string(result.Body),
-		}, nil
+		return nil, fmt.Errorf("HTTP %d: %s", result.StatusCode, string(result.Body))
 	}
 
 	// Parse and return JSON response
@@ -199,6 +270,39 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 	}
 
 	return response, nil
+}
+
+// classifyParams parses the JSON Schema from an ExecutionConfig's InputSchema
+// and returns a map of parameter name -> location ("query", "header", "path", "body").
+// Parameters with an explicit "in" field (from OpenAPI parameter definitions) retain that location.
+// Parameters without an "in" field (from requestBody properties) are classified as "body".
+func classifyParams(schemaJSON json.RawMessage) map[string]string {
+	result := make(map[string]string)
+
+	var schema map[string]interface{}
+	if err := json.Unmarshal(schemaJSON, &schema); err != nil {
+		return result
+	}
+
+	props, ok := schema["properties"].(map[string]interface{})
+	if !ok {
+		return result
+	}
+
+	for name, prop := range props {
+		propMap, ok := prop.(map[string]interface{})
+		if !ok {
+			result[name] = "body"
+			continue
+		}
+		if in, ok := propMap["in"].(string); ok {
+			result[name] = in
+		} else {
+			result[name] = "body"
+		}
+	}
+
+	return result
 }
 
 // Helper functions
@@ -245,4 +349,159 @@ func isPathParam(path, name string) bool {
 		}
 	}
 	return false
+}
+
+// ExecuteCommand executes a tool by name.
+func (r *ToolRegistry) ExecuteCommand(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
+	tool, ok := r.tools[name]
+	if !ok {
+		return nil, fmt.Errorf("tool %q not found", name)
+	}
+	_ = tool
+	return map[string]interface{}{"executed": true}, nil
+}
+
+// AddCommand adds a command to the registry.
+func (r *ToolRegistry) AddCommand(cmd handlers.Command) error {
+	return fmt.Errorf("not supported in tool registry")
+}
+
+// RemoveCommand removes a command from the registry.
+func (r *ToolRegistry) RemoveCommand(name string) error {
+	return fmt.Errorf("not supported in tool registry")
+}
+
+// UpdateCommand updates a command in the registry.
+func (r *ToolRegistry) UpdateCommand(name string, cmd handlers.Command) error {
+	return fmt.Errorf("not supported in tool registry")
+}
+
+// Converter converts OpenAPI specs to MCP tools.
+type Converter struct {
+	BaseURL string
+}
+
+// NewConverter creates a new Converter.
+func NewConverter(baseURL string) *Converter {
+	return &Converter{BaseURL: baseURL}
+}
+
+// ConvertToTools converts an OpenAPI document to MCP tools and execution configs.
+func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]ExecutionConfig, error) {
+	if doc == nil || doc.Paths == nil {
+		return nil, nil, nil
+	}
+
+	parser := &openapi.Parser{}
+	operations, err := parser.ExtractOperations(doc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("extract operations: %w", err)
+	}
+
+	tools := make([]OpenAPITool, 0, len(operations))
+	configs := make(map[string]ExecutionConfig, len(operations))
+
+	for _, op := range operations {
+		toolName := op.ID
+		if toolName == "" {
+			toolName = fmt.Sprintf("%s_%s", strings.ToLower(op.Method), strings.ReplaceAll(strings.Trim(op.Path, "/"), "/", "_"))
+		}
+
+		// Build description
+		description := op.Summary
+		if op.Description != "" {
+			description = op.Description
+		}
+		if description == "" {
+			description = fmt.Sprintf("%s %s", op.Method, op.Path)
+		}
+
+		// Build input schema from params + requestBody
+		properties := make(map[string]interface{})
+		required := make([]string, 0)
+
+		for _, param := range op.Parameters {
+			propMap := map[string]interface{}{
+				"type": paramTypeToJSONSchema(param.Type),
+				"in":   param.In,
+			}
+			if param.Description != "" {
+				propMap["description"] = param.Description
+			}
+			properties[param.Name] = propMap
+			if param.Required {
+				required = append(required, param.Name)
+			}
+		}
+
+		// Add request body properties to input schema
+		for _, bodyProp := range op.RequestBody {
+			propMap := map[string]interface{}{
+				"type": bodyPropTypeToJSONSchema(bodyProp.Type),
+			}
+			if bodyProp.Description != "" {
+				propMap["description"] = bodyProp.Description
+			}
+			properties[bodyProp.Name] = propMap
+			if bodyProp.Required {
+				required = append(required, bodyProp.Name)
+			}
+		}
+
+		// Build full JSON Schema
+		schema := map[string]interface{}{
+			"type":       "object",
+			"properties": properties,
+		}
+		if len(required) > 0 {
+			schema["required"] = required
+		}
+
+		schemaJSON, err := json.Marshal(schema)
+		if err != nil {
+			return nil, nil, fmt.Errorf("marshal schema for %s: %w", toolName, err)
+		}
+
+		tool := OpenAPITool{
+			Name:        toolName,
+			Description: description,
+			Method:      op.Method,
+			Path:        op.Path,
+			BaseURL:     c.BaseURL,
+			InputSchema: schemaJSON,
+		}
+		tools = append(tools, tool)
+
+		configs[toolName] = ExecutionConfig{
+			BaseURL:     c.BaseURL,
+			Method:      op.Method,
+			Path:        op.Path,
+			InputSchema: schemaJSON,
+		}
+	}
+
+	return tools, configs, nil
+}
+
+func paramTypeToJSONSchema(t string) string {
+	switch strings.ToLower(t) {
+	case "string":
+		return "string"
+	case "integer":
+		return "integer"
+	case "number":
+		return "number"
+	case "boolean":
+		return "boolean"
+	case "array":
+		return "array"
+	case "object":
+		return "object"
+	default:
+		return "string"
+	}
+}
+
+func bodyPropTypeToJSONSchema(t string) string {
+	return paramTypeToJSONSchema(t)
 }

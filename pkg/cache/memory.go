@@ -1,294 +1,231 @@
 package cache
 
 import (
+	"container/list"
 	"context"
-	"strings"
 	"sync"
 	"time"
 )
 
+// defaultCleanupInterval is the default interval for the background
+// cleanup goroutine that purges expired entries.
+const defaultCleanupInterval = 1 * time.Minute
+
+// entry represents a cached item in the MemoryCache with its key, value,
+// and expiry metadata.
+type entry struct {
+	key       string
+	value     []byte
+	createdAt time.Time
+	ttl       time.Duration
+	expiresAt time.Time
+}
+
+// isExpired returns true if the entry has a non-zero TTL and the current
+// time is past its expiration time.
+func (e *entry) isExpired() bool {
+	if e.ttl == 0 {
+		return false
+	}
+	return time.Now().After(e.expiresAt)
+}
+
+// MemoryCache is a thread-safe, in-memory implementation of Cache.
+// It uses a map for O(1) lookups and a linked list for LRU-based
+// eviction when the cache exceeds its maximum size. Expired entries
+// are removed lazily on access and periodically by a background goroutine.
 type MemoryCache struct {
-	mu          sync.RWMutex
-	data        map[string]*CacheEntry
-	maxSize     int64
-	currentSize int64
-	eviction    EvictionPolicy
-	stats       Stats
-	closed      bool
-	statsMu     sync.Mutex
-	stopCleanup chan struct{}
+	mu       sync.RWMutex
+	items    map[string]*list.Element
+	lru      *list.List
+	maxSize  int
+	stats    Stats
+	stopCh   chan struct{}
+	doneCh   chan struct{}
 }
 
-const (
-	DefaultMemoryCacheSize = 100 * 1024 * 1024
-	MaxMemoryCacheSize     = 512 * 1024 * 1024
-)
-
-func NewMemoryCache(maxSize int64, eviction EvictionPolicy) *MemoryCache {
-	if maxSize <= 0 {
-		maxSize = DefaultMemoryCacheSize
+// NewMemoryCache creates a new MemoryCache with the given maximum number
+// of entries. Once the cache exceeds maxSize, the least-recently-used
+// entries are evicted. A background goroutine is started to periodically
+// purge expired entries.
+//
+// If maxSize <= 0, the cache has no size limit.
+func NewMemoryCache(maxSize int) *MemoryCache {
+	if maxSize < 0 {
+		maxSize = 0
 	}
-
-	mc := &MemoryCache{
-		data:        make(map[string]*CacheEntry),
-		maxSize:     maxSize,
-		eviction:    eviction,
-		stopCleanup: make(chan struct{}),
+	c := &MemoryCache{
+		items:   make(map[string]*list.Element),
+		lru:     list.New(),
+		maxSize: maxSize,
+		stopCh:  make(chan struct{}),
+		doneCh:  make(chan struct{}),
 	}
-
-	go mc.cleanupLoop()
-
-	return mc
+	go c.cleanupLoop(defaultCleanupInterval)
+	return c
 }
 
-func (mc *MemoryCache) Get(ctx context.Context, key string) (Value, error) {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
+// Get retrieves a value by key. Returns the data, a boolean indicating
+// whether the key was found and not expired, and any error. Expired
+// entries are lazily evicted on access.
+func (c *MemoryCache) Get(_ context.Context, key string) ([]byte, bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if mc.closed {
-		return Value{}, ErrClosed
+	elem, ok := c.items[key]
+	if !ok {
+		c.stats.Misses++
+		return nil, false, nil
 	}
 
-	e, exists := mc.data[key]
-	if !exists {
-		mc.recordMiss()
-		return Value{}, ErrNotFound
+	ent := elem.Value.(*entry)
+	if ent.isExpired() {
+		c.removeElement(elem)
+		c.stats.Misses++
+		return nil, false, nil
 	}
 
-	if e.Value.IsExpired() {
-		mc.recordMiss()
-		return Value{}, ErrExpired
-	}
-
-	e.AccessedAt = time.Now()
-	e.AccessCount++
-	mc.recordHit()
-	mc.statsMu.Lock()
-	mc.stats.LastAccessed = time.Now()
-	mc.statsMu.Unlock()
-
-	return e.Value, nil
+	// Move to front (most recently used)
+	c.lru.MoveToFront(elem)
+	c.stats.Hits++
+	return ent.value, true, nil
 }
 
-func (mc *MemoryCache) Set(ctx context.Context, key string, value Value, opts ...SetOption) error {
-	if key == "" {
-		return ErrInvalidKey
+// Set stores a value with the given key and TTL. A zero TTL means the
+// entry never expires. If the key already exists, it is overwritten.
+// If the cache is at max capacity, the least-recently-used entry is evicted.
+func (c *MemoryCache) Set(_ context.Context, key string, value []byte, ttl time.Duration) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+	var expiresAt time.Time
+	if ttl > 0 {
+		expiresAt = now.Add(ttl)
 	}
 
-	options := &SetOptions{TTL: value.TTL}
-	for _, opt := range opts {
-		opt(options)
+	// If key exists, update in place
+	if elem, ok := c.items[key]; ok {
+		ent := elem.Value.(*entry)
+		ent.value = value
+		ent.createdAt = now
+		ent.ttl = ttl
+		ent.expiresAt = expiresAt
+		c.lru.MoveToFront(elem)
+		c.stats.Sets++
+		return nil
 	}
 
-	value.TTL = options.TTL
-	value.Tags = options.Tags
-	value.CreatedAt = time.Now()
-	value.Version = time.Now().UnixNano()
-
-	size := int64(len(value.Data))
-
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-
-	if mc.closed {
-		return ErrClosed
+	// Evict if at capacity
+	if c.maxSize > 0 && c.lru.Len() >= c.maxSize {
+		c.evictOne()
 	}
 
-	for mc.currentSize+size > mc.maxSize {
-		if err := mc.evictOne(); err != nil {
-			return ErrFull
-		}
+	ent := &entry{
+		key:       key,
+		value:     value,
+		createdAt: now,
+		ttl:       ttl,
+		expiresAt: expiresAt,
 	}
-
-	if old, exists := mc.data[key]; exists {
-		mc.currentSize -= old.Size
-	}
-
-	mc.data[key] = &CacheEntry{
-		Value:      value,
-		Size:       size,
-		AccessedAt: time.Now(),
-	}
-	mc.currentSize += size
-
+	elem := c.lru.PushFront(ent)
+	c.items[key] = elem
+	c.stats.Sets++
 	return nil
 }
 
-func (mc *MemoryCache) Delete(ctx context.Context, key string) error {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
+// Delete removes a key from the cache. No error is returned if the key
+// does not exist.
+func (c *MemoryCache) Delete(_ context.Context, key string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if mc.closed {
-		return ErrClosed
+	if elem, ok := c.items[key]; ok {
+		c.removeElement(elem)
+		c.stats.Deletes++
 	}
-
-	if e, exists := mc.data[key]; exists {
-		mc.currentSize -= e.Size
-		delete(mc.data, key)
-	}
-
 	return nil
 }
 
-func (mc *MemoryCache) Clear(ctx context.Context) error {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
+// Clear removes all entries from the cache and resets statistics.
+func (c *MemoryCache) Clear(_ context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if mc.closed {
-		return ErrClosed
-	}
-
-	mc.data = make(map[string]*CacheEntry)
-	mc.currentSize = 0
-
+	c.items = make(map[string]*list.Element)
+	c.lru.Init()
+	c.stats = Stats{}
 	return nil
 }
 
-func (mc *MemoryCache) Has(ctx context.Context, key string) (bool, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-
-	if mc.closed {
-		return false, ErrClosed
+// Close stops the background cleanup goroutine and releases resources.
+// After Close, the cache must not be used.
+func (c *MemoryCache) Close() error {
+	select {
+	case <-c.stopCh:
+		// Already closed
+		return nil
+	default:
+		close(c.stopCh)
+		<-c.doneCh
 	}
-
-	e, exists := mc.data[key]
-	if !exists || e.Value.IsExpired() {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (mc *MemoryCache) Keys(ctx context.Context, pattern string) ([]string, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-
-	if mc.closed {
-		return nil, ErrClosed
-	}
-
-	keys := make([]string, 0, len(mc.data))
-	for k := range mc.data {
-		if matchPattern(pattern, k) {
-			keys = append(keys, k)
-		}
-	}
-
-	return keys, nil
-}
-
-func (mc *MemoryCache) Stats(ctx context.Context) (Stats, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-
-	if mc.closed {
-		return Stats{}, ErrClosed
-	}
-
-	stats := mc.stats
-	stats.Entries = len(mc.data)
-	stats.Size = mc.currentSize
-
-	total := stats.Hits + stats.Misses
-	if total > 0 {
-		stats.HitRate = float64(stats.Hits) / float64(total) * 100
-	}
-
-	return stats, nil
-}
-
-func (mc *MemoryCache) Close() error {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-
-	if mc.closed {
-		return ErrClosed
-	}
-
-	mc.closed = true
-
-	if mc.stopCleanup != nil {
-		close(mc.stopCleanup)
-	}
-
-	mc.data = nil
-	mc.currentSize = 0
-
 	return nil
 }
 
-func (mc *MemoryCache) evictOne() error {
-	key, err := mc.eviction.SelectForEviction(mc.data)
-	if err != nil {
-		return err
-	}
-
-	if e, exists := mc.data[key]; exists {
-		mc.currentSize -= e.Size
-		delete(mc.data, key)
-		mc.recordEviction()
-	}
-
-	return nil
+// Stats returns a snapshot of cache usage statistics.
+func (c *MemoryCache) Stats() Stats {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	s := c.stats
+	s.Size = int64(c.lru.Len())
+	return s
 }
 
-func (mc *MemoryCache) cleanupLoop() {
-	ticker := time.NewTicker(30 * time.Second)
+// cleanupLoop runs periodically to purge expired entries. It exits when
+// stopCh is closed.
+func (c *MemoryCache) cleanupLoop(interval time.Duration) {
+	defer close(c.doneCh)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ticker.C:
-			mc.cleanupExpired()
-		case <-mc.stopCleanup:
+		case <-c.stopCh:
 			return
+		case <-ticker.C:
+			c.purgeExpired()
 		}
 	}
 }
 
-func (mc *MemoryCache) cleanupExpired() {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
+// purgeExpired iterates the cache and removes all expired entries.
+// Must NOT be called while holding the lock.
+func (c *MemoryCache) purgeExpired() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if mc.closed {
+	for _, elem := range c.items {
+		ent := elem.Value.(*entry)
+		if ent.isExpired() {
+			c.removeElement(elem)
+		}
+	}
+}
+
+// evictOne removes the least-recently-used entry from the cache.
+// Must be called while holding c.mu.
+func (c *MemoryCache) evictOne() {
+	elem := c.lru.Back()
+	if elem == nil {
 		return
 	}
-
-	for key, e := range mc.data {
-		if e.Value.IsExpired() {
-			mc.currentSize -= e.Size
-			delete(mc.data, key)
-		}
-	}
+	c.removeElement(elem)
 }
 
-func matchPattern(pattern, key string) bool {
-	if pattern == "" || pattern == "*" {
-		return true
-	}
-	if !strings.Contains(pattern, "*") {
-		return pattern == key
-	}
-
-	prefix := strings.Split(pattern, "*")[0]
-	return strings.HasPrefix(key, prefix)
-}
-
-func (mc *MemoryCache) recordHit() {
-	mc.statsMu.Lock()
-	mc.stats.Hits++
-	mc.statsMu.Unlock()
-}
-
-func (mc *MemoryCache) recordMiss() {
-	mc.statsMu.Lock()
-	mc.stats.Misses++
-	mc.statsMu.Unlock()
-}
-
-func (mc *MemoryCache) recordEviction() {
-	mc.statsMu.Lock()
-	mc.stats.Evictions++
-	mc.statsMu.Unlock()
+// removeElement removes a list element from both the linked list and the
+// map. Must be called while holding c.mu.
+func (c *MemoryCache) removeElement(elem *list.Element) {
+	c.lru.Remove(elem)
+	ent := elem.Value.(*entry)
+	delete(c.items, ent.key)
 }

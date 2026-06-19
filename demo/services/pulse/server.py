@@ -154,7 +154,12 @@ def data_points_handler(series_id):
 
     else:  # POST — bulk insert
         data = request.get_json(force=True)
-        points = data.get("points", data)  # accept {"points": [...]} or just [...]
+        if isinstance(data, list):
+            points = data
+        elif isinstance(data, dict):
+            points = data.get("points", data)
+        else:
+            return jsonify({"error": "expected an array of data points"}), 400
         if isinstance(points, dict):
             points = [points]
         if not isinstance(points, list):

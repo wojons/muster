@@ -1,5 +1,6 @@
 # Acceptance Criteria for Muster (OpenAPI CLI + MCP Server)
 
+<<<<<<< Updated upstream
 **Project type:** Existing codebase — Go CLI tool + MCP server + daemon
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
@@ -9,6 +10,14 @@
 **New this run:** Fixed demo test scripts binary name (muster→openapi-cli, commit 96ffb2a). Fixed health endpoint test (POST→GET, commit 011fe6a).
 **Gaps found:** TenantDBManager stubs (no DB persistence), demo services on axiom/audit-logging-01 branch never merged to main. 
 **Backlog:** AC-200 (self-update, deferred-release-pipeline). AC-240: Merge demo services from axiom branch. AC-250: Wire tenant persistence (stubs→real DB).
+=======
+> Written and maintained by Hermes from user conversations.
+> Hermes tests these as a real user — spins up fake services, walks full journeys.
+
+**Last run:** 2026-06-13 23:40 CST
+**Run status:** 🟢 All 23 checks pass. 10/10 demo scripts green. Core ACs 001-015 all pass.
+**Summary:** Demo suite fully green — cron loop closed all gaps (Pulse POST crash, Inkwell auth block, ByteStash upload routes, MCP base-url, WASM grep fix, DSL graceful degradation). Next gap: DSL CLI wiring (newDslCommand() missing — DSL package works but not reachable from CLI). D-Bus Secret Service stubs remain (low priority).
+>>>>>>> Stashed changes
 
 ## Demo Infrastructure (Fake Apps)
 

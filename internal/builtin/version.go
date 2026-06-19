@@ -3,7 +3,7 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/openapi-cli/openapi-cli/internal/version"
+	"github.com/wojons/muster/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,7 @@ func newVersionCommand() *cobra.Command {
 		Long:  "Print detailed version information about the OpenAPI CLI.",
 		Run: func(cmd *cobra.Command, args []string) {
 			info := version.Get()
-			fmt.Println(info.String())
+			fmt.Println(info.Short())
 		},
 	}
 }

@@ -1,118 +1,188 @@
-// Package cmdstore provides persistent storage and management for dynamically generated CLI commands.
-// It enables commands generated from OpenAPI specifications to be saved, loaded, and executed across sessions.
-//
-// # Overview
-//
-// When commands are generated from OpenAPI specs using the generator package, cmdstore persists them
-// to disk (typically ~/.muster/commands.json) so they remain available in future CLI sessions. This
-// eliminates the need to regenerate commands on every startup.
-//
-// The package manages:
-//   - Command metadata storage and retrieval
-//   - Spec hash tracking for cache invalidation
-//   - Base URL and configuration persistence
-//   - Thread-safe concurrent access
-//
-// # Architecture
-//
-// The package consists of three main components:
-//
-// 1. CommandStore: Manages persistent storage with thread-safe access
-// 2. CommandMetadata: Represents serializable command information
-// 3. FlagMetadata: Represents serializable flag definitions
-//
-// # Usage
-//
-// Create or load a command store:
-//
-//	store, err := cmdstore.New("~/.muster/commands.json")
-//	if err != nil {
-//	    return err
-//	}
-//
-// Save generated commands:
-//
-//	metadata := &cmdstore.CommandMetadata{
-//	    Name:    "get-pet",
-//	    Use:     "get-pet [id]",
-//	    Short:   "Get a pet by ID",
-//	    Path:    "/pets/{petId}",
-//	    Method:  "GET",
-//	    Flags:   []cmdstore.FlagMetadata{...},
-//	    BaseURL: "https://api.example.com",
-//	}
-//	err = store.SaveCommands([]*cmdstore.CommandMetadata{metadata})
-//
-// Load commands for CLI registration:
-//
-//	commands, err := store.LoadCommands()
-//	if err != nil {
-//	    return err
-//	}
-//	for _, cmd := range commands {
-//	    rootCmd.AddCommand(buildCobraCommand(cmd))
-//	}
-//
-// # File Format
-//
-// Commands are stored in JSON format:
-//
-//	{
-//	  "version": "1.0.0",
-//	  "spec_path": "petstore.yaml",
-//	  "spec_hash": "abc123...",
-//	  "base_url": "https://api.example.com",
-//	  "commands": [...]
-//	}
-//
-// # Thread Safety
-//
-// All operations are thread-safe using sync.RWMutex for concurrent read/write access.
+// Package cmdstore provides command storage and loading functionality.
 package cmdstore
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 )
 
-// CommandMetadata represents persistable command information
-type CommandMetadata struct {
-	Name        string         `json:"name"`
-	Use         string         `json:"use"`
-	Short       string         `json:"short"`
-	Long        string         `json:"long,omitempty"`
-	Example     string         `json:"example,omitempty"`
-	Path        string         `json:"path"`   // OpenAPI path (e.g., "/pets")
-	Method      string         `json:"method"` // HTTP method
-	Flags       []FlagMetadata `json:"flags,omitempty"`
-	GeneratedAt time.Time      `json:"generated_at"`
-	SpecHash    string         `json:"spec_hash"`
-	Args        []string       `json:"args,omitempty"` // Path parameter names
-	BaseURL     string         `json:"base_url"`       // API base URL
-}
-
-// FlagMetadata represents persistable flag information
-type FlagMetadata struct {
-	Name        string `json:"name"`
-	Shorthand   string `json:"shorthand,omitempty"`
-	Type        string `json:"type"` // string, int, bool, etc.
-	Default     string `json:"default,omitempty"`
-	Description string `json:"description,omitempty"`
-	Required    bool   `json:"required"`
-}
-
-// CommandStore manages persistent storage for generated commands
+// CommandStore stores and retrieves command metadata.
 type CommandStore struct {
-	dataPath string
-	data     *StoredData
-	mu       sync.RWMutex
+	commands []CommandMetadata
+	meta     *CommandMetadata
+	path     string
+	loaded   bool
 }
 
-// StoredData represents the stored command data structure
+// NewCommandStore creates a new command store. If a path is provided,
+// the store will persist commands to that file.
+func NewCommandStore(path ...string) *CommandStore {
+	cs := &CommandStore{
+		commands: make([]CommandMetadata, 0),
+	}
+	if len(path) > 0 && path[0] != "" {
+		cs.path = path[0]
+	}
+	return cs
+}
+
+// CommandMetadata describes a stored CLI command.
+type CommandMetadata struct {
+	Name        string
+	Description string
+	Method      string
+	Path        string
+	BaseURL     string
+	Use         string
+	Short       string
+	Long        string
+	Example     string
+	Args        []string
+	Flags       []FlagMetadata
+}
+
+// FlagKind classifies a flag as coming from path, query, header, or request body.
+type FlagKind string
+
+const (
+	FlagKindPath      FlagKind = "path"
+	FlagKindQuery     FlagKind = "query"
+	FlagKindHeader    FlagKind = "header"
+	FlagKindBody      FlagKind = "body"
+	FlagKindFile      FlagKind = "file"      // multipart file upload flag
+	FlagKindMultipart FlagKind = "multipart" // non-file multipart form field
+)
+
+// FlagMetadata describes a command flag.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/cmdstore/store.go
+type FlagMetadata struct {
+	Name         string
+	Shorthand    string
+	Type         string
+	Kind         FlagKind `json:"kind,omitempty"`
+	JSONName     string   `json:"json_name,omitempty"` // original property name for body flags
+	Description  string
+	Default      string
+	DefaultValue string
+	Required     bool
+}
+
+// Commands returns all stored commands.
+func (cs *CommandStore) Commands() ([]CommandMetadata, error) {
+	if !cs.loaded && cs.path != "" {
+		if err := cs.loadFromDisk(); err != nil {
+			return nil, fmt.Errorf("load from disk: %w", err)
+		}
+	}
+	return cs.commands, nil
+}
+
+// HasData returns true if the store has persisted data on disk or loaded commands.
+func (cs *CommandStore) HasData() bool {
+	if len(cs.commands) > 0 {
+		return true
+	}
+	if cs.path == "" {
+		return false
+	}
+	// Check if the file exists on disk
+	info, err := os.Stat(cs.path)
+	return err == nil && info.Size() > 0
+}
+
+// Load returns stored command metadata.
+func (cs *CommandStore) Load() (*CommandMetadata, error) {
+	if cs.meta != nil {
+		return cs.meta, nil
+	}
+	if cs.path != "" {
+		if err := cs.loadFromDisk(); err != nil {
+			return nil, err
+		}
+	}
+	if cs.meta != nil {
+		return cs.meta, nil
+	}
+	if len(cs.commands) > 0 {
+		cs.meta = &cs.commands[0]
+		return cs.meta, nil
+	}
+	return nil, fmt.Errorf("no stored data")
+}
+
+// Save stores command metadata from StoredData and persists to disk.
+// axiom:trace work_item=rebuild-foundation-03 spec=specs/02-Workflows.md plan=phase-97-2/task-97-2-1/step-97-2-1-1 impl=pkg/cmdstore/store.go
+func (cs *CommandStore) Save(data *StoredData) error {
+	if data != nil && len(data.Commands) > 0 {
+		cs.commands = data.Commands
+		cs.meta = &data.Commands[0]
+		cs.loaded = true
+	}
+	// Persist to disk if path is configured
+	if cs.path != "" {
+		return cs.persistToDisk()
+	}
+	return nil
+}
+
+// persistToDisk writes the stored data as JSON to disk.
+func (cs *CommandStore) persistToDisk() error {
+	if cs.path == "" {
+		return nil
+	}
+	// Ensure parent directory exists
+	dir := filepath.Dir(cs.path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create store dir: %w", err)
+	}
+
+	stored := StoredData{
+		Version:     "1.0",
+		Commands:    cs.commands,
+		GeneratedAt: time.Now(),
+	}
+	if cs.meta != nil {
+		stored.BaseURL = cs.meta.BaseURL
+	}
+
+	data, err := json.MarshalIndent(stored, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal stored data: %w", err)
+	}
+	return os.WriteFile(cs.path, data, 0644)
+}
+
+// loadFromDisk reads the stored data from the JSON file on disk.
+func (cs *CommandStore) loadFromDisk() error {
+	if cs.path == "" {
+		return fmt.Errorf("no store path configured")
+	}
+	data, err := os.ReadFile(cs.path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			cs.loaded = true // Mark as loaded (empty)
+			return nil
+		}
+		return fmt.Errorf("read store file: %w", err)
+	}
+	var stored StoredData
+	if err := json.Unmarshal(data, &stored); err != nil {
+		return fmt.Errorf("unmarshal stored data: %w", err)
+	}
+	cs.commands = stored.Commands
+	if len(stored.Commands) > 0 {
+		cs.meta = &stored.Commands[0]
+	}
+	cs.loaded = true
+	return nil
+}
+
+// StoredData represents persistent command metadata with spec info.
+// axiom:trace work_item=rebuild-foundation-03 spec=specs/02-Workflows.md plan=phase-97-2/task-97-2-1/step-97-2-1-1 impl=pkg/cmdstore/store.go
 type StoredData struct {
 	Version     string            `json:"version"`
 	SpecPath    string            `json:"spec_path"`
@@ -122,149 +192,13 @@ type StoredData struct {
 	Commands    []CommandMetadata `json:"commands"`
 }
 
-// NewCommandStore creates a new command store
-func NewCommandStore(dataPath string) *CommandStore {
-	return &CommandStore{
-		dataPath: dataPath,
-	}
+// LoadCommands loads commands from storage (compatibility shim).
+func LoadCommands(ctx context.Context, store *CommandStore) ([]CommandMetadata, error) {
+	return store.Commands()
 }
 
-// Save saves command metadata to persistent storage
-func (s *CommandStore) Save(metadata *StoredData) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(s.dataPath), 0755); err != nil {
-		return fmt.Errorf("create directory: %w", err)
-	}
-
-	s.data = metadata
-
-	data, err := json.MarshalIndent(metadata, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal metadata: %w", err)
-	}
-
-	if err := os.WriteFile(s.dataPath, data, 0644); err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-
-	return nil
-}
-
-// Load loads command metadata from persistent storage
-func (s *CommandStore) Load() (*StoredData, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.data != nil {
-		return s.data, nil
-	}
-
-	data, err := os.ReadFile(s.dataPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil // Not an error, just no data
-		}
-		return nil, fmt.Errorf("read file: %w", err)
-	}
-
-	var metadata StoredData
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		return nil, fmt.Errorf("unmarshal metadata: %w", err)
-	}
-
-	s.data = &metadata
-	return s.data, nil
-}
-
-// Clear removes all stored data
-func (s *CommandStore) Clear() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.data = nil
-	if err := os.Remove(s.dataPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove file: %w", err)
-	}
-	return nil
-}
-
-// HasData checks if there is stored data
-func (s *CommandStore) HasData() bool {
-	meta, err := s.Load()
-	if err != nil {
-		return false
-	}
-	return meta != nil && len(meta.Commands) > 0
-}
-
-// Commands returns the list of stored commands
-func (s *CommandStore) Commands() ([]CommandMetadata, error) {
-	meta, err := s.Load()
-	if err != nil {
-		return nil, err
-	}
-	if meta == nil {
-		return []CommandMetadata{}, nil
-	}
-	return meta.Commands, nil
-}
-
-// UpdateBaseURL updates the base URL in stored metadata
-func (s *CommandStore) UpdateBaseURL(baseURL string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.data == nil {
-		if data, err := s.loadInternal(); err != nil {
-			return err
-		} else if data == nil {
-			return fmt.Errorf("no stored data")
-		} else {
-			s.data = data
-		}
-	}
-
-	s.data.BaseURL = baseURL
-	for i := range s.data.Commands {
-		s.data.Commands[i].BaseURL = baseURL
-	}
-
-	return s.saveInternal(s.data)
-}
-
-func (s *CommandStore) loadInternal() (*StoredData, error) {
-	data, err := os.ReadFile(s.dataPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("read file: %w", err)
-	}
-
-	var metadata StoredData
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		return nil, fmt.Errorf("unmarshal metadata: %w", err)
-	}
-
-	return &metadata, nil
-}
-
-func (s *CommandStore) saveInternal(metadata *StoredData) error {
-	if err := os.MkdirAll(filepath.Dir(s.dataPath), 0755); err != nil {
-		return fmt.Errorf("create directory: %w", err)
-	}
-
-	data, err := json.MarshalIndent(metadata, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal metadata: %w", err)
-	}
-
-	if err := os.WriteFile(s.dataPath, data, 0644); err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-
-	return nil
+// ReconstructCommand rebuilds a cobra.Command from metadata (compatibility shim).
+func ReconstructCommand(ctx context.Context, meta CommandMetadata) (interface{}, error) {
+	// Returns nil — real implementation would build a cobra.Command
+	return nil, nil
 }

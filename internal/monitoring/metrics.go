@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/log"
+	"github.com/wojons/muster/pkg/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

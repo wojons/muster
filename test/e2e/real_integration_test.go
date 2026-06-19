@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/generator"
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
-	"github.com/openapi-cli/openapi-cli/pkg/request"
+	"github.com/wojons/muster/pkg/generator"
+	"github.com/wojons/muster/pkg/openapi"
+	"github.com/wojons/muster/pkg/request"
 )
 
 // TestRealCLIIntegration is a REAL integration test that proves:
@@ -172,12 +172,13 @@ func TestRealCLIIntegration(t *testing.T) {
 
 				// Test 2: Execute POST /pets request
 				t.Run("CreatePet", func(t *testing.T) {
-					builder := request.NewBuilder(server.URL, "/pets", "POST")
-					builder.JSONBody(map[string]interface{}{
-						"name":   "Spike",
-						"tag":    "dog",
-						"status": "available",
-					})
+				builder := request.NewBuilder(server.URL, "/pets", "POST")
+				jsonBytes, _ := json.Marshal(map[string]interface{}{
+					"name":   "Spike",
+					"tag":    "dog",
+					"status": "available",
+				})
+				builder.JSONBody(string(jsonBytes))
 
 					resp, err := builder.Execute(ctx)
 					require.NoError(t, err, "Failed to execute request")

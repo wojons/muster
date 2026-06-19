@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/cmdstore"
+	"github.com/wojons/muster/pkg/cmdstore"
 )
 
 // TestCommandStore_Integration_SaveAndLoad tests the complete save/load cycle

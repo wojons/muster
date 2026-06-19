@@ -1,534 +1,328 @@
+// Package request provides HTTP request building from OpenAPI operation definitions.
+// It handles parameter serialization, path substitution, and request construction.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
 package request
 
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
-	"time"
 )
 
+// Builder constructs HTTP requests from operation metadata and user-provided parameters.
 type Builder struct {
-	baseURL         string
-	path            string
-	method          string
-	pathParams      map[string]string
-	queryParams     url.Values
-	headers         http.Header
-	body            io.Reader
-	contentType     string
-	timeout         time.Duration
-	maxResponseBody int64
-	buildError      error
+	BaseURL        string
+	Path           string
+	Method         string
+	Headers        map[string]string
+	PathParams     map[string]string
+	QueryParams    map[string]string
+	Body           io.Reader
+	contentType    string
+	multipartParts map[string]string // fieldName → filePath
+	multipartExtra map[string]string // fieldName → value (non-file form fields)
 }
 
-const defaultMaxResponseBody = 10 << 20 // 10 MB
-
-var ErrInvalidHeaderValue = fmt.Errorf("invalid header value: CRLF injection detected")
-var ErrInvalidHeaderName = fmt.Errorf("invalid header name: RFC 7230 violation detected")
-var ErrInvalidQueryParam = fmt.Errorf("invalid query parameter: injection detected")
-
-func NewBuilder(baseURL, path, method string) *Builder {
-	return &Builder{
-		baseURL:         strings.TrimRight(baseURL, "/"),
-		path:            path,
-		method:          strings.ToUpper(method),
-		pathParams:      make(map[string]string),
-		queryParams:     make(url.Values),
-		headers:         make(http.Header),
-		timeout:         30 * time.Second,
-		maxResponseBody: defaultMaxResponseBody,
+// NewBuilder creates a new request Builder with the given base URL.
+func NewBuilder(baseURL string, args ...string) *Builder {
+	b := &Builder{
+		BaseURL:     baseURL,
+		Headers:     make(map[string]string),
+		PathParams:  make(map[string]string),
+		QueryParams: make(map[string]string),
 	}
-}
-
-func (b *Builder) WithPathParam(name, value string) *Builder {
-	b.pathParams[name] = value
-	return b
-}
-
-func (b *Builder) WithQueryParam(name, value string) *Builder {
-	if !isValidQueryParam(name) || !isValidQueryParam(value) {
-		b.buildError = ErrInvalidQueryParam
-		return b
+	if len(args) >= 1 {
+		b.Path = args[0]
 	}
-	if value != "" {
-		b.queryParams.Add(name, value)
+	if len(args) >= 2 {
+		b.Method = args[1]
 	}
 	return b
 }
 
-func (b *Builder) WithHeader(key, value string) *Builder {
-	if !isValidHeaderName(key) {
-		b.buildError = ErrInvalidHeaderName
-		return b
-	}
-	if !isValidHeaderValue(value) {
-		b.buildError = ErrInvalidHeaderValue
-		return b
-	}
-	b.headers.Set(key, value)
-	return b
+// ExecuteResult holds the result of executing a request.
+type ExecuteResult struct {
+	StatusCode int
+	Body       []byte
+	Headers    http.Header
 }
 
-func isValidHeaderValue(value string) bool {
-	for _, c := range value {
-		if c == '\r' || c == '\n' {
-			return false
-		}
-	}
-	lower := strings.ToLower(value)
-	if strings.Contains(lower, "%0d") || strings.Contains(lower, "%0a") {
-		return false
-	}
-	return true
-}
-
-func isValidHeaderName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for _, c := range name {
-		if c == '\r' || c == '\n' {
-			return false
-		}
-		if c < 32 || c == 127 {
-			return false
-		}
-		if c == ' ' || c == '\t' {
-			return false
-		}
-		if c == ':' {
-			return false
-		}
-	}
-	lower := strings.ToLower(name)
-	if strings.Contains(lower, "%0d") || strings.Contains(lower, "%0a") {
-		return false
-	}
-	if strings.HasPrefix(lower, ":") {
-		return false
-	}
-	return true
-}
-
-func isValidQueryParam(s string) bool {
-	if s == "" {
-		return true
-	}
-	for _, c := range s {
-		if c == '\r' || c == '\n' {
-			return false
-		}
-		if c < 32 || c == 127 {
-			return false
-		}
-	}
-	lower := strings.ToLower(s)
-	if strings.Contains(lower, "%0d") || strings.Contains(lower, "%0a") {
-		return false
-	}
-	if strings.ContainsAny(s, "&=#?") {
-		return false
-	}
-	return true
-}
-
-func (b *Builder) WithBody(body interface{}) *Builder {
-	switch v := body.(type) {
-	case io.Reader:
-		b.body = v
-	case []byte:
-		b.body = bytes.NewReader(v)
-	case string:
-		b.body = strings.NewReader(v)
-	default:
-		data, err := json.Marshal(v)
-		if err != nil {
-			b.buildError = fmt.Errorf("marshal body: %w", err)
-			return b
-		}
-		b.body = bytes.NewReader(data)
-		b.contentType = "application/json"
-	}
-	return b
-}
-
-func (b *Builder) WithAuth(token string) *Builder {
-	if !isValidHeaderValue(token) {
-		b.buildError = ErrInvalidHeaderValue
-		return b
-	}
-	b.headers.Set("Authorization", "Bearer "+token)
-	return b
-}
-
-func (b *Builder) WithBasicAuth(username, password string) *Builder {
-	if !isValidHeaderValue(username) || !isValidHeaderValue(password) {
-		b.buildError = ErrInvalidHeaderValue
-		return b
-	}
-	b.headers.Set("Authorization", "Basic "+b.basicAuth(username, password))
-	return b
-}
-
-func (b *Builder) WithAPIKey(key, value string) *Builder {
-	if !isValidHeaderValue(key) || !isValidHeaderValue(value) {
-		b.buildError = ErrInvalidHeaderValue
-		return b
-	}
-	b.headers.Set(key, value)
-	return b
-}
-
-func (b *Builder) WithMaxResponseBody(maxBytes int64) *Builder {
-	b.maxResponseBody = maxBytes
-	return b
-}
-
-func (b *Builder) basicAuth(username, password string) string {
-	credentials := username + ":" + password
-	return base64.StdEncoding.EncodeToString([]byte(credentials))
-}
-
-func (b *Builder) JSONBody(data interface{}) *Builder {
-	jsonData, err := json.Marshal(data)
+// ExecuteWithResult executes the request and returns a structured result.
+func (b *Builder) ExecuteWithResult(ctx context.Context) (*ExecuteResult, error) {
+	resp, err := b.Execute(ctx)
 	if err != nil {
-		b.buildError = fmt.Errorf("marshal JSON: %w", err)
-		return b
+		return nil, err
 	}
+	defer resp.Body.Close()
 
-	b.body = bytes.NewReader(jsonData)
-	b.contentType = "application/json"
-	return b
-}
-
-func (b *Builder) FormBody(data map[string]string) *Builder {
-	form := url.Values{}
-	for key, value := range data {
-		form.Set(key, value)
-	}
-
-	b.body = strings.NewReader(form.Encode())
-	b.contentType = "application/x-www-form-urlencoded"
-	return b
-}
-
-func (b *Builder) MultipartBody(fields map[string]string, files map[string]string) (*Builder, error) {
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-
-	for key, value := range fields {
-		if err := writer.WriteField(key, value); err != nil {
-			return nil, fmt.Errorf("write field %s: %w", key, err)
-		}
-	}
-
-	for key, path := range files {
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, fmt.Errorf("open file %s: %w", path, err)
-		}
-
-		part, err := writer.CreateFormFile(key, filepath.Base(path))
-		if err != nil {
-			_ = file.Close()
-			return nil, fmt.Errorf("create form file: %w", err)
-		}
-
-		if _, err := io.Copy(part, file); err != nil {
-			_ = file.Close()
-			return nil, fmt.Errorf("copy file: %w", err)
-		}
-		_ = file.Close()
-	}
-
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("close writer: %w", err)
-	}
-
-	b.body = &buf
-	b.contentType = writer.FormDataContentType()
-	return b, nil
-}
-
-func (b *Builder) XMLBody(data interface{}) *Builder {
-	xmlData, err := xml.Marshal(data)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		b.buildError = fmt.Errorf("marshal XML: %w", err)
-		return b
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
-	b.body = bytes.NewReader(xmlData)
-	b.contentType = "application/xml"
-	return b
+	return &ExecuteResult{
+		StatusCode: resp.StatusCode,
+		Body:       body,
+		Headers:    resp.Header,
+	}, nil
 }
 
-func (b *Builder) PlainTextBody(text string) *Builder {
-	b.body = strings.NewReader(text)
-	b.contentType = "text/plain"
-	return b
+// WithHeader sets a request header.
+func (b *Builder) WithHeader(key, value string) {
+	if b.Headers == nil {
+		b.Headers = make(map[string]string)
+	}
+	b.Headers[key] = value
 }
 
-func (b *Builder) WithTimeout(timeout time.Duration) *Builder {
-	b.timeout = timeout
-	return b
+// JSONBody sets a JSON string as the request body.
+func (b *Builder) JSONBody(jsonStr string) {
+	b.Body = strings.NewReader(jsonStr)
 }
 
+// WithTimeout sets the request timeout (no-op in current impl).
+func (b *Builder) WithTimeout(timeout interface{}) {}
+
+// Build builds the HTTP request.
 func (b *Builder) Build() (*http.Request, error) {
-	finalPath := b.buildPath()
-	fullURL := b.baseURL + finalPath
+	url := b.buildURL()
+	req, err := http.NewRequest(b.Method, url, b.Body)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	for key, value := range b.Headers {
+		req.Header.Set(key, value)
+	}
+	return req, nil
+}
 
-	if len(b.queryParams) > 0 {
-		fullURL += "?" + b.queryParams.Encode()
+// SetHeader sets a default header for all requests built by this Builder.
+func (b *Builder) SetHeader(key, value string) {
+	if b.Headers == nil {
+		b.Headers = make(map[string]string)
+	}
+	b.Headers[key] = value
+}
+
+// WithPathParam sets a path parameter substitution.
+func (b *Builder) WithPathParam(name, value string) *Builder {
+	if b.PathParams == nil {
+		b.PathParams = make(map[string]string)
+	}
+	b.PathParams[name] = value
+	return b
+}
+
+// WithQueryParam sets a query parameter.
+func (b *Builder) WithQueryParam(name, value string) *Builder {
+	if b.QueryParams == nil {
+		b.QueryParams = make(map[string]string)
+	}
+	b.QueryParams[name] = value
+	return b
+}
+
+// WithBody sets the request body.
+func (b *Builder) WithBody(body io.Reader) *Builder {
+	b.Body = body
+	return b
+}
+
+// WithFileUpload adds a file to be uploaded via multipart/form-data.
+// fieldName is the form field name (e.g. "file"), filePath is the local path to read.
+// Also auto-adds a "name" form field with the file's basename (common for upload APIs).
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
+func (b *Builder) WithFileUpload(fieldName, filePath string) *Builder {
+	if b.multipartParts == nil {
+		b.multipartParts = make(map[string]string)
+	}
+	b.multipartParts[fieldName] = filePath
+	b.contentType = "multipart/form-data"
+	// Auto-add "name" field from the file's basename
+	if b.multipartExtra == nil {
+		b.multipartExtra = make(map[string]string)
+	}
+	if _, exists := b.multipartExtra["name"]; !exists {
+		b.multipartExtra["name"] = filepath.Base(filePath)
+	}
+	return b
+}
+
+// WithMultipartField adds a non-file form field for multipart uploads.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
+func (b *Builder) WithMultipartField(fieldName, value string) *Builder {
+	if b.multipartExtra == nil {
+		b.multipartExtra = make(map[string]string)
+	}
+	b.multipartExtra[fieldName] = value
+	return b
+}
+
+// buildMultipartBody constructs a multipart/form-data body from registered parts.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
+func (b *Builder) buildMultipartBody() (io.Reader, string, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	for fieldName, filePath := range b.multipartParts {
+		file, err := os.Open(filePath)
+		if err != nil {
+			return nil, "", fmt.Errorf("open file %s: %w", filePath, err)
+		}
+		part, err := w.CreateFormFile(fieldName, filepath.Base(filePath))
+		if err != nil {
+			file.Close()
+			return nil, "", fmt.Errorf("create form file: %w", err)
+		}
+		if _, err := io.Copy(part, file); err != nil {
+			file.Close()
+			return nil, "", fmt.Errorf("copy file content: %w", err)
+		}
+		file.Close()
 	}
 
-	req, err := http.NewRequest(b.method, fullURL, b.body)
+	for fieldName, value := range b.multipartExtra {
+		if err := w.WriteField(fieldName, value); err != nil {
+			return nil, "", fmt.Errorf("write field %s: %w", fieldName, err)
+		}
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, "", fmt.Errorf("close multipart writer: %w", err)
+	}
+
+	return &buf, w.FormDataContentType(), nil
+}
+
+// WithContentType sets a custom Content-Type header for the request.
+func (b *Builder) WithContentType(ct string) *Builder {
+	b.contentType = ct
+	return b
+}
+
+// Execute builds and executes the HTTP request.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
+func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
+	url := b.buildURL()
+
+	var body io.Reader = b.Body
+
+	// If multipart parts are registered, build the multipart body
+	if len(b.multipartParts) > 0 {
+		var err error
+		body, b.contentType, err = b.buildMultipartBody()
+		if err != nil {
+			return nil, fmt.Errorf("build multipart body: %w", err)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, b.Method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	for key, values := range b.headers {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
+	// Apply default headers
+	for key, value := range b.Headers {
+		req.Header.Set(key, value)
 	}
 
-	if b.body != nil && b.contentType != "" {
+	// Apply content type from multipart or explicit setting
+	if b.contentType != "" {
 		req.Header.Set("Content-Type", b.contentType)
 	}
 
-	if req.Header.Get("Accept") == "" {
-		req.Header.Set("Accept", "application/json")
+	client := &http.Client{}
+	return client.Do(req)
+}
+
+// BuildRequest constructs an HTTP request from the given method, path, body, and headers.
+func (b *Builder) BuildRequest(method, path string, body io.Reader, headers map[string]string) (*http.Request, error) {
+	url := b.buildURLFor(path)
+
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	// Apply default headers
+	for key, value := range b.Headers {
+		req.Header.Set(key, value)
+	}
+
+	// Apply request-specific headers (override defaults)
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 
 	return req, nil
 }
 
-func (b *Builder) buildPath() string {
-	path := b.path
-	for key, value := range b.pathParams {
-		placeholder := "{" + key + "}"
-		path = strings.ReplaceAll(path, placeholder, url.PathEscape(value))
-	}
-	return path
+// BuildGet constructs a GET request.
+func (b *Builder) BuildGet(path string, headers map[string]string) (*http.Request, error) {
+	return b.BuildRequest(http.MethodGet, path, nil, headers)
 }
 
-func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
-	if b.buildError != nil {
-		return nil, b.buildError
+// BuildPost constructs a POST request with a body.
+func (b *Builder) BuildPost(path string, body io.Reader, contentType string, headers map[string]string) (*http.Request, error) {
+	if headers == nil {
+		headers = make(map[string]string)
 	}
-
-	req, err := b.Build()
-	if err != nil {
-		return nil, err
+	if contentType != "" {
+		headers["Content-Type"] = contentType
 	}
-
-	req = req.WithContext(ctx)
-
-	client := &http.Client{
-		Timeout: b.timeout,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-
-	return resp, nil
+	return b.BuildRequest(http.MethodPost, path, body, headers)
 }
 
-type ExecutionResult struct {
-	StatusCode int
-	Headers    http.Header
-	Body       []byte
-	Duration   time.Duration
+// BuildPut constructs a PUT request with a body.
+func (b *Builder) BuildPut(path string, body io.Reader, contentType string, headers map[string]string) (*http.Request, error) {
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+	if contentType != "" {
+		headers["Content-Type"] = contentType
+	}
+	return b.BuildRequest(http.MethodPut, path, body, headers)
 }
 
-func (b *Builder) ExecuteWithResult(ctx context.Context) (*ExecutionResult, error) {
-	if b.buildError != nil {
-		return nil, b.buildError
+// BuildDelete constructs a DELETE request.
+func (b *Builder) BuildDelete(path string, headers map[string]string) (*http.Request, error) {
+	return b.BuildRequest(http.MethodDelete, path, nil, headers)
+}
+
+// buildURL combines the base URL, path, path params, and query params.
+func (b *Builder) buildURL() string {
+	return b.buildURLFor(b.Path)
+}
+
+func (b *Builder) buildURLFor(path string) string {
+	base := strings.TrimRight(b.BaseURL, "/")
+	path = strings.TrimLeft(path, "/")
+
+	// Substitute path parameters
+	for name, value := range b.PathParams {
+		placeholder := "{" + name + "}"
+		path = strings.Replace(path, placeholder, value, 1)
 	}
 
-	start := time.Now()
-
-	req, err := b.Build()
-	if err != nil {
-		return nil, err
+	url := base
+	if path != "" {
+		url += "/" + path
 	}
 
-	req = req.WithContext(ctx)
-
-	client := &http.Client{
-		Timeout: b.timeout,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	limitedReader := io.LimitReader(resp.Body, b.maxResponseBody)
-	body, err := io.ReadAll(limitedReader)
-	if err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
-	}
-
-	if int64(len(body)) >= b.maxResponseBody {
-		buffer := make([]byte, 1)
-		n, _ := resp.Body.Read(buffer)
-		if n > 0 {
-			return nil, fmt.Errorf("response body exceeds max size of %d bytes", b.maxResponseBody)
+	// Add query parameters
+	if len(b.QueryParams) > 0 {
+		parts := make([]string, 0, len(b.QueryParams))
+		for name, value := range b.QueryParams {
+			parts = append(parts, name+"="+value)
 		}
+		url += "?" + strings.Join(parts, "&")
 	}
 
-	return &ExecutionResult{
-		StatusCode: resp.StatusCode,
-		Headers:    resp.Header,
-		Body:       body,
-		Duration:   time.Since(start),
-	}, nil
-}
-
-type ParamSerializer struct {
-	style   string
-	explode bool
-}
-
-func NewParamSerializer(style string, explode bool) *ParamSerializer {
-	return &ParamSerializer{
-		style:   style,
-		explode: explode,
-	}
-}
-
-func (ps *ParamSerializer) Serialize(name string, value interface{}) url.Values {
-	result := make(url.Values)
-
-	switch v := value.(type) {
-	case string:
-		result.Set(name, v)
-	case int, int64:
-		result.Set(name, fmt.Sprintf("%d", v))
-	case float64:
-		result.Set(name, fmt.Sprintf("%g", v))
-	case bool:
-		result.Set(name, fmt.Sprintf("%t", v))
-	case []string:
-		ps.serializeArray(result, name, v)
-	case []int:
-		var strs []string
-		for _, i := range v {
-			strs = append(strs, fmt.Sprintf("%d", i))
-		}
-		ps.serializeArray(result, name, strs)
-	case time.Time:
-		result.Set(name, v.Format(time.RFC3339))
-	default:
-		result.Set(name, fmt.Sprintf("%v", value))
-	}
-
-	return result
-}
-
-func (ps *ParamSerializer) serializeArray(result url.Values, name string, values []string) {
-	switch ps.style {
-	case "form":
-		if ps.explode {
-			for _, item := range values {
-				result.Add(name, item)
-			}
-		} else {
-			result.Set(name, strings.Join(values, ","))
-		}
-	case "spaceDelimited":
-		result.Set(name, strings.Join(values, " "))
-	case "pipeDelimited":
-		result.Set(name, strings.Join(values, "|"))
-	default:
-		result.Set(name, strings.Join(values, ","))
-	}
-}
-
-func (b *Builder) WithTypedQueryParam(name string, value interface{}) *Builder {
-	serializer := NewParamSerializer("form", true)
-	values := serializer.Serialize(name, value)
-
-	for key, vals := range values {
-		for _, val := range vals {
-			b.queryParams.Add(key, val)
-		}
-	}
-	return b
-}
-
-func (b *Builder) WithDeepObjectParam(prefix string, obj interface{}) *Builder {
-	values := serializeDeepObject(prefix, obj)
-
-	for key, vals := range values {
-		for _, val := range vals {
-			b.queryParams.Add(key, val)
-		}
-	}
-	return b
-}
-
-func serializeDeepObject(prefix string, obj interface{}) url.Values {
-	result := make(url.Values)
-	v := reflect.ValueOf(obj)
-	t := v.Type()
-
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-		t = v.Type()
-	}
-
-	if v.Kind() != reflect.Struct {
-		result.Set(prefix, fmt.Sprintf("%v", obj))
-		return result
-	}
-
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldType := t.Field(i)
-
-		if !field.CanInterface() {
-			continue
-		}
-
-		name := fieldType.Name
-		if tag := fieldType.Tag.Get("json"); tag != "" {
-			parts := strings.Split(tag, ",")
-			if parts[0] != "-" {
-				name = parts[0]
-			}
-		}
-
-		key := prefix + "[" + name + "]"
-
-		if field.Kind() == reflect.Struct {
-			nested := serializeDeepObject(key, field.Interface())
-			for k, v := range nested {
-				result[k] = v
-			}
-		} else if field.Kind() == reflect.Slice {
-			for j := 0; j < field.Len(); j++ {
-				result.Add(key, fmt.Sprintf("%v", field.Index(j).Interface()))
-			}
-		} else {
-			result.Set(key, fmt.Sprintf("%v", field.Interface()))
-		}
-	}
-
-	return result
+	return url
 }

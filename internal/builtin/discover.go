@@ -1,0 +1,213 @@
+package builtin
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/wojons/muster/pkg/client"
+	"github.com/wojons/muster/pkg/openapi"
+	"github.com/spf13/cobra"
+)
+
+// newDiscoverCommand creates the "discover" subcommand.
+// It fetches an OpenAPI spec from a URL and displays all operations in a readable format,
+// grouped by tag with operationId shown inline. Does not persist commands.
+func newDiscoverCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "discover <url>",
+		Short: "Discover API operations from a remote OpenAPI spec",
+		Long: `Fetch an OpenAPI 3.x specification from a URL and display all operations
+grouped by tag, with method, path, and operationId.
+
+Reads the spec from the given URL (via HTTP GET), parses it, and prints every
+path+method combination with its operationId. No commands are persisted.
+
+Examples:
+  openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+  openapi-cli discover http://localhost:9800/openapi.json`,
+		Args: cobra.ExactArgs(1),
+		RunE: runDiscover,
+	}
+
+	return cmd
+}
+
+// runDiscover is the RunE function for the discover command.
+func runDiscover(cmd *cobra.Command, args []string) error {
+	url := args[0]
+
+	// Validate URL scheme
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return fmt.Errorf("invalid URL %q: must start with http:// or https://", url)
+	}
+
+	// Fetch the spec from the URL using pkg/client
+	ctx := cmd.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	httpClient := client.NewClient()
+	resp, err := httpClient.Get(ctx, url)
+	if err != nil {
+		return fmt.Errorf("fetch spec from %q: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d from %q: %s", resp.StatusCode, url, resp.Status)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body from %q: %w", url, err)
+	}
+
+	// Parse the spec using pkg/openapi
+	opts := openapi.DefaultParseOptions()
+
+	parser := openapi.NewParser()
+	result, err := parser.Parse(ctx, data, opts)
+	if err != nil {
+		return fmt.Errorf("parse spec from %q (not valid OpenAPI?): %w", url, err)
+	}
+
+	title := result.Document.Info.Title
+	version := result.Version
+	if title == "" {
+		title = "Unnamed API"
+	}
+
+	// Extract all operations
+	operations, err := parser.ExtractOperations(result.Document)
+	if err != nil {
+		return fmt.Errorf("extract operations from %q: %w", url, err)
+	}
+
+	// Print header
+	w := cmd.OutOrStdout()
+	fmt.Fprintf(w, "API: %s (v%s)\n", title, version)
+	fmt.Fprintf(w, "Base URL: %s\n", getBaseURL(url))
+
+	if len(operations) == 0 {
+		fmt.Fprintln(w, "\nNo operations found in the spec.")
+		return nil
+	}
+
+	fmt.Fprintln(w)
+
+	// Sort operations: by tag, then path, then method
+	sortOperations(operations)
+
+	// Print grouped by tag
+	var currentTag string
+	for _, op := range operations {
+		tag := firstTag(op.Tags)
+		if tag == "" {
+			tag = "Other"
+		}
+
+		if tag != currentTag {
+			currentTag = tag
+			fmt.Fprintln(w, tag)
+		}
+
+		// Format:   METHOD  /path          operationId
+		fmt.Fprintf(w, "  %-6s %-40s %s\n", op.Method, op.Path, op.ID)
+	}
+
+	return nil
+}
+
+// getBaseURL extracts the scheme+host from a full URL for display.
+func getBaseURL(rawURL string) string {
+	schemeEnd := strings.Index(rawURL, "://")
+	if schemeEnd < 0 {
+		return rawURL
+	}
+	afterScheme := rawURL[schemeEnd+3:]
+	slashIdx := strings.Index(afterScheme, "/")
+	if slashIdx < 0 {
+		// Just http://host with no path
+		return rawURL
+	}
+	return rawURL[:schemeEnd+3+slashIdx]
+}
+
+// sortOperations sorts operations by tag, then path, then method for predictable output.
+func sortOperations(ops []*openapi.Operation) {
+	sort.Slice(ops, func(i, j int) bool {
+		ti := firstTag(ops[i].Tags)
+		tj := firstTag(ops[j].Tags)
+		if ti != tj {
+			return ti < tj
+		}
+		if ops[i].Path != ops[j].Path {
+			return ops[i].Path < ops[j].Path
+		}
+		return methodOrder(ops[i].Method) < methodOrder(ops[j].Method)
+	})
+}
+
+// firstTag returns the first tag or an empty string.
+func firstTag(tags []string) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	return tags[0]
+}
+
+// fetchSpec fetches the content from a URL using net/http.
+// Used by both discover and generate commands to fetch specs from remote URLs.
+func fetchSpec(url string) ([]byte, error) {
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return nil, fmt.Errorf("invalid URL: must start with http:// or https://")
+	}
+
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("http request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	return body, nil
+}
+
+// methodOrder returns a sort order for HTTP methods.
+func methodOrder(method string) int {
+	switch strings.ToUpper(method) {
+	case "GET":
+		return 0
+	case "POST":
+		return 1
+	case "PUT":
+		return 2
+	case "PATCH":
+		return 3
+	case "DELETE":
+		return 4
+	case "HEAD":
+		return 5
+	case "OPTIONS":
+		return 6
+	default:
+		return 9
+	}
+}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/repository"
+	"github.com/wojons/muster/pkg/repository"
 )
 
 // rateLimitRepository implements repository.RateLimitRepository.

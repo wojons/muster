@@ -17,11 +17,40 @@ type SELinuxInterface struct {
 }
 
 func NewSELinux() (*SELinuxInterface, error) {
-	// Check if SELinux is available on the system
-	if _, err := os.Stat("/selinux"); os.IsNotExist(err) {
+	enabled, err := isSELinuxEnabled()
+	if err != nil {
+		// If detection fails, assume SELinux is disabled
 		return &SELinuxInterface{enabled: false}, nil
 	}
-	return &SELinuxInterface{enabled: true}, nil
+	return &SELinuxInterface{enabled: enabled}, nil
+	// axiom:trace work_item=prod-readiness-01-fix-linux-security-sec spec=specs/PLATFORM-LINUX.md#6-security plan=phase-2/task-2-1/step-2-1-1 impl=isSELinuxEnabled
+}
+
+// isSELinuxEnabled detects SELinux using the modern detection chain:
+//
+//  1. Try the getenforce command (from policycoreutils). Returns
+//     "Enforcing", "Permissive", or "Disabled". Only "Disabled" means
+//     SELinux is fully off.
+//  2. Fall back to checking /sys/fs/selinux (the modern SELinux pseudo-
+//     filesystem mount point). The legacy /selinux path was removed in
+//     kernel 2.6+ and should not be used.
+//
+// Returns true when SELinux is confirmed enabled, false otherwise.
+func isSELinuxEnabled() (bool, error) {
+	// Method 1: getenforce — most reliable on modern systems
+	cmd := exec.Command("getenforce")
+	output, err := cmd.Output()
+	if err == nil {
+		status := strings.TrimSpace(string(output))
+		return status != "Disabled", nil
+	}
+
+	// Method 2: /sys/fs/selinux mount point (modern fallback)
+	if fi, err := os.Stat("/sys/fs/selinux"); err == nil && fi.IsDir() {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // GetContext retrieves current process's SELinux context
@@ -65,25 +94,26 @@ func (s *SELinuxInterface) SetContext(context string) error {
 	return nil
 }
 
-// GetFileContext retrieves file/directory SELinux context
+// GetFileContext retrieves file/directory SELinux context.
+//
+// Uses stat --printf='%C' which outputs the raw SELinux context string
+// directly, unlike ls -Z which requires brittle output parsing.
+// stat(1) returns "?" when SELinux is not available on the filesystem.
+//
+// axiom:trace work_item=prod-readiness-01-fix-linux-security-sec spec=specs/PLATFORM-LINUX.md#6-security plan=phase-2/task-2-2/step-2-2-1 impl=pkg/platform/selinux.go
 func (s *SELinuxInterface) GetFileContext(path string) (string, error) {
 	if !s.enabled {
 		return "", nil
 	}
 
-	cmd := exec.Command("ls", "-Z", path)
+	cmd := exec.Command("stat", "--printf=%C", path)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get file context: %w", err)
 	}
 
-	parts := strings.Fields(string(output))
-	if len(parts) < 1 {
-		return "", fmt.Errorf("no SELinux context found for path: %s", path)
-	}
-
-	context := strings.TrimSpace(parts[0])
-	if context == "" || context == "?" {
+	context := strings.TrimSpace(string(output))
+	if context == "" || context == "?" || strings.Contains(context, "unsupported") {
 		return "", fmt.Errorf("invalid SELinux context for path: %s", path)
 	}
 

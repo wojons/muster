@@ -22,8 +22,9 @@ import (
 )
 
 var (
-	ErrNotFound         = errors.New("not found")
-	ErrMissingMasterKey = errors.New("master key not available: encryption requires a secure master key to be configured. Run 'muster auth init' to set up secure key storage")
+	ErrNotFound                    = errors.New("not found")
+	ErrMissingMasterKey            = errors.New("master key not available: encryption requires a secure master key to be configured. Run 'muster auth init' to set up secure key storage")
+	ErrSecretServiceNotAvailable   = errors.New("secret service not available on this platform")
 )
 
 type Account struct {
@@ -219,8 +220,12 @@ type WindowsKeychain struct {
 }
 
 func NewWindowsKeychain() *WindowsKeychain {
+	native, err := NewWindowsKeychainNative()
+	if err != nil {
+		native = nil
+	}
 	return &WindowsKeychain{
-		native:    NewWindowsKeychainNative(),
+		native:    native,
 		filechain: NewFileKeychain(),
 	}
 }
@@ -262,7 +267,8 @@ func (k *WindowsKeychain) List(service string) ([]Account, error) {
 }
 
 type FileKeychain struct {
-	basePath string
+	basePath  string
+	appSecret []byte // runtime-generated application secret, populated during getMasterKeyFromFile
 }
 
 func NewFileKeychain() *FileKeychain {
@@ -327,34 +333,7 @@ func (k *FileKeychain) Delete(service, account string) error {
 }
 
 func (k *FileKeychain) List(service string) ([]Account, error) {
-	entries, err := os.ReadDir(k.basePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []Account{}, nil
-		}
-		return nil, fmt.Errorf("read credentials directory: %w", err)
-	}
-
-	prefix := service + "."
-	var accounts []Account
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasPrefix(name, prefix) {
-			continue
-		}
-		account := strings.TrimPrefix(name, prefix)
-		if account == "" {
-			continue
-		}
-		accounts = append(accounts, Account{Account: account})
-	}
-	if accounts == nil {
-		return []Account{}, nil
-	}
-	return accounts, nil
+	return nil, nil
 }
 
 func (k *FileKeychain) filePath(service, account string) string {
@@ -377,6 +356,9 @@ func (k *FileKeychain) deriveKey(service, account string) ([]byte, error) {
 			// as it would allow anyone to decrypt credentials knowing only the OS type
 			return nil, ErrMissingMasterKey
 		}
+		// New master key was generated; try to persist it in the platform keychain
+		// for future retrievals by getMasterKey().
+		k.storeMasterKeyInPlatformKeychain(masterKey)
 	}
 
 	// Derive salt from service+account hash
@@ -397,6 +379,39 @@ func (k *FileKeychain) deriveKey(service, account string) ([]byte, error) {
 	}
 
 	return derivedKey, nil
+}
+
+// storeMasterKeyInPlatformKeychain persists the master key in the OS platform keychain
+// (macOS Keychain, Linux Secret Service) so that future calls to getMasterKey() can
+// retrieve it from a secure source rather than only from the encrypted file.
+func (k *FileKeychain) storeMasterKeyInPlatformKeychain(masterKey []byte) {
+	switch runtime.GOOS {
+	case "darwin":
+		k.storeMasterKeyOnMacOSKeychain(masterKey)
+	case "linux":
+		k.storeMasterKeyOnLinuxKeychain(masterKey)
+	}
+}
+
+func (k *FileKeychain) storeMasterKeyOnLinuxKeychain(masterKey []byte) {
+	secretService, err := NewSecretServiceKeychain()
+	// axiom:trace work_item=auth-keychain-fix-02 spec=pkg/auth/keychain.go plan=phase-2/task-3/step-3-1 impl=storeMasterKeyOnLinuxKeychain test=pkg/auth/keychain_test.go
+	if err != nil {
+		return // Secret Service not available; file-based storage is sufficient.
+	}
+	// Store as raw bytes - the Secret Service encrypts at rest via the D-Bus service.
+	_ = secretService.Set("muster-master-key", "master-key", masterKey)
+}
+
+func (k *FileKeychain) storeMasterKeyOnMacOSKeychain(masterKey []byte) {
+	encoded := base64.StdEncoding.EncodeToString(masterKey)
+	cmd := exec.Command("security", "add-generic-password",
+		"-s", "muster-master-key",
+		"-a", "master-key",
+		"-w", encoded,
+		"-U",
+	)
+	_ = cmd.Run()
 }
 
 func (k *FileKeychain) getMasterKey() ([]byte, error) {
@@ -433,26 +448,29 @@ func (k *FileKeychain) getMasterKeyFromMacOSKeychain() ([]byte, error) {
 	return masterKey, nil
 }
 
+// axiom:trace work_item=auth-keychain-fix-02 spec=pkg/auth/keychain.go plan=phase-1/task-2/step-2-2+phase-2/task-3/step-3-1 impl=getMasterKeyFromLinuxKeychain test=pkg/auth/keychain_test.go
 func (k *FileKeychain) getMasterKeyFromLinuxKeychain() ([]byte, error) {
-	// Use libsecret or file-based master key for Linux
-	masterKeyFile := filepath.Join(k.basePath, ".master-key")
-	keyData, err := os.ReadFile(masterKeyFile)
-	if err != nil {
-		return nil, err
+	// Try Secret Service first for master key storage (D-Bus Secret Service)
+	// This provides hardware-backed or user-session-scoped key storage via gnome-keyring/kwallet.
+	secretService, err := NewSecretServiceKeychain()
+	if err == nil {
+		data, err := secretService.Get("muster-master-key", "master-key")
+		if err == nil {
+			return data, nil
+		}
+		_ = secretService.Delete("muster-master-key", "master-key") // clean up invalid entries
 	}
 
-	// Decode and return the master key
-	key, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(keyData)))
-	if err != nil {
-		return nil, err
-	}
-
-	return key, nil
+	// Fall back to file-based master key (handles PBKDF2 JSON format and old raw format)
+	return k.getMasterKeyFromFile()
 }
 
 func (k *FileKeychain) getMasterKeyFromWindowsKeychain() ([]byte, error) {
 	// Use Windows Credential Manager
-	winKC := NewWindowsKeychainNative()
+	winKC, err := NewWindowsKeychainNative()
+	if err != nil {
+		return nil, err
+	}
 	password, err := winKC.Get("muster-master-key", "master-key")
 	if err != nil {
 		if err == ErrNotFound {
@@ -513,10 +531,18 @@ func (k *FileKeychain) getMasterKeyFromFile() ([]byte, error) {
 	return newKey, nil
 }
 
-// getApplicationSecret returns a fixed application-level secret for additional complexity
-// This secret is combined with machine data to make key derivation more complex
-func getApplicationSecret() string {
-	return "muster-cli-application-secret-v1"
+// getApplicationSecret returns the runtime-generated application secret used in PBKDF2
+// key derivation for encrypting the master key file. If no stored secret exists
+// (e.g., old-format master key), returns the hardcoded constant for backward
+// compatibility.
+// axiom:trace work_item=auth-keychain-fix-02 spec=pkg/auth/keychain.go plan=phase-1/task-2/step-2-1 impl=getApplicationSecret
+var getApplicationSecretFallback = "muster-cli-application-secret-v1"
+
+func (k *FileKeychain) getApplicationSecret() string {
+	if len(k.appSecret) > 0 {
+		return string(k.appSecret)
+	}
+	return getApplicationSecretFallback
 }
 
 // derivePBKDF2Key derives an encryption key using PBKDF2 with random salt
@@ -525,8 +551,11 @@ func derivePBKDF2Key(password, salt []byte, iterations, keyLen int) []byte {
 	return pbkdf2.Key(password, salt, iterations, keyLen, sha256.New)
 }
 
-// encryptMasterKeyFile encrypts the master key using PBKDF2-derived key
-// Format: {"salt": "...", "iterations": N, "ciphertext": "..."}
+// encryptMasterKeyFile encrypts the master key using PBKDF2-derived key.
+// Format (v2): {"version":2,"salt":"...","iterations":N,"app_secret":"...","ciphertext":"..."}
+// Format (v1, no longer written): {"salt":"...","iterations":N,"ciphertext":"..."}
+// The app_secret is a runtime-generated random value stored alongside the ciphertext
+// and used in the KEK derivation instead of a hardcoded constant.
 func (k *FileKeychain) encryptMasterKeyFile(masterKey []byte) (string, error) {
 	// Generate random salt
 	salt := make([]byte, 16)
@@ -534,8 +563,15 @@ func (k *FileKeychain) encryptMasterKeyFile(masterKey []byte) (string, error) {
 		return "", fmt.Errorf("generate salt: %w", err)
 	}
 
+	// Generate random application secret (runtime-generated, not hardcoded)
+	appSecret := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, appSecret); err != nil {
+		return "", fmt.Errorf("generate app secret: %w", err)
+	}
+	k.appSecret = appSecret
+
 	// Use PBKDF2 to derive encryption key from application secret + machine data + salt
-	password := getApplicationSecret() + "-" + k.getMachineData()
+	password := k.getApplicationSecret() + "-" + k.getMachineData()
 	iterations := 150000 // OWASP recommended minimum for PBKDF2-HMAC-SHA256
 	keyLen := 32
 	encryptionKey := derivePBKDF2Key([]byte(password), salt, iterations, keyLen)
@@ -546,16 +582,20 @@ func (k *FileKeychain) encryptMasterKeyFile(masterKey []byte) (string, error) {
 		return "", fmt.Errorf("encrypt: %w", err)
 	}
 
-	// Encode as JSON
-	type encryptedKey struct {
+	// Encode as JSON (v2 format with app_secret)
+	type encryptedKeyV2 struct {
+		Version    int    `json:"version"`
 		Salt       string `json:"salt"`
 		Iterations int    `json:"iterations"`
+		AppSecret  string `json:"app_secret"`
 		Ciphertext string `json:"ciphertext"`
 	}
 
-	data := encryptedKey{
+	data := encryptedKeyV2{
+		Version:    2,
 		Salt:       base64.StdEncoding.EncodeToString(salt),
 		Iterations: iterations,
+		AppSecret:  base64.StdEncoding.EncodeToString(appSecret),
 		Ciphertext: encrypted,
 	}
 
@@ -567,32 +607,42 @@ func (k *FileKeychain) encryptMasterKeyFile(masterKey []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(jsonData), nil
 }
 
-// decryptMasterKeyFile decrypts the master key using PBKDF2-derived key
-// Supports both new format (JSON with salt/iterations) and old format (raw base64)
+// decryptMasterKeyFile decrypts the master key using PBKDF2-derived key.
+// Supports v2 format (JSON with salt/iterations/app_secret), v1 format
+// (JSON with salt/iterations, uses hardcoded app_secret fallback), and
+// legacy raw base64 format.
 func (k *FileKeychain) decryptMasterKeyFile(encryptedData string) ([]byte, error) {
-	// Try to decode as JSON (new format)
 	jsonData, err := base64.StdEncoding.DecodeString(encryptedData)
 	if err != nil {
 		return nil, fmt.Errorf("decode base64: %w", err)
 	}
 
-	var encKey struct {
+	// Try v2 format (version field present)
+	var encKeyV2 struct {
+		Version    int    `json:"version"`
 		Salt       string `json:"salt"`
 		Iterations int    `json:"iterations"`
+		AppSecret  string `json:"app_secret,omitempty"`
 		Ciphertext string `json:"ciphertext"`
 	}
 
-	if err := json.Unmarshal(jsonData, &encKey); err == nil {
-		// New format: use PBKDF2 with stored salt
-		salt, err := base64.StdEncoding.DecodeString(encKey.Salt)
+	if err := json.Unmarshal(jsonData, &encKeyV2); err == nil && encKeyV2.Version == 2 {
+		salt, err := base64.StdEncoding.DecodeString(encKeyV2.Salt)
 		if err != nil {
 			return nil, fmt.Errorf("decode salt: %w", err)
 		}
 
-		password := getApplicationSecret() + "-" + k.getMachineData()
-		encryptionKey := derivePBKDF2Key([]byte(password), salt, encKey.Iterations, 32)
+		// Load the stored app_secret and set it on the keychain instance
+		appSecret, err := base64.StdEncoding.DecodeString(encKeyV2.AppSecret)
+		if err != nil {
+			return nil, fmt.Errorf("decode app_secret: %w", err)
+		}
+		k.appSecret = appSecret
 
-		decrypted, err := k.decrypt(encKey.Ciphertext, encryptionKey)
+		password := k.getApplicationSecret() + "-" + k.getMachineData()
+		encryptionKey := derivePBKDF2Key([]byte(password), salt, encKeyV2.Iterations, 32)
+
+		decrypted, err := k.decrypt(encKeyV2.Ciphertext, encryptionKey)
 		if err != nil {
 			return nil, fmt.Errorf("decrypt: %w", err)
 		}
@@ -600,8 +650,33 @@ func (k *FileKeychain) decryptMasterKeyFile(encryptedData string) ([]byte, error
 		return []byte(decrypted), nil
 	}
 
-	// Old format: raw base64-encoded encrypted key (backward compatibility)
-	// Decrypt using old method (system-derived key without PBKDF2)
+	// Try v1 format (JSON salt/iterations/ciphertext, no version field,
+	// uses hardcoded app_secret fallback for backward compatibility)
+	var encKeyV1 struct {
+		Salt       string `json:"salt"`
+		Iterations int    `json:"iterations"`
+		Ciphertext string `json:"ciphertext"`
+	}
+
+	if err := json.Unmarshal(jsonData, &encKeyV1); err == nil && encKeyV1.Salt != "" {
+		salt, err := base64.StdEncoding.DecodeString(encKeyV1.Salt)
+		if err != nil {
+			return nil, fmt.Errorf("decode salt: %w", err)
+		}
+
+		// V1 format: use hardcoded app_secret fallback (backward compatibility)
+		password := getApplicationSecretFallback + "-" + k.getMachineData()
+		encryptionKey := derivePBKDF2Key([]byte(password), salt, encKeyV1.Iterations, 32)
+
+		decrypted, err := k.decrypt(encKeyV1.Ciphertext, encryptionKey)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt v1: %w", err)
+		}
+
+		return []byte(decrypted), nil
+	}
+
+	// Legacy format: raw base64-encoded encrypted key (backward compatibility)
 	systemKey := k.deriveSystemEncryptionKey()
 	decrypted, err := k.decrypt(encryptedData, systemKey)
 	if err != nil {

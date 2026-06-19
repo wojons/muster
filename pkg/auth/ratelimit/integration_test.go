@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/openapi-cli/openapi-cli/pkg/auth/ratelimit"
+	"github.com/wojons/muster/pkg/auth/ratelimit"
 )
 
 // TestTokenBucket_Integration_BasicRateLimiting tests basic rate limiting

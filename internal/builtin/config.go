@@ -2,8 +2,9 @@ package builtin
 
 import (
 	"fmt"
+	"sort"
 
-	"github.com/openapi-cli/openapi-cli/pkg/config"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -42,27 +43,22 @@ func newProfileCommand(cfg *config.Config) *cobra.Command {
 		Use:   "list",
 		Short: "List all profiles",
 		Run: func(c *cobra.Command, args []string) {
-			cm, err := config.NewConfigManager()
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				return
-			}
-			pm := config.NewProfileManager(cm)
-			profiles := pm.List()
-			if len(profiles) == 0 {
+			if len(cfg.Profiles) == 0 {
 				fmt.Println("No profiles configured")
 				return
 			}
-			defaultProfile := cm.GetDefaultProfile()
-			for _, profile := range profiles {
-				if profile != nil {
-					marker := ""
-					name := profile.BaseURL
-					if name != "" && defaultProfile == name {
-						marker = "*"
-					}
-					fmt.Printf("%s %s\n", marker, name)
+			defaultProfile := cfg.DefaultProfile
+			names := make([]string, 0, len(cfg.Profiles))
+			for name := range cfg.Profiles {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			for _, name := range names {
+				marker := " "
+				if name == defaultProfile {
+					marker = "*"
 				}
+				fmt.Printf("%s %s\n", marker, name)
 			}
 		},
 	})
@@ -73,14 +69,8 @@ func newProfileCommand(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(c *cobra.Command, args []string) {
 			name := args[0]
-			cm, err := config.NewConfigManager()
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				return
-			}
-			pm := config.NewProfileManager(cm)
-			profile, err := pm.Get(name)
-			if err != nil {
+			profile, ok := cfg.Profiles[name]
+			if !ok {
 				fmt.Printf("Profile '%s' not found\n", name)
 				return
 			}
@@ -96,20 +86,11 @@ func newProfileCommand(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(c *cobra.Command, args []string) {
 			name := args[0]
-			cm, err := config.NewConfigManager()
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				return
-			}
-			pm := config.NewProfileManager(cm)
-			if !pm.Exists(name) {
+			if _, ok := cfg.Profiles[name]; !ok {
 				fmt.Printf("Profile '%s' not found\n", name)
 				return
 			}
-			if err := pm.SetDefault(name); err != nil {
-				fmt.Printf("Error switching profile: %v\n", err)
-				return
-			}
+			cfg.DefaultProfile = name
 			fmt.Printf("Switched to profile: %s\n", name)
 		},
 	})
@@ -120,19 +101,13 @@ func newProfileCommand(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(c *cobra.Command, args []string) {
 			name := args[0]
-			cm, err := config.NewConfigManager()
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				return
-			}
-			pm := config.NewProfileManager(cm)
-			if !pm.Exists(name) {
+			if _, ok := cfg.Profiles[name]; !ok {
 				fmt.Printf("Profile '%s' not found\n", name)
 				return
 			}
-			if err := pm.Delete(name); err != nil {
-				fmt.Printf("Error deleting profile: %v\n", err)
-				return
+			delete(cfg.Profiles, name)
+			if cfg.DefaultProfile == name {
+				cfg.DefaultProfile = ""
 			}
 			fmt.Printf("Deleted profile: %s\n", name)
 		},

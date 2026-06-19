@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/client"
-	"github.com/openapi-cli/openapi-cli/pkg/retry"
+	"github.com/wojons/muster/pkg/client"
+	"github.com/wojons/muster/pkg/retry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -651,12 +651,11 @@ func TestRetryWithExponentialBackoff(t *testing.T) {
 
 	ctx := context.Background()
 	cfg := retry.RetryConfig{
-		MaxAttempts:     5,
-		InitialDelay:    50 * time.Millisecond,
-		MaxDelay:        500 * time.Millisecond,
-		BackoffStrategy: retry.BackoffExponential,
-		JitterStrategy:  retry.JitterNone,
-		RetryableErrors: []retry.ErrorClass{retry.ErrTransient},
+		MaxAttempts:  5,
+		InitialDelay: 50 * time.Millisecond,
+		MaxDelay:     500 * time.Millisecond,
+		BackoffType:  "exponential",
+		Jitter:       false,
 	}
 
 	cli := client.NewClient(

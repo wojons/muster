@@ -13,8 +13,273 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/log"
+	"github.com/wojons/muster/pkg/cache"
+	"github.com/wojons/muster/pkg/client"
+	"github.com/wojons/muster/pkg/log"
 )
+
+// Logger defines the interface for daemon logging.
+type Logger interface {
+	Info(msg string, args ...interface{})
+	Warn(msg string, args ...interface{})
+	Error(msg string, args ...interface{})
+}
+
+// ControllerConfig holds configuration for the daemon controller.
+type ControllerConfig struct {
+	PidFilePath string
+	SocketPath  string
+	Version     string
+	Logger      Logger
+	Handler     http.Handler
+}
+
+// DaemonStatus holds the current daemon status.
+type DaemonStatus struct {
+	Running   bool
+	PID       int
+	StartTime time.Time
+	Version   string
+}
+
+// Controller manages the daemon lifecycle and Unix socket proxy.
+// axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md plan=phase-97-2/task-97-2-1/step-97-2-1-1
+type Controller struct {
+	config      ControllerConfig
+	pidFile     string
+	socketPath  string
+	version     string
+	logger      Logger
+	handler     http.Handler
+	tokenPath   string
+	proxyServer *ProxyServer
+	running     bool
+	startTime   time.Time
+	mu          sync.RWMutex
+}
+
+// NewController creates a new daemon controller.
+func NewController(config ControllerConfig) (*Controller, error) {
+	return &Controller{
+		config:     config,
+		pidFile:    config.PidFilePath,
+		socketPath: config.SocketPath,
+		version:    config.Version,
+		logger:     config.Logger,
+		handler:    config.Handler,
+		tokenPath:  config.SocketPath + ".token",
+	}, nil
+}
+
+// Start starts the daemon process.
+func (c *Controller) Start() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.running {
+		return fmt.Errorf("daemon is already running")
+	}
+
+	c.running = true
+	c.startTime = time.Now()
+
+	if c.logger != nil {
+		c.logger.Info("daemon started", "pid", os.Getpid())
+	}
+
+	return nil
+}
+
+// Stop stops the daemon process.
+func (c *Controller) Stop() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.running {
+		return fmt.Errorf("daemon is not running")
+	}
+
+	if c.proxyServer != nil {
+		if err := c.proxyServer.Stop(); err != nil {
+			if c.logger != nil {
+				c.logger.Warn("proxy server stop error", "error", err.Error())
+			}
+		}
+		c.proxyServer = nil
+	}
+
+	c.running = false
+
+	if c.logger != nil {
+		c.logger.Info("daemon stopped")
+	}
+
+	return nil
+}
+
+// Restart restarts the daemon process.
+func (c *Controller) Restart() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.running {
+		if c.proxyServer != nil {
+			if err := c.proxyServer.Stop(); err != nil {
+				if c.logger != nil {
+					c.logger.Warn("proxy server stop error during restart", "error", err.Error())
+				}
+			}
+			c.proxyServer = nil
+		}
+		c.running = false
+	}
+
+	c.running = true
+	c.startTime = time.Now()
+
+	if c.logger != nil {
+		c.logger.Info("daemon restarted")
+	}
+
+	return nil
+}
+
+// Status returns the current daemon status.
+func (c *Controller) Status() (DaemonStatus, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return DaemonStatus{
+		Running:   c.running,
+		PID:       os.Getpid(),
+		StartTime: c.startTime,
+		Version:   c.version,
+	}, nil
+}
+
+// GetTokenPath returns the path to the token file.
+func (c *Controller) GetTokenPath() string {
+	return c.tokenPath
+}
+
+// SetupSignalHandlers sets up OS signal handling for graceful shutdown.
+func (c *Controller) SetupSignalHandlers() {}
+
+// StartWithSocket starts the daemon with a custom socket handler, creating and starting
+// a real ProxyServer that listens on the Unix socket.
+func (c *Controller) StartWithSocket(handler http.Handler) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.running {
+		return fmt.Errorf("daemon is already running")
+	}
+
+	// Remove any stale socket file
+	if _, err := os.Stat(c.socketPath); err == nil {
+		if err := os.Remove(c.socketPath); err != nil {
+			return fmt.Errorf("remove stale socket %s: %w", c.socketPath, err)
+		}
+	}
+
+	// Ensure parent directory exists
+	socketDir := filepath.Dir(c.socketPath)
+	if err := os.MkdirAll(socketDir, 0755); err != nil {
+		return fmt.Errorf("create socket directory: %w", err)
+	}
+
+	// Create default handler if nil
+	if handler == nil {
+		handler = createDefaultHandler()
+	}
+
+	c.handler = handler
+
+	// Create and start the proxy server
+	proxy := NewProxyServer(c.socketPath, handler)
+	if err := proxy.Start(); err != nil {
+		return fmt.Errorf("start proxy server: %w", err)
+	}
+	c.proxyServer = proxy
+
+	c.running = true
+	c.startTime = time.Now()
+
+	if c.logger != nil {
+		c.logger.Info("proxy server started", "socket", c.socketPath)
+	}
+
+	return nil
+}
+
+// Shutdown gracefully shuts down the proxy server and cleans up resources.
+func (c *Controller) Shutdown(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.proxyServer != nil {
+		if err := c.proxyServer.Stop(); err != nil {
+			if c.logger != nil {
+				c.logger.Warn("proxy server stop error", "error", err.Error())
+			}
+		}
+		c.proxyServer = nil
+	}
+
+	c.running = false
+	return nil
+}
+
+// Kill immediately stops the proxy server without graceful shutdown.
+func (c *Controller) Kill() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if !c.running {
+		return fmt.Errorf("daemon is not running")
+	}
+
+	if c.proxyServer != nil {
+		if c.proxyServer.listener != nil {
+			_ = c.proxyServer.listener.Close()
+		}
+		if err := os.Remove(c.socketPath); err != nil && !os.IsNotExist(err) {
+			if c.logger != nil {
+				c.logger.Warn("remove socket error", "error", err.Error(), "path", c.socketPath)
+			}
+		}
+		c.proxyServer = nil
+	}
+
+	c.running = false
+	return nil
+}
+
+// IsRunning returns whether the daemon is currently running.
+func (c *Controller) IsRunning() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.running
+}
+
+// ServeHTTP implements http.Handler by delegating to the proxy server's handler.
+func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c.mu.RLock()
+	handler := c.handler
+	c.mu.RUnlock()
+
+	if handler != nil {
+		handler.ServeHTTP(w, r)
+	} else {
+		http.Error(w, "no handler configured", http.StatusInternalServerError)
+	}
+}
+
+// Handler returns the current HTTP handler.
+func (c *Controller) Handler() http.Handler {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.handler
+}
 
 // ProxyServer handles HTTP proxying over Unix socket
 type ProxyServer struct {
@@ -257,6 +522,44 @@ func NewProxyHandler(backendURL string) *ProxyHandler {
 		forwardedFor: true,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// NewProxyHandlerWithRateLimit creates a new proxy handler with token-bucket
+// rate limiting applied to outgoing proxy requests. ratePerSec is the number
+// of tokens added per second; burst is the maximum accumulated tokens.
+// When ratePerSec is <= 0, rate limiting is disabled.
+func NewProxyHandlerWithRateLimit(backendURL string, ratePerSec, burst int) *ProxyHandler {
+	transport := http.DefaultTransport
+	if ratePerSec > 0 {
+		transport = client.NewRateLimitRoundTripper(transport, ratePerSec, burst)
+	}
+	return &ProxyHandler{
+		backendURL:   backendURL,
+		forwardedFor: true,
+		httpClient: &http.Client{
+			Transport: transport,
+			Timeout:   30 * time.Second,
+		},
+	}
+}
+
+// NewProxyHandlerWithCache creates a new proxy handler that caches GET
+// responses from the backend. c is the cache implementation; ttl controls
+// how long cached responses are stored. The caller retains ownership of
+// the cache and is responsible for calling Close when no longer needed.
+//
+// This composes with NewProxyHandlerWithRateLimit: callers may create a
+// ProxyHandler directly and compose their own transport chain.
+func NewProxyHandlerWithCache(backendURL string, c cache.Cache, ttl time.Duration) *ProxyHandler {
+	transport := client.NewCacheRoundTripper(http.DefaultTransport, c, ttl)
+	return &ProxyHandler{
+		backendURL:   backendURL,
+		forwardedFor: true,
+		httpClient: &http.Client{
+			Transport: transport,
+			Timeout:   30 * time.Second,
 		},
 	}
 }

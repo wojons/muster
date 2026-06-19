@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/auth/ratelimit"
+	"github.com/wojons/muster/pkg/auth/ratelimit"
 )
 
 var (
@@ -43,14 +43,8 @@ type failedAttemptTracker struct {
 // NewOAuthRateLimiter creates a new OAuth rate limiter with default configuration
 func NewOAuthRateLimiter() *OAuthRateLimiter {
 	rl := &OAuthRateLimiter{
-		tokenLimiter: ratelimit.NewTokenBucketLimiter(ratelimit.BucketConfig{
-			Capacity: 10,        // Burst of 10 requests
-			FillRate: 10.0 / 60, // 10 requests per minute
-		}),
-		deviceCodeLimiter: ratelimit.NewTokenBucketLimiter(ratelimit.BucketConfig{
-			Capacity: 2,        // Burst of 2 requests
-			FillRate: 2.0 / 60, // 2 requests per minute (matches OAuth2 device code spec)
-		}),
+		tokenLimiter:      ratelimit.NewTokenBucketLimiter(10, 10),
+		deviceCodeLimiter: ratelimit.NewTokenBucketLimiter(2, 2),
 		failedAttempts:    make(map[string]*failedAttemptTracker),
 		maxFailedAttempts: 5, // Lock after 5 failed attempts
 		lockoutDuration:   15 * time.Minute,
@@ -71,7 +65,7 @@ func (rl *OAuthRateLimiter) AllowTokenRequest(clientID string) error {
 	}
 
 	// Check rate limit
-	if !rl.tokenLimiter.Allow(clientID, 1) {
+	if !rl.tokenLimiter.Allow() {
 		return ErrRateLimitExceeded
 	}
 
@@ -140,7 +134,7 @@ func (rl *OAuthRateLimiter) checkAccountLockout(identifier string) error {
 
 // AllowDeviceCodePoll checks if a device code poll request should be allowed
 func (rl *OAuthRateLimiter) AllowDeviceCodePoll(deviceCode string) error {
-	if !rl.deviceCodeLimiter.Allow(deviceCode, 1) {
+	if !rl.deviceCodeLimiter.Allow() {
 		return ErrRateLimitExceeded
 	}
 	return nil
@@ -148,8 +142,7 @@ func (rl *OAuthRateLimiter) AllowDeviceCodePoll(deviceCode string) error {
 
 // AllowCallbackRequest checks if a callback request should be allowed
 func (rl *OAuthRateLimiter) AllowCallbackRequest(state string) error {
-	// Use same rate limiter as token endpoint
-	if !rl.tokenLimiter.Allow("callback:"+state, 1) {
+	if !rl.tokenLimiter.Allow() {
 		return ErrRateLimitExceeded
 	}
 	return nil

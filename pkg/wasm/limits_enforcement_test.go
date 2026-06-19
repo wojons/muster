@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/wasm"
+	"github.com/wojons/muster/pkg/wasm"
 )
 
 // TestWASM_RuntimeLimits_CPU tests CPU limiting via fuel mechanism.
@@ -247,6 +247,7 @@ func TestWASM_RuntimeLimits_ExecutionTimeout(t *testing.T) {
 			MaxMemory:        128 * 1024 * 1024,
 			MaxExecutionTime: 0, // Invalid - no timeout
 			MaxFileSize:      10 * 1024 * 1024,
+			MaxFuel:          1000000,
 		}
 
 		err := limits.Validate()
@@ -294,6 +295,7 @@ func TestWASM_RuntimeLimits_FileSize(t *testing.T) {
 			MaxMemory:        128 * 1024 * 1024,
 			MaxExecutionTime: 30 * time.Second,
 			MaxFileSize:      0, // Invalid - no file size limit
+			MaxFuel:          1000000,
 		}
 
 		err := limits.Validate()

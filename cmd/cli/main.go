@@ -12,15 +12,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"strings"
 	"syscall"
 	"time"
 
-	builtpkg "github.com/openapi-cli/openapi-cli/internal/builtin"
-	"github.com/openapi-cli/openapi-cli/internal/version"
-	"github.com/openapi-cli/openapi-cli/pkg/config"
+	"github.com/wojons/muster/internal/audit"
+	builtpkg "github.com/wojons/muster/internal/builtin"
+	"github.com/wojons/muster/internal/version"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -36,23 +35,12 @@ const (
 )
 
 var (
-	cfg    *appConfig
-	logger *zap.Logger
-	_      *http.Client // httpClient reserved for future use
+	cfg       *config.Config
+	logger    *zap.Logger
+	auditHook *audit.Hook
+	auditFlag bool
+	loader    *config.Loader
 )
-
-type appConfig struct {
-	ConfigFile  string        `mapstructure:"config_file"`
-	Host        string        `mapstructure:"host"`
-	Verbose     bool          `mapstructure:"verbose"`
-	LogLevel    string        `mapstructure:"log_level"`
-	LogFormat   string        `mapstructure:"log_format"`
-	DatabaseURL string        `mapstructure:"database_url"`
-	AuthToken   string        `mapstructure:"auth_token"`
-	Timeout     time.Duration `mapstructure:"timeout"`
-	MaxRetries  int           `mapstructure:"max_retries"`
-	Profiles    []string      `mapstructure:"profiles"`
-}
 
 func main() {
 	defer func() {
@@ -75,6 +63,7 @@ func main() {
 }
 
 func runCLI(ctx context.Context, sigChan <-chan os.Signal) error {
+	loader = config.NewLoader()
 	rootCmd := createRootCommand()
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
@@ -101,50 +90,40 @@ func runCLI(ctx context.Context, sigChan <-chan os.Signal) error {
 }
 
 func createRootCommand() *cobra.Command {
-	configMgr, err := config.Load()
-	if err != nil {
-		loader := config.NewLoader()
-		configMgr, _ = loader.Load()
+	addPersistentFlags := func(cmd *cobra.Command) {
+		cmd.PersistentFlags().StringP("config", "c", "", "Config file path (default: $HOME/.muster/config.yaml)")
+		cmd.PersistentFlags().StringP("host", "H", "localhost:8080", "Server host address")
+		cmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+		cmd.PersistentFlags().String("log-level", "info", "Log level (debug, info, warn, error, fatal)")
+		cmd.PersistentFlags().String("log-format", "console", "Log format (json, console)")
+		cmd.PersistentFlags().String("database-url", "", "Database connection URL")
+		cmd.PersistentFlags().String("auth-token", "", "Authentication token")
+		cmd.PersistentFlags().Duration("timeout", 30*time.Second, "Request timeout")
+		cmd.PersistentFlags().Int("max-retries", 3, "Maximum number of retries for failed requests")
+		cmd.PersistentFlags().BoolVar(&auditFlag, "audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
 	}
 
-	root := builtpkg.NewRootCommand(configMgr)
+	// Initialize audit hook (opt-in via --audit flag or MUSTER_AUDIT_ENABLED env var)
+	auditConfig := audit.DefaultConfig()
+	if auditFlag {
+		auditConfig.Enabled = true
+	}
+	auditHook = audit.NewHook(auditConfig)
+
+	// Create a minimal config for builtin commands that expect one
+	// (the real config is loaded in persistentPreRun via loader.Load())
+	initialCfg := &config.Config{Version: "1.0.0"}
+	root := builtpkg.NewRootCommandWithAudit(initialCfg, auditHook)
 
 	addPersistentFlags(root)
 
 	return root
 }
 
-func addPersistentFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringP("config", "c", "", "Config file path (default: $HOME/.muster/config.yaml)")
-	_ = viper.BindPFlag("config_file", cmd.PersistentFlags().Lookup("config"))
-
-	cmd.PersistentFlags().StringP("host", "H", "localhost:8080", "Server host address")
-	_ = viper.BindPFlag("host", cmd.PersistentFlags().Lookup("host"))
-
-	cmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
-	_ = viper.BindPFlag("verbose", cmd.PersistentFlags().Lookup("verbose"))
-
-	cmd.PersistentFlags().String("log-level", "info", "Log level (debug, info, warn, error, fatal)")
-	_ = viper.BindPFlag("log_level", cmd.PersistentFlags().Lookup("log-level"))
-
-	cmd.PersistentFlags().String("log-format", "console", "Log format (json, console)")
-	_ = viper.BindPFlag("log_format", cmd.PersistentFlags().Lookup("log-format"))
-
-	cmd.PersistentFlags().String("database-url", "", "Database connection URL")
-	_ = viper.BindPFlag("database_url", cmd.PersistentFlags().Lookup("database-url"))
-
-	cmd.PersistentFlags().String("auth-token", "", "Authentication token")
-	_ = viper.BindPFlag("auth_token", cmd.PersistentFlags().Lookup("auth-token"))
-
-	cmd.PersistentFlags().Duration("timeout", 30*time.Second, "Request timeout")
-	_ = viper.BindPFlag("timeout", cmd.PersistentFlags().Lookup("timeout"))
-
-	cmd.PersistentFlags().Int("max-retries", 3, "Maximum number of retries for failed requests")
-	_ = viper.BindPFlag("max_retries", cmd.PersistentFlags().Lookup("max-retries"))
-}
-
 func persistentPreRun(cmd *cobra.Command, args []string) error {
-	if cmd.Name() == "completion" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "__complete" {
+	// Skip config loading for meta-commands
+	cmdName := cmd.Name()
+	if cmdName == "completion" || cmdName == "version" || cmdName == "help" || cmdName == "__complete" {
 		return nil
 	}
 
@@ -167,44 +146,76 @@ func persistentPreRun(cmd *cobra.Command, args []string) error {
 }
 
 func persistentPostRun(cmd *cobra.Command, args []string) error {
-	if cmd.Name() == "completion" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "__complete" {
+	cmdName := cmd.Name()
+	if cmdName == "completion" || cmdName == "version" || cmdName == "help" || cmdName == "__complete" {
 		return nil
 	}
 
-	logger.Info("cleaning up resources")
-
 	if logger != nil {
+		logger.Info("cleaning up resources")
 		_ = logger.Sync()
+	}
+
+	// Close audit hook to flush pending events
+	if auditHook != nil {
+		if err := auditHook.Close(); err != nil {
+			if logger != nil {
+				logger.Warn("audit: close error", zap.Error(err))
+			}
+		}
 	}
 
 	return nil
 }
 
 func initializeConfig(cmd *cobra.Command) error {
-	viper.SetEnvPrefix("MUSTER")
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
-	viper.AutomaticEnv()
-
-	configFile := viper.GetString("config_file")
-	if configFile == "" {
+	// Check for explicit --config flag
+	configFile, _ := cmd.Flags().GetString("config")
+	if configFile != "" {
+		loader.SetConfigFile(configFile)
+	} else {
+		// Default to $HOME/.muster/config.yaml (non-fatal if missing)
 		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get home directory: %w", err)
-		}
-		configFile = filepath.Join(home, ".muster", "config.yaml")
-		viper.Set("config_file", configFile)
-	}
-
-	if _, err := os.Stat(configFile); err == nil {
-		viper.SetConfigFile(configFile)
-		if err := viper.ReadInConfig(); err != nil {
-			return fmt.Errorf("failed to read config file: %w", err)
+		if err == nil {
+			defaultPath := filepath.Join(home, ".muster", "config.yaml")
+			if _, err := os.Stat(defaultPath); err == nil {
+				loader.SetConfigFile(defaultPath)
+			}
 		}
 	}
 
-	cfg = &appConfig{}
-	if err := viper.Unmarshal(cfg); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %w", err)
+	// Load config from all sources
+	var loadErr error
+	cfg, loadErr = loader.Load()
+	if loadErr != nil && configFile != "" {
+		return fmt.Errorf("load config: %w", loadErr)
+	}
+	// If no config file exists, start with defaults
+	if cfg == nil {
+		cfg = &config.Config{
+			Version:    "1.0.0",
+			Host:       "localhost:8080",
+			LogLevel:   "info",
+			LogFormat:  "console",
+			Timeout:    30 * time.Second,
+			MaxRetries: 3,
+		}
+	}
+
+	// Apply CLI flags as final overrides (highest priority)
+	if err := loader.BindPFlags(cmd); err != nil {
+		return fmt.Errorf("bind flags: %w", err)
+	}
+	if err := loader.ApplyCLIFlags(cmd, cfg); err != nil {
+		return fmt.Errorf("apply cli flags: %w", err)
+	}
+
+	// Set computed paths
+	if cfg.ConfigDir == "" {
+		home, _ := os.UserHomeDir()
+		cfg.ConfigDir = filepath.Join(home, ".config", "muster")
+		cfg.CacheDir = filepath.Join(home, ".cache", "muster")
+		cfg.DataDir = filepath.Join(home, ".local", "share", "muster")
 	}
 
 	return nil
@@ -213,20 +224,30 @@ func initializeConfig(cmd *cobra.Command) error {
 func initializeLogger() error {
 	var zapCfg zap.Config
 
-	if cfg.LogFormat == "json" {
+	logFormat := cfg.LogFormat
+	if cfg.Logging.Format != "" {
+		logFormat = cfg.Logging.Format
+	}
+
+	if logFormat == "json" {
 		zapCfg = zap.NewProductionConfig()
 	} else {
 		zapCfg = zap.NewDevelopmentConfig()
 		zapCfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
 
-	level, err := zapcore.ParseLevel(cfg.LogLevel)
+	logLevel := cfg.LogLevel
+	if cfg.Logging.Level != "" {
+		logLevel = cfg.Logging.Level
+	}
+
+	level, err := zapcore.ParseLevel(logLevel)
 	if err != nil {
 		level = zapcore.InfoLevel
 	}
 	zapCfg.Level = zap.NewAtomicLevelAt(level)
 
-	if cfg.LogFormat == "json" {
+	if logFormat == "json" {
 		zapCfg.DisableCaller = true
 	}
 

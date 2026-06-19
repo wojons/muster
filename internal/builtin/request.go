@@ -1,28 +1,32 @@
 package builtin
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
-	"net/http"
+	"io"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/auth"
-	"github.com/openapi-cli/openapi-cli/pkg/config"
-	"github.com/openapi-cli/openapi-cli/pkg/request"
-	"github.com/openapi-cli/openapi-cli/pkg/response"
+	"github.com/wojons/muster/pkg/cache"
+	"github.com/wojons/muster/pkg/client"
+	"github.com/wojons/muster/pkg/config"
+	"github.com/wojons/muster/pkg/request"
+	"github.com/wojons/muster/pkg/wasm"
 	"github.com/spf13/cobra"
 )
 
-func newRequestCommand() *cobra.Command {
+func newRequestCommand(cfg *config.Config) *cobra.Command {
 	var (
-		headers  []string
-		params   []string
-		output   string
-		verbose  bool
-		timeout  time.Duration
-		httpBody string
+		headers    []string
+		params     []string
+		output     string
+		verbose    bool
+		timeout    time.Duration
+		httpBody   string
+		wasmPlugin string
 	)
 
 	cmd := &cobra.Command{
@@ -34,7 +38,7 @@ func newRequestCommand() *cobra.Command {
 			method := strings.ToUpper(args[0])
 			targetURL := args[1]
 
-			return handleRequest(method, targetURL, headers, params, output, verbose, timeout, httpBody)
+			return handleRequest(cfg, method, targetURL, headers, params, output, verbose, timeout, httpBody, wasmPlugin)
 		},
 	}
 
@@ -44,37 +48,9 @@ func newRequestCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "Request timeout")
 	cmd.Flags().StringVarP(&httpBody, "body", "b", "", "Request body for POST/PUT requests")
+	cmd.Flags().StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 
 	return cmd
-}
-
-// newHTTPClient creates an HTTP client, using mTLS if configured.
-func newHTTPClient(timeout time.Duration) (*http.Client, error) {
-	cfg, err := config.NewConfigManager()
-	if err != nil {
-		return &http.Client{Timeout: timeout}, nil
-	}
-
-	mtlsCfg := cfg.Get().Auth.MTLS
-	if !mtlsCfg.Enabled {
-		return &http.Client{Timeout: timeout}, nil
-	}
-
-	certPath := mtlsCfg.CertPath
-	keyPath := mtlsCfg.KeyPath
-	caPath := mtlsCfg.CAPath
-
-	if certPath == "" || keyPath == "" {
-		return nil, fmt.Errorf("mTLS is enabled but certificate paths are not configured - run 'auth mtls configure'")
-	}
-
-	certManager := auth.NewCertificateManager(certPath, keyPath, caPath, "")
-	client, err := auth.CreateMTLSClient(certManager)
-	if err != nil {
-		return nil, fmt.Errorf("create mTLS client: %w", err)
-	}
-	client.Timeout = timeout
-	return client, nil
 }
 
 // validateURLScheme checks if the URL scheme is safe for HTTP requests.
@@ -86,7 +62,7 @@ func validateURLScheme(scheme string) error {
 	return nil
 }
 
-func handleRequest(method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody string) error {
+func handleRequest(cfg *config.Config, method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody string, wasmPlugin string) error {
 	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
 		return fmt.Errorf("parse URL: %w", err)
@@ -98,13 +74,9 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 
 	builder := request.NewBuilder(parsedURL.Scheme+"://"+parsedURL.Host, parsedURL.Path, method)
 
-	contentTypeSet := false
 	for _, h := range headers {
 		parts := strings.SplitN(h, ":", 2)
 		if len(parts) == 2 {
-			if strings.EqualFold(strings.TrimSpace(parts[0]), "Content-Type") {
-				contentTypeSet = true
-			}
 			builder.WithHeader(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
 		}
 	}
@@ -117,10 +89,7 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 	}
 
 	if httpBody != "" && (method == "POST" || method == "PUT" || method == "PATCH") {
-		builder.WithBody(httpBody)
-		if !contentTypeSet {
-			builder.WithHeader("Content-Type", "application/json")
-		}
+		builder.JSONBody(httpBody)
 	}
 
 	builder.WithTimeout(timeout)
@@ -129,15 +98,46 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 		return fmt.Errorf("build request: %w", err)
 	}
 
-	client, err := newHTTPClient(timeout)
-	if err != nil {
-		return err
+	// Build client options
+	var clientOpts []client.ClientOption
+	clientOpts = append(clientOpts, client.WithTimeout(timeout))
+	if cfg != nil && cfg.RateLimit.Enabled {
+		clientOpts = append(clientOpts, client.WithRateLimiter(cfg.RateLimit.RatePerSec, cfg.RateLimit.Burst))
 	}
-	resp, err := client.Do(httpReq)
+	if cfg != nil && cfg.Cache.Enabled {
+		c := cache.NewMemoryCache(int(cfg.Cache.MaxSize))
+		// NOTE: cache is created per-request here; for long-running consumers
+		// (daemon, MCP server), a shared cache should be created at startup.
+		clientOpts = append(clientOpts, client.WithCache(c, cfg.Cache.TTL))
+	}
+	httpClient := client.NewClient(clientOpts...)
+	resp, err := httpClient.Do(context.Background(), httpReq)
 	if err != nil {
 		return fmt.Errorf("execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
+	// Apply WASM plugin transformation if configured
+	if wasmPlugin != "" {
+		interceptor := wasm.NewInterceptor()
+		if err := interceptor.LoadPlugin(context.Background(), wasmPlugin); err != nil {
+			return fmt.Errorf("wasm: load plugin %q: %w", wasmPlugin, err)
+		}
+		defer interceptor.Close(context.Background())
+
+		contentType := resp.Header.Get("Content-Type")
+		transformed, err := interceptor.TransformResponseBody(context.Background(), body, contentType, wasmPlugin)
+		if err != nil {
+			return fmt.Errorf("wasm: transform response: %w", err)
+		}
+		body = transformed
+	}
 
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Request: %s %s\n", method, targetURL)
@@ -148,26 +148,20 @@ func handleRequest(method, targetURL string, headers, params []string, output st
 		fmt.Fprintln(os.Stderr)
 	}
 
-	config := response.Config{
-		DefaultFormat:    output,
-		SupportedFormats: []string{"json", "yaml", "table"},
-		Writer:           os.Stdout,
-		VerboseErrors:    verbose,
-	}
-
-	handler := response.NewHandler(config)
-
-	options := response.ProcessingOptions{
-		Format: output,
-		Raw:    verbose,
-	}
-
-	err = handler.ProcessResponse(resp, options)
-	if err != nil {
-		if verbose {
-			fmt.Fprintf(os.Stderr, "Error processing response: %v\n", err)
+	// Print response body to stdout
+	if len(body) > 0 {
+		if output == "json" {
+			var data interface{}
+			if err := json.Unmarshal(body, &data); err == nil {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				_ = enc.Encode(data)
+			} else {
+				fmt.Fprintln(os.Stdout, string(body))
+			}
+		} else {
+			fmt.Fprintln(os.Stdout, string(body))
 		}
-		return fmt.Errorf("process response: %w", err)
 	}
 
 	if resp.StatusCode >= 400 {

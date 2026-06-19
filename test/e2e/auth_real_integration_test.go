@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openapi-cli/openapi-cli/pkg/auth"
+	"github.com/wojons/muster/pkg/auth"
 )
 
 // TestRealAuthIntegration is a REAL integration test that proves:

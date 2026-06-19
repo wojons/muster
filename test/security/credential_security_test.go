@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/auth"
+	"github.com/wojons/muster/pkg/auth"
 	"github.com/stretchr/testify/require"
 )
 

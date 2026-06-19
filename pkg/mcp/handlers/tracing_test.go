@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/openapi-cli/openapi-cli/internal/telemetry"
+	"github.com/wojons/muster/internal/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"

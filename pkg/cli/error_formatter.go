@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/openapi-cli/openapi-cli/pkg/errors"
+	"github.com/wojons/muster/pkg/errors"
 )
 
 // ErrorFormatter formats AppError for CLI output.

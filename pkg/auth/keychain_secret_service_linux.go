@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openapi-cli/openapi-cli/internal/platform/linux"
+	"github.com/wojons/muster/internal/platform/linux"
 )
 
 type SecretServiceKeychain struct {

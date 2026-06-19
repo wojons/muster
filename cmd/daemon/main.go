@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -8,8 +9,9 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/daemon"
+	"github.com/wojons/muster/pkg/daemon"
 )
 
 // Build-time variables
@@ -21,9 +23,10 @@ var (
 
 // Command-line flags
 var (
-	backendURL string
-	socketPath string
-	pidFile    string
+	backendURL  string
+	socketPath  string
+	pidFile     string
+	wasmPlugin  string
 )
 
 func main() {
@@ -34,27 +37,45 @@ func main() {
 }
 
 func run() error {
-	// Parse command-line flags
+	// Go's flag package stops parsing at the first non-flag argument.
+	// To support both "proxy --backend-url ..." and "--backend-url ... proxy",
+	// we scan for a known subcommand among the args.
+	allArgs := os.Args[1:]
+	action := ""
+	var flagArgs []string
+
+	knownCommands := map[string]bool{
+		"start": true, "stop": true, "restart": true, "reload": true,
+		"proxy": true, "status": true,
+	}
+
+	// Find the first known subcommand; everything else is treated as flags
+	for i, arg := range allArgs {
+		if knownCommands[arg] {
+			action = arg
+			// Everything before + after is flags
+			flagArgs = append(flagArgs, allArgs[:i]...)
+			flagArgs = append(flagArgs, allArgs[i+1:]...)
+			break
+		}
+	}
+	if action == "" {
+		flagArgs = allArgs
+	}
+
 	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flagSet.StringVar(&backendURL, "backend-url", "", "Backend URL for proxy mode")
 	flagSet.StringVar(&socketPath, "socket-path", "/tmp/muster-daemon.sock", "Path for Unix domain socket")
 	flagSet.StringVar(&pidFile, "pid-file", "", "Path for PID file (default: <socket-path>.pid")
-	err := flagSet.Parse(os.Args[1:])
+	flagSet.StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
+	err := flagSet.Parse(flagArgs)
 	if err != nil {
 		return err
 	}
 
-	// Get command from remaining arguments
-	args := flagSet.Args()
-
 	// Default PID file to socket path + ".pid" if not specified
 	if pidFile == "" {
 		pidFile = socketPath + ".pid"
-	}
-
-	var action string
-	if len(args) > 0 {
-		action = args[0]
 	}
 
 	// Create proxy handler with backend URL
@@ -85,7 +106,7 @@ func run() error {
 	case "restart", "reload":
 		return handleRestart(controller)
 	case "proxy":
-		return handleProxyStart(controller)
+		return handleProxyStart(controller, handler)
 	case "status":
 		return handleStatus(controller)
 	default:
@@ -135,7 +156,7 @@ func handleStart(controller *daemon.Controller) error {
 	return controller.Stop()
 }
 
-func handleProxyStart(controller *daemon.Controller) error {
+func handleProxyStart(controller *daemon.Controller, handler http.Handler) error {
 	if controller == nil {
 		return fmt.Errorf("controller is required")
 	}
@@ -145,11 +166,8 @@ func handleProxyStart(controller *daemon.Controller) error {
 		socketPath = "/tmp/muster-daemon.sock"
 	}
 
-	// Create simple proxy handler
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprintf(w, `{"status":"ok","message":"Proxy is working","method":"%s","path":"%s"}`, r.Method, r.URL.Path)
+	if handler == nil {
+		return fmt.Errorf("handler is required; use --backend-url to specify the backend URL")
 	}
 
 	if err := controller.StartWithSocket(handler); err != nil {
@@ -172,7 +190,9 @@ func handleProxyStart(controller *daemon.Controller) error {
 	// Wait for shutdown signal
 	<-sigCh
 	fmt.Println("Shutting down proxy...")
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return controller.Shutdown(ctx)
 }
 
 func handleStop(controller *daemon.Controller) error {

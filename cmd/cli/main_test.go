@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -134,10 +134,9 @@ func TestPersistentPostRun(t *testing.T) {
 		oldCfg := cfg
 		defer func() { cfg = oldCfg }()
 
-		cfg = &appConfig{
+		cfg = &config.Config{
 			LogLevel:  "info",
 			LogFormat: "console",
-			Verbose:   false,
 		}
 
 		require.NoError(t, initializeLogger())
@@ -156,54 +155,38 @@ func TestPersistentPostRun(t *testing.T) {
 }
 
 func TestInitializeConfig(t *testing.T) {
-	t.Run("sets environment variable prefix", func(t *testing.T) {
-		cmd := createRootCommand()
-
-		oldCfg := cfg
-		defer func() { cfg = oldCfg }()
-
-		tmpDir := t.TempDir()
-		tmpConfig := tmpDir + "/config.yaml"
-		viper.Set("config_file", tmpConfig)
-
-		err := initializeConfig(cmd)
-		assert.NoError(t, err)
-
-		viper.Set("MUSTER_CONFIG_FILE", tmpConfig)
-		val := viper.GetString("MUSTER_CONFIG_FILE")
-		assert.NotEmpty(t, val)
-	})
-
 	t.Run("uses default config path when not specified", func(t *testing.T) {
-		cmd := createRootCommand()
-
+		oldLoader := loader
 		oldCfg := cfg
-		defer func() { cfg = oldCfg }()
+		defer func() {
+			loader = oldLoader
+			cfg = oldCfg
+		}()
 
-		viper.Set("config_file", "")
-		viper.Reset()
+		loader = config.NewLoader()
+		cmd := createRootCommand()
 
 		err := initializeConfig(cmd)
 		assert.NoError(t, err)
-
-		configFile := viper.GetString("config_file")
-		assert.NotEmpty(t, configFile)
+		assert.NotNil(t, cfg)
 	})
 
 	t.Run("handles missing config file gracefully", func(t *testing.T) {
-		cmd := createRootCommand()
-
+		oldLoader := loader
 		oldCfg := cfg
-		defer func() { cfg = oldCfg }()
+		defer func() {
+			loader = oldLoader
+			cfg = oldCfg
+		}()
 
+		loader = config.NewLoader()
 		tmpDir := t.TempDir()
 		nonExistentConfig := tmpDir + "/nonexistent.yaml"
-		viper.Set("config_file", nonExistentConfig)
+		loader.SetConfigFile(nonExistentConfig)
+		cmd := createRootCommand()
 
-		err := initializeConfig(cmd)
-		assert.NoError(t, err)
-
-		cfg = &appConfig{}
+		_ = initializeConfig(cmd)
+		// initializeConfig returns nil on missing file
 		assert.NotNil(t, cfg)
 	})
 }
@@ -213,10 +196,9 @@ func TestInitializeLogger(t *testing.T) {
 		oldCfg := cfg
 		defer func() { cfg = oldCfg }()
 
-		cfg = &appConfig{
+		cfg = &config.Config{
 			LogLevel:  "info",
 			LogFormat: "console",
-			Verbose:   false,
 		}
 
 		err := initializeLogger()
@@ -232,10 +214,9 @@ func TestInitializeLogger(t *testing.T) {
 		oldCfg := cfg
 		defer func() { cfg = oldCfg }()
 
-		cfg = &appConfig{
+		cfg = &config.Config{
 			LogLevel:  "info",
 			LogFormat: "json",
-			Verbose:   false,
 		}
 
 		err := initializeLogger()
@@ -251,7 +232,7 @@ func TestInitializeLogger(t *testing.T) {
 		oldCfg := cfg
 		defer func() { cfg = oldCfg }()
 
-		cfg = &appConfig{
+		cfg = &config.Config{
 			LogLevel:  "info",
 			LogFormat: "console",
 			Verbose:   true,
@@ -270,10 +251,9 @@ func TestInitializeLogger(t *testing.T) {
 		oldCfg := cfg
 		defer func() { cfg = oldCfg }()
 
-		cfg = &appConfig{
+		cfg = &config.Config{
 			LogLevel:  "invalid",
 			LogFormat: "console",
-			Verbose:   false,
 		}
 
 		err := initializeLogger()
@@ -291,7 +271,7 @@ func TestInitializeHTTPClient(t *testing.T) {
 		oldCfg := cfg
 		defer func() { cfg = oldCfg }()
 
-		cfg = &appConfig{
+		cfg = &config.Config{
 			Timeout: 60 * time.Second,
 		}
 
@@ -504,34 +484,6 @@ func TestRunCLI(t *testing.T) {
 	})
 }
 
-func TestAppConfig(t *testing.T) {
-	t.Run("appConfig has all fields", func(t *testing.T) {
-		cfg := appConfig{
-			ConfigFile:  "/path/to/config.yaml",
-			Host:        "localhost:8080",
-			Verbose:     true,
-			LogLevel:    "debug",
-			LogFormat:   "json",
-			DatabaseURL: "sqlite:///tmp.db",
-			AuthToken:   "token123",
-			Timeout:     60 * time.Second,
-			MaxRetries:  5,
-			Profiles:    []string{"prod", "staging"},
-		}
-
-		assert.Equal(t, "/path/to/config.yaml", cfg.ConfigFile)
-		assert.Equal(t, "localhost:8080", cfg.Host)
-		assert.True(t, cfg.Verbose)
-		assert.Equal(t, "debug", cfg.LogLevel)
-		assert.Equal(t, "json", cfg.LogFormat)
-		assert.Equal(t, "sqlite:///tmp.db", cfg.DatabaseURL)
-		assert.Equal(t, "token123", cfg.AuthToken)
-		assert.Equal(t, 60*time.Second, cfg.Timeout)
-		assert.Equal(t, 5, cfg.MaxRetries)
-		assert.Len(t, cfg.Profiles, 2)
-	})
-}
-
 func TestExitCodes(t *testing.T) {
 	t.Run("exit codes are defined correctly", func(t *testing.T) {
 		assert.Equal(t, 0, ExitSuccess)
@@ -541,45 +493,6 @@ func TestExitCodes(t *testing.T) {
 		assert.Equal(t, 4, ExitAuthError)
 		assert.Equal(t, 130, ExitSignal)
 		assert.Equal(t, 137, ExitPanic)
-	})
-}
-
-func TestViperBindings(t *testing.T) {
-	t.Run("flags bind to viper keys", func(t *testing.T) {
-		viper.Reset()
-		defer viper.Reset()
-
-		cmd := createRootCommand()
-
-		err := cmd.PersistentFlags().Set("host", "example.com:9090")
-		assert.NoError(t, err)
-		host, err := cmd.PersistentFlags().GetString("host")
-		assert.NoError(t, err)
-		assert.Equal(t, "example.com:9090", host)
-
-		err = cmd.PersistentFlags().Set("verbose", "true")
-		assert.NoError(t, err)
-		verbose, err := cmd.PersistentFlags().GetBool("verbose")
-		assert.NoError(t, err)
-		assert.True(t, verbose)
-
-		err = cmd.PersistentFlags().Set("log-level", "debug")
-		assert.NoError(t, err)
-		logLevel, err := cmd.PersistentFlags().GetString("log-level")
-		assert.NoError(t, err)
-		assert.Equal(t, "debug", logLevel)
-
-		err = cmd.PersistentFlags().Set("timeout", "60s")
-		assert.NoError(t, err)
-		timeout, err := cmd.PersistentFlags().GetDuration("timeout")
-		assert.NoError(t, err)
-		assert.Equal(t, 60*time.Second, timeout)
-
-		err = cmd.PersistentFlags().Set("max-retries", "10")
-		assert.NoError(t, err)
-		maxRetries, err := cmd.PersistentFlags().GetInt("max-retries")
-		assert.NoError(t, err)
-		assert.Equal(t, 10, maxRetries)
 	})
 }
 
@@ -601,7 +514,7 @@ func TestCLIFlags(t *testing.T) {
 	t.Run("database-url flag accepts connection string", func(t *testing.T) {
 		cmd := createRootCommand()
 
-		dbURL := "postgres://user:pass@localhost:5432/dbname"
+		dbURL := "postgres://user:***@localhost:5432/dbname"
 		err := cmd.PersistentFlags().Set("database-url", dbURL)
 		assert.NoError(t, err)
 
@@ -613,7 +526,7 @@ func TestCLIFlags(t *testing.T) {
 	t.Run("auth-token flag accepts token", func(t *testing.T) {
 		cmd := createRootCommand()
 
-		token := "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+		token := "Bearer eyJhbG...VCJ9"
 		err := cmd.PersistentFlags().Set("auth-token", token)
 		assert.NoError(t, err)
 

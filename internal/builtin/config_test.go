@@ -3,7 +3,7 @@ package builtin
 import (
 	"testing"
 
-	"github.com/openapi-cli/openapi-cli/pkg/config"
+	"github.com/wojons/muster/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -35,8 +35,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/internal/telemetry"
-	"github.com/openapi-cli/openapi-cli/pkg/retry"
+	"github.com/wojons/muster/internal/telemetry"
+	"github.com/wojons/muster/pkg/retry"
 	"go.opentelemetry.io/otel/trace"
 )
 

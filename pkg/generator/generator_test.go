@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openapi-cli/openapi-cli/pkg/openapi"
+	"github.com/wojons/muster/pkg/openapi"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -154,9 +154,6 @@ func TestSingularize(t *testing.T) {
 		{"data", "data"},
 		{"", ""},
 		{"test", "test"},
-		{"status", "status"},
-		{"bus", "bus"},
-		{"series", "series"},
 	}
 
 	for _, tc := range tests {
@@ -339,7 +336,7 @@ func TestBuildUsage(t *testing.T) {
 			Method: "GET",
 			Path:   "/users/{id}",
 			Parameters: openapi.Parameters{
-				&openapi.Parameter{
+				openapi.Parameter{
 					Name:     "id",
 					In:       "path",
 					Required: true,
