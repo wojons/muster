@@ -1,0 +1,619 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ByteStash API",
+    "version": "1.0.0",
+    "description": "Cloud file storage service — folders, files, multipart upload, binary download, trash (soft delete with recover/permanent delete), and sharing links."
+  },
+  "servers": [{"url": "http://localhost:9802"}],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/Health"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/folders": {
+      "get": {
+        "summary": "List root folders",
+        "parameters": [
+          {
+            "name": "parent_id",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Filter by parent folder ID (omit for root-level folders)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of folders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/Folder"}
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a folder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CreateFolder"}
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Folder"}}}},
+          "404": {"description": "Parent folder not found"}
+        }
+      }
+    },
+    "/folders/{folder_id}": {
+      "parameters": [
+        {
+          "name": "folder_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "get": {
+        "summary": "Get folder details with children and files",
+        "responses": {
+          "200": {"description": "Folder with children", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderDetail"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "patch": {
+        "summary": "Update folder (rename or move)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateFolder"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Folder"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Soft-delete folder (moves to trash)",
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/folders/{folder_id}/files": {
+      "parameters": [
+        {
+          "name": "folder_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "get": {
+        "summary": "List files in a folder",
+        "responses": {
+          "200": {
+            "description": "List of files",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/File"}
+                }
+              }
+            }
+          },
+          "404": {"description": "Folder not found"}
+        }
+      },
+      "post": {
+        "summary": "Upload a file to a folder",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The file to upload"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Uploaded", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/File"}}}},
+          "400": {"description": "No file provided"},
+          "404": {"description": "Folder not found"}
+        }
+      }
+    },
+    "/files/{file_id}": {
+      "parameters": [
+        {
+          "name": "file_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "get": {
+        "summary": "Get file metadata",
+        "responses": {
+          "200": {"description": "File metadata", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/File"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "patch": {
+        "summary": "Update file metadata (rename or move)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/UpdateFile"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Updated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/File"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Soft-delete file (moves to trash)",
+        "responses": {
+          "200": {"description": "Deleted"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/files/{file_id}/download": {
+      "parameters": [
+        {
+          "name": "file_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "get": {
+        "summary": "Download file binary content",
+        "responses": {
+          "200": {
+            "description": "File binary content",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {"description": "Not found"},
+          "500": {"description": "File content missing on disk"}
+        }
+      }
+    },
+    "/files/{file_id}/share": {
+      "parameters": [
+        {
+          "name": "file_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "post": {
+        "summary": "Create a share link for a file",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CreateShare"}
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Share created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ShareLink"}}}},
+          "404": {"description": "File not found"}
+        }
+      }
+    },
+    "/folders/{folder_id}/share": {
+      "parameters": [
+        {
+          "name": "folder_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "post": {
+        "summary": "Create a share link for a folder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/CreateShare"}
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Share created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ShareLink"}}}},
+          "404": {"description": "Folder not found"}
+        }
+      }
+    },
+    "/shares": {
+      "get": {
+        "summary": "List all share links",
+        "responses": {
+          "200": {
+            "description": "List of share links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/ShareLink"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shares/{share_id}": {
+      "parameters": [
+        {
+          "name": "share_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "delete": {
+        "summary": "Revoke a share link",
+        "responses": {
+          "200": {"description": "Revoked"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/share/{token}": {
+      "parameters": [
+        {
+          "name": "token",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        },
+        {
+          "name": "password",
+          "in": "query",
+          "schema": {"type": "string"},
+          "description": "Password for password-protected shares"
+        }
+      ],
+      "get": {
+        "summary": "Access a share link",
+        "parameters": [
+          {
+            "name": "X-Share-Password",
+            "in": "header",
+            "schema": {"type": "string"},
+            "description": "Password header for protected shares"
+          }
+        ],
+        "responses": {
+          "200": {"description": "Folder contents (JSON) or file binary download"},
+          "403": {"description": "Password required or incorrect"},
+          "404": {"description": "Invalid token or target not found"},
+          "410": {"description": "Share link expired"}
+        }
+      }
+    },
+    "/uploads": {
+      "post": {
+        "summary": "Initiate a multipart upload",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/InitiateUpload"}
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Upload initiated", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MultipartUpload"}}}},
+          "404": {"description": "Folder not found"}
+        }
+      }
+    },
+    "/uploads/{upload_id}/parts": {
+      "parameters": [
+        {
+          "name": "upload_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        },
+        {
+          "name": "part_number",
+          "in": "query",
+          "required": true,
+          "schema": {"type": "integer"}
+        }
+      ],
+      "put": {
+        "summary": "Upload a part for a multipart upload",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Part received"},
+          "400": {"description": "Invalid part number or upload not in progress"},
+          "404": {"description": "Upload not found"}
+        }
+      }
+    },
+    "/uploads/{upload_id}/complete": {
+      "parameters": [
+        {
+          "name": "upload_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "post": {
+        "summary": "Complete a multipart upload (assembles parts into final file)",
+        "responses": {
+          "201": {"description": "File created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/File"}}}},
+          "400": {"description": "Not all parts received"},
+          "404": {"description": "Upload not found"}
+        }
+      }
+    },
+    "/uploads/{upload_id}": {
+      "parameters": [
+        {
+          "name": "upload_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "delete": {
+        "summary": "Abort a multipart upload (cleans up uploaded parts)",
+        "responses": {
+          "200": {"description": "Aborted"},
+          "404": {"description": "Upload not found"}
+        }
+      }
+    },
+    "/trash": {
+      "get": {
+        "summary": "List all trashed items",
+        "responses": {
+          "200": {
+            "description": "List of trash items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/TrashItem"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trash/{trash_id}/recover": {
+      "parameters": [
+        {
+          "name": "trash_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "post": {
+        "summary": "Recover an item from trash",
+        "responses": {
+          "200": {"description": "Recovered"},
+          "404": {"description": "Trash item not found"}
+        }
+      }
+    },
+    "/trash/{trash_id}": {
+      "parameters": [
+        {
+          "name": "trash_id",
+          "in": "path",
+          "required": true,
+          "schema": {"type": "string"}
+        }
+      ],
+      "delete": {
+        "summary": "Permanently delete an item from trash",
+        "responses": {
+          "200": {"description": "Permanently deleted"},
+          "404": {"description": "Trash item not found"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string", "example": "healthy"},
+          "folders_count": {"type": "integer"},
+          "files_count": {"type": "integer"},
+          "trash_count": {"type": "integer"},
+          "shares_count": {"type": "integer"},
+          "uploads_count": {"type": "integer"}
+        }
+      },
+      "Folder": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "parent_id": {"type": "string", "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "FolderDetail": {
+        "allOf": [
+          {"$ref": "#/components/schemas/Folder"},
+          {
+            "type": "object",
+            "properties": {
+              "children": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Folder"}
+              },
+              "files": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/File"}
+              }
+            }
+          }
+        ]
+      },
+      "CreateFolder": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "parent_id": {"type": "string"}
+        }
+      },
+      "UpdateFolder": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "parent_id": {"type": "string"}
+        }
+      },
+      "File": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "folder_id": {"type": "string", "nullable": true},
+          "name": {"type": "string"},
+          "size": {"type": "integer"},
+          "mime_type": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "UpdateFile": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "folder_id": {"type": "string"}
+        }
+      },
+      "ShareLink": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "target_type": {"type": "string", "enum": ["file", "folder"]},
+          "target_id": {"type": "string"},
+          "target_name": {"type": "string"},
+          "token": {"type": "string"},
+          "password": {"type": "string"},
+          "expires_at": {"type": "string", "format": "date-time"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateShare": {
+        "type": "object",
+        "properties": {
+          "password": {"type": "string", "description": "Optional password protection"},
+          "expires_at": {"type": "string", "format": "date-time", "description": "Optional expiration timestamp"}
+        }
+      },
+      "MultipartUpload": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "filename": {"type": "string"},
+          "folder_id": {"type": "string", "nullable": true},
+          "total_parts": {"type": "integer"},
+          "mime_type": {"type": "string"},
+          "parts_received": {
+            "type": "array",
+            "items": {"type": "integer"}
+          },
+          "status": {"type": "string", "enum": ["in_progress", "completed", "aborted"]},
+          "file_id": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "InitiateUpload": {
+        "type": "object",
+        "required": ["filename"],
+        "properties": {
+          "filename": {"type": "string"},
+          "folder_id": {"type": "string"},
+          "total_parts": {"type": "integer"},
+          "mime_type": {"type": "string"}
+        }
+      },
+      "TrashItem": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "item_type": {"type": "string", "enum": ["file", "folder"]},
+          "item_id": {"type": "string"},
+          "item_name": {"type": "string"},
+          "deleted_at": {"type": "string", "format": "date-time"},
+          "original_data": {
+            "oneOf": [
+              {"$ref": "#/components/schemas/File"},
+              {"$ref": "#/components/schemas/Folder"}
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,358 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Inkwell API",
+    "version": "1.0.0",
+    "description": "Blog/CMS platform with role-based access control. Supports a draft→review→publish workflow for posts and threaded comments with moderation. Four auth roles: reader, author, editor, admin."
+  },
+  "servers": [{"url": "http://localhost:9803", "description": "Local dev server"}],
+  "security": [{"bearerAuth": []}],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Healthy",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Health"}}}
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "This OpenAPI spec",
+        "security": [],
+        "responses": {"200": {"description": "OpenAPI 3.0.3 specification"}}
+      }
+    },
+    "/me": {
+      "get": {
+        "summary": "Current authenticated user info",
+        "responses": {
+          "200": {
+            "description": "User info",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Me"}}}
+          }
+        }
+      }
+    },
+    "/authors": {
+      "get": {
+        "summary": "List all authors",
+        "responses": {
+          "200": {
+            "description": "Author list",
+            "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Author"}}}}
+          }
+        }
+      },
+      "post": {
+        "summary": "Create author (admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateAuthor"}}}
+        },
+        "responses": {
+          "201": {"description": "Created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Author"}}}},
+          "400": {"description": "Bad request"},
+          "403": {"description": "Forbidden"}
+        }
+      }
+    },
+    "/authors/{author_id}": {
+      "parameters": [
+        {"name": "author_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Author ID"}
+      ],
+      "get": {
+        "summary": "Get author by ID",
+        "responses": {
+          "200": {"description": "Author", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Author"}}}},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/posts": {
+      "get": {
+        "summary": "List posts",
+        "description": "Readers see only published posts. Editors/admins see all. Supports filtering by status, author, and full-text search.",
+        "parameters": [
+          {"name": "status", "in": "query", "schema": {"type": "string", "enum": ["draft", "review", "published"]}, "description": "Filter by status (editor+ only)"},
+          {"name": "author_id", "in": "query", "schema": {"type": "string"}, "description": "Filter by author ID"},
+          {"name": "q", "in": "query", "schema": {"type": "string"}, "description": "Full-text search in title and excerpt"},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}, "description": "Page number"},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 20}, "description": "Items per page"}
+        ],
+        "responses": {
+          "200": {"description": "Post list", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Post"}}}}}
+        }
+      },
+      "post": {
+        "summary": "Create a new post (author+)",
+        "description": "Creates a post in draft status. Requires author, editor, or admin role.",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreatePost"}}}
+        },
+        "responses": {
+          "201": {"description": "Created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Post"}}}},
+          "400": {"description": "Bad request"},
+          "403": {"description": "Forbidden"}
+        }
+      }
+    },
+    "/posts/{post_id}": {
+      "parameters": [
+        {"name": "post_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Post ID"}
+      ],
+      "get": {
+        "summary": "Get post by ID",
+        "description": "Readers can only view published posts.",
+        "responses": {
+          "200": {"description": "Post", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Post"}}}},
+          "404": {"description": "Not found (or not published for readers)"}
+        }
+      },
+      "patch": {
+        "summary": "Update post",
+        "description": "Authors can update their own posts. Editors and admins can update any.",
+        "requestBody": {
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdatePost"}}}
+        },
+        "responses": {
+          "200": {"description": "Updated post", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Post"}}}},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete post (admin only)",
+        "responses": {
+          "200": {"description": "Deleted"},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Not found"}
+        }
+      }
+    },
+    "/posts/{post_id}/submit": {
+      "parameters": [
+        {"name": "post_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Post ID"}
+      ],
+      "post": {
+        "summary": "Submit post for review (draft→review)",
+        "description": "Author can submit their own drafts. Editors can submit any post.",
+        "responses": {
+          "200": {"description": "Post now in review", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Post"}}}},
+          "400": {"description": "Invalid status transition"},
+          "403": {"description": "Forbidden"}
+        }
+      }
+    },
+    "/posts/{post_id}/publish": {
+      "parameters": [
+        {"name": "post_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Post ID"}
+      ],
+      "post": {
+        "summary": "Publish post (review→published)",
+        "description": "Editor or admin only. Sets published_at timestamp.",
+        "responses": {
+          "200": {"description": "Post published", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Post"}}}},
+          "400": {"description": "Invalid status transition"},
+          "403": {"description": "Forbidden"}
+        }
+      }
+    },
+    "/posts/{post_id}/reject": {
+      "parameters": [
+        {"name": "post_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Post ID"}
+      ],
+      "post": {
+        "summary": "Reject post (review→draft)",
+        "description": "Editor or admin only. Sends post back to draft for revisions.",
+        "responses": {
+          "200": {"description": "Post returned to draft", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Post"}}}},
+          "400": {"description": "Invalid status transition"},
+          "403": {"description": "Forbidden"}
+        }
+      }
+    },
+    "/posts/{post_id}/comments": {
+      "parameters": [
+        {"name": "post_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Post ID"}
+      ],
+      "get": {
+        "summary": "List comments on post",
+        "description": "Readers see only approved comments. Editors/admins see all. Supports status filtering for privileged roles.",
+        "parameters": [
+          {"name": "status", "in": "query", "schema": {"type": "string", "enum": ["pending", "approved", "rejected"]}, "description": "Filter by status (editor+ only)"}
+        ],
+        "responses": {
+          "200": {"description": "Comment list", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/Comment"}}}}}
+        }
+      },
+      "post": {
+        "summary": "Add comment to post",
+        "description": "Any authenticated user. Reader comments are pending moderation; author+ comments auto-approved.",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateComment"}}}
+        },
+        "responses": {
+          "201": {"description": "Created", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Comment"}}}},
+          "400": {"description": "Bad request"}
+        }
+      }
+    },
+    "/comments/{comment_id}": {
+      "parameters": [
+        {"name": "comment_id", "in": "path", "required": true, "schema": {"type": "string"}, "description": "Comment ID"}
+      ],
+      "get": {
+        "summary": "Get comment by ID",
+        "responses": {
+          "200": {"description": "Comment", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Comment"}}}},
+          "404": {"description": "Not found"}
+        }
+      },
+      "patch": {
+        "summary": "Moderate comment (editor/admin)",
+        "description": "Approve, reject, or pend a comment. Can also edit body.",
+        "requestBody": {
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/UpdateComment"}}}
+        },
+        "responses": {
+          "200": {"description": "Updated comment", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Comment"}}}},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Not found"}
+        }
+      },
+      "delete": {
+        "summary": "Delete comment (admin only)",
+        "description": "Also deletes all child replies (threaded).",
+        "responses": {
+          "200": {"description": "Deleted"},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Not found"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Bearer token authentication. Pre-set tokens: reader-token, author-token, editor-token, admin-token."
+      }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string", "example": "healthy"},
+          "posts_count": {"type": "integer"},
+          "comments_count": {"type": "integer"},
+          "authors_count": {"type": "integer"}
+        }
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "role": {"type": "string", "enum": ["reader", "author", "editor", "admin"]},
+          "author_id": {"type": "string", "description": "Present only for author-role tokens"},
+          "username": {"type": "string", "description": "Present if author_id maps to a known author"}
+        }
+      },
+      "Author": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "username": {"type": "string"},
+          "display_name": {"type": "string"},
+          "bio": {"type": "string"},
+          "avatar_url": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateAuthor": {
+        "type": "object",
+        "required": ["username"],
+        "properties": {
+          "username": {"type": "string", "description": "Unique username"},
+          "display_name": {"type": "string", "description": "Full display name"},
+          "bio": {"type": "string", "description": "Author biography"},
+          "avatar_url": {"type": "string", "description": "URL to avatar image"}
+        }
+      },
+      "Post": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "author_id": {"type": "string"},
+          "title": {"type": "string"},
+          "slug": {"type": "string"},
+          "excerpt": {"type": "string"},
+          "body": {"type": "string"},
+          "tags": {"type": "array", "items": {"type": "string"}},
+          "status": {"type": "string", "enum": ["draft", "review", "published"]},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"},
+          "published_at": {"type": "string", "format": "date-time", "nullable": true}
+        }
+      },
+      "CreatePost": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": {"type": "string", "description": "Post title"},
+          "slug": {"type": "string", "description": "URL-friendly slug (auto-generated if omitted)"},
+          "excerpt": {"type": "string", "description": "Short excerpt/summary"},
+          "body": {"type": "string", "description": "Full post body (Markdown or HTML)"},
+          "tags": {"type": "array", "items": {"type": "string"}, "description": "Topic tags"}
+        }
+      },
+      "UpdatePost": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string"},
+          "slug": {"type": "string"},
+          "excerpt": {"type": "string"},
+          "body": {"type": "string"},
+          "tags": {"type": "array", "items": {"type": "string"}},
+          "status": {"type": "string", "enum": ["draft", "review", "published"]}
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string"},
+          "post_id": {"type": "string"},
+          "parent_id": {"type": "string", "nullable": true, "description": "Parent comment ID for threaded replies"},
+          "author_name": {"type": "string"},
+          "author_role": {"type": "string", "enum": ["reader", "author", "editor", "admin"]},
+          "body": {"type": "string"},
+          "status": {"type": "string", "enum": ["pending", "approved", "rejected"]},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "CreateComment": {
+        "type": "object",
+        "required": ["body"],
+        "properties": {
+          "body": {"type": "string", "description": "Comment text"},
+          "parent_id": {"type": "string", "description": "Parent comment ID for threaded replies"},
+          "author_name": {"type": "string", "description": "Display name (defaults to Anonymous)"},
+          "status": {"type": "string", "enum": ["pending", "approved", "rejected"], "description": "Status override (auto-set based on role)"}
+        }
+      },
+      "UpdateComment": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string", "enum": ["pending", "approved", "rejected"], "description": "Moderation status"},
+          "body": {"type": "string", "description": "Edited comment body"}
+        }
+      }
+    }
+  }
+}
