@@ -60,3 +60,11 @@ config.local.yaml
 merged-specs/
 
 .token
+
+# Python (demo services)
+__pycache__/
+*.pyc
+*.pyo
+
+# Demo runtime data
+_storage/

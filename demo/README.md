@@ -1,115 +1,50 @@
-# Demo Application
+# Muster Demo
 
-This directory contains a complete demonstration of the OpenAPI CLI + MCP Server system. It proves all components work together.
+Self-contained demo that exercises every Muster surface against 5 mock services.
 
-## Quick Start
+## Run it
 
 ```bash
-# Run the full demo
-make demo
-
-# Or run individual parts:
-./demo/test-suites/01-cli-generation.sh
-./demo/test-suites/02-mcp-flow.sh
-./demo/test-suites/03-wasm-execution.sh
+cd demo && ./run-all.sh
 ```
 
-## Structure
+That's it. It builds all 3 binaries, starts 5 services, runs 10 demo scripts, reports pass/fail, and cleans up.
+
+## What's in here
 
 ```
 demo/
-├── openapi-specs/       # Test API specifications
-│   ├── petstore.yaml    # Standard pet store API
-│   ├── auth-api.yaml    # OAuth2/mTLS auth examples
-│   └── simple.yaml      # Minimal test API
-├── wasm-modules/        # Example WASM modules
-│   ├── hello.wasm       # Simple greeting module
-│   ├── transform.wasm   # Data transformation
-│   └── validate.wasm    # Request validation
-├── scripts/             # Starlark DSL scripts
-│   ├── hello.star       # Basic script
-│   ├── workflow.star    # Multi-step workflow
-│   └── transform.star   # Data processing
-├── test-suites/         # Integration tests
-│   ├── 01-cli-generation.sh
-│   ├── 02-mcp-flow.sh
-│   ├── 03-wasm-execution.sh
-│   ├── 04-auth-flows.sh
-│   ├── 05-daemon-socket.sh
-│   └── 06-full-stack.sh
-└── resources/           # Supporting files
-    └── test-server.go   # Mock API server
+├── run-all.sh              # One command to run everything
+├── services/               # 5 mock Flask APIs
+│   ├── task-forge/         # Project management (port 9801)
+│   ├── bytestash/          # File storage (port 9802)
+│   ├── inkwell/            # Blog/CMS with auth (port 9803)
+│   ├── pulse/              # Metrics engine (port 9804)
+│   └── chainlink/          # Workflow automation (port 9805)
+├── demos/                  # 10 demo scripts
+│   ├── 01-discover-all.sh          # Discover all 70+ endpoints
+│   ├── 02-crud-lifecycle.sh        # Create → Read → Update → Delete
+│   ├── 03-file-workflow.sh         # Upload → Download → Trash → Recover
+│   ├── 04-auth-spectrum.sh         # Reader → Author → Editor → Admin
+│   ├── 05-analytics-pipeline.sh    # Bulk insert → Range query → Aggregate
+│   ├── 06-workflow-orchestration.sh # Trigger → Poll → Verify
+│   ├── 07-daemon-proxy.sh          # Unix socket proxy for all services
+│   ├── 08-mcp-ai-agent.sh          # MCP tools/list + tools/call
+│   ├── 09-wasm-transform.sh        # WASM plugin response injection
+│   └── 10-dsl-chaining.sh          # Starlark script: task → update → list
+└── dsl/
+    └── workflow.star        # Starlark DSL example script
 ```
 
-## Integration Test Scenarios
+## Prerequisites
 
-### 1. CLI Generation (01-cli-generation.sh)
-**Proves**: OpenAPI Parser → Command Generator
-- Parse petstore.yaml
-- Generate CLI commands
-- Validate command structure
+- Go 1.23+
+- Python 3
+- Flask: `pip install flask`
 
-### 2. MCP Flow (02-mcp-flow.sh)
-**Proves**: CLI → MCP Server → Tool Registration
-- Start MCP server
-- Register tools from spec
-- Execute tool call
+## Expected output
 
-### 3. WASM Execution (03-wasm-execution.sh)
-**Proves**: MCP Server → WASM Runtime → Execution
-- Load WASM module
-- Execute in sandbox
-- Return result
-
-### 4. Auth Flows (04-auth-flows.sh)
-**Proves**: Authentication → Protected Endpoints
-- OAuth2 flow
-- mTLS authentication
-- Token management
-
-### 5. Daemon Socket (05-daemon-socket.sh)
-**Proves**: Daemon → Socket → Proxy → Response
-- Start daemon
-- Connect via socket
-- Route request
-
-### 6. Full Stack (06-full-stack.sh)
-**Proves**: Complete pipeline
-- Load spec → Parse → Generate → Execute → Validate
-
-## Running Tests
-
-```bash
-# All integration tests
-make test-integration
-
-# Individual test suites
-./demo/test-suites/01-cli-generation.sh
-./demo/test-suites/02-mcp-flow.sh
-# etc.
-
-# End-to-end tests
-make test-e2e
 ```
-
-## Mock Server
-
-For testing without external dependencies:
-
-```bash
-# Start mock server
-go run demo/resources/test-server.go &
-
-# Run tests against mock
-./demo/test-suites/run-all.sh --mock
+Passed: 23
+All 23 checks passed! 🎉
 ```
-
-## Verification
-
-Before claiming completion, verify:
-
-- [ ] `make demo` completes successfully
-- [ ] All 6 test suites pass
-- [ ] No errors in logs
-- [ ] Can exercise ALL major features
-- [ ] Components connect properly
