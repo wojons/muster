@@ -21,9 +21,13 @@ echo -n "Proxy GET... "
 curl -sf --unix-socket "$SOCK" http://localhost/tasks > /dev/null || fail "proxy GET"
 pass "task list via proxy"
 
-echo -n "Proxy POST... "
-curl -sf --unix-socket "$SOCK" -X POST http://localhost/tasks -H "Content-Type: application/json" -d '{"title":"via daemon"}' > /dev/null || fail "proxy POST"
-pass "created via proxy"
+echo -n "Proxy POST project... "
+curl -sf --unix-socket "$SOCK" -X POST http://localhost/projects -H "Content-Type: application/json" -d '{"name":"Daemon Project"}' > /dev/null || fail "proxy POST project"
+pass "project created via proxy"
+
+echo -n "Proxy POST task... "
+curl -sf --unix-socket "$SOCK" -X POST http://localhost/projects/1/tasks -H "Content-Type: application/json" -d '{"title":"via daemon"}' > /dev/null || fail "proxy POST task"
+pass "task created via proxy"
 
 kill $DPID 2>/dev/null; rm -f "$SOCK"
 pass "Daemon proxy complete"
