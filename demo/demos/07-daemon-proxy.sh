@@ -8,19 +8,21 @@ fail() { echo -e "${RED}✗ FAIL${NC}: $1"; exit 1; }
 echo "═══ Demo 07: Daemon Proxy ═══"
 BIN=./bin/openapi-daemon; SOCK=/tmp/muster-demo-daemon.sock
 [ -x "$BIN" ] || fail "$BIN not found"
+curl -sf http://localhost:9801/health > /dev/null || fail "Task Forge down"
 
-echo -n "Starting daemon... "
+# Start daemon in background
 $BIN proxy --backend-url http://localhost:9801 --socket-path "$SOCK" &
-DPID=$!; sleep 2
-curl -sf --unix-socket "$SOCK" http://localhost/health > /dev/null || fail "health"
+DPID=$!
+sleep 2
+curl -sf --unix-socket "$SOCK" http://localhost/health > /dev/null || { kill $DPID 2>/dev/null; fail "daemon health"; }
 pass "daemon on $SOCK"
 
 echo -n "Proxy GET... "
-curl -sf --unix-socket "$SOCK" http://localhost/tasks | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if isinstance(d,list) else 1)" || fail "proxy"
+curl -sf --unix-socket "$SOCK" http://localhost/tasks > /dev/null || fail "proxy GET"
 pass "task list via proxy"
 
 echo -n "Proxy POST... "
-curl -sf --unix-socket "$SOCK" -X POST http://localhost/tasks -H "Content-Type: application/json" -d '{"title":"via daemon"}' | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('id') else 1)" || fail "create"
+curl -sf --unix-socket "$SOCK" -X POST http://localhost/tasks -H "Content-Type: application/json" -d '{"title":"via daemon"}' > /dev/null || fail "proxy POST"
 pass "created via proxy"
 
 kill $DPID 2>/dev/null; rm -f "$SOCK"

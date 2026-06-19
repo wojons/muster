@@ -13,10 +13,10 @@ curl -sf "$HOST/health" > /dev/null || fail "ByteStash not running"
 echo "upload" > /tmp/muster-demo.txt
 echo -n "Uploading... "
 UPLOAD=$(curl -sf -X POST "$HOST/uploads" -H "Content-Type: application/json" -d '{"filename":"demo.txt","folder_id":""}')
-UID=$(echo "$UPLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-curl -sf -X PUT "$HOST/uploads/$UID/parts/1" --data-binary @/tmp/muster-demo.txt > /dev/null
-curl -sf -X POST "$HOST/uploads/$UID/complete" > /dev/null
-FID=$(curl -sf "$HOST/uploads/$UID" | python3 -c "import sys,json; print(json.load(sys.stdin).get('file_id',''))")
+UPLOAD_ID=$(echo "$UPLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+curl -sf -X PUT "$HOST/uploads/$UPLOAD_ID/parts/1" --data-binary @/tmp/muster-demo.txt > /dev/null
+curl -sf -X POST "$HOST/uploads/$UPLOAD_ID/complete" > /dev/null
+FID=$(curl -sf "$HOST/uploads/$UPLOAD_ID" | python3 -c "import sys,json; print(json.load(sys.stdin).get('file_id',''))")
 [ -n "$FID" ] || fail "upload"
 pass "uploaded (id=$FID)"
 
