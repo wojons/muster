@@ -68,3 +68,4 @@ __pycache__/
 
 # Demo runtime data
 _storage/
+.gitreins/tasks.yaml

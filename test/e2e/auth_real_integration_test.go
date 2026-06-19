@@ -1,8 +1,4 @@
-//go:build ignore
-// Stale test — references auth.Token which was never implemented.
-// Restore when pkg/auth gets Token support.
-
-package e2e_test
+package e2e
 
 import (
 	"context"

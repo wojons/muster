@@ -1,8 +1,4 @@
-//go:build ignore
-// Stale test — references auth.Token which was never implemented.
-// Restore when pkg/auth gets Token support.
-
-package e2e_test
+package e2e
 
 import (
 	"encoding/json"
@@ -238,7 +234,7 @@ func TestWindowsKeychainReal(t *testing.T) {
 	testAccount := "windows-test-user"
 	testPassword := "windows-test-password"
 
-	keychain := auth.NewWindowsKeychainNative()
+	keychain, _ := auth.NewWindowsKeychainNative()
 
 	t.Run("SetAndGet", func(t *testing.T) {
 		err := keychain.Set(testService, testAccount, testPassword)
@@ -349,7 +345,8 @@ func createKeychain(t *testing.T) auth.Keychain {
 	case "darwin":
 		return &auth.MacOSKeychain{}
 	case "windows":
-		return auth.NewWindowsKeychainNative()
+		kc, _ := auth.NewWindowsKeychainNative()
+		return kc
 	case "linux":
 		// Try Secret Service first, fall back to file keychain
 		keychain, err := auth.NewSecretServiceKeychain()
