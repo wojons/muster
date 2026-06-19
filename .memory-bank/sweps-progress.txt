@@ -1,7 +1,0 @@
-1: ✅ Spec Conformance Sweep #188 Complete (2026-03-07)
-2: 📊 Analyzed 3 random specs from 227 total
-3: 📁 SDK-TEMPLATES.md: ❌ NOT IMPLEMENTED (different scope - 12-language SDK generator vs Go CLI)
-4: 📁 CACHE-POLICIES.md: ⚠️ PARTIAL - manager.go exists but missing SizePolicy, DefaultPolicies validation strategies
-5: 📁 PERFORMANCE-REQUIREMENTS.md: ✅ IMPLEMENTED - internal/perf/ has matching benchmarks
-6: ℹ️ Cumulative: 60/227 specs (26.4%)
-7: ⚠️ 1/3 specs partially implemented, meta-docs+scope confusion continues

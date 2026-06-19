@@ -1,1 +1,0 @@
-PROMPT-UI.md CORRECTION: pkg/prompt/prompt.go EXISTS with Prompt interface, InputPrompt, ConfirmPrompt (322 lines). Uses fmt.Printf +bufio instead of survey/v2/charmbracelet/bubbletea. PARTIALLY IMPLEMENTED 85%.

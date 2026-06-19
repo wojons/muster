@@ -1,0 +1,21 @@
+# Acme Brand Style Guide
+
+## Colors
+- Primary: #1A73E8 (Blue)
+- Secondary: #34A853 (Green)
+- Accent: #EA4335 (Red)
+
+## Typography
+- Headings: Inter, sans-serif
+- Body: Source Sans Pro, 16px
+- Code: JetBrains Mono
+
+## Logo Usage
+- Minimum clear space: 24px
+- Never stretch or skew
+- Use primary logo on light backgrounds, dark logo on dark backgrounds
+
+## Voice & Tone
+- Professional but approachable
+- Active voice, present tense
+- Avoid jargon -- write for a general audience

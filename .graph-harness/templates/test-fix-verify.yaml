@@ -1,0 +1,39 @@
+name: test-fix-verify
+description: "Run failing tests, fix code, verify all pass"
+version: 1
+parameters:
+  - placeholder: "{{test_command}}"
+    description: "The test command to run"
+    default: "cd .axiom && python -m pytest tests/test_*.py -q --timeout=45"
+nodes:
+  - id: run-tests
+    execution_mode: script
+    title: "Run tests"
+    description: "Run the test suite and capture results"
+    execution_config:
+      command: "{{test_command}}"
+      capture_output: true
+      output_key: test_results
+  - id: fix-failures
+    execution_mode: agent
+    title: "Fix failing tests"
+    description: "Fix the failing tests identified in the previous step."
+    dependencies:
+      - run-tests
+    done_conditions:
+      - type: script
+        command: "{{test_command}}"
+        expected: "passed"
+  - id: verify-passes
+    execution_mode: script
+    title: "Verify all tests pass"
+    description: "Final verification that all tests pass"
+    dependencies:
+      - fix-failures
+    execution_config:
+      command: "{{test_command}}"
+      capture_output: true
+data_flows:
+  - from: run-tests
+    to: fix-failures
+    output_key: test_results

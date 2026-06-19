@@ -1,0 +1,51 @@
+name: implement-feature
+description: "Full feature implementation cycle: spec, implement, test, review"
+version: 1
+parameters:
+  - placeholder: "{{feature_name}}"
+    description: "Name of the feature to implement"
+    default: "feature"
+  - placeholder: "{{test_command}}"
+    description: "Test command to verify implementation"
+    default: "cd .axiom && python -m pytest tests/ -q --timeout=60"
+nodes:
+  - id: spec
+    execution_mode: agent
+    title: "Write spec for {{feature_name}}"
+    description: "Define acceptance criteria and technical spec for the feature."
+    done_conditions:
+      - type: file_exists
+        command: "specs/{{feature_name}}.md"
+  - id: implement
+    execution_mode: agent
+    title: "Implement {{feature_name}}"
+    description: "Implement the feature according to the spec."
+    dependencies:
+      - spec
+    done_conditions:
+      - type: script
+        command: "{{test_command}}"
+        expected: "passed"
+  - id: test
+    execution_mode: script
+    title: "Run tests"
+    description: "Run the full test suite to catch regressions."
+    dependencies:
+      - implement
+    execution_config:
+      command: "{{test_command}}"
+      capture_output: true
+      output_key: test_results
+  - id: review
+    execution_mode: agent
+    title: "Review implementation"
+    description: "Review code quality, spec alignment, and documentation completeness."
+    dependencies:
+      - test
+    done_conditions:
+      - type: manual
+        description: "Human approves the implementation"
+data_flows:
+  - from: test
+    to: review
+    output_key: test_results

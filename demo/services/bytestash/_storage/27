@@ -1,0 +1,21 @@
+#!/bin/bash
+# ByteStash Deploy Script v1.0
+set -euo pipefail
+
+APP_NAME="bytestash"
+DEPLOY_DIR="/opt/${APP_NAME}"
+BACKUP_DIR="/var/backups/${APP_NAME}"
+
+echo "=== ByteStash Deploy ==="
+echo "Target: ${DEPLOY_DIR}"
+
+# Backup current version
+if [ -d "${DEPLOY_DIR}" ]; then
+    tar -czf "${BACKUP_DIR}/backup-$(date +%Y%m%d-%H%M%S).tar.gz" -C "${DEPLOY_DIR}" .
+    echo "Backup created."
+fi
+
+# Deploy new artifacts
+mkdir -p "${DEPLOY_DIR}"
+cp -r ./dist/* "${DEPLOY_DIR}/"
+echo "Deploy complete."
