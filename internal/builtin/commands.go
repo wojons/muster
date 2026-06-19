@@ -14,14 +14,6 @@ func newHelpCommand() *cobra.Command {
 	}
 }
 
-func newCompletionCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "completion",
-		Short: "Generate shell completion scripts",
-		Long:  "Generate shell completion scripts for bash, zsh, fish, or powershell.",
-	}
-}
-
 func newInitCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",

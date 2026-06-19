@@ -44,3 +44,21 @@
 - **Model:** deepseek-v4-pro
 - **Files:** pkg/dsl/interpreter_test.go (new)
 - **AC:** Parse, Compile, Exec, Call, SetGlobal, GetGlobal all covered
+
+## [ ] Implement auth.Token struct (AC-260)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro --provider ollama-cloud
+- **Files:** pkg/auth/token.go (new), restore test/e2e/auth_keychain_integration_test.go, test/e2e/auth_real_integration_test.go
+- **AC:** Token struct with AccessToken, RefreshToken, Expiry, TokenType fields. Build-tag-gated e2e tests un-gated and pass.
+
+## [ ] Implement wasm network policy API (AC-270)
+- **Priority:** medium  
+- **Model:** glm-5.2 --provider zai-glm
+- **Files:** pkg/wasm/network.go (new), restore test/security/wasm_security_test.go
+- **AC:** NewCapabilitySet(), Runtime.CheckNetworkAccess(host, port), Runtime.SetNetworkPolicy(policy). Build-tag-gated security test un-gated and passes.
+
+## [ ] Add version --output json flag (AC-280)
+- **Priority:** low
+- **Model:** deepseek-v4-pro --provider ollama-cloud
+- **Files:** internal/builtin/version.go
+- **AC:** version --output json returns {"version":"dev","commit":"unknown"} JSON
