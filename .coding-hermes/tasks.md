@@ -50,13 +50,10 @@
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
 
-## [ ] Add unit tests for pkg/response (AC-321)
+## [x] Add unit tests for pkg/response (AC-321)
+- **Completed:** 2026-06-20 — 20 tests, all pass. Covers NewHandler (defaults/treatNon200), HandleResponse (nil/200 JSON/200 non-JSON/empty/404/500/400/TreatNon200Disabled/401/read error/large JSON), ProcessResponse (success/error/raw), HTTPError.Error (body/empty body), Config, ProcessingOptions.
 - **Priority:** low
 - **Model:** deepseek-v4-flash
-- **Files:** pkg/response/handler_test.go (NEW)
-- **Tests needed:** NewHandler, HandleResponse (nil response, 200 JSON, 200 non-JSON, 404 error, 500 error), ProcessResponse, HTTPError.Error(), Config defaults
-- **AC:** `go test ./pkg/response/... -count=1` passes. 8+ test functions.
-- **Spec:** pkg/response/handler.go (88 lines)
 
 ## [x] Add unit tests for pkg/openapi (AC-322)
 - **Priority:** high
@@ -70,10 +67,7 @@
 ## [x] Add unit tests for pkg/request (AC-323)
 - **Completed:** 2026-06-20 — 57 tests, all pass. 788 lines. Covers all exported methods + edge cases.
 
-## [ ] Add unit tests for pkg/repository (AC-324)
+## [x] Add unit tests for pkg/repository (AC-324)
+- **Completed:** 2026-06-20 — 22 tests, all pass. Covers NewSQLiteStore (memory/tempfile/invalid), Close (normal/double), DB, Exec (create/insert+delete/bad SQL/cancelled context/deadline/multiple statements), Query (populated/empty/bad SQL), QueryRow (found/no rows), concurrent access, ErrNotFound.Error (ID/zero), Store interface satisfaction, WAL mode.
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
-- **Files:** pkg/repository/sqlite_test.go (NEW)
-- **Tests needed:** NewSQLiteManager, CRUD operations (insert/query/delete), transaction rollback, concurrent access, error handling (missing DB, bad SQL)
-- **AC:** `go test ./pkg/repository/... -count=1` passes. 10+ test functions. Use :memory: or tempfile SQLite.
-- **Spec:** pkg/repository/sqlite.go (145 lines)

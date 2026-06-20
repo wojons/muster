@@ -5,10 +5,10 @@
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
 **Last run:** 2026-06-20 (cron foreman tick)
-**Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. 37/38 test packages pass (1 known: test/stability timeout). Demo: 23/23 checks pass.
+**Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. 39/40 test packages pass (1 known: test/stability timeout). Demo: 23/23 checks pass.
 **Completed this run:**
-  - AC-320: ✅ Unit tests for pkg/retry — 22 tests, all pass. Covers NewRetrier, DefaultRetryConfig, Execute, calculateDelay, RetryExhaustedError.
-  - AC-323: ✅ Unit tests for pkg/request — 57 tests, 788 lines, all pass. Covers all 22 Builder methods + edge cases.
+  - AC-324: ✅ Unit tests for pkg/repository — 22 tests, all pass. Covers NewSQLiteStore, Close, DB, Exec, Query, QueryRow, concurrent access, ErrNotFound, Store interface.
+  - AC-321: ✅ Unit tests for pkg/response — 20 tests, all pass. Covers NewHandler, HandleResponse (11 scenarios), ProcessResponse, HTTPError.Error.
 **Previous runs:**
   - AC-290: Real D-Bus Secret Service protocol — stubs replaced with full godbus/dbus/v5 implementation (~290 lines).
   - AC-322: Unit tests for pkg/openapi — 28 test functions + 10 subtests, 38 total. All pass.
@@ -310,6 +310,8 @@
 
 ## Passed Criteria
 
+### AC-324: Unit tests for pkg/repository ✅ (2026-06-20) — 22 tests covering all exported API: NewSQLiteStore (3 paths), Close/DB, Exec (6 scenarios), Query (3 scenarios), QueryRow (2 scenarios), ConcurrentAccess, ConcurrentCloseAndQuery, ErrNotFound, Store interface, WAL mode, MultipleStatements
+### AC-321: Unit tests for pkg/response ✅ (2026-06-20) — 20 tests covering all exported API: NewHandler, HandleResponse (11 scenarios incl. nil/JSON/non-JSON/empty/all status codes/TreatNon200Disabled/read error/large JSON), ProcessResponse (3 scenarios), HTTPError.Error, Config, ProcessingOptions
 ### AC-300: Wire functional workflow tests ✅ (2026-06-20) — 5/5 tests pass, spec→parse→generate pipeline wired, kebab-case naming verified
 ### AC-320: Unit tests for pkg/retry ✅ (2026-06-20) — 22 tests covering all exported API: NewRetrier, DefaultRetryConfig, Execute, calculateDelay, RetryExhaustedError
 ### AC-323: Unit tests for pkg/request ✅ (2026-06-20) — 57 tests, 788 lines, all builder methods + edge cases covered

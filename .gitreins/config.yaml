@@ -1,14 +1,19 @@
-# GitReins Configuration
-
 guards:
-  test_mode: "full"
+  test_mode: full
   secrets: true
   lint: true
   tests: true
-  test_command: "pytest -x --tb=short"
-
+  test_command: pytest -x --tb=short
+  go:
+    build: true
+    lint: true
+    tests: true
 evaluator:
   max_iterations: 25
-  max_time: "5m"
-  max_output_tokens: "200k"
+  max_time: 5m
+  max_output_tokens: 200k
   tool_call_weight: 0.1
+history:
+  enabled: true
+  storage: git
+  max_verdicts: 1000
