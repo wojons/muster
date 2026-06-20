@@ -1,10 +1,14 @@
 # GitReins Configuration
 
 guards:
+  test_mode: "diff"
   secrets: true
   lint: true
   tests: true
   test_command: "pytest -x --tb=short"
 
 evaluator:
-  max_iterations: 15
+  max_iterations: 25
+  max_time: "5m"
+  max_output_tokens: "200k"
+  tool_call_weight: 0.1
