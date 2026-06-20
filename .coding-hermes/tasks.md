@@ -80,3 +80,19 @@
 - **Scope:** store.go only (204 lines). Loader.go requires cobra mocking — separate task.
 - **Tests needed:** NewCommandStore (no path/with path), Commands (empty disk/loaded/load error), HasData (empty/loaded/disk file), Load (from meta/from disk/from commands/empty error), Save (with data/nil data/no disk path), LoadCommands, ReconstructCommand (returns nil,nil)
 - **AC:** `go test ./pkg/cmdstore/... -count=1` passes. 10+ test functions. Use temp files for disk persistence.
+
+## [ ] Add unit tests for pkg/auth/ratelimit (AC-326)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/auth/ratelimit/limiter_test.go (NEW), pkg/auth/ratelimit/token_bucket_test.go (NEW)
+- **Scope:** limiter.go (44 lines) + token_bucket.go (83 lines) = 127 total lines. Small package — write directly, no spawn needed.
+- **Tests needed:** TokenBucket (NewTokenBucket/defaults/custom/Allow/AllowN/refill/stop/zero rate/negative refill), RateLimiter (NewRateLimiter/config/key extraction/Allow/AllowN/block after exhaustion/Reset/rate limit error), concurrent access, context cancellation
+- **AC:** `go test ./pkg/auth/ratelimit/... -count=1` passes. 15+ test functions.
+
+## [ ] Add unit tests for pkg/repository/sql (AC-327)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/repository/sql/repository_test.go (NEW)
+- **Scope:** 6 files, ~974 lines. Larger package — split into sub-files per repository type if needed.
+- **Tests needed:** SQLiteRepository (New/open/close/migrate/transaction), InventoryRepository (CRUD/filtering/pagination), RateLimitRepository (buckets/updates/resets), AuditRepository (log/query/filter/retention), FingerprintRepository (store/match/lookup), AliasRepository (CRUD/lookup)
+- **AC:** `go test ./pkg/repository/sql/... -count=1` passes. 20+ test functions. Use in-memory SQLite for isolation.
