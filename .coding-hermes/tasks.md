@@ -61,8 +61,9 @@
 - **AC:** `go test ./pkg/response/... -count=1` passes. 8+ test functions.
 - **Spec:** pkg/response/handler.go (88 lines)
 
-## [ ] Add unit tests for pkg/openapi (AC-322)
+## [x] Add unit tests for pkg/openapi (AC-322)
 - **Priority:** high
+- **Completed:** 2026-06-20 — 28 test functions + 10 subtests, 38 total. All pass. Covers NewParser, Parse (valid/invalid/nil/missing info), ExtractOperations (petstore/empty/nil), all parameter types, body properties, SchemaToJSON, typeToJSONSchemaType (10 cases), resolveServerURL, extractPropertiesFromSchemaRef, jsonMarshalNoEscape.
 - **Model:** deepseek-v4-pro
 - **Files:** pkg/openapi/parser_test.go (NEW)
 - **Tests needed:** NewParser, DefaultParseOptions, Parse (valid OAS 3.0, invalid JSON, nil data), ExtractOperations (petstore, empty spec), extractParameters (path/query/header), extractRequestBodyProperties (JSON body, multipart), SchemaToJSON (valid props, empty props), typeToJSONSchemaType
