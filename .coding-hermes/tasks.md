@@ -70,13 +70,8 @@
 - **AC:** `go test ./pkg/openapi/... -count=1` passes. 15+ test functions. Cover all exported symbols.
 - **Spec:** pkg/openapi/parser.go (446 lines, 3 exported functions + 2 exported methods + internal helpers)
 
-## [ ] Add unit tests for pkg/request (AC-323)
-- **Priority:** high
-- **Model:** deepseek-v4-pro
-- **Files:** pkg/request/builder_test.go (NEW)
-- **Tests needed:** NewBuilder (with/without args), Build (method/path/headers/URL), SetHeader, WithPathParam, WithQueryParam, WithBody, JSONBody, WithFileUpload, WithMultipartField, BuildRequest, BuildGet, BuildPost, BuildPut, BuildDelete, ExecuteWithResult (needs test HTTP server), WithContentType, buildMultipartBody
-- **AC:** `go test ./pkg/request/... -count=1` passes. 18+ test functions. Use httptest.NewServer for Execute tests.
-- **Spec:** pkg/request/builder.go (328 lines, 22 methods on Builder)
+## [x] Add unit tests for pkg/request (AC-323)
+- **Completed:** 2026-06-20 — 57 tests, all pass. 788 lines. Covers all exported methods + edge cases.
 
 ## [ ] Add unit tests for pkg/repository (AC-324)
 - **Priority:** medium
