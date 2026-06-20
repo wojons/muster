@@ -45,13 +45,10 @@
 ## [x] Add version --output json flag (AC-280)
 - **Completed:** 2026-06-19 — version --output flag added.
 
-## [ ] Add unit tests for pkg/retry (AC-320)
+## [x] Add unit tests for pkg/retry (AC-320)
+- **Completed:** 2026-06-20 — 22 tests, all pass. Covers NewRetrier (valid/zero/negative/empty backoff/zero delays), DefaultRetryConfig, Execute (success/transient/exhausted/context cancel during+pre+deadline), calculateDelay (constant/linear/exponential/capped/jitter bounds/no jitter/default), RetryExhaustedError (Error/single attempt).
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
-- **Files:** pkg/retry/retry_test.go (NEW)
-- **Tests needed:** NewRetrier (valid config, zero attempts fallback, empty backoff), DefaultRetryConfig (sane defaults), Execute (success first try, retry on transient, exhausted error, context cancel, jitter variance), calculateDelay (constant/linear/exponential), RetryExhaustedError.Error()
-- **AC:** `go test ./pkg/retry/... -count=1` passes. 12+ test functions. Cover backoff + jitter + context cancellation.
-- **Spec:** pkg/retry/retry.go (137 lines) — Retrier, RetryConfig, RetryExhaustedError
 
 ## [ ] Add unit tests for pkg/response (AC-321)
 - **Priority:** low
