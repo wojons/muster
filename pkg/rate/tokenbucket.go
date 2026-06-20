@@ -13,12 +13,17 @@ type TokenBucket struct {
 
 // NewTokenBucket creates a new token bucket.
 // ratePerSec is the number of tokens added per second.
-// burst is the maximum accumulated tokens.
+// burst is the maximum accumulated tokens. If burst <= 0, defaults to 1.
 func NewTokenBucket(ratePerSec, burst int) *TokenBucket {
+	if burst <= 0 {
+		burst = 1
+	}
 	return &TokenBucket{
 		TokenBucket: ratelimit.NewTokenBucket(burst, float64(ratePerSec)),
 	}
 }
 
-// Stop is a no-op — the underlying implementation has no background goroutine.
-func (tb *TokenBucket) Stop() {}
+// Stop prevents further token refill by setting the fill rate to zero.
+func (tb *TokenBucket) Stop() {
+	tb.TokenBucket.SetRate(0)
+}

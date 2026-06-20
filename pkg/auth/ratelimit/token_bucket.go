@@ -60,3 +60,24 @@ func (tb *TokenBucket) AllowN(n int) bool {
 
 	return false
 }
+
+// Tokens returns the current number of tokens in the bucket.
+func (tb *TokenBucket) Tokens() float64 {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+	// Refill tokens based on elapsed time
+	now := time.Now()
+	elapsed := now.Sub(tb.lastFill).Seconds()
+	tokens := tb.tokens + elapsed*tb.fillRate
+	if tokens > float64(tb.capacity) {
+		tokens = float64(tb.capacity)
+	}
+	return tokens
+}
+
+// SetRate changes the fill rate (tokens per second).
+func (tb *TokenBucket) SetRate(rate float64) {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+	tb.fillRate = rate
+}
