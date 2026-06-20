@@ -1,8 +1,3 @@
-//go:build ignore
-// Stale test — references wasm.NewCapabilitySet, CheckNetworkAccess, SetNetworkPolicy
-// which were never implemented.
-// Restore when pkg/wasm gains these APIs.
-
 package security
 
 import (
@@ -172,10 +167,11 @@ func TestWASM_SandboxLimitsValidation(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			limits := wasm.SandboxLimits{
-				MaxMemory:        tc.maxMemory,
-				MaxExecutionTime: tc.maxExecTime,
-				MaxFileSize:      10 * 1024 * 1024,
-				MaxFuel:          1_000_000,
+				MaxMemory:          tc.maxMemory,
+				MaxExecutionTime:   tc.maxExecTime,
+				MaxFileSize:        10 * 1024 * 1024,
+				MaxFileDescriptors: 64,
+				MaxFuel:            1_000_000,
 			}
 			err := limits.Validate()
 			if tc.shouldBeValid {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/tetratelabs/wazero"
@@ -86,22 +87,40 @@ func DefaultRuntimeConfig() *RuntimeConfig {
 // CapabilitySet represents a snapshot view of the runtime capabilities.
 type CapabilitySet struct {
 	runtime *Runtime
+	caps    map[string]bool
 }
 
 // Check returns true if the given capability has been granted.
+// Supports wildcard patterns (e.g., "file./data/*" matches "file./data/test.txt").
 func (cs *CapabilitySet) Check(name string) bool {
-	if cs == nil || cs.runtime == nil {
+	if cs == nil {
 		return false
 	}
-	return cs.runtime.CheckCapability(name)
+	if cs.runtime != nil {
+		return cs.runtime.CheckCapability(name)
+	}
+	if cs.caps[name] {
+		return true
+	}
+	// Check wildcard patterns
+	for pattern := range cs.caps {
+		if strings.HasSuffix(pattern, "*") {
+			prefix := strings.TrimSuffix(pattern, "*")
+			if strings.HasPrefix(name, prefix) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Runtime represents a WASM runtime instance backed by wazero.
 type Runtime struct {
-	config       *RuntimeConfig
-	limits       *SandboxLimits
-	capabilities []string
-	rt           wazero.Runtime // the underlying wazero runtime
+	config        *RuntimeConfig
+	limits        *SandboxLimits
+	capabilities  []string
+	networkPolicy *NetworkPolicy
+	rt            wazero.Runtime // the underlying wazero runtime
 }
 
 // ExecutionResult holds the result of executing a WASM function.
@@ -393,6 +412,64 @@ func (p *NetworkPolicy) IsAllowed(host string, port int) bool {
 	for _, ap := range p.AllowedPorts {
 		if ap == port {
 			return true
+		}
+	}
+	return false
+}
+
+// NewCapabilitySet creates a standalone capability set (no runtime needed).
+func NewCapabilitySet() *CapabilitySet {
+	return &CapabilitySet{caps: make(map[string]bool)}
+}
+
+// Grant adds a capability to the set.
+func (cs *CapabilitySet) Grant(name string) error {
+	if cs.runtime != nil {
+		return cs.runtime.GrantCapability(name)
+	}
+	cs.caps[name] = true
+	return nil
+}
+
+// Revoke removes a capability from the set.
+func (cs *CapabilitySet) Revoke(name string) error {
+	if cs.runtime != nil {
+		return cs.runtime.RevokeCapability(name)
+	}
+	delete(cs.caps, name)
+	return nil
+}
+
+// SetNetworkPolicy sets the network access policy for this runtime.
+func (r *Runtime) SetNetworkPolicy(policy *NetworkPolicy) {
+	r.networkPolicy = policy
+}
+
+// CheckNetworkAccess checks whether the runtime is allowed to access the given host:port.
+// Returns true if allowed, false if blocked by policy.
+// When no policy is set, all access is allowed.
+func (r *Runtime) CheckNetworkAccess(host string, port int) bool {
+	if r.networkPolicy == nil {
+		return true
+	}
+	for _, blocked := range r.networkPolicy.BlockedHosts {
+		if blocked == host {
+			return false
+		}
+	}
+	if len(r.networkPolicy.AllowedHosts) == 0 {
+		return true
+	}
+	for _, allowed := range r.networkPolicy.AllowedHosts {
+		if allowed == host {
+			if len(r.networkPolicy.AllowedPorts) == 0 {
+				return true
+			}
+			for _, p := range r.networkPolicy.AllowedPorts {
+				if p == port {
+					return true
+				}
+			}
 		}
 	}
 	return false
