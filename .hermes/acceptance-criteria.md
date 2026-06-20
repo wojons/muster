@@ -7,6 +7,7 @@
 **Last run:** 2026-06-20 (cron foreman tick)
 **Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. 37/38 test packages pass (1 known: test/stability timeout). Demo: 23/23 checks pass.
 **Completed this run:**
+  - AC-320: ✅ Unit tests for pkg/retry — 22 tests, all pass. Covers NewRetrier, DefaultRetryConfig, Execute, calculateDelay, RetryExhaustedError.
   - AC-323: ✅ Unit tests for pkg/request — 57 tests, 788 lines, all pass. Covers all 22 Builder methods + edge cases.
 **Previous runs:**
   - AC-290: Real D-Bus Secret Service protocol — stubs replaced with full godbus/dbus/v5 implementation (~290 lines).
@@ -310,6 +311,7 @@
 ## Passed Criteria
 
 ### AC-300: Wire functional workflow tests ✅ (2026-06-20) — 5/5 tests pass, spec→parse→generate pipeline wired, kebab-case naming verified
+### AC-320: Unit tests for pkg/retry ✅ (2026-06-20) — 22 tests covering all exported API: NewRetrier, DefaultRetryConfig, Execute, calculateDelay, RetryExhaustedError
 ### AC-323: Unit tests for pkg/request ✅ (2026-06-20) — 57 tests, 788 lines, all builder methods + edge cases covered
 ### AC-310: Unit tests for DSL package ✅ (2026-06-19) — 20 tests covering Parse, Compile, Exec, Call, SetGlobal, GetGlobal, Globals
 ### AC-270: WASM network policy API ✅ (2026-06-19) — NewCapabilitySet, Grant, Revoke, CheckNetworkAccess, SetNetworkPolicy
