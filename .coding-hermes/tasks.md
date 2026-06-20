@@ -33,11 +33,9 @@
 - **Files:** internal/platform/linux/keyring_secret_service.go, internal/platform/linux/credential.go
 - **AC:** Linux credential store uses actual D-Bus Secret Service protocol
 
-## [ ] Wire functional workflow tests
+## [x] Wire functional workflow tests
 - **Priority:** low
-- **Model:** deepseek-v4-pro
-- **Files:** test/functional/workflows/cli_workflow_test.go
-- **AC:** Tests load spec and generate commands instead of TODO stubs
+- **Completed:** 2026-06-20 — Replaced TODO stubs with real spec parsing + command generation. New TestUserWorkflow_SpecToCommands validates full pipeline. 5/5 tests pass.
 
 ## [x] Add unit tests for DSL package
 - **Priority:** low
