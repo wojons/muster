@@ -71,3 +71,11 @@
 - **Completed:** 2026-06-20 — 22 tests, all pass. Covers NewSQLiteStore (memory/tempfile/invalid), Close (normal/double), DB, Exec (create/insert+delete/bad SQL/cancelled context/deadline/multiple statements), Query (populated/empty/bad SQL), QueryRow (found/no rows), concurrent access, ErrNotFound.Error (ID/zero), Store interface satisfaction, WAL mode.
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
+
+## [ ] Add unit tests for pkg/cmdstore (AC-325)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/cmdstore/store_test.go (NEW)
+- **Scope:** store.go only (204 lines). Loader.go requires cobra mocking — separate task.
+- **Tests needed:** NewCommandStore (no path/with path), Commands (empty disk/loaded/load error), HasData (empty/loaded/disk file), Load (from meta/from disk/from commands/empty error), Save (with data/nil data/no disk path), LoadCommands, ReconstructCommand (returns nil,nil)
+- **AC:** `go test ./pkg/cmdstore/... -count=1` passes. 10+ test functions. Use temp files for disk persistence.
