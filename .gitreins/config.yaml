@@ -1,0 +1,10 @@
+# GitReins Configuration
+
+guards:
+  secrets: true
+  lint: true
+  tests: true
+  test_command: "pytest -x --tb=short"
+
+evaluator:
+  max_iterations: 15
