@@ -5,15 +5,17 @@
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
 **Last run:** 2026-06-19 (cron foreman tick)
-**Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. 31/31 packages pass (excluding test/stability 30-min daemon test, pkg/platform sandbox tests, test/e2e keychain pre-existing). **Demo:** 23/23 checks pass.
+**Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. 31/31 packages pass. DSL package now has 20/20 unit tests. **Demo:** 23/23 checks pass.
 **Completed this run:**
+  - AC-310: Added unit tests for DSL package (20 tests — Parse, Compile, Exec, Call, SetGlobal, GetGlobal, Globals, EndToEnd)
+**Previous runs:**
   - AC-270: WASM network policy API (NewCapabilitySet, Grant, Revoke, CheckNetworkAccess, SetNetworkPolicy). Wildcard capability matching. 14/14 WASM security tests pass.
   - AC-280: version --output json flag. Produces valid JSON output.
   - Fixed 07-daemon-proxy.sh junk line (demo was 22/23, now 23/23).
 **New gaps:** 
   - AC-290: Fix D-Bus Secret Service stubs (Linux credential store)
   - AC-300: Wire functional workflow tests
-  - AC-310: Add unit tests for DSL package
+  - AC-310: ✅ DONE this run
 
 ## Demo Infrastructure (Fake Apps)
 
@@ -307,6 +309,7 @@
 
 ## Passed Criteria
 
+### AC-310: Unit tests for DSL package ✅ (2026-06-19) — 20 tests covering Parse, Compile, Exec, Call, SetGlobal, GetGlobal, Globals
 ### AC-270: WASM network policy API ✅ (2026-06-19) — NewCapabilitySet, Grant, Revoke, CheckNetworkAccess, SetNetworkPolicy
 ### AC-280: Version --output json flag ✅ (2026-06-19) — version --output produces valid JSON
 ### AC-210: Webhook subscriptions ✅ (2026-06-12)

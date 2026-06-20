@@ -39,11 +39,9 @@
 - **Files:** test/functional/workflows/cli_workflow_test.go
 - **AC:** Tests load spec and generate commands instead of TODO stubs
 
-## [ ] Add unit tests for DSL package
+## [x] Add unit tests for DSL package
 - **Priority:** low
-- **Model:** deepseek-v4-pro
-- **Files:** pkg/dsl/interpreter_test.go (new)
-- **AC:** Parse, Compile, Exec, Call, SetGlobal, GetGlobal all covered
+- **Completed:** 2026-06-19 — 20 tests: NewInterpreter (empty, with builtins), Parse (valid, function, invalid), Compile (valid, nil), Exec (basic, print, error), Call (positional, kwargs, builtin), SetGlobal/GetGlobal (set, missing, after-exec, multiple, overwrite), Globals, EndToEnd (factorial). All pass.
 
 ## [x] Implement auth.Token struct (AC-260)
 - **Completed:** 2026-06-19 — Token struct, TokenManager (auto-refresh), AuthorizationCodeFlow (Start/Exchange). 8/8 OAuth2 e2e subtests pass. commit 53ed73c.
