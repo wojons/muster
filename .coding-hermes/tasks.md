@@ -72,7 +72,8 @@
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
 
-## [ ] Add unit tests for pkg/cmdstore (AC-325)
+## [x] Add unit tests for pkg/cmdstore (AC-325)
+- **Completed:** 2026-06-20 — 28 tests, all pass. Covers NewCommandStore (3 paths), Commands (5 scenarios), HasData (5 scenarios), Load (4 scenarios), Save (6 scenarios), LoadCommands (2 scenarios), ReconstructCommand, CommandMetadata, FlagMetadata, FlagKind constants, StoredData, concurrent access, save overwrite, commands-cached.
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
 - **Files:** pkg/cmdstore/store_test.go (NEW)

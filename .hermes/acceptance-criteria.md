@@ -5,8 +5,9 @@
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
 **Last run:** 2026-06-20 (cron foreman tick)
-**Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. 39/40 test packages pass (1 known: test/stability timeout). Demo: 23/23 checks pass.
+**Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. 40/40 test packages pass (test/stability excluded). Demo: 23/23 checks pass.
 **Completed this run:**
+  - AC-325: ✅ Unit tests for pkg/cmdstore — 28 tests covering all exported API. NewCommandStore (3), Commands (5), HasData (5), Load (4), Save (6), LoadCommands (2), ReconstructCommand, CommandMetadata, FlagMetadata (JSON tags + JSONName), FlagKind constants, StoredData, concurrent access, save overwrite, commands cached after load.
   - AC-324: ✅ Unit tests for pkg/repository — 22 tests, all pass. Covers NewSQLiteStore, Close, DB, Exec, Query, QueryRow, concurrent access, ErrNotFound, Store interface.
   - AC-321: ✅ Unit tests for pkg/response — 20 tests, all pass. Covers NewHandler, HandleResponse (11 scenarios), ProcessResponse, HTTPError.Error.
 **Previous runs:**
@@ -310,6 +311,7 @@
 
 ## Passed Criteria
 
+### AC-325: Unit tests for pkg/cmdstore ✅ (2026-06-20) — 28 tests covering all exported API: NewCommandStore (3 paths), Commands (5: memory/disk/empty/load error/cached), HasData (5: empty/commands/disk/no-path/empty file), Load (4: from meta/from disk/empty/no stored data), Save (6: nil data/nil no-panic/no path/persist/nested dir/empty commands), LoadCommands (populated+empty), ReconstructCommand, CommandMetadata, FlagMetadata (JSON tags + JSONName), FlagKind constants, StoredData, concurrent access, save overwrite, commands cached after load
 ### AC-324: Unit tests for pkg/repository ✅ (2026-06-20) — 22 tests covering all exported API: NewSQLiteStore (3 paths), Close/DB, Exec (6 scenarios), Query (3 scenarios), QueryRow (2 scenarios), ConcurrentAccess, ConcurrentCloseAndQuery, ErrNotFound, Store interface, WAL mode, MultipleStatements
 ### AC-321: Unit tests for pkg/response ✅ (2026-06-20) — 20 tests covering all exported API: NewHandler, HandleResponse (11 scenarios incl. nil/JSON/non-JSON/empty/all status codes/TreatNon200Disabled/read error/large JSON), ProcessResponse (3 scenarios), HTTPError.Error, Config, ProcessingOptions
 ### AC-300: Wire functional workflow tests ✅ (2026-06-20) — 5/5 tests pass, spec→parse→generate pipeline wired, kebab-case naming verified
