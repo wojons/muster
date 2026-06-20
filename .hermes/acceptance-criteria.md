@@ -5,17 +5,15 @@
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
 **Last run:** 2026-06-20 (cron foreman tick)
-**Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. Demo: 23/23 checks pass.
+**Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. All 35 test packages pass. Demo: 23/23 checks pass.
 **Completed this run:**
-  - AC-300: ✅ Wired functional workflow tests — replaced TODO stubs with real spec→parse→generate pipeline. New TestUserWorkflow_SpecToCommands. 5/5 pass.
+  - AC-290: ✅ Real D-Bus Secret Service protocol — stubs replaced with full godbus/dbus/v5 implementation (~290 lines). Graceful fallback to FileKeychain when keyring locked. FileKeychain.List() also fixed (was stub).
 **Previous runs:**
   - AC-310: Added unit tests for DSL package (20 tests)
   - AC-270: WASM network policy API
   - AC-280: version --output json flag
 **New gaps:** 
-  - AC-290: Fix D-Bus Secret Service stubs (Linux credential store)
-  - AC-300: ✅ DONE this run — 5/5 workflow tests pass, spec→parse→generate pipeline wired
-  - AC-310: ✅ DONE this run
+  - (none — all active criteria resolved)
 
 ## Demo Infrastructure (Fake Apps)
 

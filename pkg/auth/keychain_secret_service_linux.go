@@ -19,6 +19,9 @@ func NewSecretServiceKeychain() (*SecretServiceKeychain, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create secret service keyring: %w", err)
 	}
+	if err := keyring.Connect(); err != nil {
+		return nil, fmt.Errorf("secret service not available: %w", err)
+	}
 	return &SecretServiceKeychain{keyring: keyring}, nil
 }
 

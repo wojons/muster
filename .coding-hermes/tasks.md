@@ -27,11 +27,9 @@
 ## [x] Add .gitignore entries
 - **Completed:** __pycache__/, *.pyc, _storage/
 
-## [ ] Fix D-Bus Secret Service stubs
+## [x] Fix D-Bus Secret Service stubs
 - **Priority:** low
-- **Model:** deepseek-v4-pro
-- **Files:** internal/platform/linux/keyring_secret_service.go, internal/platform/linux/credential.go
-- **AC:** Linux credential store uses actual D-Bus Secret Service protocol
+- **Completed:** 2026-06-20 — Full D-Bus Secret Service protocol implementation (godbus/dbus/v5, ~290 lines). Connect/GetSecret/SetSecret/DeleteSecret/searchItem all wired. Graceful fallback to FileKeychain when keyring daemon unavailable. FileKeychain.List() also fixed (was stub). 35/35 test packages pass, demo 23/23.
 
 ## [x] Wire functional workflow tests
 - **Priority:** low

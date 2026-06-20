@@ -20,8 +20,7 @@ func (k *SecretServiceKeyring) Set(ctx context.Context, key string, cred *Creden
 	if !k.connected {
 		return ErrNotConnected
 	}
-	// TODO: Implement actual D-Bus Secret Service Set
-	return nil
+	return k.SetSecret(key, []byte(cred.Value))
 }
 
 // Get retrieves a credential from the keyring by key.
@@ -29,8 +28,14 @@ func (k *SecretServiceKeyring) Get(ctx context.Context, key string) (*Credential
 	if !k.connected {
 		return nil, ErrNotConnected
 	}
-	// TODO: Implement actual D-Bus Secret Service Get
-	return &Credential{Type: "password", Value: "", Username: ""}, nil
+	data, err := k.GetSecret(key)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrCredentialNotFound, err)
+	}
+	return &Credential{
+		Type:  "password",
+		Value: string(data),
+	}, nil
 }
 
 // Delete removes a credential from the keyring by key.
@@ -38,8 +43,7 @@ func (k *SecretServiceKeyring) Delete(ctx context.Context, key string) error {
 	if !k.connected {
 		return ErrNotConnected
 	}
-	// TODO: Implement actual D-Bus Secret Service Delete
-	return nil
+	return k.DeleteSecret(key)
 }
 
 // ErrNotConnected is returned when the keyring is not connected.

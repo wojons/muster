@@ -333,7 +333,35 @@ func (k *FileKeychain) Delete(service, account string) error {
 }
 
 func (k *FileKeychain) List(service string) ([]Account, error) {
-	return nil, nil
+	prefix := sanitizeFilename(service) + "."
+	entries, err := os.ReadDir(k.basePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read credentials dir: %w", err)
+	}
+
+	var accounts []Account
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		// Extract account name: remove the prefix
+		account := strings.TrimPrefix(name, prefix)
+		if account == "" {
+			continue
+		}
+		accounts = append(accounts, Account{
+			Account: account,
+			Created: time.Now(),
+		})
+	}
+	return accounts, nil
 }
 
 func (k *FileKeychain) filePath(service, account string) string {
