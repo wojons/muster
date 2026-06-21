@@ -140,7 +140,16 @@ func TestOpenAPIRegistry_ListCommands(t *testing.T) {
 
 	commands := registry.ListCommands()
 	assert.Len(t, commands, 4)
-	assert.Equal(t, "listPets", commands[0].Name)
+
+	// Order is non-deterministic (Go map iteration)
+	names := make(map[string]bool)
+	for _, cmd := range commands {
+		names[cmd.Name] = true
+	}
+	assert.True(t, names["listPets"])
+	assert.True(t, names["createPet"])
+	assert.True(t, names["getPetById"])
+	assert.True(t, names["deletePet"])
 }
 
 func TestOpenAPIRegistry_GetCommand(t *testing.T) {
@@ -210,10 +219,17 @@ func TestOpenAPIRegistry_ListTools(t *testing.T) {
 	tools := registry.ListTools()
 	assert.Len(t, tools, 4)
 
-	// First tool (listPets) should have InputSchema
-	assert.Equal(t, "listPets", tools[0].Name)
-	assert.NotEmpty(t, tools[0].Description)
-	assert.NotNil(t, tools[0].InputSchema)
+	// Verify all expected tool names are present (order is non-deterministic)
+	toolNames := make(map[string]bool)
+	for _, tool := range tools {
+		toolNames[tool.Name] = true
+		assert.NotEmpty(t, tool.Description)
+		assert.NotNil(t, tool.InputSchema)
+	}
+	assert.True(t, toolNames["listPets"])
+	assert.True(t, toolNames["createPet"])
+	assert.True(t, toolNames["getPetById"])
+	assert.True(t, toolNames["deletePet"])
 
 	// Verify InputSchema is valid JSON
 	var schema map[string]interface{}
