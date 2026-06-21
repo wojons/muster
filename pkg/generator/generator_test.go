@@ -3,9 +3,11 @@ package generator
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/wojons/muster/pkg/openapi"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -410,4 +412,909 @@ func TestNormalizeFlagName(t *testing.T) {
 			require.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+// =============================================================================
+// NEW TESTS — covering previously 0% functions
+// =============================================================================
+
+// petstoreSpecJSON returns a minimal but realistic OpenAPI 3.0 petstore spec.
+func petstoreSpecJSON() string {
+	return `{"openapi":"3.0.0","info":{"title":"Pet Store","version":"1.0.0"},"paths":{"/pets":{"get":{"operationId":"listPets","summary":"List all pets","parameters":[{"name":"limit","in":"query","schema":{"type":"integer"}}],"responses":{"200":{"description":"OK"}}},"post":{"operationId":"createPet","summary":"Create a pet","requestBody":{"content":{"application/json":{"schema":{"type":"object","properties":{"name":{"type":"string"}}}}}},"responses":{"201":{"description":"Created"}}}},"/pets/{petId}":{"get":{"operationId":"getPetById","summary":"Get pet by ID","parameters":[{"name":"petId","in":"path","required":true,"schema":{"type":"string"}}],"responses":{"200":{"description":"OK"}}}}}}`
+}
+
+// loadPetstoreSpec loads the embedded petstore JSON into an *openapi3.T.
+func loadPetstoreSpec(t *testing.T) *openapi3.T {
+	t.Helper()
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(petstoreSpecJSON()))
+	require.NoError(t, err)
+	require.NotNil(t, doc)
+	return doc
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 1: NewGenerator
+// ---------------------------------------------------------------------------
+
+func TestNewGenerator_Valid(t *testing.T) {
+	cfg := Config{
+		AppName: "testapp",
+		BaseURL: "https://api.example.com",
+	}
+	gen, err := NewGenerator(cfg)
+	require.NoError(t, err)
+	require.NotNil(t, gen)
+}
+
+func TestNewGenerator_MissingAppName(t *testing.T) {
+	cfg := Config{
+		BaseURL: "https://api.example.com",
+	}
+	gen, err := NewGenerator(cfg)
+	require.Error(t, err)
+	require.Nil(t, gen)
+	require.Contains(t, err.Error(), "invalid config")
+	require.Contains(t, err.Error(), "app name is required")
+}
+
+func TestNewGenerator_MissingBaseURL(t *testing.T) {
+	cfg := Config{
+		AppName: "testapp",
+	}
+	gen, err := NewGenerator(cfg)
+	require.Error(t, err)
+	require.Nil(t, gen)
+	require.Contains(t, err.Error(), "invalid config")
+	require.Contains(t, err.Error(), "base URL is required")
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 2: GenerateCommands (main pipeline)
+// ---------------------------------------------------------------------------
+
+func TestGenerateCommands_BasicPipeline(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	doc := loadPetstoreSpec(t)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	// One resource group: "pets" (all paths start with /pets)
+	require.Len(t, commands, 1)
+
+	petsCmd := commands[0]
+	require.Equal(t, "pets", petsCmd.Use)
+	require.Equal(t, "Manage pets", petsCmd.Short)
+	require.Contains(t, petsCmd.Long, "managing pets")
+
+	// Three subcommands: list-pets, create-pet, get-pet-by-id
+	require.Len(t, petsCmd.Commands(), 3)
+
+	// Index subcommands by their Use string
+	subByName := make(map[string]*cobra.Command)
+	for _, sub := range petsCmd.Commands() {
+		// Extract the command name (first word of Use)
+		name := sub.Use
+		if idx := strings.IndexByte(sub.Use, ' '); idx > 0 {
+			name = sub.Use[:idx]
+		}
+		subByName[name] = sub
+	}
+
+	// list-pets (GET /pets, no path params)
+	listCmd := subByName["list-pets"]
+	require.NotNil(t, listCmd, "should have list-pets subcommand")
+	require.Equal(t, "list-pets [flags]", listCmd.Use)
+	require.Equal(t, "List all pets", listCmd.Short)
+	require.Contains(t, listCmd.Long, "GET /pets")
+	require.Contains(t, listCmd.Long, "API Endpoint")
+	// Has query param "limit" → should appear in Long
+	require.Contains(t, listCmd.Long, "limit")
+	// Example should be non-empty
+	require.NotEmpty(t, listCmd.Example)
+	require.Contains(t, listCmd.Example, "muster pets list-pets")
+
+	// create-pet (POST /pets, no path params)
+	createCmd := subByName["create-pet"]
+	require.NotNil(t, createCmd, "should have create-pet subcommand")
+	require.Equal(t, "create-pet [flags]", createCmd.Use)
+	require.Equal(t, "Create a pet", createCmd.Short)
+	require.Contains(t, createCmd.Long, "POST /pets")
+	require.NotEmpty(t, createCmd.Example)
+
+	// get-pet-by-id (GET /pets/{petId}, has path param)
+	getCmd := subByName["get-pet-by-id"]
+	require.NotNil(t, getCmd, "should have get-pet-by-id subcommand")
+	require.Equal(t, "get-pet-by-id <petId> [flags]", getCmd.Use)
+	require.Equal(t, "Get pet by ID", getCmd.Short)
+	require.Contains(t, getCmd.Long, "GET /pets/{petId}")
+	require.NotEmpty(t, getCmd.Example)
+
+	// Every subcommand should have standard flags added by addFlags
+	for _, sub := range petsCmd.Commands() {
+		require.NotNil(t, sub.Flag("output"), "should have --output flag")
+		require.NotNil(t, sub.Flag("namespace"), "should have --namespace flag")
+	}
+}
+
+func TestGenerateCommands_NamingStrategies(t *testing.T) {
+	strategies := []struct {
+		name     string
+		strategy NamingStrategy
+	}{
+		{"kebab", NamingKebab},
+		{"camel", NamingCamel},
+		{"snake", NamingSnake},
+		{"flat", NamingFlat},
+	}
+
+	for _, s := range strategies {
+		t.Run(s.name, func(t *testing.T) {
+			gen, err := NewGenerator(Config{
+				AppName:        "muster",
+				BaseURL:        "https://api.example.com",
+				NamingStrategy: s.strategy,
+			})
+			require.NoError(t, err)
+
+			doc := loadPetstoreSpec(t)
+			commands, err := gen.GenerateCommands(doc)
+			require.NoError(t, err)
+			require.Len(t, commands, 1)
+
+			petsCmd := commands[0]
+			require.Len(t, petsCmd.Commands(), 3)
+
+			// With operationIds present, getCommandName uses normalizeOperationID
+			// which always produces kebab-case regardless of NamingStrategy.
+			// NamingStrategy only affects operationName() which is called when
+			// no operationId exists.
+			expectedUses := []string{
+				"list-pets [flags]",
+				"create-pet [flags]",
+				"get-pet-by-id <petId> [flags]",
+			}
+			for _, sub := range petsCmd.Commands() {
+				require.Contains(t, expectedUses, sub.Use,
+					"subcommand Use should be one of the expected kebab-case names")
+			}
+		})
+	}
+}
+
+func TestGenerateCommands_NilSpec(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	// nil spec: ExtractOperations returns (nil, nil) → empty commands, no error
+	commands, err := gen.GenerateCommands(nil)
+	require.NoError(t, err)
+	require.Empty(t, commands)
+}
+
+func TestGenerateCommands_EmptySpec(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	// Spec with no paths
+	emptySpecJSON := `{"openapi":"3.0.0","info":{"title":"Empty","version":"1.0"}}`
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(emptySpecJSON))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Empty(t, commands)
+}
+
+func TestGenerateCommands_NoOperationId(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	// Spec with no operationIds — falls back to operationName → crudName
+	noIDSpecJSON := `{"openapi":"3.0.0","info":{"title":"Test API","version":"1.0"},"paths":{"/users":{"get":{"summary":"List users","responses":{"200":{"description":"OK"}}},"post":{"summary":"Create user","responses":{"201":{"description":"Created"}}}}}}`
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(noIDSpecJSON))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	usersCmd := commands[0]
+	require.Equal(t, "users", usersCmd.Use)
+	require.Len(t, usersCmd.Commands(), 2)
+
+	// Without operationId, crudName produces: list-users, create-user
+	expectedUses := []string{
+		"list-users [flags]",
+		"create-user [flags]",
+	}
+	for _, sub := range usersCmd.Commands() {
+		require.Contains(t, expectedUses, sub.Use)
+	}
+}
+
+func TestGenerateCommands_ExcludeTags(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName:     "muster",
+		BaseURL:     "https://api.example.com",
+		ExcludeTags: []string{"admin"},
+	})
+	require.NoError(t, err)
+
+	taggedSpecJSON := `{"openapi":"3.0.0","info":{"title":"Test","version":"1.0"},"paths":{"/users":{"get":{"operationId":"listUsers","tags":["users"],"responses":{"200":{"description":"OK"}}}},"/admin":{"get":{"operationId":"adminStats","tags":["admin"],"responses":{"200":{"description":"OK"}}}}}}`
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(taggedSpecJSON))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	// "admin" tag is excluded → only "users" resource group appears
+	require.Len(t, commands, 1)
+	require.Equal(t, "users", commands[0].Use)
+	require.Len(t, commands[0].Commands(), 1)
+}
+
+func TestGenerateCommands_IncludeOnlyTags(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName:         "muster",
+		BaseURL:         "https://api.example.com",
+		IncludeOnlyTags: []string{"users"},
+	})
+	require.NoError(t, err)
+
+	taggedSpecJSON := `{"openapi":"3.0.0","info":{"title":"Test","version":"1.0"},"paths":{"/users":{"get":{"operationId":"listUsers","tags":["users"],"responses":{"200":{"description":"OK"}}}},"/posts":{"get":{"operationId":"listPosts","tags":["posts"],"responses":{"200":{"description":"OK"}}}}}}`
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(taggedSpecJSON))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	// Only "users" tag is included → "posts" is excluded
+	require.Len(t, commands, 1)
+	require.Equal(t, "users", commands[0].Use)
+	require.Len(t, commands[0].Commands(), 1)
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 3: buildResourceCommand / buildOperationCommand (direct tests)
+// ---------------------------------------------------------------------------
+
+func TestBuildResourceCommand_Structure(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	ops := []*openapi.Operation{
+		{ID: "listPets", Path: "/pets", Method: "GET", Summary: "List pets"},
+		{ID: "createPet", Path: "/pets", Method: "POST", Summary: "Create pet"},
+	}
+
+	cmd := gen.buildResourceCommand("pets", ops)
+	require.Equal(t, "pets", cmd.Use)
+	require.Equal(t, "Manage pets", cmd.Short)
+	require.Contains(t, cmd.Long, "managing pets")
+	require.Len(t, cmd.Commands(), 2)
+
+	// Subcommands should have correct names
+	subNames := make([]string, len(cmd.Commands()))
+	for i, sub := range cmd.Commands() {
+		subNames[i] = sub.Use
+	}
+	require.Contains(t, subNames, "list-pets [flags]")
+	require.Contains(t, subNames, "create-pet [flags]")
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 4: buildLongDescription / buildExample
+// ---------------------------------------------------------------------------
+
+func TestBuildLongDescription(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	t.Run("with description and params", func(t *testing.T) {
+		op := &openapi.Operation{
+			Method:      "GET",
+			Path:        "/pets",
+			Description: "Returns all pets from the store.",
+			Parameters: openapi.Parameters{
+				{Name: "limit", In: "query", Description: "Maximum number of results"},
+			},
+		}
+		result := gen.buildLongDescription(op)
+		require.Contains(t, result, "Returns all pets from the store.")
+		require.Contains(t, result, "API Endpoint:")
+		require.Contains(t, result, "GET /pets")
+		require.Contains(t, result, "Parameters:")
+		require.Contains(t, result, "limit: Maximum number of results")
+	})
+
+	t.Run("summary only, no description", func(t *testing.T) {
+		op := &openapi.Operation{
+			Method:  "POST",
+			Path:    "/pets",
+			Summary: "Create a pet",
+		}
+		result := gen.buildLongDescription(op)
+		// Summary is NOT included in Long description (only Short)
+		require.NotContains(t, result, "Create a pet")
+		require.Contains(t, result, "API Endpoint:")
+		require.Contains(t, result, "POST /pets")
+		// No parameters section when there are no params
+		require.NotContains(t, result, "Parameters:")
+	})
+
+	t.Run("with required path param", func(t *testing.T) {
+		op := &openapi.Operation{
+			Method: "GET",
+			Path:   "/pets/{petId}",
+			Parameters: openapi.Parameters{
+				{Name: "petId", In: "path", Required: true, Description: "The pet ID"},
+			},
+		}
+		result := gen.buildLongDescription(op)
+		require.Contains(t, result, "GET /pets/{petId}")
+		require.Contains(t, result, "petId (required): The pet ID")
+	})
+}
+
+func TestBuildExample(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	t.Run("with query params", func(t *testing.T) {
+		op := &openapi.Operation{
+			Path:   "/pets",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "limit", In: "query"},
+			},
+		}
+		result := gen.buildExample("list-pets", op)
+		require.Contains(t, result, "# Basic usage")
+		require.Contains(t, result, "muster pets list-pets")
+		require.Contains(t, result, "# With filters")
+		require.Contains(t, result, "--namespace production")
+		require.Contains(t, result, "# JSON output")
+		require.Contains(t, result, "--output json")
+	})
+
+	t.Run("without query params", func(t *testing.T) {
+		op := &openapi.Operation{
+			Path:   "/pets/{id}",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "id", In: "path", Required: true},
+			},
+		}
+		result := gen.buildExample("get-pet-by-id", op)
+		require.Contains(t, result, "# Basic usage")
+		require.Contains(t, result, "muster pets get-pet-by-id <id>")
+		require.Contains(t, result, "# JSON output")
+		// No "With filters" section when there are no query params
+		require.NotContains(t, result, "With filters")
+	})
+
+	t.Run("no parameters at all", func(t *testing.T) {
+		op := &openapi.Operation{
+			Path:   "/pets",
+			Method: "POST",
+		}
+		result := gen.buildExample("create-pet", op)
+		require.Contains(t, result, "# Basic usage")
+		require.Contains(t, result, "muster pets create-pet")
+		require.Contains(t, result, "# JSON output")
+		require.NotContains(t, result, "With filters")
+	})
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 5: Naming helpers
+// ---------------------------------------------------------------------------
+
+func TestInferResourceName(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "test", BaseURL: "test"})
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"/pets", "pets"},
+		{"/api/v1/users", "api"},
+		{"/users/{id}", "users"},
+		{"/{id}", "resource"}, // no non-param path segment
+		{"/", "resource"},
+		{"", "resource"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.path, func(t *testing.T) {
+			op := &openapi.Operation{Path: tc.path}
+			result := gen.inferResourceName(op)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestHasQueryParams(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "test", BaseURL: "test"})
+
+	t.Run("with query params", func(t *testing.T) {
+		op := &openapi.Operation{
+			Parameters: openapi.Parameters{
+				{Name: "limit", In: "query"},
+				{Name: "offset", In: "query"},
+			},
+		}
+		require.True(t, gen.hasQueryParams(op))
+	})
+
+	t.Run("only path params", func(t *testing.T) {
+		op := &openapi.Operation{
+			Parameters: openapi.Parameters{
+				{Name: "id", In: "path"},
+			},
+		}
+		require.False(t, gen.hasQueryParams(op))
+	})
+
+	t.Run("no parameters", func(t *testing.T) {
+		op := &openapi.Operation{}
+		require.False(t, gen.hasQueryParams(op))
+	})
+
+	t.Run("mixed params includes query", func(t *testing.T) {
+		op := &openapi.Operation{
+			Parameters: openapi.Parameters{
+				{Name: "id", In: "path"},
+				{Name: "verbose", In: "query"},
+			},
+		}
+		require.True(t, gen.hasQueryParams(op))
+	})
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 7: Config constants
+// ---------------------------------------------------------------------------
+
+func TestNamingStrategyConstants(t *testing.T) {
+	require.Equal(t, NamingStrategy(0), NamingKebab)
+	require.Equal(t, NamingStrategy(1), NamingCamel)
+	require.Equal(t, NamingStrategy(2), NamingSnake)
+	require.Equal(t, NamingStrategy(3), NamingFlat)
+}
+
+func TestOperationStyleConstants(t *testing.T) {
+	require.Equal(t, OperationStyle(0), StyleResource)
+	require.Equal(t, OperationStyle(1), StyleHTTP)
+	require.Equal(t, OperationStyle(2), StyleCRUD)
+	require.Equal(t, OperationStyle(3), StyleFlat)
+}
+
+// ---------------------------------------------------------------------------
+// Additional edge-case / integration tests
+// ---------------------------------------------------------------------------
+
+func TestGenerateCommands_OperationWithNoSummary(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	specJSON := `{"openapi":"3.0.0","info":{"title":"Test","version":"1.0"},"paths":{"/items":{"delete":{"operationId":"deleteItem","responses":{"204":{"description":"No Content"}}}}}}`
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(specJSON))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	itemsCmd := commands[0]
+	require.Len(t, itemsCmd.Commands(), 1)
+
+	sub := itemsCmd.Commands()[0]
+	require.Equal(t, "delete-item [flags]", sub.Use)
+	// Summary is empty in spec → Short should be empty
+	require.Empty(t, sub.Short)
+	// Long should still have the API endpoint info
+	require.Contains(t, sub.Long, "DELETE /items")
+}
+
+func TestGenerateCommands_MultipleResources(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	// Two distinct resources: /pets and /stores
+	specJSON := `{"openapi":"3.0.0","info":{"title":"Multi","version":"1.0"},"paths":{"/pets":{"get":{"operationId":"listPets","tags":["pets"],"responses":{"200":{"description":"OK"}}}},"/stores":{"get":{"operationId":"listStores","tags":["stores"],"responses":{"200":{"description":"OK"}}}}}}`
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(specJSON))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 2)
+
+	// Find both resource commands
+	names := make([]string, len(commands))
+	for i, cmd := range commands {
+		names[i] = cmd.Use
+	}
+	require.Contains(t, names, "pets")
+	require.Contains(t, names, "stores")
+}
+
+func TestGenerateCommands_CommandPrefix(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName:       "muster",
+		BaseURL:       "https://api.example.com",
+		CommandPrefix: "api",
+	})
+	require.NoError(t, err)
+
+	doc := loadPetstoreSpec(t)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	// CommandPrefix is stored in config but not currently prepended to
+	// resource command names by buildResourceCommand. The prefix is
+	// available for external wiring.
+	petsCmd := commands[0]
+	require.Equal(t, "pets", petsCmd.Use)
+}
+
+func TestGenerateCommands_RequestBodyFlags(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	doc := loadPetstoreSpec(t)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	petsCmd := commands[0]
+	// createPet has a requestBody with property "name" (string)
+	var createCmd *cobra.Command
+	for _, sub := range petsCmd.Commands() {
+		if strings.HasPrefix(sub.Use, "create-pet") {
+			createCmd = sub
+			break
+		}
+	}
+	require.NotNil(t, createCmd, "should find create-pet subcommand")
+
+	// Should have a --name flag from the request body property
+	nameFlag := createCmd.Flag("name")
+	require.NotNil(t, nameFlag, "create-pet should have --name flag from request body")
+	require.Equal(t, "name (request body)", nameFlag.Usage)
+}
+
+func TestGenerateCommands_PathParamFlag(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	doc := loadPetstoreSpec(t)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	petsCmd := commands[0]
+	// getPetById has a path param "petId" — should appear in usage, NOT as a flag
+	var getCmd *cobra.Command
+	for _, sub := range petsCmd.Commands() {
+		if strings.HasPrefix(sub.Use, "get-pet-by-id") {
+			getCmd = sub
+			break
+		}
+	}
+	require.NotNil(t, getCmd)
+
+	// Path params are positional args in usage, not flags
+	require.Contains(t, getCmd.Use, "<petId>")
+	// Path param should NOT be a flag (addFlags skips In=="path")
+	require.Nil(t, getCmd.Flag("pet-id"), "path params should not become flags")
+}
+
+// ---------------------------------------------------------------------------
+// Additional coverage: addStringFlag, getFlagValue, crudName, operationName
+// ---------------------------------------------------------------------------
+
+func TestAddStringFlag_WithEnum(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	cmd := &cobra.Command{}
+	param := &openapi.Parameter{
+		Name:        "status",
+		Description: "Filter by status",
+		Enum:        []interface{}{"active", "inactive", "pending"},
+		Default:     "active",
+	}
+	gen.addStringFlag(cmd, "status", "s", param, param.Description)
+
+	flag := cmd.Flag("status")
+	require.NotNil(t, flag)
+	require.Contains(t, flag.Usage, "allowed: active, inactive, pending")
+	require.Equal(t, "active", flag.DefValue)
+	require.Equal(t, "s", flag.Shorthand)
+}
+
+func TestAddStringFlag_NoEnum(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	cmd := &cobra.Command{}
+	param := &openapi.Parameter{
+		Name:        "label",
+		Description: "A label",
+		Default:     "default-label",
+	}
+	gen.addStringFlag(cmd, "label", "l", param, param.Description)
+
+	flag := cmd.Flag("label")
+	require.NotNil(t, flag)
+	require.Equal(t, "A label", flag.Usage)
+	require.Equal(t, "default-label", flag.DefValue)
+	require.Equal(t, "l", flag.Shorthand)
+}
+
+func TestGetFlagValue(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	t.Run("string", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("name", "", "")
+		_ = cmd.Flags().Set("name", "test-value")
+		val, err := gen.getFlagValue(cmd, "Name", "string")
+		require.NoError(t, err)
+		require.Equal(t, "test-value", val)
+	})
+
+	t.Run("integer", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Int("limit", 0, "")
+		_ = cmd.Flags().Set("limit", "42")
+		val, err := gen.getFlagValue(cmd, "Limit", "integer")
+		require.NoError(t, err)
+		require.Equal(t, 42, val)
+	})
+
+	t.Run("number", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Float64("ratio", 0, "")
+		_ = cmd.Flags().Set("ratio", "3.14")
+		val, err := gen.getFlagValue(cmd, "Ratio", "number")
+		require.NoError(t, err)
+		require.Equal(t, 3.14, val)
+	})
+
+	t.Run("boolean", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("verbose", false, "")
+		_ = cmd.Flags().Set("verbose", "true")
+		val, err := gen.getFlagValue(cmd, "Verbose", "boolean")
+		require.NoError(t, err)
+		require.Equal(t, true, val)
+	})
+
+	t.Run("array", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().StringSlice("tags", nil, "")
+		_ = cmd.Flags().Set("tags", "a,b,c")
+		val, err := gen.getFlagValue(cmd, "Tags", "array")
+		require.NoError(t, err)
+		require.ElementsMatch(t, []string{"a", "b", "c"}, val.([]string))
+	})
+
+	t.Run("default/unknown type", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		cmd.Flags().String("custom", "", "")
+		_ = cmd.Flags().Set("custom", "fallback")
+		val, err := gen.getFlagValue(cmd, "Custom", "unknown-type")
+		require.NoError(t, err)
+		require.Equal(t, "fallback", val)
+	})
+}
+
+func TestCrudName_AllMethods(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	t.Run("GET collection", func(t *testing.T) {
+		result := gen.crudName("GET", "/users")
+		require.Equal(t, "list-users", result)
+	})
+
+	t.Run("GET single resource", func(t *testing.T) {
+		result := gen.crudName("GET", "/users/{id}")
+		require.Equal(t, "get-user", result)
+	})
+
+	t.Run("POST", func(t *testing.T) {
+		result := gen.crudName("POST", "/users")
+		require.Equal(t, "create-user", result)
+	})
+
+	t.Run("PUT", func(t *testing.T) {
+		result := gen.crudName("PUT", "/users/{id}")
+		require.Equal(t, "update-user", result)
+	})
+
+	t.Run("PATCH", func(t *testing.T) {
+		result := gen.crudName("PATCH", "/users/{id}")
+		require.Equal(t, "update-user", result)
+	})
+
+	t.Run("DELETE", func(t *testing.T) {
+		result := gen.crudName("DELETE", "/users/{id}")
+		require.Equal(t, "delete-user", result)
+	})
+
+	t.Run("unknown method", func(t *testing.T) {
+		result := gen.crudName("OPTIONS", "/users")
+		require.Equal(t, "options", result)
+	})
+}
+
+func TestGetCommandName_CustomMapping(t *testing.T) {
+	gen, _ := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+		CustomMappings: map[string]string{
+			"listPets": "my-custom-list",
+		},
+	})
+
+	op := &openapi.Operation{
+		ID:     "listPets",
+		Path:   "/pets",
+		Method: "GET",
+	}
+	result := gen.getCommandName(op)
+	require.Equal(t, "my-custom-list", result)
+}
+
+func TestGetCommandName_NoCustomMapping(t *testing.T) {
+	gen, _ := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+
+	op := &openapi.Operation{
+		ID:     "listPets",
+		Path:   "/pets",
+		Method: "GET",
+	}
+	result := gen.getCommandName(op)
+	require.Equal(t, "list-pets", result)
+}
+
+func TestOperationName_StyleHTTP(t *testing.T) {
+	gen, _ := NewGenerator(Config{
+		AppName:        "muster",
+		BaseURL:        "https://api.example.com",
+		OperationStyle: StyleHTTP,
+	})
+
+	result := gen.operationName("GET", "/users")
+	require.Equal(t, "get-users", result)
+}
+
+func TestOperationName_StyleFlat(t *testing.T) {
+	gen, _ := NewGenerator(Config{
+		AppName:        "muster",
+		BaseURL:        "https://api.example.com",
+		OperationStyle: StyleFlat,
+	})
+
+	result := gen.operationName("GET", "/users")
+	require.Equal(t, "get-users", result)
+}
+
+func TestBuildUsage_OptionalPathParam(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	op := &openapi.Operation{
+		Method: "GET",
+		Path:   "/users/{id}",
+		Parameters: openapi.Parameters{
+			{Name: "id", In: "path", Required: false},
+		},
+	}
+	result := gen.buildUsage("get", op)
+	// Optional path param gets wrapped in brackets
+	require.Equal(t, "get [<id>] [flags]", result)
+}
+
+func TestBuildUsage_MultiplePathParams(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	op := &openapi.Operation{
+		Method: "GET",
+		Path:   "/orgs/{orgId}/users/{userId}",
+		Parameters: openapi.Parameters{
+			{Name: "orgId", In: "path", Required: true},
+			{Name: "userId", In: "path", Required: true},
+		},
+	}
+	result := gen.buildUsage("get", op)
+	require.Equal(t, "get <orgId> <userId> [flags]", result)
+}
+
+func TestExtractResource_TagFallback(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	t.Run("uses first tag", func(t *testing.T) {
+		op := &openapi.Operation{
+			Path: "/api/v1/users",
+			Tags: []string{"Users"},
+		}
+		result := gen.extractResource(op)
+		require.Equal(t, "users", result)
+	})
+
+	t.Run("no tags, uses path", func(t *testing.T) {
+		op := &openapi.Operation{
+			Path: "/api/v1/orders",
+		}
+		result := gen.extractResource(op)
+		require.Equal(t, "api", result)
+	})
+
+	t.Run("no tags, empty path", func(t *testing.T) {
+		op := &openapi.Operation{
+			Path: "/",
+		}
+		result := gen.extractResource(op)
+		// strings.Split(strings.Trim("/", "/"), "/") returns [""] (len=1),
+		// so normalizeName("") returns "" — not "default"
+		require.Equal(t, "", result)
+	})
+}
+
+func TestIsExcluded_ResourceMatch(t *testing.T) {
+	gen, _ := NewGenerator(Config{
+		AppName:     "muster",
+		BaseURL:     "https://api.example.com",
+		ExcludeTags: []string{"admin"},
+	})
+
+	// Resource name matches excluded tag directly
+	require.True(t, gen.isExcluded("admin", nil))
+	// Resource name doesn't match
+	require.False(t, gen.isExcluded("users", nil))
+}
+
+func TestIsExcluded_IncludeOnlyResourceMatch(t *testing.T) {
+	gen, _ := NewGenerator(Config{
+		AppName:         "muster",
+		BaseURL:         "https://api.example.com",
+		IncludeOnlyTags: []string{"users"},
+	})
+
+	// Resource name matches included tag
+	require.False(t, gen.isExcluded("users", nil))
+	// Resource name doesn't match
+	require.True(t, gen.isExcluded("posts", nil))
 }
