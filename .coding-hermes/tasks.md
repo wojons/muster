@@ -86,10 +86,7 @@
 - **Priority:** medium
 - **Model:** deepseek-v4-pro (direct write, no spawn)
 
-## [ ] Add unit tests for pkg/repository/sql (AC-327)
+## [x] Add unit tests for pkg/repository/sql (AC-327)
+- **Completed:** 2026-06-20 — 44 tests, all pass. Covers all 5 repository types with in-memory SQLite. Base (NewRepository, NewSQLRepository, GetQuerySet valid+unsupported, DB). Inventory (New, Create+GetByID, NotFound, Update, Delete, List, Pagination, Count, Search). RateLimit (New, Create+GetByID, GetByKey found+notfound, Update, Delete, DeleteByKey, Cleanup, Increment). Audit (New, Create+GetByID, GetByEntity, List, Count, Cleanup). Fingerprint (New, Create+GetByID, GetBySpec, GetByHash, Update, Delete, DeleteBySpec, Exists true+false). Alias (New, Create+GetByID, GetByName, GetByInventory, GetByModule, Update, Delete, DeleteByInventory).
 - **Priority:** medium
-- **Model:** deepseek-v4-pro
-- **Files:** pkg/repository/sql/repository_test.go (NEW)
-- **Scope:** 6 files, ~974 lines. Larger package — split into sub-files per repository type if needed.
-- **Tests needed:** SQLiteRepository (New/open/close/migrate/transaction), InventoryRepository (CRUD/filtering/pagination), RateLimitRepository (buckets/updates/resets), AuditRepository (log/query/filter/retention), FingerprintRepository (store/match/lookup), AliasRepository (CRUD/lookup)
-- **AC:** `go test ./pkg/repository/sql/... -count=1` passes. 20+ test functions. Use in-memory SQLite for isolation.
+- **Model:** deepseek-v4-pro (direct write, no spawn)
