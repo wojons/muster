@@ -7,9 +7,7 @@
 **Last run:** 2026-06-20 (cron foreman tick)
 **Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. All packages pass (except test/stability). Demo: 23/23 checks pass.
 **Completed this run:**
-  - AC-326: ✅ Unit tests for pkg/auth/ratelimit — 38 tests, TokenBucket + TokenBucketLimiter, all pass.
-  - AC-327: ✅ Unit tests for pkg/repository/sql — 44 tests, all 5 repository types with in-memory SQLite, all pass.
-  - Demo fix: ✅ Fixed demo/run-all.sh to use project .venv (flask not in system Python).
+  - AC-328: ✅ Unit tests for internal/monitoring — 18 test functions, MetricRecorder + MetricsServer, all pass.
 **Previous runs:**
   - AC-290: Real D-Bus Secret Service protocol — stubs replaced with full godbus/dbus/v5 implementation (~290 lines).
   - AC-322: Unit tests for pkg/openapi — 28 test functions + 10 subtests, 38 total. All pass.
@@ -311,6 +309,7 @@
 
 ## Passed Criteria
 
+### AC-328: Unit tests for internal/monitoring ✅ (2026-06-20) — 18 test functions, all pass. Covers NewMetricRecorder (validates tenantID/registry/logger), RecordCommandExecution (verifies counter+histogram via Gather), RecordCommandError, RecordMCPRequest, RecordToolExecution, RecordProxyRequest, RecordCacheHit, RecordCacheMiss, IncDecMCPConnections, IncDecDaemonSocketConnections, ConcurrentAccess (20 goroutines), DifferentTenantIDs, NewMetricsServer, StartAndShutdown (health+metrics endpoints on :19999), HealthEndpoints (all 4: /health, /health/live, /health/ready, /health/startup verify 200+JSON), ShutdownNilServer, NamespaceConstants, GlobalMetricsRegistered (all 11 globals non-nil).
 ### AC-327: Unit tests for pkg/repository/sql ✅ (2026-06-20) — 44 tests covering all 5 repository types with in-memory SQLite. Base (NewRepository, NewSQLRepository, GetQuerySet valid+unsupported, DB). Inventory (New, Create+GetByID, NotFound, Update, Delete, List, Pagination, Count, Search). RateLimit (New, Create+GetByID, GetByKey found+notfound, Update, Delete, DeleteByKey, Cleanup, Increment). Audit (New, Create+GetByID, GetByEntity, List, Count, Cleanup). Fingerprint (New, Create+GetByID, GetBySpec, GetByHash, Update, Delete, DeleteBySpec, Exists). Alias (New, Create+GetByID, GetByName, GetByInventory, GetByModule, Update, Delete, DeleteByInventory).
 ### AC-326: Unit tests for pkg/auth/ratelimit ✅ (2026-06-20) — 38 tests, all pass. TokenBucket (New/defaults/zero cap/zero fill, Allow burst+refill, AllowN valid/zero/negative/exceeds/non-pos, Tokens initial/after/refill, SetRate valid/zero/negative, ConcurrentAccess/AllowN/TokensAndAllow/SetRate, ExhaustionAndRefill) + TokenBucketLimiter (New valid/zero rate/zero burst, Allow under/nil-limiter/nil-bucket/refill, Wait under/nil-limiter/nil-bucket/eventually, Rate valid/nil-limiter/nil-bucket/zero).
 ### AC-325: Unit tests for pkg/cmdstore ✅ (2026-06-20) — 28 tests covering all exported API: NewCommandStore (3 paths), Commands (5: memory/disk/empty/load error/cached), HasData (5: empty/commands/disk/no-path/empty file), Load (4: from meta/from disk/empty/no stored data), Save (6: nil data/nil no-panic/no path/persist/nested dir/empty commands), LoadCommands (populated+empty), ReconstructCommand, CommandMetadata, FlagMetadata (JSON tags + JSONName), FlagKind constants, StoredData, concurrent access, save overwrite, commands cached after load
