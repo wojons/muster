@@ -1,5 +1,14 @@
 # Coding Tasks — Muster
 
+## [ ] Add unit tests for pkg/auth (AC-330)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/auth/token_test.go (NEW), pkg/auth/oauth2_ratelimit_test.go (NEW)
+- **Scope:** token.go (37 lines, Token.IsExpired), oauth2_ratelimit.go (199 lines, OAuthRateLimiter — in-memory, no external deps, fully testable). FileKeychain in keychain.go is also testable (file-based storage) but requires temp dirs — separate task.
+- **Tests needed (token.go):** IsExpired (past expiry, future expiry, zero time, nil token)
+- **Tests needed (oauth2_ratelimit.go):** NewOAuthRateLimiter, AllowTokenRequest (under limit, over limit, zero config), RecordFailedAttempt, RecordSuccessfulAttempt, checkAccountLockout (locked, not locked, expired lockout), AllowDeviceCodePoll, AllowCallbackRequest, GetFailedAttempts, ResetFailedAttempts, Configure, concurrent access
+- **AC:** `go test ./pkg/auth/... -count=1 -run "TestToken_IsExpired|TestOAuth"` passes. 10+ test functions.
+
 ## [x] Add unit tests for internal/telemetry (AC-329)
 - **Completed:** 2026-06-20 — 21 test functions, all pass. Covers NewTracer, Start (basic/with SpanKind+Attributes/NoOptions), End (valid+nil), SetAttribute (string/int/int64/float64/bool/unknown+nil), SetAttributeInt (valid+nil), SetAttributeBool (valid+nil), RecordError (valid+nil error+nil span), SetOK (valid+nil), WithSpanKind, WithAttributes, ContextPropagation. Uses tracetest.SpanRecorder for in-memory verification.
 - **Priority:** medium
