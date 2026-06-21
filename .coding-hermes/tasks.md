@@ -86,6 +86,13 @@
 - **Priority:** medium
 - **Model:** deepseek-v4-pro (direct write, no spawn)
 
+## [ ] Add unit tests for internal/monitoring (AC-328)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** internal/monitoring/metrics_test.go (NEW)
+- **Scope:** metrics.go (297 lines). Prometheus metrics setup.
+- **Tests needed:** NewMetrics, RegisterCounter/RegisterGauge/RegisterHistogram, IncrementCounter, SetGauge, ObserveHistogram, handler setup, middleware
+- **AC:** `go test ./internal/monitoring/... -count=1` passes. 10+ test functions.
 ## [x] Add unit tests for pkg/repository/sql (AC-327)
 - **Completed:** 2026-06-20 — 44 tests, all pass. Covers all 5 repository types with in-memory SQLite. Base (NewRepository, NewSQLRepository, GetQuerySet valid+unsupported, DB). Inventory (New, Create+GetByID, NotFound, Update, Delete, List, Pagination, Count, Search). RateLimit (New, Create+GetByID, GetByKey found+notfound, Update, Delete, DeleteByKey, Cleanup, Increment). Audit (New, Create+GetByID, GetByEntity, List, Count, Cleanup). Fingerprint (New, Create+GetByID, GetBySpec, GetByHash, Update, Delete, DeleteBySpec, Exists true+false). Alias (New, Create+GetByID, GetByName, GetByInventory, GetByModule, Update, Delete, DeleteByInventory).
 - **Priority:** medium
