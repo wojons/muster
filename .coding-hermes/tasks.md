@@ -1,5 +1,50 @@
 # Coding Tasks — Muster
 
+## [ ] Add unit tests for pkg/generator (AC-331)
+- **Priority:** high
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/generator/generator_test.go (NEW)
+- **Scope:** generator.go (1004 lines, 41 functions/types). Core engine — parses OpenAPI specs and generates Cobra commands. Currently 48.6% coverage.
+- **Tests needed:** NewGenerator (valid/invalid config), Config.Validate (valid/missing AppName/missing BaseURL), GenerateCommands (petstore spec/has operations/nil spec), buildResourceCommand, buildOperationCommand, buildUsage, buildLongDescription, buildExample, inferResourceName, hasQueryParams, inferShorthand, NamingStrategy constants, OperationStyle constants
+- **AC:** `go test ./pkg/generator/... -count=1` passes. 15+ test functions. Use embedded petstore JSON as test spec.
+- **Spec:** pkg/generator/generator.go — well-documented package with example usage in godoc.
+
+## [ ] Add unit tests for pkg/config/loader (AC-332)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/config/loader_test.go (NEW)
+- **Scope:** loader.go (336 lines, 25 functions/types). Config file loading + env overrides. Currently 33.4% coverage.
+- **Tests needed:** NewLoader, Load (from YAML file/missing file/invalid YAML), Load (package-level function), Loader.SetConfigFile, setDefaultPaths, applyEnvOverrides, BindPFlags, BindEnvVar, GetViper, ApplyCLIFlags, ConfigManager (New/Config/GetDefaultProfile), ProfileManager (New)
+- **AC:** `go test ./pkg/config/... -count=1 -run "TestLoader|TestConfigManager|TestProfile"` passes. 15+ test functions. Use temp YAML files.
+- **Spec:** pkg/config/loader.go
+
+## [ ] Add unit tests for pkg/mcp/openapi_integration (AC-333)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/mcp/openapi_integration_test.go (NEW)
+- **Scope:** openapi_integration.go (463 lines, 23 functions/types). Bridges OpenAPI specs to MCP tool registry. Currently 17.7% coverage.
+- **Tests needed:** NewIntegration, RegisterSpec (valid/missing file/invalid spec), ListTools, GetTool, CallTool (valid/invalid tool/without base URL), toolNameToMethod, buildInputSchema, buildToolDescription
+- **AC:** `go test ./pkg/mcp/... -count=1 -run "TestIntegration|TestOpenAPI"` passes. 12+ test functions. Use petstore spec.
+- **Spec:** pkg/mcp/openapi_integration.go
+
+## [ ] Add unit tests for pkg/wasm/middleware (AC-334)
+- **Priority:** low
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/wasm/middleware_test.go (NEW)
+- **Scope:** middleware.go (211 lines, 15 functions/types). WASM request/response interceptor with middleware wrapping. Currently 16.4% coverage.
+- **Tests needed:** NewInterceptor, NewInterceptorWithLimits, RegisteredPlugins (empty/after register), Close, Interceptor.Middleware (wraps handler/passes through/plugin not found), captureResponseWriter (Write/WriteHeader/Flush), isJSONContentType
+- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestInterceptor|TestCapture"` passes. 12+ test functions. Use httptest.
+- **Spec:** pkg/wasm/middleware.go
+
+## [ ] Add unit tests for pkg/errors (AC-335)
+- **Priority:** low
+- **Model:** deepseek-v4-flash
+- **Files:** pkg/errors/errors_test.go (existing, extend)
+- **Scope:** errors.go. Currently 71.4% coverage — just needs edge cases to reach 80%+.
+- **Tests needed:** Errorf (format string/with args/empty format), Code (on nil error), Message (on nil error), Severity (on nil error), Details (on nil error), Unwrap (unwrapped error/nil cause), WithDetail (chain multiple/on nil), WithSeverity (all levels/on nil)
+- **AC:** `go test ./pkg/errors/... -count=1` passes. errors.go coverage > 80%. 8+ new test assertions.
+- **Spec:** pkg/errors/errors.go (existing test file: pkg/errors/errors_test.go)
+
 ## [x] Add unit tests for pkg/auth (AC-330)
 - **Completed:** 2026-06-21 — 35 test functions, all pass. token_test.go: 7 tests (IsExpired past/future/grace/boundary/zero/nil/empty). oauth2_ratelimit_test.go: 28 tests (NewOAuthRateLimiter defaults+rates, AllowTokenRequest under/over/locked/not-locked-under/exact-threshold/refill, RecordFailedAttempt single/multi/new, RecordSuccessfulAttempt clears/nonexistent, AllowDeviceCodePoll under/over, AllowCallbackRequest under/over, GetFailedAttempts not-tracked+after-multi, ResetFailedAttempts clears/nonexistent, Configure updates/zero-max/zero-lockout, Concurrent failed-attempts/record-reset/allow-record). No spawn — direct write.
 
