@@ -122,3 +122,151 @@ func TestAllSeverities(t *testing.T) {
 		}
 	}
 }
+
+// =============================================================================
+// NEW TESTS — edge cases for remaining gaps
+// =============================================================================
+
+func TestErrorf(t *testing.T) {
+	t.Run("simple format", func(t *testing.T) {
+		err := Errorf(CodeBadRequest, "bad %s", "input")
+		if err.Code() != CodeBadRequest {
+			t.Errorf("expected CodeBadRequest, got %s", err.Code())
+		}
+		if err.Message() != "bad input" {
+			t.Errorf("expected 'bad input', got %s", err.Message())
+		}
+	})
+
+	t.Run("format with multiple args", func(t *testing.T) {
+		err := Errorf(CodeNotFound, "resource %s not found in %s", "user-123", "database")
+		if err.Message() != "resource user-123 not found in database" {
+			t.Errorf("unexpected message: %s", err.Message())
+		}
+	})
+
+	t.Run("format with no args", func(t *testing.T) {
+		err := Errorf(CodeGeneric, "something happened")
+		if err.Message() != "something happened" {
+			t.Errorf("unexpected message: %s", err.Message())
+		}
+	})
+
+	t.Run("format with integers", func(t *testing.T) {
+		err := Errorf(CodeValidation, "expected %d items, got %d", 5, 3)
+		if err.Message() != "expected 5 items, got 3" {
+			t.Errorf("unexpected message: %s", err.Message())
+		}
+	})
+}
+
+func TestNilReceiverMethods(t *testing.T) {
+	var err *AppError = nil
+
+	t.Run("Code on nil", func(t *testing.T) {
+		if err.Code() != "" {
+			t.Error("expected empty code on nil")
+		}
+	})
+
+	t.Run("Message on nil", func(t *testing.T) {
+		if err.Message() != "" {
+			t.Error("expected empty message on nil")
+		}
+	})
+
+	t.Run("Severity on nil", func(t *testing.T) {
+		if err.Severity() != "" {
+			t.Error("expected empty severity on nil")
+		}
+	})
+
+	t.Run("Details on nil", func(t *testing.T) {
+		if err.Details() != nil {
+			t.Error("expected nil details on nil receiver")
+		}
+	})
+
+	t.Run("Unwrap on nil", func(t *testing.T) {
+		if err.Unwrap() != nil {
+			t.Error("expected nil return from nil receiver Unwrap")
+		}
+	})
+
+	t.Run("Error string on nil", func(t *testing.T) {
+		if err.Error() != "" {
+			t.Error("expected empty error string on nil")
+		}
+	})
+
+	t.Run("WithDetail on nil", func(t *testing.T) {
+		result := err.WithDetail("key", "value")
+		if result != nil {
+			t.Error("expected nil return from WithDetail on nil")
+		}
+	})
+
+	t.Run("WithSeverity on nil", func(t *testing.T) {
+		result := err.WithSeverity(SeverityHigh)
+		if result != nil {
+			t.Error("expected nil return from WithSeverity on nil")
+		}
+	})
+}
+
+func TestUnwrap_NoCause(t *testing.T) {
+	t.Run("new error has nil cause", func(t *testing.T) {
+		err := New(CodeNotFound, "not found")
+		if err.Unwrap() != nil {
+			t.Error("expected nil cause for new error")
+		}
+	})
+}
+
+func TestIsError_EdgeCases(t *testing.T) {
+	t.Run("nil error returns false", func(t *testing.T) {
+		if IsError(nil, CodeNotFound) {
+			t.Error("expected false for nil error")
+		}
+	})
+
+	t.Run("non-AppError that is nil", func(t *testing.T) {
+		var plain error = nil
+		if IsError(plain, CodeGeneric) {
+			t.Error("expected false for nil plain error")
+		}
+	})
+}
+
+func TestWithDetail_NilDetails(t *testing.T) {
+	t.Run("add detail when details map is nil", func(t *testing.T) {
+		err := &AppError{code: CodeGeneric, message: "test"}
+		// details map is nil initially
+		result := err.WithDetail("key", "value")
+		if result != err {
+			t.Error("expected same error returned")
+		}
+		if result.Details()["key"] != "value" {
+			t.Error("expected detail to be set")
+		}
+	})
+}
+
+func TestWithSeverity_AllLevels(t *testing.T) {
+	levels := map[Severity]string{
+		SeverityCritical: "critical",
+		SeverityHigh:     "high",
+		SeverityMedium:   "medium",
+		SeverityLow:      "low",
+		SeverityInfo:     "info",
+	}
+
+	for sev, name := range levels {
+		t.Run(name, func(t *testing.T) {
+			err := New(CodeGeneric, "test").WithSeverity(sev)
+			if err.Severity() != sev {
+				t.Errorf("expected severity %s, got %s", sev, err.Severity())
+			}
+		})
+	}
+}
