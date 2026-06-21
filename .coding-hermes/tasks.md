@@ -114,3 +114,43 @@
 - **Completed:** 2026-06-20 — 44 tests, all pass. Covers all 5 repository types with in-memory SQLite. Base (NewRepository, NewSQLRepository, GetQuerySet valid+unsupported, DB). Inventory (New, Create+GetByID, NotFound, Update, Delete, List, Pagination, Count, Search). RateLimit (New, Create+GetByID, GetByKey found+notfound, Update, Delete, DeleteByKey, Cleanup, Increment). Audit (New, Create+GetByID, GetByEntity, List, Count, Cleanup). Fingerprint (New, Create+GetByID, GetBySpec, GetByHash, Update, Delete, DeleteBySpec, Exists true+false). Alias (New, Create+GetByID, GetByName, GetByInventory, GetByModule, Update, Delete, DeleteByInventory).
 - **Priority:** medium
 - **Model:** deepseek-v4-pro (direct write, no spawn)
+
+## [ ] Add unit tests for pkg/daemon/token_manager (AC-336)
+- **Priority:** high
+- **Model:** MiniMax-M3
+- **Files:** pkg/daemon/token_manager_test.go (NEW)
+- **Tests:** Test NewTokenManager, AddToken (valid token appears in map), RemoveToken (removes from map, removing non-existent is no-op), Validate (valid token returns true, invalid returns false, empty string, after remove), ValidateFromHeader (valid Bearer prefix, missing Bearer prefix, empty header, case sensitivity on prefix, trimmed token matches)
+- **AC:** `go test ./pkg/daemon/... -count=1 -run "TestTokenManager" -timeout 30s` passes. 10+ test functions.
+- **Package:** pkg/daemon/token_manager.go (50 lines, 5 exported functions, all at 0% coverage)
+
+## [ ] Add unit tests for pkg/mcp/server (AC-337)
+- **Priority:** high
+- **Model:** MiniMax-M3
+- **Files:** pkg/mcp/server_test.go (NEW)
+- **Tests:** Test NewServer (creates with stdin/stdout/stderr, handlers nil initially), Run (valid io.Pipe setup, shutdown via context), registerHandlers (initialize+initialized+list_tools+call_tool all registered), handleRequest (valid initialize request, valid tools/list, valid tools/call, invalid method, malformed JSON), sendResponse (marshals to valid JSON-RPC, writes to stdout), sendError (marshals error response, correct error code), writeResponse (nil id → notification style), Shutdown (closes shutdownChan, IsInitialized returns false), RegisterHandler (adds handler to registry), mustMarshal (valid struct, panics on unmarshalable)
+- **AC:** `go test ./pkg/mcp/... -count=1 -run "TestServer" -timeout 30s` passes. 15+ test functions. Use `io.Pipe()` for stdin/stdout.
+- **Package:** pkg/mcp/server.go (201 lines, all 0% coverage)
+
+## [ ] Add unit tests for pkg/mcp/registry (AC-338)
+- **Priority:** high
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/mcp/registry_test.go (NEW)
+- **Tests:** Test NewOpenAPIRegistry (creates with tool list and configs, empty tools, nil configs), ListCommands (populated, empty), GetCommand (found by name, not found), ListTools (populated returns Tool array, empty), NewOpenAPIExecutor (creates with configs, empty configs), Execute (found config/baseURL, unknown config, nil registry), ConvertToTools (valid OpenAPI operation, nil operation, operation with no parameters), ExecuteCommand (found, not found), AddCommand (adds, empty name), RemoveCommand (removes, non-existent), UpdateCommand (updates, non-existent), NewConverter (with baseURL, empty baseURL), classifyParams (path param, query param, header param, cookie param, unknown location), validateArgs (required present, required missing, optional missing OK, extra args OK), getString (string value, non-string → empty), isRequired (required param, optional param), extractPathParams (path with params, path without params, complex path), isPathParam (matched, not matched), paramTypeToJSONSchema (string→string, integer→number, boolean→boolean, array→array, object→object, nil→object), bodyPropTypeToJSONSchema (same 6 types)
+- **AC:** `go test ./pkg/mcp/... -count=1 -run "TestRegistry|TestConverter|TestTypeMapping" -timeout 30s` passes. 20+ test functions. Use openapi3.Operation + openapi3.Parameter stubs for ConvertToTools.
+- **Package:** pkg/mcp/registry.go (507 lines, 21 functions, all 0% coverage)
+
+## [ ] Add unit tests for pkg/mcp/handlers types (AC-339)
+- **Priority:** medium
+- **Model:** MiniMax-M3
+- **Files:** pkg/mcp/handlers/types_test.go (NEW)
+- **Tests:** Test NewRegistry (creates empty, register then get), Register (adds handler, duplicate name overwrites), Get (found, not found), Handle (valid request → JSON-RPC response, unknown method → error, method not found → error, nil request → error), NewInitializeHandler (returns valid handler, Method returns "initialize", Handle returns serverInfo), NewInitializedHandler (returns valid handler, Method returns "notifications/initialized"), NewListToolsHandler (creates with registry, empty → empty tools, populated → tools in response), NewCallToolHandler (creates with executor, method returns "tools/call", Handle valid → result, Handle unknown → error), ToHandlersTool (valid command → Tool with inputSchema, nil command → empty Tool), Methods (returns method string), Error (formats error message)
+- **AC:** `go test ./pkg/mcp/handlers/... -count=1 -run "TestHandler|TestRegistry" -timeout 30s` passes. 15+ test functions. Use JSON-RPC request/response fixtures.
+- **Package:** pkg/mcp/handlers/types.go (308 lines, 13 functions, most at 0% coverage)
+
+## [ ] Add unit tests for pkg/cmdstore/loader (AC-340)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/cmdstore/loader_test.go (NEW)
+- **Tests:** Test NewLoader (valid store, nil store), LoadCommands (empty store, with commands, store error), GetBaseURL (configured, empty), SetHeaders (sets headers map, overwrites), reconstructCommand (valid cmd metadata → cobra.Command, nil metadata, empty name), getFlagValue (string flag, int flag, bool flag, nil flag), executeAndReadResponse (mocked HTTP server 200, 404, connection refused), createRunHandler (valid cmd → handler func, wrong args → error)
+- **AC:** `go test ./pkg/cmdstore/... -count=1 -run "TestLoader" -timeout 30s` passes. 12+ test functions. Use httptest.NewServer for executeAndReadResponse.
+- **Package:** pkg/cmdstore/loader.go (332 lines, 8 exported functions, all 0% coverage)
