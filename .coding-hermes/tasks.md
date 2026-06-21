@@ -1,5 +1,9 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for internal/telemetry (AC-329)
+- **Completed:** 2026-06-20 — 21 test functions, all pass. Covers NewTracer, Start (basic/with SpanKind+Attributes/NoOptions), End (valid+nil), SetAttribute (string/int/int64/float64/bool/unknown+nil), SetAttributeInt (valid+nil), SetAttributeBool (valid+nil), RecordError (valid+nil error+nil span), SetOK (valid+nil), WithSpanKind, WithAttributes, ContextPropagation. Uses tracetest.SpanRecorder for in-memory verification.
+- **Priority:** medium
+
 ## [x] Fix repo README.md for open source
 - **Completed:** MIT license, all 7 surfaces, correct URLs/commands, real quickstart
 

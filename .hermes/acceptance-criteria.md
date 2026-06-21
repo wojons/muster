@@ -8,6 +8,7 @@
 **Run status:** 🟢 ALL-CLEAR. go build ./... clean. go vet ./... clean. All packages pass (except test/stability). Demo: 23/23 checks pass.
 **Completed this run:**
   - AC-328: ✅ Unit tests for internal/monitoring — 18 test functions, MetricRecorder + MetricsServer, all pass.
+  - AC-329: ✅ Unit tests for internal/telemetry — 21 test functions, Tracer + Span wrappers with tracetest, all pass.
 **Previous runs:**
   - AC-290: Real D-Bus Secret Service protocol — stubs replaced with full godbus/dbus/v5 implementation (~290 lines).
   - AC-322: Unit tests for pkg/openapi — 28 test functions + 10 subtests, 38 total. All pass.
@@ -309,6 +310,7 @@
 
 ## Passed Criteria
 
+### AC-329: Unit tests for internal/telemetry ✅ (2026-06-20) — 21 test functions, all pass. Covers NewTracer (valid), Tracer.Start (basic/with SpanKind+Attributes/NoOptions/ContextPropagation), Span.End (valid+nil), Span.SetAttribute (type switch: string/int/int64/float64/bool/unknown+nil), SetAttributeInt (valid+nil), SetAttributeBool (valid+nil), RecordError (valid error+nil error+nil span), SetOK (valid+nil), WithSpanKind (option applies), WithAttributes (option applies). Uses tracetest.SpanRecorder for in-memory span verification.
 ### AC-328: Unit tests for internal/monitoring ✅ (2026-06-20) — 18 test functions, all pass. Covers NewMetricRecorder (validates tenantID/registry/logger), RecordCommandExecution (verifies counter+histogram via Gather), RecordCommandError, RecordMCPRequest, RecordToolExecution, RecordProxyRequest, RecordCacheHit, RecordCacheMiss, IncDecMCPConnections, IncDecDaemonSocketConnections, ConcurrentAccess (20 goroutines), DifferentTenantIDs, NewMetricsServer, StartAndShutdown (health+metrics endpoints on :19999), HealthEndpoints (all 4: /health, /health/live, /health/ready, /health/startup verify 200+JSON), ShutdownNilServer, NamespaceConstants, GlobalMetricsRegistered (all 11 globals non-nil).
 ### AC-327: Unit tests for pkg/repository/sql ✅ (2026-06-20) — 44 tests covering all 5 repository types with in-memory SQLite. Base (NewRepository, NewSQLRepository, GetQuerySet valid+unsupported, DB). Inventory (New, Create+GetByID, NotFound, Update, Delete, List, Pagination, Count, Search). RateLimit (New, Create+GetByID, GetByKey found+notfound, Update, Delete, DeleteByKey, Cleanup, Increment). Audit (New, Create+GetByID, GetByEntity, List, Count, Cleanup). Fingerprint (New, Create+GetByID, GetBySpec, GetByHash, Update, Delete, DeleteBySpec, Exists). Alias (New, Create+GetByID, GetByName, GetByInventory, GetByModule, Update, Delete, DeleteByInventory).
 ### AC-326: Unit tests for pkg/auth/ratelimit ✅ (2026-06-20) — 38 tests, all pass. TokenBucket (New/defaults/zero cap/zero fill, Allow burst+refill, AllowN valid/zero/negative/exceeds/non-pos, Tokens initial/after/refill, SetRate valid/zero/negative, ConcurrentAccess/AllowN/TokensAndAllow/SetRate, ExhaustionAndRefill) + TokenBucketLimiter (New valid/zero rate/zero burst, Allow under/nil-limiter/nil-bucket/refill, Wait under/nil-limiter/nil-bucket/eventually, Rate valid/nil-limiter/nil-bucket/zero).
