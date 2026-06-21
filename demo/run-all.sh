@@ -17,6 +17,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Use project venv if available (Python3 may lack flask)
+if [ -f "$(dirname "$0")/../.venv/bin/python3" ]; then
+  PYTHON="$(cd "$(dirname "$0")/.." && pwd)/.venv/bin/python3"
+else
+  PYTHON="python3"
+fi
+export PATH="$(cd "$(dirname "$0")/.." && pwd)/.venv/bin:$PATH"
+
 [[ "$*" == *"--keep-running"* ]] && KEEP=1
 
 # ── Build ────────────────────────────────────────────────────
@@ -42,7 +50,7 @@ SERVICES=(
 for entry in "${SERVICES[@]}"; do
   SCRIPT="${entry%%:*}"; REST="${entry#*:}"; PORT="${REST%%:*}"; NAME="${REST#*:}"
   echo -n "  $NAME (:$PORT)... "
-  PORT=$PORT python3 "$SCRIPT" &>/dev/null &
+  PORT=$PORT $PYTHON "$SCRIPT" &>/dev/null &
   PIDS+=($!)
   # Wait for health
   for i in $(seq 1 20); do
