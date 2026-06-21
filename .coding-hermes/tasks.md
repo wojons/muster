@@ -1,13 +1,7 @@
 # Coding Tasks — Muster
 
-## [ ] Add unit tests for pkg/auth (AC-330)
-- **Priority:** medium
-- **Model:** deepseek-v4-pro
-- **Files:** pkg/auth/token_test.go (NEW), pkg/auth/oauth2_ratelimit_test.go (NEW)
-- **Scope:** token.go (37 lines, Token.IsExpired), oauth2_ratelimit.go (199 lines, OAuthRateLimiter — in-memory, no external deps, fully testable). FileKeychain in keychain.go is also testable (file-based storage) but requires temp dirs — separate task.
-- **Tests needed (token.go):** IsExpired (past expiry, future expiry, zero time, nil token)
-- **Tests needed (oauth2_ratelimit.go):** NewOAuthRateLimiter, AllowTokenRequest (under limit, over limit, zero config), RecordFailedAttempt, RecordSuccessfulAttempt, checkAccountLockout (locked, not locked, expired lockout), AllowDeviceCodePoll, AllowCallbackRequest, GetFailedAttempts, ResetFailedAttempts, Configure, concurrent access
-- **AC:** `go test ./pkg/auth/... -count=1 -run "TestToken_IsExpired|TestOAuth"` passes. 10+ test functions.
+## [x] Add unit tests for pkg/auth (AC-330)
+- **Completed:** 2026-06-21 — 35 test functions, all pass. token_test.go: 7 tests (IsExpired past/future/grace/boundary/zero/nil/empty). oauth2_ratelimit_test.go: 28 tests (NewOAuthRateLimiter defaults+rates, AllowTokenRequest under/over/locked/not-locked-under/exact-threshold/refill, RecordFailedAttempt single/multi/new, RecordSuccessfulAttempt clears/nonexistent, AllowDeviceCodePoll under/over, AllowCallbackRequest under/over, GetFailedAttempts not-tracked+after-multi, ResetFailedAttempts clears/nonexistent, Configure updates/zero-max/zero-lockout, Concurrent failed-attempts/record-reset/allow-record). No spawn — direct write.
 
 ## [x] Add unit tests for internal/telemetry (AC-329)
 - **Completed:** 2026-06-20 — 21 test functions, all pass. Covers NewTracer, Start (basic/with SpanKind+Attributes/NoOptions), End (valid+nil), SetAttribute (string/int/int64/float64/bool/unknown+nil), SetAttributeInt (valid+nil), SetAttributeBool (valid+nil), RecordError (valid+nil error+nil span), SetOK (valid+nil), WithSpanKind, WithAttributes, ContextPropagation. Uses tracetest.SpanRecorder for in-memory verification.
