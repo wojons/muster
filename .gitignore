@@ -72,3 +72,11 @@ __pycache__/
 # Demo runtime data
 _storage/
 .gitreins/tasks.yaml
+
+# GitReins backups and history
+.gitreins/config.yaml.bak
+.gitreins/config.yaml.v*-bak
+.gitreins/history/
+
+# Demo Python virtualenv
+demo/.venv/

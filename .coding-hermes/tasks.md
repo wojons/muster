@@ -1,5 +1,21 @@
 # Coding Tasks — Muster
 
+## [ ] Add unit tests for pkg/config watcher (AC-347)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/config/watcher_test.go (NEW)
+- **Tests:** NewWatcher (creates with viper+onChange), WatchConfig (starts viper watching temp config file, double-call no-op), Stop (stops watching, double-stop safe), IsWatching (false→true→false state transitions), GetConfig (valid unmarshal from viper, non-existent config returns error)
+- **AC:** `go test ./pkg/config/... -count=1` passes. 5+ test functions. Coverage 75.8%→85%+. Covers all 5 watcher functions currently at 0%.
+- **Package:** pkg/config/watcher.go (95 lines, 5 exported functions, all at 0% coverage)
+
+## [ ] Add unit tests for pkg/repository/sql GetByAlias + GetByModule (AC-348)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/repository/sql/repository_test.go
+- **Tests:** TestInventoryRepository_GetByAlias (found by name, not found → ErrNotFound), TestInventoryRepository_GetByModule (found, not found → ErrNotFound). Follow existing test pattern (setupDB + fullQuerySet + NewInventoryRepository). Caution: test query for InventoryGetByModule currently queries WHERE id=? not module_id — test exercises code as-is; semantic mismatch noted.
+- **AC:** `go test ./pkg/repository/sql/... -count=1` passes. 2+ test functions. Covers GetByAlias (0%→100%) and GetByModule (0%→100%).
+- **Package:** pkg/repository/sql/inventory_repository.go (GetByAlias L71, GetByModule L95)
+
 ## [x] Add unit tests for internal/version (AC-345)
 - **Completed:** 2026-06-22 — 5 test functions, all pass. Coverage 0.0%→100.0% (+100pp). Covers Short (standard/dev/empty/long commit hash), Get (all 5 fields populated), field preservation, idempotency (two Get() calls), immutability (Short() doesn't mutate). Direct write, no spawn.
 - **Priority:** high
