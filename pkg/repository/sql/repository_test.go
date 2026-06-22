@@ -376,6 +376,78 @@ func TestInventoryRepository_Search(t *testing.T) {
 	}
 }
 
+func TestInventoryRepository_GetByAlias(t *testing.T) {
+	db := setupDB(t)
+	defer db.Close()
+
+	repo, _ := NewInventoryRepository(db, DriverSQLite)
+	repo.qs = fullQuerySet()
+
+	ctx := context.Background()
+	_ = repo.Create(ctx, &repository.Inventory{Name: "my-alias", Description: "alias desc", Path: "/alias"})
+	_ = repo.Create(ctx, &repository.Inventory{Name: "other", Description: "other desc", Path: "/other"})
+
+	// Found by name (alias)
+	inv, err := repo.GetByAlias(ctx, "my-alias")
+	if err != nil {
+		t.Fatalf("GetByAlias: %v", err)
+	}
+	if inv.Name != "my-alias" {
+		t.Errorf("Name = %q, want my-alias", inv.Name)
+	}
+	if inv.Path != "/alias" {
+		t.Errorf("Path = %q, want /alias", inv.Path)
+	}
+
+	// Not found
+	_, err = repo.GetByAlias(ctx, "nonexistent")
+	if err == nil {
+		t.Error("GetByAlias for nonexistent should return error")
+	}
+	if _, ok := err.(repository.ErrNotFound); !ok {
+		t.Errorf("GetByAlias error should be ErrNotFound, got %T: %v", err, err)
+	}
+}
+
+func TestInventoryRepository_GetByModule(t *testing.T) {
+	db := setupDB(t)
+	defer db.Close()
+
+	repo, _ := NewInventoryRepository(db, DriverSQLite)
+	repo.qs = fullQuerySet()
+
+	ctx := context.Background()
+	_ = repo.Create(ctx, &repository.Inventory{Name: "mod-inv", Description: "module inventory", Path: "/mod"})
+
+	// The test QuerySet maps InventoryGetByModule to "WHERE id = ?"
+	// GetByID returns the created inventory, let's use its ID
+	inv, err := repo.GetByID(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+
+	// GetByModule with the inventory ID (note: test query uses id, not module_id)
+	got, err := repo.GetByModule(ctx, inv.ID)
+	if err != nil {
+		t.Fatalf("GetByModule: %v", err)
+	}
+	if got.ID != inv.ID {
+		t.Errorf("ID = %d, want %d", got.ID, inv.ID)
+	}
+	if got.Name != "mod-inv" {
+		t.Errorf("Name = %q, want mod-inv", got.Name)
+	}
+
+	// Not found
+	_, err = repo.GetByModule(ctx, 99999)
+	if err == nil {
+		t.Error("GetByModule for nonexistent should return error")
+	}
+	if _, ok := err.(repository.ErrNotFound); !ok {
+		t.Errorf("GetByModule error should be ErrNotFound, got %T: %v", err, err)
+	}
+}
+
 // ── RateLimit Repository ─────────────────────────────────────
 
 func TestRateLimitRepository_New(t *testing.T) {
