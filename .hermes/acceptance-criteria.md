@@ -4,10 +4,10 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-22 (cron foreman tick #2)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass.
+**Last run:** 2026-06-22 (cron foreman tick #3)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass (excl. known stability test timeout).
 **Completed this run:**
-  - AC-342: ✅ Unit tests for pkg/auth FileKeychain — 21 test functions, all pass. Covers Set/Get/Delete/List/Overwrite/ConcurrentAccess/sanitizeFilename/filePath/NewFileKeychain/edge cases. Coverage 12.3% → 41.3% (+29pp). Commit 6889e03.
+  - AC-343: ✅ Unit tests for pkg/daemon proxy controller — 28 test functions, all pass. Covers Controller (NewController, Start/Stop/Restart lifecycle, Status, IsRunning, ServeHTTP, GetTokenPath, Handler, Shutdown, Kill), ProxyServer (NewProxyServer, Start, Stop, HealthEndpoint, IsRunning, SocketPath, NewAuthenticatedProxyServer), isHealthEndpoint (10 cases), sanitizeProxyPath (10 cases), isHopHeader (14 cases). Coverage 21.2% → 81.8% (+60.6pp).
 **Previous runs:**
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
   - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore.
@@ -313,8 +313,10 @@
 
 ## Passed Criteria
 
+### AC-343: Unit tests for pkg/daemon proxy controller ✅ (2026-06-22) — 28 test functions, all pass, coverage 21.2%→81.8%. Covers NewController (valid/defaults), Start/Stop/Restart lifecycle, Status (running/stopped), IsRunning, ServeHTTP (with/without handler), GetTokenPath, Handler, Shutdown, Kill. ProxyServer: NewProxyServer (with/without handler), Start (listens+accepts requests), Start replaces old listener, Stop (clean+not-started), HealthEndpoint (all 5 paths), IsRunning, SocketPath. isHealthEndpoint (10 cases), sanitizeProxyPath (10 cases), isHopHeader (14 cases). NewAuthenticatedProxyServer (auth bypass for health, 401 for missing/invalid tokens, 200 for valid tokens, nil handler default).
+### AC-342: Unit tests for pkg/auth FileKeychain ✅ (2026-06-22) — 21 test functions, all pass, coverage 12.3%→41.3%.
 ### AC-340: Unit tests for pkg/cmdstore/loader ✅ (2026-06-21) — 20 test functions, all pass, 87% coverage. Covers NewLoader (valid/nil), LoadCommands (empty/with-commands), GetBaseURL (from-meta/from-loader/no-stored-data), SetHeaders (set/overwrite), reconstructCommand (all flag types/required/builtin/args), getFlagValue (5 types), createRunHandler (9 scenarios with httptest.Server), executeAndReadResponse.
-### AC-339: Unit tests for pkg/mcp/handlers/types ✅ (2026-06-21) — 50 test functions, all pass, 100% coverage on all 13 functions. Covers NewRegistry, Register, Get, Handle (8 scenarios), Methods, ToHandlersTool, MCPError.Error, NewInitializeHandler (3 variations), NewInitializedHandler, NewListToolsHandler (empty/with-commands/ToolLister), NewCallToolHandler (7 scenarios), all JSON round-trips (12 types), CommandRegistry/ToolLister/Handler interface satisfaction.
+### AC-339: Unit tests for pkg/mcp/handlers/types ✅ (2026-06-21) — 50 test functions, all pass, 100% coverage on all 13 functions.
 ### AC-338: Unit tests for pkg/mcp/registry ✅ (2026-06-21) — 35 test functions, all pass. Covers NewOpenAPIRegistry (3), ListCommands (3), GetCommand (3), ListTools (2), NewOpenAPIExecutor (2), Execute (3), ExecuteCommand (2), AddCommand/RemoveCommand/UpdateCommand, NewConverter (2), ConvertToTools (3), classifyParams (6), extractPathParams (5), isPathParam (3), paramTypeToJSONSchema (8), bodyPropTypeToJSONSchema, getString (3), isRequired (3), validateArgs (3), ToHandlersTool, ToolLister interface.
 ### AC-337: Unit tests for pkg/mcp/server ✅ (2026-06-21) — 16 test functions, all pass. Covers NewServer, IsInitialized, RegisterHandler, Shutdown, Run (9 scenarios via io.Pipe), mustMarshal, JSONRPCResponse/JSONRPCRequest serialization. Server.go: 100% on 8/10 functions.
 ### AC-336: Unit tests for pkg/daemon/token_manager ✅ (2026-06-21) — 9 test functions, all pass, 100% coverage on all 5 exported functions. Covers NewTokenManager, AddToken (single/multiple), RemoveToken (existing/non-existent), Validate (invalid/valid/after-remove/empty), ValidateFromHeader (6 cases), ConcurrentAccess (50 goroutines).

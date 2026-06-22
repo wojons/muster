@@ -1,5 +1,8 @@
 # Binaries
-bin/
+/bin/
+/daemon
+/mcp-server
+/openapi-cli
 *.exe
 *.dll
 *.so

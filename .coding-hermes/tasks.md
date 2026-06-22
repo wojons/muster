@@ -3,13 +3,8 @@
 ## [x] Add unit tests for pkg/auth FileKeychain (AC-342)
 - **Completed:** 2026-06-22 — 21 test functions, all pass, coverage 12.3%→41.3% (+29pp). Covers Set (valid/empty-service/empty-account), Get (found/not-found/empty-params), Delete (existing/non-existent), List (empty/with-entries/multiple-services/no-base-dir), Overwrite, ConcurrentAccess (10 goroutines with warmup), sanitizeFilename (11 cases), filePath, NewFileKeychain, SetGet_SpecialChars, SetGet_LongValues, DeleteThenGet, SetGet_MultipleServices. Keychain.go FileKeychain methods: Set 66.7%, Get 84.6%, Delete 83.3%, List 83.3%.
 
-## [ ] Add unit tests for pkg/daemon proxy controller (AC-343)
-- **Priority:** medium
-- **Model:** deepseek-v4-pro (direct write)
-- **Files:** pkg/daemon/proxy_test.go (NEW)
-- **Tests:** TestNewController (creates with config), TestController_Start (starts daemon process), TestController_Stop (stops gracefully), TestController_Status (running/stopped), TestController_IsRunning (true/false), TestNewProxyServer (with/without auth), TestProxyServer_Start (listens on socket), TestProxyServer_Stop (clean shutdown), TestProxyServer_HealthEndpoint (GET /health returns 200)
-- **AC:** `go test ./pkg/daemon/... -count=1 -run "TestController|TestProxy" -timeout 30s` passes. 8+ test functions. Use temp Unix sockets and httptest for HTTP endpoints.
-- **Package:** pkg/daemon/proxy.go (467 lines, all at 0% coverage)
+## [x] Add unit tests for pkg/daemon proxy controller (AC-343)
+- **Completed:** 2026-06-22 — 28 test functions, all pass. Coverage 21.2% → 81.8% (+60.6pp). Covers NewController (valid/defaults), Start/Stop/Restart lifecycle, Status (running/stopped), IsRunning, ServeHTTP (with/without handler), GetTokenPath, Handler, Shutdown, Kill. ProxyServer: NewProxyServer (with/without handler), Start (listens+accepts requests), Start replaces old listener, Stop (clean+not-started), HealthEndpoint (all 5 paths), IsRunning, SocketPath. isHealthEndpoint (10 cases), sanitizeProxyPath (10 cases), isHopHeader (14 cases). NewAuthenticatedProxyServer (auth bypass for health, 401 for missing/invalid tokens, 200 for valid tokens, nil handler default).
 
 ## [ ] Add unit tests for pkg/wasm uncovered functions (AC-344)
 - **Priority:** medium
