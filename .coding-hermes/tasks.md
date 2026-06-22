@@ -1,12 +1,7 @@
 # Coding Tasks — Muster
 
-## [ ] Add unit tests for pkg/auth FileKeychain (AC-342)
-- **Priority:** high
-- **Model:** deepseek-v4-pro (direct write)
-- **Files:** pkg/auth/keychain_test.go (NEW)
-- **Tests:** TestFileKeychain_Set (valid/empty-service/empty-account), TestFileKeychain_Get (found/not-found/empty-params), TestFileKeychain_Delete (existing/non-existent), TestFileKeychain_List (empty/with-entries/multiple), TestFileKeychain_Overwrite (set then set again), TestFileKeychain_ConcurrentAccess (10 goroutines)
-- **AC:** `go test ./pkg/auth/... -count=1 -run "TestFileKeychain" -timeout 30s` passes. 12+ test functions. Use `t.TempDir()` for isolated filesystem.
-- **Package:** pkg/auth/keychain.go (478 lines, FileKeychain ~120 lines of non-platform code, all at 0% coverage)
+## [x] Add unit tests for pkg/auth FileKeychain (AC-342)
+- **Completed:** 2026-06-22 — 21 test functions, all pass, coverage 12.3%→41.3% (+29pp). Covers Set (valid/empty-service/empty-account), Get (found/not-found/empty-params), Delete (existing/non-existent), List (empty/with-entries/multiple-services/no-base-dir), Overwrite, ConcurrentAccess (10 goroutines with warmup), sanitizeFilename (11 cases), filePath, NewFileKeychain, SetGet_SpecialChars, SetGet_LongValues, DeleteThenGet, SetGet_MultipleServices. Keychain.go FileKeychain methods: Set 66.7%, Get 84.6%, Delete 83.3%, List 83.3%.
 
 ## [ ] Add unit tests for pkg/daemon proxy controller (AC-343)
 - **Priority:** medium
