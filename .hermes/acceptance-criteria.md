@@ -7,9 +7,8 @@
 **Last run:** 2026-06-21 (cron foreman tick)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass.
 **Completed this run:**
-  - AC-336: ✅ Unit tests for pkg/daemon/token_manager — 9 test functions, 100% coverage on all 5 exported functions (NewTokenManager, AddToken, RemoveToken, Validate, ValidateFromHeader).
-  - AC-337: ✅ Unit tests for pkg/mcp/server — 16 test functions, 100% coverage on 8/10 server functions (NewServer, registerHandlers, handleRequest, sendResponse, sendError, Shutdown, IsInitialized, RegisterHandler).
-  - AC-338: ✅ Unit tests for pkg/mcp/registry — 35 test functions, 100% coverage on 17/21 registry functions (NewOpenAPIRegistry, ListCommands, GetCommand, ListTools, NewOpenAPIExecutor, ExecuteCommand, classifyParams, extractPathParams, isPathParam, paramTypeToJSONSchema, etc.).
+  - AC-339: ✅ Unit tests for pkg/mcp/handlers/types — 50 test functions, 100% coverage on all 13 functions (NewRegistry, Register, Get, Handle, Methods, ToHandlersTool, Error, Method, NewInitializeHandler, NewInitializedHandler, NewListToolsHandler, NewCallToolHandler). All type JSON round-trips verified.
+  - AC-340: ✅ Unit tests for pkg/cmdstore/loader — 20 test functions, 87% coverage on all 8 exported functions (NewLoader, LoadCommands, GetBaseURL, SetHeaders, reconstructCommand, createRunHandler, executeAndReadResponse, getFlagValue). Uses httptest.Server for HTTP integration tests.
 **Previous runs:**
   - AC-290: Real D-Bus Secret Service protocol — stubs replaced with full godbus/dbus/v5 implementation (~290 lines).
   - AC-322: Unit tests for pkg/openapi — 28 test functions + 10 subtests, 38 total. All pass.
@@ -311,6 +310,8 @@
 
 ## Passed Criteria
 
+### AC-340: Unit tests for pkg/cmdstore/loader ✅ (2026-06-21) — 20 test functions, all pass, 87% coverage. Covers NewLoader (valid/nil), LoadCommands (empty/with-commands), GetBaseURL (from-meta/from-loader/no-stored-data), SetHeaders (set/overwrite), reconstructCommand (all flag types/required/builtin/args), getFlagValue (5 types), createRunHandler (9 scenarios with httptest.Server), executeAndReadResponse.
+### AC-339: Unit tests for pkg/mcp/handlers/types ✅ (2026-06-21) — 50 test functions, all pass, 100% coverage on all 13 functions. Covers NewRegistry, Register, Get, Handle (8 scenarios), Methods, ToHandlersTool, MCPError.Error, NewInitializeHandler (3 variations), NewInitializedHandler, NewListToolsHandler (empty/with-commands/ToolLister), NewCallToolHandler (7 scenarios), all JSON round-trips (12 types), CommandRegistry/ToolLister/Handler interface satisfaction.
 ### AC-338: Unit tests for pkg/mcp/registry ✅ (2026-06-21) — 35 test functions, all pass. Covers NewOpenAPIRegistry (3), ListCommands (3), GetCommand (3), ListTools (2), NewOpenAPIExecutor (2), Execute (3), ExecuteCommand (2), AddCommand/RemoveCommand/UpdateCommand, NewConverter (2), ConvertToTools (3), classifyParams (6), extractPathParams (5), isPathParam (3), paramTypeToJSONSchema (8), bodyPropTypeToJSONSchema, getString (3), isRequired (3), validateArgs (3), ToHandlersTool, ToolLister interface.
 ### AC-337: Unit tests for pkg/mcp/server ✅ (2026-06-21) — 16 test functions, all pass. Covers NewServer, IsInitialized, RegisterHandler, Shutdown, Run (9 scenarios via io.Pipe), mustMarshal, JSONRPCResponse/JSONRPCRequest serialization. Server.go: 100% on 8/10 functions.
 ### AC-336: Unit tests for pkg/daemon/token_manager ✅ (2026-06-21) — 9 test functions, all pass, 100% coverage on all 5 exported functions. Covers NewTokenManager, AddToken (single/multiple), RemoveToken (existing/non-existent), Validate (invalid/valid/after-remove/empty), ValidateFromHeader (6 cases), ConcurrentAccess (50 goroutines).

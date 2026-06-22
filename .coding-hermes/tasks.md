@@ -142,18 +142,8 @@
 - **AC:** `go test ./pkg/mcp/... -count=1 -run "TestRegistry|TestConverter|TestTypeMapping" -timeout 30s` passes. 20+ test functions. Use openapi3.Operation + openapi3.Parameter stubs for ConvertToTools.
 - **Package:** pkg/mcp/registry.go (507 lines, 21 functions, all 0% coverage)
 
-## [ ] Add unit tests for pkg/mcp/handlers types (AC-339)
-- **Priority:** medium
-- **Model:** MiniMax-M3
-- **Files:** pkg/mcp/handlers/types_test.go (NEW)
-- **Tests:** Test NewRegistry (creates empty, register then get), Register (adds handler, duplicate name overwrites), Get (found, not found), Handle (valid request → JSON-RPC response, unknown method → error, method not found → error, nil request → error), NewInitializeHandler (returns valid handler, Method returns "initialize", Handle returns serverInfo), NewInitializedHandler (returns valid handler, Method returns "notifications/initialized"), NewListToolsHandler (creates with registry, empty → empty tools, populated → tools in response), NewCallToolHandler (creates with executor, method returns "tools/call", Handle valid → result, Handle unknown → error), ToHandlersTool (valid command → Tool with inputSchema, nil command → empty Tool), Methods (returns method string), Error (formats error message)
-- **AC:** `go test ./pkg/mcp/handlers/... -count=1 -run "TestHandler|TestRegistry" -timeout 30s` passes. 15+ test functions. Use JSON-RPC request/response fixtures.
-- **Package:** pkg/mcp/handlers/types.go (308 lines, 13 functions, most at 0% coverage)
+## [x] Add unit tests for pkg/mcp/handlers types (AC-339)
+- **Completed:** 2026-06-21 — 50 test functions, all pass, 100% coverage on all 13 functions. Covers NewRegistry (empty), Register/Get (found/not-found/duplicate-overwrite), Handle (success/not-found/invalid-params/nil/array/empty-string/propagates-error/invalid-json-edge-cases), Methods (populated/empty/order-safety), NewInitializeHandler (multiple-names), NewInitializedHandler, NewListToolsHandler (empty/with-commands/ToolLister/context-cancelled), NewCallToolHandler (success/executor-error/invalid-params/no-executor/non-executable-struct/marshal-error/empty-params/nil-params), Tool.ToHandlersTool, MCPError.Error, JSON round-trip (ListToolsResult/CallToolResult/InitializeResult/ListResourcesResult/ListPromptsResult/ToolContent/Tool/Command/PromptMessage/ReadResourceResult/Root/Flag), interface satisfaction (CommandRegistry/ToolLister/baseHandler).
 
-## [ ] Add unit tests for pkg/cmdstore/loader (AC-340)
-- **Priority:** medium
-- **Model:** deepseek-v4-pro
-- **Files:** pkg/cmdstore/loader_test.go (NEW)
-- **Tests:** Test NewLoader (valid store, nil store), LoadCommands (empty store, with commands, store error), GetBaseURL (configured, empty), SetHeaders (sets headers map, overwrites), reconstructCommand (valid cmd metadata → cobra.Command, nil metadata, empty name), getFlagValue (string flag, int flag, bool flag, nil flag), executeAndReadResponse (mocked HTTP server 200, 404, connection refused), createRunHandler (valid cmd → handler func, wrong args → error)
-- **AC:** `go test ./pkg/cmdstore/... -count=1 -run "TestLoader" -timeout 30s` passes. 12+ test functions. Use httptest.NewServer for executeAndReadResponse.
-- **Package:** pkg/cmdstore/loader.go (332 lines, 8 exported functions, all 0% coverage)
+## [x] Add unit tests for pkg/cmdstore/loader (AC-340)
+- **Completed:** 2026-06-21 — 20 test functions, all pass, 87% coverage. Covers NewLoader (valid/nil-store), LoadCommands (empty/with-commands), GetBaseURL (from-meta/from-loader/no-stored-data), SetHeaders (set/overwrite), reconstructCommand (flags-all-types/required-flags/builtin-flags/args), getFlagValue (string/int/bool/array/unknown-type), createRunHandler (success/HTTP-error/connection-refused/args-mismatch/POST-body/header-flags/query-flags/file-upload/auth-env-var/global-headers). Uses httptest.Server for HTTP integration.
