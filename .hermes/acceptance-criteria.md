@@ -4,12 +4,13 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-22 (cron foreman tick)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 49 packages pass.
+**Last run:** 2026-06-22 (cron foreman tick #2)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass.
 **Completed this run:**
-  - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases covering normalizeFlagName (12 cases), resolveRequestBodySchema (8 cases), NewRootCommandWithAudit (3 cases), cliActorID (4 cases). Coverage 54.3% → 58.2% (+3.9pp).
-  - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore (/daemon, /mcp-server, /openapi-cli). Untracked stale compiled binaries.
+  - AC-342: ✅ Unit tests for pkg/auth FileKeychain — 21 test functions, all pass. Covers Set/Get/Delete/List/Overwrite/ConcurrentAccess/sanitizeFilename/filePath/NewFileKeychain/edge cases. Coverage 12.3% → 41.3% (+29pp). Commit 6889e03.
 **Previous runs:**
+  - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
+  - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore.
   - AC-339: ✅ Unit tests for pkg/mcp/handlers/types — 50 test functions, 100% coverage on all 13 functions
   - AC-340: ✅ Unit tests for pkg/cmdstore/loader — 20 test functions, 87% coverage
   - AC-290: Real D-Bus Secret Service protocol — stubs replaced with full godbus/dbus/v5 implementation (~290 lines).
