@@ -4,11 +4,12 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-22 (cron foreman tick #4)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass (excl. known stability test timeout).
+**Last run:** 2026-06-22 (cron foreman tick #5)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass (excl. known stability test timeout). Demo: 23/23 checks pass.
 **Completed this run:**
-  - AC-345: ✅ Unit tests for internal/version — 5 test functions, all pass. Coverage 0.0% → 100.0% (+100pp). Covers Short (4 scenarios), Get, field preservation, idempotency, immutability.
-  - AC-346: ✅ Additional unit tests for pkg/auth — 9 test functions (42 subtests). Coverage 41.3% → 45.6% (+4.3pp). sanitizeKeychainParam 0→100%, deriveSystemEncryptionKey 0→100%, NewKeychain 0→40%.
+  - AC-347: ✅ Unit tests for pkg/config watcher — 9 test functions. Coverage 75.8% → 92.2% (+16.4pp). All 5 watcher functions covered (100% on 4/5, GetConfig at 75%). NewWatcher, IsWatching, Stop, WatchConfig (fsnotify callback verified), GetConfig.
+  - AC-348: ✅ Unit tests for pkg/repository/sql GetByAlias + GetByModule — 2 test functions. Coverage 76.2% → 80.4% (+4.2pp). Both 0% functions now at 87.5%.
+  - Infrastructure: Added .gitignore entries for .gitreins/config.yaml.bak, .gitreins/history/, demo/.venv/.
 **Previous runs:**
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
   - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore.
@@ -314,6 +315,8 @@
 
 ## Passed Criteria
 
+### AC-348: Unit tests for pkg/repository/sql GetByAlias + GetByModule ✅ (2026-06-22) — 2 test functions, all pass. Coverage 76.2%→80.4% (+4.2pp). GetByAlias 0%→87.5% (found by name + not-found ErrNotFound), GetByModule 0%→87.5% (found + not-found ErrNotFound). Direct write, no spawn.
+### AC-347: Unit tests for pkg/config watcher ✅ (2026-06-22) — 9 test functions, all pass. Coverage 75.8%→92.2% (+16.4pp). NewWatcher 100%, WatchConfig 100% (fsnotify callback verified), Stop 100%, IsWatching 100%, GetConfig 75%. Direct write, no spawn.
 ### AC-346: Additional unit tests for pkg/auth ✅ (2026-06-22) — 9 test functions (42 subtests), all pass. Coverage 41.3%→45.6% (+4.3pp). sanitizeKeychainParam 0→100% (6 test functions: valid/empty/dangerous chars/whitespace/injection/special chars), deriveSystemEncryptionKey 0→100% (3 test functions: basic/deterministic/different base paths), NewKeychain 0→40% (2 test functions: non-nil/type check).
 ### AC-345: Unit tests for internal/version ✅ (2026-06-22) — 5 test functions, all pass. Coverage 0.0%→100.0% (+100pp). Covers Short (standard/dev/empty/long commit hash), Get (5 fields populated), field preservation, idempotency, immutability.
 ### AC-344: Unit tests for pkg/wasm uncovered functions ✅ (2026-06-22) — 34 test functions, all pass, coverage 41.5%→57.2%. Covers NetworkPolicy.IsAllowed, CapabilitySet, Runtime.CheckNetworkAccess, isValidCapabilityName, CompileWAT, closeWithContext, NewRuntimeWithTracer, captureResponseWriter.Flush/WriteHeader/Write, Interceptor lifecycle, Middleware pass-through, SandboxLimits.Validate, isJSONContentType.
