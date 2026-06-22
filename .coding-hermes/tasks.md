@@ -1,6 +1,7 @@
 # Coding Tasks — Muster
 
-## [ ] Add unit tests for pkg/config watcher (AC-347)
+## [x] Add unit tests for pkg/config watcher (AC-347)
+- **Completed:** 2026-06-22 — 9 test functions covering all 5 watcher functions: NewWatcher (valid+nil-callback), IsWatching (state transitions), Stop (no-op+double-stop), WatchConfig (start+double-call+callback fires via fsnotify), GetConfig (valid+extra-field tolerance), Stop_ChannelClose (closed channel verification). Coverage 75.8%→92.2% (+16.4pp). All watcher functions at 100% except GetConfig at 75% (viper unmarshal error path hard to trigger). Direct write, no spawn.
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
 - **Files:** pkg/config/watcher_test.go (NEW)
@@ -8,7 +9,8 @@
 - **AC:** `go test ./pkg/config/... -count=1` passes. 5+ test functions. Coverage 75.8%→85%+. Covers all 5 watcher functions currently at 0%.
 - **Package:** pkg/config/watcher.go (95 lines, 5 exported functions, all at 0% coverage)
 
-## [ ] Add unit tests for pkg/repository/sql GetByAlias + GetByModule (AC-348)
+## [x] Add unit tests for pkg/repository/sql GetByAlias + GetByModule (AC-348)
+- **Completed:** 2026-06-22 — 2 test functions: TestInventoryRepository_GetByAlias (found by name + not-found ErrNotFound), TestInventoryRepository_GetByModule (found + not-found ErrNotFound). Coverage 76.2%→80.4% (+4.2pp). Both previously 0% functions now at 87.5% (error scan path not fully executed). Note: test query for InventoryGetByModule uses WHERE id=? not module_id — test exercises code as-is; semantic mismatch noted. Direct write, no spawn.
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
 - **Files:** pkg/repository/sql/repository_test.go
