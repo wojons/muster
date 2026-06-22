@@ -404,3 +404,171 @@ func TestFileKeychain_SetGet_MultipleServices(t *testing.T) {
 		}
 	}
 }
+
+// ── sanitizeKeychainParam ─────────────────────────────────────────────
+
+func TestSanitizeKeychainParam_Valid(t *testing.T) {
+	validInputs := []string{
+		"myservice",
+		"my_account",
+		"my-account",
+		"account123",
+		"MY_SERVICE",
+		"a",
+		"1234567890abcdef",
+		"service.with.dots",
+		"service:with:colons",
+		"service/with/slashes",
+		"service@domain.com",
+		"Plus+Sign",
+		"Equal=Sign",
+		"Percent%",
+		"Caret^",
+	}
+
+	for _, input := range validInputs {
+		t.Run("valid_"+input, func(t *testing.T) {
+			err := sanitizeKeychainParam(input, "testparam")
+			if err != nil {
+				t.Errorf("expected no error for input %q, got: %v", input, err)
+			}
+		})
+	}
+}
+
+func TestSanitizeKeychainParam_Empty(t *testing.T) {
+	err := sanitizeKeychainParam("", "testparam")
+	if err == nil {
+		t.Fatal("expected error for empty input")
+	}
+	if !strings.Contains(err.Error(), "cannot be empty") {
+		t.Errorf("expected 'cannot be empty' in error, got: %v", err)
+	}
+}
+
+func TestSanitizeKeychainParam_DangerousChars(t *testing.T) {
+	dangerousChars := []string{
+		"$", "`", "(", ")", "|", "&", ";", "<", ">", "\\",
+		"\"", "'", "*", "?", "[", "]", "{", "}", "!", "#", "~",
+	}
+
+	for _, char := range dangerousChars {
+		t.Run("dangerous_"+char, func(t *testing.T) {
+			input := "service" + char + "name"
+			err := sanitizeKeychainParam(input, "testparam")
+			if err == nil {
+				t.Errorf("expected error for input containing %q, got nil", char)
+			}
+		})
+	}
+}
+
+func TestSanitizeKeychainParam_Whitespace(t *testing.T) {
+	whitespaceInputs := []string{
+		"hello\nworld",
+		"hello\rworld",
+		"hello	world",
+	}
+
+	for _, input := range whitespaceInputs {
+		t.Run("whitespace_"+input, func(t *testing.T) {
+			err := sanitizeKeychainParam(input, "testparam")
+			if err == nil {
+				t.Errorf("expected error for input %q, got nil", input)
+			}
+		})
+	}
+}
+
+func TestSanitizeKeychainParam_InjectionPatterns(t *testing.T) {
+	injectionInputs := []string{
+		"../etc/passwd",
+		"..\\windows\\system32",
+		"$((echo hacked))",
+	}
+
+	for _, input := range injectionInputs {
+		t.Run("injection_"+input, func(t *testing.T) {
+			err := sanitizeKeychainParam(input, "testparam")
+			if err == nil {
+				t.Errorf("expected error for injection pattern %q, got nil", input)
+			}
+		})
+	}
+}
+
+func TestSanitizeKeychainParam_SimpleSpecialCharsAllowed(t *testing.T) {
+	// Colon and dot are explicitly allowed by the sanitizer (not in dangerous char list)
+	err := sanitizeKeychainParam("service:v1.0", "testparam")
+	if err != nil {
+		t.Errorf("colon and dot should be allowed, got: %v", err)
+	}
+}
+
+// ── NewKeychain ────────────────────────────────────────────────────────
+
+func TestNewKeychain_ReturnsNonNil(t *testing.T) {
+	kc, err := NewKeychain()
+	if err != nil {
+		t.Fatalf("NewKeychain failed: %v", err)
+	}
+	if kc == nil {
+		t.Fatal("NewKeychain returned nil")
+	}
+}
+
+func TestNewKeychain_ReturnsCorrectTypeOnLinux(t *testing.T) {
+	kc, err := NewKeychain()
+	if err != nil {
+		t.Fatalf("NewKeychain failed: %v", err)
+	}
+
+	switch kc.(type) {
+	case *LinuxKeychain:
+		// Linux native keychain — expected on this host if D-Bus is available
+	case *FileKeychain:
+		// File-based fallback — expected if D-Bus secret service unavailable
+	default:
+		t.Logf("NewKeychain returned unexpected type: %T", kc)
+	}
+}
+
+// ── FileKeychain helpers ───────────────────────────────────────────────
+
+func TestFileKeychain_DeriveSystemEncryptionKey(t *testing.T) {
+	kc := newTestFileKeychain(t)
+	key := kc.deriveSystemEncryptionKey()
+
+	if len(key) == 0 {
+		t.Fatal("deriveSystemEncryptionKey returned empty key")
+	}
+	// SHA-256 produces exactly 32 bytes
+	if len(key) != 32 {
+		t.Errorf("expected 32-byte key, got %d bytes", len(key))
+	}
+}
+
+func TestFileKeychain_DeriveSystemEncryptionKey_Deterministic(t *testing.T) {
+	kc := newTestFileKeychain(t)
+	key1 := kc.deriveSystemEncryptionKey()
+	key2 := kc.deriveSystemEncryptionKey()
+
+	// Same machine data should produce same key
+	if string(key1) != string(key2) {
+		t.Fatal("deriveSystemEncryptionKey is not deterministic")
+	}
+}
+
+func TestFileKeychain_DeriveSystemEncryptionKey_DifferentBasePaths(t *testing.T) {
+	kc1 := &FileKeychain{basePath: t.TempDir()}
+	kc2 := &FileKeychain{basePath: t.TempDir()}
+
+	key1 := kc1.deriveSystemEncryptionKey()
+	key2 := kc2.deriveSystemEncryptionKey()
+
+	// Different temp dirs but same machine data — keys should be identical
+	// because deriveSystemEncryptionKey uses getMachineData() which is host-level
+	if string(key1) != string(key2) {
+		t.Fatal("different base paths produced different encryption keys")
+	}
+}

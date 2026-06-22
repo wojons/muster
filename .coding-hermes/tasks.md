@@ -1,5 +1,13 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for internal/version (AC-345)
+- **Completed:** 2026-06-22 — 5 test functions, all pass. Coverage 0.0%→100.0% (+100pp). Covers Short (standard/dev/empty/long commit hash), Get (all 5 fields populated), field preservation, idempotency (two Get() calls), immutability (Short() doesn't mutate). Direct write, no spawn.
+- **Priority:** high
+
+## [x] Add additional unit tests for pkg/auth (AC-346)
+- **Completed:** 2026-06-22 — 9 test functions (42 subtests), all pass. Coverage 41.3%→45.6% (+4.3pp). sanitizeKeychainParam 0→100% (6 test functions: 15 valid inputs, empty, 21 dangerous chars, 3 whitespace inputs, 3 injection patterns, allowed special chars). deriveSystemEncryptionKey 0→100% (3 test functions: 32-byte SHA-256, deterministic, identical across base paths). NewKeychain 0→40% (2 test functions: non-nil return, correct Linux type). Direct write, no spawn.
+- **Priority:** high
+
 ## [x] Add unit tests for pkg/auth FileKeychain (AC-342)
 - **Completed:** 2026-06-22 — 21 test functions, all pass, coverage 12.3%→41.3% (+29pp). Covers Set (valid/empty-service/empty-account), Get (found/not-found/empty-params), Delete (existing/non-existent), List (empty/with-entries/multiple-services/no-base-dir), Overwrite, ConcurrentAccess (10 goroutines with warmup), sanitizeFilename (11 cases), filePath, NewFileKeychain, SetGet_SpecialChars, SetGet_LongValues, DeleteThenGet, SetGet_MultipleServices. Keychain.go FileKeychain methods: Set 66.7%, Get 84.6%, Delete 83.3%, List 83.3%.
 

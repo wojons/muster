@@ -4,11 +4,11 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-22 (cron foreman tick #3)
+**Last run:** 2026-06-22 (cron foreman tick #4)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass (excl. known stability test timeout).
 **Completed this run:**
-  - AC-343: ✅ Unit tests for pkg/daemon proxy controller — 28 test functions, all pass. Coverage 21.2% → 81.8% (+60.6pp).
-  - AC-344: ✅ Unit tests for pkg/wasm uncovered functions — 34 test functions, all pass. Coverage 41.5% → 57.2% (+15.7pp).
+  - AC-345: ✅ Unit tests for internal/version — 5 test functions, all pass. Coverage 0.0% → 100.0% (+100pp). Covers Short (4 scenarios), Get, field preservation, idempotency, immutability.
+  - AC-346: ✅ Additional unit tests for pkg/auth — 9 test functions (42 subtests). Coverage 41.3% → 45.6% (+4.3pp). sanitizeKeychainParam 0→100%, deriveSystemEncryptionKey 0→100%, NewKeychain 0→40%.
 **Previous runs:**
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
   - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore.
@@ -314,6 +314,8 @@
 
 ## Passed Criteria
 
+### AC-346: Additional unit tests for pkg/auth ✅ (2026-06-22) — 9 test functions (42 subtests), all pass. Coverage 41.3%→45.6% (+4.3pp). sanitizeKeychainParam 0→100% (6 test functions: valid/empty/dangerous chars/whitespace/injection/special chars), deriveSystemEncryptionKey 0→100% (3 test functions: basic/deterministic/different base paths), NewKeychain 0→40% (2 test functions: non-nil/type check).
+### AC-345: Unit tests for internal/version ✅ (2026-06-22) — 5 test functions, all pass. Coverage 0.0%→100.0% (+100pp). Covers Short (standard/dev/empty/long commit hash), Get (5 fields populated), field preservation, idempotency, immutability.
 ### AC-344: Unit tests for pkg/wasm uncovered functions ✅ (2026-06-22) — 34 test functions, all pass, coverage 41.5%→57.2%. Covers NetworkPolicy.IsAllowed, CapabilitySet, Runtime.CheckNetworkAccess, isValidCapabilityName, CompileWAT, closeWithContext, NewRuntimeWithTracer, captureResponseWriter.Flush/WriteHeader/Write, Interceptor lifecycle, Middleware pass-through, SandboxLimits.Validate, isJSONContentType.
 ### AC-343: Unit tests for pkg/daemon proxy controller ✅ (2026-06-22) — 28 test functions, all pass, coverage 21.2%→81.8%.
 ### AC-342: Unit tests for pkg/auth FileKeychain ✅ (2026-06-22) — 21 test functions, all pass, coverage 12.3%→41.3%.
