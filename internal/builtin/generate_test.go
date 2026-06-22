@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/wojons/muster/pkg/config"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
@@ -392,4 +393,138 @@ func TestGetFlagType(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestNormalizeFlagName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"simple lowercase", "name", "name"},
+		{"camelCase", "camelCase", "camel-case"},
+		{"PascalCase", "PascalCase", "pascal-case"},
+		{"multipleWords", "requestBodySchema", "request-body-schema"},
+		{"singleUppercase", "ID", "i-d"},
+		{"leadingUppercase", "HTTPHeader", "h-t-t-p-header"},
+		{"empty string", "", ""},
+		{"already kebab", "already-kebab", "already-kebab"},
+		{"numbers", "maxRetries3", "max-retries3"},
+		{"allUppercase", "URL", "u-r-l"},
+		{"mixedWithUnderscore", "some_Value", "some_-value"},
+		{"unicode", "Straße", "straße"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeFlagName(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestResolveRequestBodySchema(t *testing.T) {
+	t.Run("nil media type returns nil", func(t *testing.T) {
+		doc := &openapi3.T{}
+		result := resolveRequestBodySchema(doc, nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("media type with nil schema returns nil", func(t *testing.T) {
+		doc := &openapi3.T{}
+		mt := &openapi3.MediaType{Schema: nil}
+		result := resolveRequestBodySchema(doc, mt)
+		assert.Nil(t, result)
+	})
+
+	t.Run("media type with inline schema", func(t *testing.T) {
+		doc := &openapi3.T{}
+		mt := &openapi3.MediaType{
+			Schema: &openapi3.SchemaRef{
+				Value: &openapi3.Schema{
+					Properties: openapi3.Schemas{
+						"name": &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					},
+				},
+			},
+		}
+		result := resolveRequestBodySchema(doc, mt)
+		require.NotNil(t, result)
+		assert.Len(t, result.Properties, 1)
+	})
+
+	t.Run("media type with empty properties returns nil", func(t *testing.T) {
+		doc := &openapi3.T{}
+		mt := &openapi3.MediaType{
+			Schema: &openapi3.SchemaRef{
+				Value: &openapi3.Schema{
+					Properties: openapi3.Schemas{},
+				},
+			},
+		}
+		result := resolveRequestBodySchema(doc, mt)
+		assert.Nil(t, result)
+	})
+
+	t.Run("media type with $ref resolves from components", func(t *testing.T) {
+		doc := &openapi3.T{
+			Components: &openapi3.Components{
+				Schemas: openapi3.Schemas{
+					"Task": &openapi3.SchemaRef{
+						Value: &openapi3.Schema{
+							Type: &openapi3.Types{"object"},
+							Properties: openapi3.Schemas{
+								"title": &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+							},
+						},
+					},
+				},
+			},
+		}
+		mt := &openapi3.MediaType{
+			Schema: &openapi3.SchemaRef{
+				Ref: "#/components/schemas/Task",
+			},
+		}
+		result := resolveRequestBodySchema(doc, mt)
+		require.NotNil(t, result)
+		assert.Len(t, result.Properties, 1)
+	})
+
+	t.Run("media type with $ref to non-existent component returns nil", func(t *testing.T) {
+		doc := &openapi3.T{
+			Components: &openapi3.Components{
+				Schemas: openapi3.Schemas{},
+			},
+		}
+		mt := &openapi3.MediaType{
+			Schema: &openapi3.SchemaRef{
+				Ref: "#/components/schemas/NonExistent",
+			},
+		}
+		result := resolveRequestBodySchema(doc, mt)
+		assert.Nil(t, result)
+	})
+
+	t.Run("media type with non-components $ref returns nil", func(t *testing.T) {
+		doc := &openapi3.T{}
+		mt := &openapi3.MediaType{
+			Schema: &openapi3.SchemaRef{
+				Ref: "#/paths/~1tasks/post/requestBody",
+			},
+		}
+		result := resolveRequestBodySchema(doc, mt)
+		assert.Nil(t, result)
+	})
+
+	t.Run("null components returns nil for $ref", func(t *testing.T) {
+		doc := &openapi3.T{Components: nil}
+		mt := &openapi3.MediaType{
+			Schema: &openapi3.SchemaRef{
+				Ref: "#/components/schemas/Task",
+			},
+		}
+		result := resolveRequestBodySchema(doc, mt)
+		assert.Nil(t, result)
+	})
 }

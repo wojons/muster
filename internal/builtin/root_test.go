@@ -1,10 +1,13 @@
 package builtin
 
 import (
+	"os"
 	"testing"
 
+	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewRootCommand(t *testing.T) {
@@ -263,5 +266,60 @@ func TestRootCommandStructure(t *testing.T) {
 				assert.NotEmpty(t, cmd.Short, "built-in command %s missing Short", cmd.Name())
 			}
 		}
+	})
+}
+
+func TestNewRootCommandWithAudit(t *testing.T) {
+	t.Run("creates command with nil audit", func(t *testing.T) {
+		cfg := &config.Config{}
+		root := NewRootCommandWithAudit(cfg, nil)
+		require.NotNil(t, root)
+		assert.Equal(t, "openapi-cli", root.Use)
+		assert.Greater(t, len(root.Commands()), 5)
+	})
+
+	t.Run("creates command with audit hook", func(t *testing.T) {
+		cfg := &config.Config{}
+		hook := &audit.Hook{}
+		root := NewRootCommandWithAudit(cfg, hook)
+		require.NotNil(t, root)
+	})
+
+	t.Run("returns same structure as NewRootCommand", func(t *testing.T) {
+		cfg := &config.Config{}
+		withAudit := NewRootCommandWithAudit(cfg, nil)
+		withoutAudit := NewRootCommand(cfg)
+		assert.Equal(t, len(withAudit.Commands()), len(withoutAudit.Commands()))
+		assert.Equal(t, withAudit.Use, withoutAudit.Use)
+	})
+}
+
+func TestCliActorID(t *testing.T) {
+	t.Run("returns USER env when set", func(t *testing.T) {
+		os.Setenv("USER", "testuser")
+		defer os.Unsetenv("USER")
+		os.Unsetenv("LOGNAME")
+		assert.Equal(t, "testuser", cliActorID())
+	})
+
+	t.Run("falls back to LOGNAME when USER empty", func(t *testing.T) {
+		os.Unsetenv("USER")
+		os.Setenv("LOGNAME", "lognameuser")
+		defer os.Unsetenv("LOGNAME")
+		assert.Equal(t, "lognameuser", cliActorID())
+	})
+
+	t.Run("returns 'unknown' when neither set", func(t *testing.T) {
+		os.Unsetenv("USER")
+		os.Unsetenv("LOGNAME")
+		assert.Equal(t, "unknown", cliActorID())
+	})
+
+	t.Run("prefers USER over LOGNAME", func(t *testing.T) {
+		os.Setenv("USER", "primary")
+		os.Setenv("LOGNAME", "secondary")
+		defer os.Unsetenv("USER")
+		defer os.Unsetenv("LOGNAME")
+		assert.Equal(t, "primary", cliActorID())
 	})
 }
