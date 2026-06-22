@@ -6,13 +6,8 @@
 ## [x] Add unit tests for pkg/daemon proxy controller (AC-343)
 - **Completed:** 2026-06-22 — 28 test functions, all pass. Coverage 21.2% → 81.8% (+60.6pp). Covers NewController (valid/defaults), Start/Stop/Restart lifecycle, Status (running/stopped), IsRunning, ServeHTTP (with/without handler), GetTokenPath, Handler, Shutdown, Kill. ProxyServer: NewProxyServer (with/without handler), Start (listens+accepts requests), Start replaces old listener, Stop (clean+not-started), HealthEndpoint (all 5 paths), IsRunning, SocketPath. isHealthEndpoint (10 cases), sanitizeProxyPath (10 cases), isHopHeader (14 cases). NewAuthenticatedProxyServer (auth bypass for health, 401 for missing/invalid tokens, 200 for valid tokens, nil handler default).
 
-## [ ] Add unit tests for pkg/wasm uncovered functions (AC-344)
-- **Priority:** medium
-- **Model:** deepseek-v4-pro (direct write)
-- **Files:** pkg/wasm/runtime_test.go, pkg/wasm/sandbox_test.go
-- **Tests:** Focus on functions currently at 0%: LoadPlugin, UnloadPlugin, Flush (middleware), and pure functions in sandbox.go (path normalization, escape detection)
-- **AC:** `go test ./pkg/wasm/... -count=1 -timeout 30s` passes. Coverage 41.5% → 55%+. 10+ new test functions.
-- **Package:** pkg/wasm/ (1,200+ lines, 41.5% coverage)
+## [x] Add unit tests for pkg/wasm uncovered functions (AC-344)
+- **Completed:** 2026-06-22 — 34 test functions, all pass. Coverage 41.5% → 57.2% (+15.7pp). Covers NetworkPolicy.IsAllowed (6 scenarios), CapabilitySet (New/Grant/GrantDuplicate/GrantMultiple/Revoke/RevokeNonExistent/Check/CheckWildcard/CheckNilSet), Runtime.CheckNetworkAccess (5 scenarios), isValidCapabilityName (14 cases), CompileWAT (normal/empty), Runtime.closeWithContext/Close, NewRuntimeWithTracer, captureResponseWriter.Flush (4 scenarios), captureResponseWriter.WriteHeader/Write buffering, Interceptor.UnloadPlugin, RegisteredPlugins, Close, Middleware (emptyPath/unloadedPlugin), SandboxLimits.Validate edge cases, isJSONContentType edge cases.
 
 ## [x] Add unit tests for internal/builtin (AC-341)
 - **Completed:** 2026-06-22 — 31 new test cases: normalizeFlagName (12 cases), resolveRequestBodySchema (8 cases), NewRootCommandWithAudit (3 cases), cliActorID (4 cases). Coverage 54.3% → 58.2% (+3.9pp). Remaining 0% functions are DSL HTTP builtins (need Starlark runtime).

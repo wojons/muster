@@ -7,7 +7,8 @@
 **Last run:** 2026-06-22 (cron foreman tick #3)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass (excl. known stability test timeout).
 **Completed this run:**
-  - AC-343: ✅ Unit tests for pkg/daemon proxy controller — 28 test functions, all pass. Covers Controller (NewController, Start/Stop/Restart lifecycle, Status, IsRunning, ServeHTTP, GetTokenPath, Handler, Shutdown, Kill), ProxyServer (NewProxyServer, Start, Stop, HealthEndpoint, IsRunning, SocketPath, NewAuthenticatedProxyServer), isHealthEndpoint (10 cases), sanitizeProxyPath (10 cases), isHopHeader (14 cases). Coverage 21.2% → 81.8% (+60.6pp).
+  - AC-343: ✅ Unit tests for pkg/daemon proxy controller — 28 test functions, all pass. Coverage 21.2% → 81.8% (+60.6pp).
+  - AC-344: ✅ Unit tests for pkg/wasm uncovered functions — 34 test functions, all pass. Coverage 41.5% → 57.2% (+15.7pp).
 **Previous runs:**
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
   - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore.
@@ -313,7 +314,8 @@
 
 ## Passed Criteria
 
-### AC-343: Unit tests for pkg/daemon proxy controller ✅ (2026-06-22) — 28 test functions, all pass, coverage 21.2%→81.8%. Covers NewController (valid/defaults), Start/Stop/Restart lifecycle, Status (running/stopped), IsRunning, ServeHTTP (with/without handler), GetTokenPath, Handler, Shutdown, Kill. ProxyServer: NewProxyServer (with/without handler), Start (listens+accepts requests), Start replaces old listener, Stop (clean+not-started), HealthEndpoint (all 5 paths), IsRunning, SocketPath. isHealthEndpoint (10 cases), sanitizeProxyPath (10 cases), isHopHeader (14 cases). NewAuthenticatedProxyServer (auth bypass for health, 401 for missing/invalid tokens, 200 for valid tokens, nil handler default).
+### AC-344: Unit tests for pkg/wasm uncovered functions ✅ (2026-06-22) — 34 test functions, all pass, coverage 41.5%→57.2%. Covers NetworkPolicy.IsAllowed, CapabilitySet, Runtime.CheckNetworkAccess, isValidCapabilityName, CompileWAT, closeWithContext, NewRuntimeWithTracer, captureResponseWriter.Flush/WriteHeader/Write, Interceptor lifecycle, Middleware pass-through, SandboxLimits.Validate, isJSONContentType.
+### AC-343: Unit tests for pkg/daemon proxy controller ✅ (2026-06-22) — 28 test functions, all pass, coverage 21.2%→81.8%.
 ### AC-342: Unit tests for pkg/auth FileKeychain ✅ (2026-06-22) — 21 test functions, all pass, coverage 12.3%→41.3%.
 ### AC-340: Unit tests for pkg/cmdstore/loader ✅ (2026-06-21) — 20 test functions, all pass, 87% coverage. Covers NewLoader (valid/nil), LoadCommands (empty/with-commands), GetBaseURL (from-meta/from-loader/no-stored-data), SetHeaders (set/overwrite), reconstructCommand (all flag types/required/builtin/args), getFlagValue (5 types), createRunHandler (9 scenarios with httptest.Server), executeAndReadResponse.
 ### AC-339: Unit tests for pkg/mcp/handlers/types ✅ (2026-06-21) — 50 test functions, all pass, 100% coverage on all 13 functions.
