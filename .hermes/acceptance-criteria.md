@@ -4,10 +4,14 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-23 (cron foreman tick #9)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. known pkg/platform environmental failures + stability test timeout).
+**Last run:** 2026-06-23 (cron foreman tick #10)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass.
 **Completed this run:**
-  - AC-353: ✅ Unit tests for pkg/auth decryptMasterKeyFile — 10 test functions, all pass. Covers ValidV2 round-trip, InvalidBase64, V2_BadSalt, V2_BadAppSecret, V2_BadCiphertext, V1_Valid (manual construction with fallback secret), V1_BadSalt, V1_BadCiphertext, CorruptJSON→legacy, Legacy raw base64. decryptMasterKeyFile coverage: 41.2%→97.1% (+55.9pp). Package: 54.2%→58.3% (+4.1pp). Task board: all tasks now [x].
+  - AC-354: ✅ Unit tests for pkg/cache purgeExpired + evictOne — 7 test functions, all pass. purgeExpired 0%→100% (removes expired, keeps non-expired, empty no-op, all expired). evictOne 75%→100% (evicts LRU, empty no-op, progressive eviction). Package: 97.9%.
+  - AC-355: ✅ Unit tests for pkg/auth encrypt + getApplicationSecret — 9 test functions, all pass. encrypt 72.7%→81.8% (valid 32/24/16-byte key, invalid 31/33-byte, empty/nil plaintext). getApplicationSecret 66.7%→100% (with/without appSecret). Package: 54.2%→58.7%.
+  - AC-356: ✅ Unit tests for pkg/client NewRateLimitRoundTripper + RoundTrip — 8 test functions, all pass. NewRateLimitRoundTripper 66.7%→100% (valid/zero rate/zero burst/nil inner). RoundTrip 100% (pass-through, blocks, 429 body, proto preserved). Package: 92.9%.
+  - All 3 tasks direct-write (foreman=deepseek-v4-pro), zero spawns. 24 new test functions, all pass.
+  - Task board: all tasks now [x].
 **Previous runs:**
   - AC-350: ✅ Unit tests for cmd/mcp-server utility functions — 2 test functions (14 subtests)
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
@@ -314,6 +318,9 @@
 
 ## Passed Criteria
 
+### AC-356: Unit tests for pkg/client NewRateLimitRoundTripper ✅ (2026-06-23) — 8 test functions, all pass. NewRateLimitRoundTripper: 4 tests (valid rate/burst, zero rate, zero burst, nil inner→DefaultTransport) 66.7%→100%. RoundTrip: 4 tests (passthrough, blocks when exceeded, 429 body contents, proto preserved on 429) 100%. Package: 92.9%. Direct write, no spawn.
+### AC-355: Unit tests for pkg/auth encrypt + getApplicationSecret ✅ (2026-06-23) — 9 test functions, all pass. encrypt: 7 tests (valid 32/24/16-byte keys, invalid 31/33-byte keys, empty/nil plaintext) 72.7%→81.8%. getApplicationSecret: 2 tests (with/without appSecret) 66.7%→100%. Package: 54.2%→58.7%. Note: 16/24-byte keys are valid AES-128/192. Direct write, no spawn.
+### AC-354: Unit tests for pkg/cache purgeExpired + evictOne ✅ (2026-06-23) — 7 test functions, all pass. purgeExpired: 4 tests (removes expired, keeps non-expired, empty no-op, all expired) 0%→100%. evictOne: 3 tests (evicts LRU, empty no-op, progressive eviction) 75%→100%. Package: 97.9%. Direct write, no spawn.
 ### AC-353: Unit tests for pkg/auth decryptMasterKeyFile ✅ (2026-06-23) — 10 test functions, all pass. Covers ValidV2 round-trip, InvalidBase64, V2_BadSalt, V2_BadAppSecret, V2_BadCiphertext, V1_Valid (manual construction with fallback secret), V1_BadSalt, V1_BadCiphertext, CorruptJSON→legacy, Legacy raw base64. decryptMasterKeyFile coverage: 41.2%→97.1% (+55.9pp). Package: 54.2%→58.3% (+4.1pp). Direct write, no spawn.
 ### AC-351: Unit tests for pkg/generator addFlags ✅ (2026-06-23) — 25 test functions, all pass. addFlags 39.7%→94.9% (+55.2pp). Covers all parameter types (string/int/number/boolean/array, with/without defaults), path param skip, required flag annotation, multipart flags, request body properties (string/default/enum, integer/float64/int defaults, number/default, boolean/default=true), body-multipart dedup, empty body description. Package: 61.4%→71.9% (+10.5pp). Direct write, no spawn.
 ### AC-350: Unit tests for cmd/mcp-server utility functions ✅ (2026-06-22) — 2 test functions (14 subtests), all pass. isURL at 75% (12 cases), mcpActorID at 100% (3 env var cases). Coverage 52.6%→63.2% (+10.6pp). Direct write, no spawn.
