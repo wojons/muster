@@ -4,14 +4,16 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-23 (cron foreman tick #11)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass.
+**Last run:** 2026-06-23 (cron foreman tick #12)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability).
 **Completed this run:**
-  - AC-357: ✅ Unit tests for pkg/auth oauth2_flow (Start + Exchange) — 16 test functions, all pass. Start 0%→94.1% (6 subtests), Exchange 0%→93.8% (9 subtests), ConcurrentStart (10 goroutines). Package: 58.7%→67.8% (+9.1pp).
-  - AC-358: ✅ Unit tests for pkg/wasm runtime SetNetworkPolicy — 4 test functions, all pass. SetNetworkPolicy 0%→100%. Package: 57.2%→57.6% (+0.4pp).
-  - 20 new test functions total, all pass. Direct writes, zero spawns.
-**Previous runs:**
-  - AC-350: ✅ Unit tests for cmd/mcp-server utility functions — 2 test functions (14 subtests)
+  - AC-359: ✅ Unit tests for pkg/log SetGlobal — 1 test function. SetGlobal 0%→100%. Package: 93.3%→100.0%.
+  - AC-360: ✅ Unit tests for pkg/request WithTimeout — 4 test functions (no-op, nil safety, various durations). Function coverage: empty body — tooling artifact.
+  - AC-361: ✅ Unit tests for pkg/completion DefaultHTTPClient — 4 test functions. NewDefaultHTTPClient 0%→100%. Package: 78.3%→93.7%.
+  - 9 new test functions total, all pass. Direct writes, zero spawns.
+**New gaps:** 
+  - AC-362: pkg/daemon SetupSignalHandlers + NewProxyHandlerWithCache (2 functions at 0%, package at 87.5%)
+  - AC-363: internal/builtin DSL HTTP builtins (6 functions at 0%, package at 70.8%)
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
   - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore.
   - AC-339: ✅ Unit tests for pkg/mcp/handlers/types — 50 test functions, 100% coverage on all 13 functions
@@ -354,3 +356,6 @@
 ### AC-180: mTLS auth support ✅ (2026-06-12) — Regression found & fixed 2026-06-12 (MTLSConfig yaml tag round-trip bug, commit `2b30f53`)
 ### AC-357: Unit tests for pkg/auth oauth2_flow (Start + Exchange) ✅ (2026-06-23) — 16 test functions, all pass. Start 0%→94.1%, Exchange 0%→93.8%. ConcurrentStart 10 goroutines. Package: 58.7%→67.8% (+9.1pp). Direct write, no spawn.
 ### AC-358: Unit tests for pkg/wasm runtime SetNetworkPolicy ✅ (2026-06-23) — 4 test functions, all pass. SetNetworkPolicy 0%→100%. Package: 57.2%→57.6% (+0.4pp). Direct write, no spawn.
+### AC-359: Unit tests for pkg/log SetGlobal ✅ (2026-06-23) — 1 test function, all pass. SetGlobal 0%→100%. Package: 93.3%→100.0%. Direct write, no spawn.
+### AC-360: Unit tests for pkg/request WithTimeout ✅ (2026-06-23) — 4 test functions, all pass. No-op verification + nil safety + various duration types. WithTimeout is empty body — coverage tool artifacts. Direct write, no spawn.
+### AC-361: Unit tests for pkg/completion DefaultHTTPClient ✅ (2026-06-23) — 4 test functions, all pass. NewDefaultHTTPClient 0%→100%, ListResources/ListNamespaces/ListProfiles not-implemented paths verified. Package: 78.3%→93.7%. Direct write, no spawn.

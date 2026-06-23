@@ -1,5 +1,30 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for pkg/log SetGlobal (AC-359)
+- **Completed:** 2026-06-23 — 1 test function. Verifies SetGlobal does not panic, Global() returns usable logger after Set, all three log levels (Info/Warn/Error). Resets to functional logger for other tests. SetGlobal 0%→100%. Package: 93.3%→100.0%. Direct write, no spawn.
+
+## [x] Add unit tests for pkg/request WithTimeout (AC-360)
+- **Completed:** 2026-06-23 — 4 test functions. TestWithTimeout_IsNoOp (no mutation), TestWithTimeout_NilReceiver (nil safety), TestWithTimeout_VariousDurations (int/float64/string/time.Duration), TestWithTimeout_NoPanic. Function is empty body (no-op) — coverage tool shows 0.0% (tooling artifact). Direct write, no spawn.
+
+## [x] Add unit tests for pkg/completion DefaultHTTPClient (AC-361)
+- **Completed:** 2026-06-23 — 4 test functions. TestNewDefaultHTTPClient (non-nil client, non-nil inner), TestDefaultHTTPClient_ListResources/ListNamespaces/ListProfiles_NotImplemented (all return error + nil data). NewDefaultHTTPClient 0%→100%. Package: 78.3%→93.7% (ListResources/ListNamespaces/ListProfiles are stub errors — coverage records 100% on the error-return path). Direct write, no spawn.
+
+## [ ] Add unit tests for pkg/daemon SetupSignalHandlers + NewProxyHandlerWithCache (AC-362)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/daemon/proxy_test.go
+- **Tests:** TestSetupSignalHandlers_NoOp (nil controller, non-nil), TestNewProxyHandlerWithCache (valid cache, nil cache, zero TTL, large TTL, returns correct backendURL)
+- **AC:** `go test ./pkg/daemon/... -count=1 -run "TestSetupSignalHandlers|TestNewProxyHandlerWithCache"` passes. 5+ test functions.
+- **Package:** pkg/daemon/proxy.go (SetupSignalHandlers L165 at 0%, NewProxyHandlerWithCache L555 at 0%). Package at 87.5%.
+
+## [ ] Add unit tests for internal/builtin DSL HTTP builtins (AC-363)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** internal/builtin/dsl_test.go
+- **Tests:** TestHttpGetBuiltin (valid URL returns body, invalid URL error, empty URL), TestHttpPostBuiltin, TestHttpPutBuiltin, TestHttpDeleteBuiltin. Use httptest.Server for HTTP endpoints.
+- **AC:** `go test ./internal/builtin/... -count=1 -run "TestHttpGetBuiltin|TestHttpPostBuiltin|TestHttpPutBuiltin|TestHttpDeleteBuiltin|TestRunDsl"` passes. 10+ test functions.
+- **Package:** internal/builtin/dsl.go (6 functions at 0%: httpGetBuiltin L70, httpPostBuiltin L84, httpPutBuiltin L98, httpDeleteBuiltin L117, runDsl L29). Package at 70.8%.
+
 ## [x] Add unit tests for pkg/auth oauth2_flow Start + Exchange (AC-357)
 - **Completed:** 2026-06-23 — 16 test functions, all pass. Start: 6 subtests (valid flow URL params, no scopes, empty scopes, single scope, invalid auth URL, state uniqueness). Exchange: 9 subtests (successful, invalid state not found, client ID mismatch, state consumed, non-200, invalid JSON, connection refused, custom client, 500 error). Plus standalone: WithoutScopes, ConcurrentStart (10 goroutines), EmptyCode. Start coverage: 0%→94.1%, Exchange: 0%→93.8%. Package: 58.7%→67.8% (+9.1pp). Direct write, no spawn.
 
