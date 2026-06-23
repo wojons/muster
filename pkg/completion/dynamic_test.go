@@ -138,3 +138,50 @@ func (c *cachedMockClient) ListNamespaces(ctx context.Context) ([]string, error)
 func (c *cachedMockClient) ListProfiles(ctx context.Context) ([]string, error) {
 	return c.mockAPIClient.ListProfiles(ctx)
 }
+
+// =============================================================================
+// DefaultHTTPClient tests
+// =============================================================================
+
+func TestNewDefaultHTTPClient(t *testing.T) {
+	c := NewDefaultHTTPClient()
+	if c == nil {
+		t.Fatal("NewDefaultHTTPClient() returned nil")
+	}
+	if c.client == nil {
+		t.Error("DefaultHTTPClient.client is nil")
+	}
+}
+
+func TestDefaultHTTPClient_ListResources_NotImplemented(t *testing.T) {
+	c := NewDefaultHTTPClient()
+	resources, err := c.ListResources(context.Background(), "pods")
+	if err == nil {
+		t.Error("expected error from ListResources")
+	}
+	if resources != nil {
+		t.Error("expected nil resources on error")
+	}
+}
+
+func TestDefaultHTTPClient_ListNamespaces_NotImplemented(t *testing.T) {
+	c := NewDefaultHTTPClient()
+	namespaces, err := c.ListNamespaces(context.Background())
+	if err == nil {
+		t.Error("expected error from ListNamespaces")
+	}
+	if namespaces != nil {
+		t.Error("expected nil namespaces on error")
+	}
+}
+
+func TestDefaultHTTPClient_ListProfiles_NotImplemented(t *testing.T) {
+	c := NewDefaultHTTPClient()
+	profiles, err := c.ListProfiles(context.Background())
+	if err == nil {
+		t.Error("expected error from ListProfiles")
+	}
+	if profiles != nil {
+		t.Error("expected nil profiles on error")
+	}
+}

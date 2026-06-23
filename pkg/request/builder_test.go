@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 // =============================================================================
@@ -784,5 +785,50 @@ func TestWithHeader_NilHeadersSafety(t *testing.T) {
 	}
 	if b.Headers["X-Test"] != "val" {
 		t.Errorf("Headers[X-Test] = %q, want val", b.Headers["X-Test"])
+	}
+}
+
+// =============================================================================
+// PHASE 15: WithTimeout (no-op)
+// =============================================================================
+
+func TestWithTimeout_IsNoOp(t *testing.T) {
+	b := NewBuilder("https://api.example.com")
+	// WithTimeout is a no-op — verify it doesn't panic or mutate the builder
+	b.WithTimeout(30)
+	if b.BaseURL != "https://api.example.com" {
+		t.Errorf("BaseURL changed after WithTimeout: %q", b.BaseURL)
+	}
+}
+
+func TestWithTimeout_NilReceiver(t *testing.T) {
+	// Should not panic on nil receiver
+	var b *Builder
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("WithTimeout panicked on nil receiver: %v", r)
+			}
+		}()
+		b.WithTimeout(5)
+	}()
+}
+
+func TestWithTimeout_VariousDurations(t *testing.T) {
+	b := NewBuilder("https://api.example.com")
+	durations := []interface{}{30, 60.0, "30s", time.Second * 10, time.Millisecond * 500}
+	for _, d := range durations {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("WithTimeout(%v) panicked: %v", d, r)
+				}
+			}()
+			b.WithTimeout(d)
+		}()
+	}
+	// Builder should still be usable after all calls
+	if b.BaseURL != "https://api.example.com" {
+		t.Error("BaseURL changed after multiple WithTimeout calls")
 	}
 }

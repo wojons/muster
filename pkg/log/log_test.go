@@ -149,3 +149,24 @@ func TestFromContext(t *testing.T) {
 	logger := FromContext(nil)
 	logger.Info().Msg("from context test")
 }
+
+func TestSetGlobal(t *testing.T) {
+	// SetGlobal replaces the global logger.
+	// Verify it does not panic and Global() returns a usable logger after Set.
+	noopLogger := NewLogger(zerolog.Nop())
+
+	// SetGlobal should not panic
+	SetGlobal(noopLogger)
+
+	// Global() should return a usable logger without panicking
+	got := Global()
+	got.Info().Msg("set global test")
+	got.Warn().Msg("set global warn test")
+	got.Error().Msg("set global error test")
+
+	// Reset to a functional logger so other tests work correctly
+	var buf bytes.Buffer
+	zl := zerolog.New(&buf)
+	resetLogger := NewLogger(zl)
+	SetGlobal(resetLogger)
+}
