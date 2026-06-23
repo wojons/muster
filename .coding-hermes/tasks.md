@@ -6,6 +6,30 @@
 ## [x] Add unit tests for pkg/auth cleanupExpired (AC-352)
 - **Completed:** 2026-06-23 — 4 test functions, all pass. Covers removes old entries, keeps recent entries, empty map (no panic), mixed old+new (only old removed). cleanupExpired coverage: 27.3%→100.0% (+72.7pp). Package: 52.6%→54.2% (+1.6pp). Direct write, no spawn.
 
+## [ ] Add unit tests for pkg/cache purgeExpired + evictOne (AC-354)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/cache/memory_test.go
+- **Tests:** purgeExpired (removes expired entries, keeps non-expired, empty cache no-op, all expired), evictOne (evicts LRU entry, empty cache no-op, evict from multi-entry cache)
+- **AC:** `go test ./pkg/cache/... -count=1 -run "TestPurgeExpired|TestEvictOne"` passes. 7+ test functions. purgeExpired coverage: 0%→90%+. evictOne coverage: 75%→100%.
+- **Package:** pkg/cache/memory.go (purgeExpired L203, currently 0%; evictOne L217, currently 75%)
+
+## [ ] Add unit tests for pkg/auth encrypt + getApplicationSecret (AC-355)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/auth/keychain_test.go
+- **Tests:** encrypt (valid 32-byte key, invalid key lengths 16/24/31/33 bytes, empty plaintext, nil plaintext), getApplicationSecret (with appSecret set, without appSecret → fallback)
+- **AC:** `go test ./pkg/auth/... -count=1 -run "TestEncrypt|TestGetApplicationSecret"` passes. 8+ test functions. encrypt coverage: 72.7%→90%+. getApplicationSecret: 66.7%→100%.
+- **Package:** pkg/auth/keychain.go (encrypt L743, currently 72.7%; getApplicationSecret L569, currently 66.7%)
+
+## [ ] Add unit tests for pkg/client NewRateLimitRoundTripper (AC-356)
+- **Priority:** low
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/client/ratelimit_test.go
+- **Tests:** NewRateLimitRoundTripper (creates with valid rate/burst/zero rate/zero burst, nil rate checker), RoundTrip (uses rate checker Allow, blocks when rate exceeded, passes through response)
+- **AC:** `go test ./pkg/client/... -count=1 -run "TestNewRateLimitRoundTripper|TestRateLimitRoundTrip"` passes. 6+ test functions. NewRateLimitRoundTripper: 66.7%→100%.
+- **Package:** pkg/client/ratelimit.go (NewRateLimitRoundTripper L33, currently 66.7%)
+
 ## [x] Add unit tests for pkg/auth decryptMasterKeyFile edge cases (AC-353)
 - **Completed:** 2026-06-23 — 10 test functions, all pass. Covers ValidV2 (round-trip via encryptMasterKeyFile), InvalidBase64, V2_BadSalt, V2_BadAppSecret, V2_BadCiphertext, V1_Valid (manual v1 construction with fallback secret), V1_BadSalt, V1_BadCiphertext, CorruptJSON (falls to legacy), Legacy (raw base64, wrong decryption). decryptMasterKeyFile coverage: 41.2%→97.1% (+55.9pp). Package coverage: 54.2%→58.3% (+4.1pp). Direct write, no spawn.
 - **Priority:** medium
