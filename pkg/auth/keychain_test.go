@@ -722,3 +722,146 @@ func TestDecryptMasterKeyFile_Legacy(t *testing.T) {
 		t.Fatal("expected error for legacy format decrypt, got nil")
 	}
 }
+
+// ── encrypt ───────────────────────────────────────────────────────────
+
+func TestEncrypt_Valid32ByteKey(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	key := make([]byte, 32)
+	for i := range key {
+		key[i] = byte(i)
+	}
+	plaintext := []byte("secret message")
+
+	result, err := kc.encrypt(plaintext, key)
+	if err != nil {
+		t.Fatalf("encrypt with valid 32-byte key error = %v", err)
+	}
+	if result == "" {
+		t.Fatal("encrypt returned empty string")
+	}
+	// Verify it's valid base64
+	decoded, err := base64.StdEncoding.DecodeString(result)
+	if err != nil {
+		t.Fatalf("encrypt result not valid base64: %v", err)
+	}
+	if len(decoded) == 0 {
+		t.Fatal("encrypt produced zero-length ciphertext")
+	}
+}
+
+func TestEncrypt_Valid24ByteKey(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// AES-192: 24-byte key is valid
+	key := make([]byte, 24)
+	for i := range key {
+		key[i] = byte(i)
+	}
+	result, err := kc.encrypt([]byte("hello"), key)
+	if err != nil {
+		t.Fatalf("encrypt with 24-byte key (AES-192) error = %v, want nil", err)
+	}
+	if result == "" {
+		t.Fatal("encrypt with 24-byte key returned empty string")
+	}
+}
+
+func TestEncrypt_Valid16ByteKey(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// AES-128: 16-byte key is valid
+	key := make([]byte, 16)
+	for i := range key {
+		key[i] = byte(i)
+	}
+	result, err := kc.encrypt([]byte("hello"), key)
+	if err != nil {
+		t.Fatalf("encrypt with 16-byte key (AES-128) error = %v, want nil", err)
+	}
+	if result == "" {
+		t.Fatal("encrypt with 16-byte key returned empty string")
+	}
+}
+
+func TestEncrypt_InvalidKey31Bytes(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// 31 bytes is not a valid AES key size
+	key := make([]byte, 31)
+	_, err := kc.encrypt([]byte("data"), key)
+	if err == nil {
+		t.Fatal("encrypt with 31-byte key returned nil error, want error")
+	}
+}
+
+func TestEncrypt_InvalidKey33Bytes(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// 33 bytes is not a valid AES key size
+	key := make([]byte, 33)
+	_, err := kc.encrypt([]byte("data"), key)
+	if err == nil {
+		t.Fatal("encrypt with 33-byte key returned nil error, want error")
+	}
+}
+
+func TestEncrypt_EmptyPlaintext(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	key := make([]byte, 32)
+	// Empty plaintext: GCM still produces nonce+tag output
+	result, err := kc.encrypt([]byte(""), key)
+	if err != nil {
+		t.Fatalf("encrypt with empty plaintext error = %v", err)
+	}
+	if result == "" {
+		t.Fatal("encrypt with empty plaintext returned empty string")
+	}
+	// Verify decryptable
+	decrypted, err := kc.decrypt(result, key)
+	if err != nil {
+		t.Fatalf("decrypt of empty-plaintext result error = %v", err)
+	}
+	if decrypted != "" {
+		t.Errorf("decrypted = %q, want empty string", decrypted)
+	}
+}
+
+func TestEncrypt_NilPlaintext(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	key := make([]byte, 32)
+	// nil plaintext treated as empty
+	result, err := kc.encrypt(nil, key)
+	if err != nil {
+		t.Fatalf("encrypt with nil plaintext error = %v", err)
+	}
+	if result == "" {
+		t.Fatal("encrypt with nil plaintext returned empty string")
+	}
+	// Verify decryptable
+	decrypted, err := kc.decrypt(result, key)
+	if err != nil {
+		t.Fatalf("decrypt of nil-plaintext result error = %v", err)
+	}
+	if decrypted != "" {
+		t.Errorf("decrypted = %q, want empty string", decrypted)
+	}
+}
+
+// ── getApplicationSecret ─────────────────────────────────────────────
+
+func TestGetApplicationSecret_WithAppSecret(t *testing.T) {
+	kc := &FileKeychain{
+		basePath:  t.TempDir(),
+		appSecret: []byte("my-custom-app-secret-32-bytes!!"),
+	}
+	got := kc.getApplicationSecret()
+	if got != "my-custom-app-secret-32-bytes!!" {
+		t.Errorf("getApplicationSecret() = %q, want %q", got, "my-custom-app-secret-32-bytes!!")
+	}
+}
+
+func TestGetApplicationSecret_WithoutAppSecret(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// appSecret is nil/empty — should return the fallback constant
+	got := kc.getApplicationSecret()
+	if got != getApplicationSecretFallback {
+		t.Errorf("getApplicationSecret() = %q, want fallback %q", got, getApplicationSecretFallback)
+	}
+}
