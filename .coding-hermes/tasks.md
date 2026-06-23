@@ -6,7 +6,8 @@
 ## [x] Add unit tests for pkg/auth cleanupExpired (AC-352)
 - **Completed:** 2026-06-23 — 4 test functions, all pass. Covers removes old entries, keeps recent entries, empty map (no panic), mixed old+new (only old removed). cleanupExpired coverage: 27.3%→100.0% (+72.7pp). Package: 52.6%→54.2% (+1.6pp). Direct write, no spawn.
 
-## [ ] Add unit tests for pkg/auth decryptMasterKeyFile edge cases (AC-353)
+## [x] Add unit tests for pkg/auth decryptMasterKeyFile edge cases (AC-353)
+- **Completed:** 2026-06-23 — 10 test functions, all pass. Covers ValidV2 (round-trip via encryptMasterKeyFile), InvalidBase64, V2_BadSalt, V2_BadAppSecret, V2_BadCiphertext, V1_Valid (manual v1 construction with fallback secret), V1_BadSalt, V1_BadCiphertext, CorruptJSON (falls to legacy), Legacy (raw base64, wrong decryption). decryptMasterKeyFile coverage: 41.2%→97.1% (+55.9pp). Package coverage: 54.2%→58.3% (+4.1pp). Direct write, no spawn.
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
 - **Files:** pkg/auth/keychain_test.go

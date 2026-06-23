@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -570,5 +571,154 @@ func TestFileKeychain_DeriveSystemEncryptionKey_DifferentBasePaths(t *testing.T)
 	// because deriveSystemEncryptionKey uses getMachineData() which is host-level
 	if string(key1) != string(key2) {
 		t.Fatal("different base paths produced different encryption keys")
+	}
+}
+
+// ── decryptMasterKeyFile ────────────────────────────────────────────────
+
+func TestDecryptMasterKeyFile_ValidV2(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	masterKey := []byte("my-super-secret-master-key-for-testing")
+
+	encrypted, err := kc.encryptMasterKeyFile(masterKey)
+	if err != nil {
+		t.Fatalf("encryptMasterKeyFile failed: %v", err)
+	}
+
+	decrypted, err := kc.decryptMasterKeyFile(encrypted)
+	if err != nil {
+		t.Fatalf("decryptMasterKeyFile failed: %v", err)
+	}
+
+	if string(decrypted) != string(masterKey) {
+		t.Fatalf("round-trip failed: got %q, want %q", decrypted, masterKey)
+	}
+}
+
+func TestDecryptMasterKeyFile_InvalidBase64(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	_, err := kc.decryptMasterKeyFile("!!!not-valid-base64!!!")
+	if err == nil {
+		t.Fatal("expected error for invalid base64, got nil")
+	}
+}
+
+func TestDecryptMasterKeyFile_V2_BadSalt(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// v2 JSON with a salt that is not valid base64
+	badV2 := `{"version":2,"salt":"!!!bad-salt!!!","iterations":150000,"app_secret":"` +
+		base64.StdEncoding.EncodeToString(make([]byte, 32)) +
+		`","ciphertext":"dGVzdA=="}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(badV2))
+
+	_, err := kc.decryptMasterKeyFile(encoded)
+	if err == nil {
+		t.Fatal("expected error for invalid salt base64, got nil")
+	}
+}
+
+func TestDecryptMasterKeyFile_V2_BadAppSecret(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	salt := make([]byte, 16)
+	badV2 := `{"version":2,"salt":"` + base64.StdEncoding.EncodeToString(salt) +
+		`","iterations":150000,"app_secret":"!!!bad-secret!!!","ciphertext":"dGVzdA=="}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(badV2))
+
+	_, err := kc.decryptMasterKeyFile(encoded)
+	if err == nil {
+		t.Fatal("expected error for invalid app_secret base64, got nil")
+	}
+}
+
+func TestDecryptMasterKeyFile_V2_BadCiphertext(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	salt := base64.StdEncoding.EncodeToString(make([]byte, 16))
+	appSecret := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	// Ciphertext is valid base64 but won't decrypt as AES-GCM with the derived key
+	badV2 := `{"version":2,"salt":"` + salt +
+		`","iterations":150000,"app_secret":"` + appSecret +
+		`","ciphertext":"aW52YWxpZCBjaXBoZXJ0ZXh0IGRhdGE="}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(badV2))
+
+	_, err := kc.decryptMasterKeyFile(encoded)
+	if err == nil {
+		t.Fatal("expected decrypt error for bad ciphertext, got nil")
+	}
+}
+
+func TestDecryptMasterKeyFile_V1_Valid(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	masterKey := []byte("v1-test-master-key")
+
+	// Build a valid v1 encrypted payload manually
+	// v1: {"salt":"...","iterations":N,"ciphertext":"..."}
+	// Uses getApplicationSecretFallback instead of per-keychain app_secret
+	salt := make([]byte, 16)
+	password := getApplicationSecretFallback + "-" + kc.getMachineData()
+	iterations := 150000
+	encryptionKey := derivePBKDF2Key([]byte(password), salt, iterations, 32)
+	encrypted, err := kc.encrypt(masterKey, encryptionKey)
+	if err != nil {
+		t.Fatalf("encrypt for v1 failed: %v", err)
+	}
+
+	v1Payload := `{"salt":"` + base64.StdEncoding.EncodeToString(salt) +
+		`","iterations":150000,"ciphertext":"` + encrypted + `"}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(v1Payload))
+
+	decrypted, err := kc.decryptMasterKeyFile(encoded)
+	if err != nil {
+		t.Fatalf("decrypt v1 failed: %v", err)
+	}
+
+	if string(decrypted) != string(masterKey) {
+		t.Fatalf("v1 round-trip failed: got %q, want %q", decrypted, masterKey)
+	}
+}
+
+func TestDecryptMasterKeyFile_V1_BadSalt(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// v1 JSON with bad salt base64
+	badV1 := `{"salt":"!!!bad-salt!!!","iterations":150000,"ciphertext":"dGVzdA=="}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(badV1))
+
+	_, err := kc.decryptMasterKeyFile(encoded)
+	if err == nil {
+		t.Fatal("expected error for invalid v1 salt, got nil")
+	}
+}
+
+func TestDecryptMasterKeyFile_V1_BadCiphertext(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	salt := base64.StdEncoding.EncodeToString(make([]byte, 16))
+	badV1 := `{"salt":"` + salt +
+		`","iterations":150000,"ciphertext":"not-valid-ciphertext-data"}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(badV1))
+
+	_, err := kc.decryptMasterKeyFile(encoded)
+	if err == nil {
+		t.Fatal("expected decrypt error for bad v1 ciphertext, got nil")
+	}
+}
+
+func TestDecryptMasterKeyFile_CorruptJSON(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// Not valid JSON — won't match v2 or v1, falls through to legacy
+	corrupt := base64.StdEncoding.EncodeToString([]byte("this-is-not-json"))
+	_, err := kc.decryptMasterKeyFile(corrupt)
+	if err == nil {
+		t.Fatal("expected error for corrupt JSON in legacy path, got nil")
+	}
+}
+
+func TestDecryptMasterKeyFile_Legacy(t *testing.T) {
+	kc := &FileKeychain{basePath: t.TempDir()}
+	// Legacy format: raw base64 of some encrypted data
+	// Won't parse as v1/v2 JSON, hits the legacy raw decrypt path
+	legacy := base64.StdEncoding.EncodeToString([]byte("legacy-encrypted-data"))
+	_, err := kc.decryptMasterKeyFile(legacy)
+	// Legacy decrypt will fail (not valid AES-GCM), which is expected
+	if err == nil {
+		t.Fatal("expected error for legacy format decrypt, got nil")
 	}
 }

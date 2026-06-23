@@ -4,11 +4,10 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-23 (cron foreman tick #8)
+**Last run:** 2026-06-23 (cron foreman tick #9)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. known pkg/platform environmental failures + stability test timeout).
 **Completed this run:**
-  - AC-351: ✅ Unit tests for pkg/generator addFlags — 25 test functions, all pass. Covers all param types (string/int/number/boolean/array, with/without defaults), path param skip, required flag annotation, multipart (file flag + form fields), request body properties (string/default/enum, integer/float64/int defaults, number/default, boolean/default=true), body-multipart dedup, empty body description. addFlags coverage: 39.7%→94.9% (+55.2pp). Package: 61.4%→71.9% (+10.5pp).
-  - Board populated with 3 new tasks: AC-351, AC-352, AC-353.
+  - AC-353: ✅ Unit tests for pkg/auth decryptMasterKeyFile — 10 test functions, all pass. Covers ValidV2 round-trip, InvalidBase64, V2_BadSalt, V2_BadAppSecret, V2_BadCiphertext, V1_Valid (manual construction with fallback secret), V1_BadSalt, V1_BadCiphertext, CorruptJSON→legacy, Legacy raw base64. decryptMasterKeyFile coverage: 41.2%→97.1% (+55.9pp). Package: 54.2%→58.3% (+4.1pp). Task board: all tasks now [x].
 **Previous runs:**
   - AC-350: ✅ Unit tests for cmd/mcp-server utility functions — 2 test functions (14 subtests)
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
@@ -315,6 +314,7 @@
 
 ## Passed Criteria
 
+### AC-353: Unit tests for pkg/auth decryptMasterKeyFile ✅ (2026-06-23) — 10 test functions, all pass. Covers ValidV2 round-trip, InvalidBase64, V2_BadSalt, V2_BadAppSecret, V2_BadCiphertext, V1_Valid (manual construction with fallback secret), V1_BadSalt, V1_BadCiphertext, CorruptJSON→legacy, Legacy raw base64. decryptMasterKeyFile coverage: 41.2%→97.1% (+55.9pp). Package: 54.2%→58.3% (+4.1pp). Direct write, no spawn.
 ### AC-351: Unit tests for pkg/generator addFlags ✅ (2026-06-23) — 25 test functions, all pass. addFlags 39.7%→94.9% (+55.2pp). Covers all parameter types (string/int/number/boolean/array, with/without defaults), path param skip, required flag annotation, multipart flags, request body properties (string/default/enum, integer/float64/int defaults, number/default, boolean/default=true), body-multipart dedup, empty body description. Package: 61.4%→71.9% (+10.5pp). Direct write, no spawn.
 ### AC-350: Unit tests for cmd/mcp-server utility functions ✅ (2026-06-22) — 2 test functions (14 subtests), all pass. isURL at 75% (12 cases), mcpActorID at 100% (3 env var cases). Coverage 52.6%→63.2% (+10.6pp). Direct write, no spawn.
 ### AC-349: Unit tests for pkg/auth/token_manager ✅ (2026-06-22) — 12 test functions, all pass. NewTokenManager/Store/Get at 100%, refresh at 86.4%. Coverage 45.6%→52.6% (+7.0pp). Also fixed nil-token panic in Get(). Direct write, no spawn.
