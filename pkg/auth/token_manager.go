@@ -44,6 +44,10 @@ func (tm *TokenManager) Get(service string) (*Token, error) {
 		return nil, fmt.Errorf("load token: %w", err)
 	}
 
+	if token == nil {
+		return nil, fmt.Errorf("token not found for service %q", service)
+	}
+
 	if !token.IsExpired() {
 		return token, nil
 	}
