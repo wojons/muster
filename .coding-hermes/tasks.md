@@ -1,5 +1,13 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for pkg/auth/token_manager (AC-349)
+- **Completed:** 2026-06-22 — 12 test functions, all pass. NewTokenManager (fields populated), Store (success/error), Get (valid/load-error/nil-token/expired-no-refresh/expired-with-refresh/refresh-server-error/refresh-bad-JSON/grace-window/refresh-save-error). Coverage 45.6%→52.6% (+7.0pp). NewTokenManager/Store/Get at 100%, refresh at 86.4%. Also fixed nil-token panic in Get() (added nil check). Direct write, no spawn.
+- **Priority:** high
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/auth/token_manager_test.go (NEW)
+- **AC:** `go test ./pkg/auth/... -count=1 -run "TestTokenManager|TestNewTokenManager"` passes. 10+ test functions. Cover NewTokenManager, Store, Get, refresh (via httptest).
+- **Package:** pkg/auth/token_manager.go (109 lines, all 0% coverage)
+
 ## [x] Add unit tests for pkg/config watcher (AC-347)
 - **Completed:** 2026-06-22 — 9 test functions covering all 5 watcher functions: NewWatcher (valid+nil-callback), IsWatching (state transitions), Stop (no-op+double-stop), WatchConfig (start+double-call+callback fires via fsnotify), GetConfig (valid+extra-field tolerance), Stop_ChannelClose (closed channel verification). Coverage 75.8%→92.2% (+16.4pp). All watcher functions at 100% except GetConfig at 75% (viper unmarshal error path hard to trigger). Direct write, no spawn.
 - **Priority:** medium
