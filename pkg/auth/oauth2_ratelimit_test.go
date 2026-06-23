@@ -448,3 +448,112 @@ func TestRecordFailedAttempt_ExactThreshold(t *testing.T) {
 		t.Errorf("expected locked at threshold, got: %v", err)
 	}
 }
+
+// =============================================================================
+// AC-352: cleanupExpired coverage (27.3% → 80%+)
+// =============================================================================
+
+func TestCleanupExpired_RemovesOldEntries(t *testing.T) {
+	rl := &OAuthRateLimiter{
+		tokenLimiter:      ratelimit.NewTokenBucketLimiter(10, 10),
+		deviceCodeLimiter: ratelimit.NewTokenBucketLimiter(2, 2),
+		failedAttempts:    make(map[string]*failedAttemptTracker),
+		maxFailedAttempts: 5,
+		lockoutDuration:   10 * time.Millisecond,
+		cleanupInterval:   5 * time.Millisecond,
+	}
+
+	oldTracker := &failedAttemptTracker{count: 3, lastTry: time.Now().Add(-1 * time.Hour)}
+	rl.failedAttempts["old-user"] = oldTracker
+
+	go rl.cleanupExpired()
+	time.Sleep(20 * time.Millisecond)
+
+	rl.failedMu.RLock()
+	_, exists := rl.failedAttempts["old-user"]
+	rl.failedMu.RUnlock()
+
+	if exists {
+		t.Error("old entry should be cleaned up")
+	}
+}
+
+func TestCleanupExpired_KeepsRecentEntries(t *testing.T) {
+	rl := &OAuthRateLimiter{
+		tokenLimiter:      ratelimit.NewTokenBucketLimiter(10, 10),
+		deviceCodeLimiter: ratelimit.NewTokenBucketLimiter(2, 2),
+		failedAttempts:    make(map[string]*failedAttemptTracker),
+		maxFailedAttempts: 5,
+		lockoutDuration:   10 * time.Second,
+		cleanupInterval:   5 * time.Millisecond,
+	}
+
+	recentTracker := &failedAttemptTracker{count: 1, lastTry: time.Now()}
+	rl.failedAttempts["recent-user"] = recentTracker
+
+	go rl.cleanupExpired()
+	time.Sleep(20 * time.Millisecond)
+
+	rl.failedMu.RLock()
+	_, exists := rl.failedAttempts["recent-user"]
+	rl.failedMu.RUnlock()
+
+	if !exists {
+		t.Error("recent entry should NOT be cleaned up")
+	}
+}
+
+func TestCleanupExpired_EmptyMap(t *testing.T) {
+	rl := &OAuthRateLimiter{
+		tokenLimiter:      ratelimit.NewTokenBucketLimiter(10, 10),
+		deviceCodeLimiter: ratelimit.NewTokenBucketLimiter(2, 2),
+		failedAttempts:    make(map[string]*failedAttemptTracker),
+		maxFailedAttempts: 5,
+		lockoutDuration:   10 * time.Second,
+		cleanupInterval:   5 * time.Millisecond,
+	}
+
+	go rl.cleanupExpired()
+	time.Sleep(20 * time.Millisecond)
+
+	rl.failedMu.RLock()
+	count := len(rl.failedAttempts)
+	rl.failedMu.RUnlock()
+
+	if count != 0 {
+		t.Errorf("empty map should stay empty, got %d entries", count)
+	}
+}
+
+func TestCleanupExpired_MixedOldAndNew(t *testing.T) {
+	rl := &OAuthRateLimiter{
+		tokenLimiter:      ratelimit.NewTokenBucketLimiter(10, 10),
+		deviceCodeLimiter: ratelimit.NewTokenBucketLimiter(2, 2),
+		failedAttempts:    make(map[string]*failedAttemptTracker),
+		maxFailedAttempts: 5,
+		lockoutDuration:   100 * time.Millisecond,
+		cleanupInterval:   5 * time.Millisecond,
+	}
+
+	rl.failedAttempts["old"] = &failedAttemptTracker{count: 3, lastTry: time.Now().Add(-1 * time.Hour)}
+	rl.failedAttempts["new"] = &failedAttemptTracker{count: 1, lastTry: time.Now()}
+
+	go rl.cleanupExpired()
+	time.Sleep(30 * time.Millisecond)
+
+	rl.failedMu.RLock()
+	_, oldExists := rl.failedAttempts["old"]
+	_, newExists := rl.failedAttempts["new"]
+	remaining := len(rl.failedAttempts)
+	rl.failedMu.RUnlock()
+
+	if oldExists {
+		t.Error("old entry should be cleaned up")
+	}
+	if !newExists {
+		t.Error("recent entry should remain")
+	}
+	if remaining != 1 {
+		t.Errorf("only recent entry should remain, got %d", remaining)
+	}
+}

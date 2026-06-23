@@ -3,13 +3,8 @@
 ## [x] Add unit tests for pkg/generator addFlags (AC-351)
 - **Completed:** 2026-06-23 — 25 test functions, all pass. Covers string/int/number/boolean/array param types (with/without defaults), path param skip, required flag annotation, multipart (file flag + form fields), request body properties (string/default/enum, integer/float64/int defaults, number/default, boolean/default=true), body-multipart dedup, empty body description. addFlags coverage: 39.7%→94.9% (+55.2pp). Package coverage: 61.4%→71.9% (+10.5pp). Direct write, no spawn.
 
-## [ ] Add unit tests for pkg/auth cleanupExpired (AC-352)
-- **Priority:** medium
-- **Model:** deepseek-v4-pro
-- **Files:** pkg/auth/oauth2_ratelimit_test.go
-- **Tests:** cleanupExpired removes old entries, cleanupExpired keeps recent entries, cleanupExpired with empty map, cleanupExpired with multiple entries (mixed old+new).
-- **AC:** `go test ./pkg/auth/... -count=1 -run "TestCleanupExpired"` passes. 4+ test functions. Coverage for cleanupExpired: 27.3%→80%+. Use short cleanupInterval + lockoutDuration, add entries with old timestamps, verify deletion.
-- **Package:** pkg/auth/oauth2_ratelimit.go (cleanupExpired L152, currently 27.3%)
+## [x] Add unit tests for pkg/auth cleanupExpired (AC-352)
+- **Completed:** 2026-06-23 — 4 test functions, all pass. Covers removes old entries, keeps recent entries, empty map (no panic), mixed old+new (only old removed). cleanupExpired coverage: 27.3%→100.0% (+72.7pp). Package: 52.6%→54.2% (+1.6pp). Direct write, no spawn.
 
 ## [ ] Add unit tests for pkg/auth decryptMasterKeyFile edge cases (AC-353)
 - **Priority:** medium

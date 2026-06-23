@@ -467,7 +467,7 @@ func TestSanitizeKeychainParam_Whitespace(t *testing.T) {
 	whitespaceInputs := []string{
 		"hello\nworld",
 		"hello\rworld",
-		"hello	world",
+		"hello\tworld",
 	}
 
 	for _, input := range whitespaceInputs {
