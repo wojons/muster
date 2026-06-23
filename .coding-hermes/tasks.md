@@ -1,5 +1,11 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for pkg/auth oauth2_flow Start + Exchange (AC-357)
+- **Completed:** 2026-06-23 — 16 test functions, all pass. Start: 6 subtests (valid flow URL params, no scopes, empty scopes, single scope, invalid auth URL, state uniqueness). Exchange: 9 subtests (successful, invalid state not found, client ID mismatch, state consumed, non-200, invalid JSON, connection refused, custom client, 500 error). Plus standalone: WithoutScopes, ConcurrentStart (10 goroutines), EmptyCode. Start coverage: 0%→94.1%, Exchange: 0%→93.8%. Package: 58.7%→67.8% (+9.1pp). Direct write, no spawn.
+
+## [x] Add unit tests for pkg/wasm runtime SetNetworkPolicy (AC-358)
+- **Completed:** 2026-06-23 — 4 test functions, all pass. Covers SetsPolicy, OverridesExisting, NilPolicy (clears), AllowlistPolicy. SetNetworkPolicy coverage: 0%→100%. Package: 57.2%→57.6% (+0.4pp). Direct write, no spawn.
+
 ## [x] Add unit tests for pkg/generator addFlags (AC-351)
 - **Completed:** 2026-06-23 — 25 test functions, all pass. Covers string/int/number/boolean/array param types (with/without defaults), path param skip, required flag annotation, multipart (file flag + form fields), request body properties (string/default/enum, integer/float64/int defaults, number/default, boolean/default=true), body-multipart dedup, empty body description. addFlags coverage: 39.7%→94.9% (+55.2pp). Package coverage: 61.4%→71.9% (+10.5pp). Direct write, no spawn.
 

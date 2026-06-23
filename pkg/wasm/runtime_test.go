@@ -193,6 +193,61 @@ func TestRuntime_CheckNetworkAccess_WithAllowedPorts(t *testing.T) {
 }
 
 // =============================================================================
+// Runtime.SetNetworkPolicy tests
+// =============================================================================
+
+func TestRuntime_SetNetworkPolicy_SetsPolicy(t *testing.T) {
+	r := &Runtime{}
+	r.SetNetworkPolicy(&NetworkPolicy{
+		BlockedHosts: []string{"evil.com"},
+	})
+	// Previously nil policy allowed everything
+	assert.False(t, r.CheckNetworkAccess("evil.com", 443))
+	assert.True(t, r.CheckNetworkAccess("good.com", 443))
+}
+
+func TestRuntime_SetNetworkPolicy_OverridesExisting(t *testing.T) {
+	r := &Runtime{
+		networkPolicy: &NetworkPolicy{
+			BlockedHosts: []string{"evil.com"},
+		},
+	}
+	// Verify initial policy works
+	assert.False(t, r.CheckNetworkAccess("evil.com", 443))
+
+	// Override with a different policy
+	r.SetNetworkPolicy(&NetworkPolicy{
+		BlockedHosts: []string{"bad.com"},
+	})
+	assert.True(t, r.CheckNetworkAccess("evil.com", 443), "evil.com should no longer be blocked")
+	assert.False(t, r.CheckNetworkAccess("bad.com", 443), "bad.com should now be blocked")
+}
+
+func TestRuntime_SetNetworkPolicy_NilPolicy(t *testing.T) {
+	r := &Runtime{
+		networkPolicy: &NetworkPolicy{
+			BlockedHosts: []string{"evil.com"},
+		},
+	}
+	// Clear the policy by setting nil
+	r.SetNetworkPolicy(nil)
+	// Nil policy allows all access
+	assert.True(t, r.CheckNetworkAccess("evil.com", 443))
+	assert.True(t, r.CheckNetworkAccess("any-host.org", 80))
+}
+
+func TestRuntime_SetNetworkPolicy_AllowlistPolicy(t *testing.T) {
+	r := &Runtime{}
+	r.SetNetworkPolicy(&NetworkPolicy{
+		AllowedHosts: []string{"api.example.com"},
+		AllowedPorts: []int{443},
+	})
+	assert.True(t, r.CheckNetworkAccess("api.example.com", 443))
+	assert.False(t, r.CheckNetworkAccess("api.example.com", 80))
+	assert.False(t, r.CheckNetworkAccess("other.example.com", 443))
+}
+
+// =============================================================================
 // isValidCapabilityName tests
 // =============================================================================
 

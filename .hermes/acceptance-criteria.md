@@ -4,14 +4,12 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-23 (cron foreman tick #10)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages pass.
+**Last run:** 2026-06-23 (cron foreman tick #11)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass.
 **Completed this run:**
-  - AC-354: ✅ Unit tests for pkg/cache purgeExpired + evictOne — 7 test functions, all pass. purgeExpired 0%→100% (removes expired, keeps non-expired, empty no-op, all expired). evictOne 75%→100% (evicts LRU, empty no-op, progressive eviction). Package: 97.9%.
-  - AC-355: ✅ Unit tests for pkg/auth encrypt + getApplicationSecret — 9 test functions, all pass. encrypt 72.7%→81.8% (valid 32/24/16-byte key, invalid 31/33-byte, empty/nil plaintext). getApplicationSecret 66.7%→100% (with/without appSecret). Package: 54.2%→58.7%.
-  - AC-356: ✅ Unit tests for pkg/client NewRateLimitRoundTripper + RoundTrip — 8 test functions, all pass. NewRateLimitRoundTripper 66.7%→100% (valid/zero rate/zero burst/nil inner). RoundTrip 100% (pass-through, blocks, 429 body, proto preserved). Package: 92.9%.
-  - All 3 tasks direct-write (foreman=deepseek-v4-pro), zero spawns. 24 new test functions, all pass.
-  - Task board: all tasks now [x].
+  - AC-357: ✅ Unit tests for pkg/auth oauth2_flow (Start + Exchange) — 16 test functions, all pass. Start 0%→94.1% (6 subtests), Exchange 0%→93.8% (9 subtests), ConcurrentStart (10 goroutines). Package: 58.7%→67.8% (+9.1pp).
+  - AC-358: ✅ Unit tests for pkg/wasm runtime SetNetworkPolicy — 4 test functions, all pass. SetNetworkPolicy 0%→100%. Package: 57.2%→57.6% (+0.4pp).
+  - 20 new test functions total, all pass. Direct writes, zero spawns.
 **Previous runs:**
   - AC-350: ✅ Unit tests for cmd/mcp-server utility functions — 2 test functions (14 subtests)
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
@@ -354,3 +352,5 @@
 ### AC-220: Multi-tenancy context management ✅ (2026-06-12)
 ### AC-230: Audit logging CLI ✅ (2026-06-12)
 ### AC-180: mTLS auth support ✅ (2026-06-12) — Regression found & fixed 2026-06-12 (MTLSConfig yaml tag round-trip bug, commit `2b30f53`)
+### AC-357: Unit tests for pkg/auth oauth2_flow (Start + Exchange) ✅ (2026-06-23) — 16 test functions, all pass. Start 0%→94.1%, Exchange 0%→93.8%. ConcurrentStart 10 goroutines. Package: 58.7%→67.8% (+9.1pp). Direct write, no spawn.
+### AC-358: Unit tests for pkg/wasm runtime SetNetworkPolicy ✅ (2026-06-23) — 4 test functions, all pass. SetNetworkPolicy 0%→100%. Package: 57.2%→57.6% (+0.4pp). Direct write, no spawn.
