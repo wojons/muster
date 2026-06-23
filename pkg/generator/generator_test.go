@@ -1318,3 +1318,395 @@ func TestIsExcluded_IncludeOnlyResourceMatch(t *testing.T) {
 	// Resource name doesn't match
 	require.True(t, gen.isExcluded("posts", nil))
 }
+
+// =============================================================================
+// AC-351: addFlags coverage (39.7% → 70%+)
+// =============================================================================
+
+// makeTestGen returns a Generator for use in addFlags tests.
+func makeTestGen(t *testing.T) *Generator {
+	t.Helper()
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+	return gen
+}
+
+func TestAddFlags_StringParam(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "limit", In: "query", Type: "string", Description: "Max results"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("limit")
+	require.NotNil(t, flag)
+	require.Equal(t, "Max results", flag.Usage)
+}
+
+func TestAddFlags_IntegerParam(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "count", In: "query", Type: "integer", Description: "Item count"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("count")
+	require.NotNil(t, flag)
+	require.Equal(t, "Item count", flag.Usage)
+	// Default should be 0 when no Default set
+	val, err := cmd.Flags().GetInt("count")
+	require.NoError(t, err)
+	require.Equal(t, 0, val)
+}
+
+func TestAddFlags_IntegerParamWithDefault(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "count", In: "query", Type: "integer", Description: "Item count", Default: float64(25)},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetInt("count")
+	require.NoError(t, err)
+	require.Equal(t, 25, val)
+}
+
+func TestAddFlags_NumberParam(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "ratio", In: "query", Type: "number", Description: "Some ratio"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetFloat64("ratio")
+	require.NoError(t, err)
+	require.Equal(t, 0.0, val)
+}
+
+func TestAddFlags_NumberParamWithDefault(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "ratio", In: "query", Type: "number", Description: "Some ratio", Default: float64(3.14)},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetFloat64("ratio")
+	require.NoError(t, err)
+	require.Equal(t, 3.14, val)
+}
+
+func TestAddFlags_BooleanParam(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "verbose", In: "query", Type: "boolean", Description: "Verbose output"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetBool("verbose")
+	require.NoError(t, err)
+	require.Equal(t, false, val)
+}
+
+func TestAddFlags_BooleanParamDefaultTrue(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "enabled", In: "query", Type: "boolean", Description: "Enable feature", Default: true},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetBool("enabled")
+	require.NoError(t, err)
+	require.Equal(t, true, val)
+}
+
+func TestAddFlags_ArrayParam(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "tags", In: "query", Type: "array", Description: "Filter tags"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("tags")
+	require.NotNil(t, flag)
+	// Should be a StringSlice flag
+	vals, err := cmd.Flags().GetStringSlice("tags")
+	require.NoError(t, err)
+	require.Empty(t, vals)
+}
+
+func TestAddFlags_SkipsPathParam(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "id", In: "path", Type: "string", Required: true},
+		},
+	}
+	gen.addFlags(cmd, op)
+	// Path param should NOT be added as a flag
+	flag := cmd.Flags().Lookup("id")
+	require.Nil(t, flag, "path param should not be a flag")
+}
+
+func TestAddFlags_RequiredFlag(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "name", In: "query", Type: "string", Required: true, Description: "User name"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("name")
+	require.NotNil(t, flag)
+	// Verify the annotation exists on the flag
+	_, exists := flag.Annotations[cobra.BashCompOneRequiredFlag]
+	require.True(t, exists, "required flag should have required annotation")
+}
+
+func TestAddFlags_MultipleParams(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		Parameters: openapi.Parameters{
+			{Name: "limit", In: "query", Type: "integer", Default: float64(10)},
+			{Name: "offset", In: "query", Type: "integer"},
+			{Name: "filter", In: "query", Type: "string"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	require.NotNil(t, cmd.Flags().Lookup("limit"))
+	require.NotNil(t, cmd.Flags().Lookup("offset"))
+	require.NotNil(t, cmd.Flags().Lookup("filter"))
+	// Verify defaults
+	lim, _ := cmd.Flags().GetInt("limit")
+	require.Equal(t, 10, lim)
+}
+
+func TestAddFlags_HasMultiPart(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		HasMultiPart: true,
+	}
+	gen.addFlags(cmd, op)
+	// Should have --file flag
+	fileFlag := cmd.Flags().Lookup("file")
+	require.NotNil(t, fileFlag)
+	require.Equal(t, "File path to upload (multipart/form-data)", fileFlag.Usage)
+}
+
+func TestAddFlags_MultipartFields(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		HasMultiPart: true,
+		MultipartFields: []openapi.RequestBodyProperty{
+			{Name: "title", Description: "Document title"},
+			{Name: "tag", Description: ""},
+		},
+	}
+	gen.addFlags(cmd, op)
+	titleFlag := cmd.Flags().Lookup("title")
+	require.NotNil(t, titleFlag)
+	require.Contains(t, titleFlag.Usage, "Document title")
+
+	tagFlag := cmd.Flags().Lookup("tag")
+	require.NotNil(t, tagFlag)
+	require.Contains(t, tagFlag.Usage, "(form field)")
+}
+
+func TestAddFlags_RequestBodyString(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "name", Type: "string", Description: "User name"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("name")
+	require.NotNil(t, flag)
+	require.Equal(t, "User name", flag.Usage)
+}
+
+func TestAddFlags_RequestBodyStringDefault(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "role", Type: "string", Description: "User role", Default: "viewer"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetString("role")
+	require.NoError(t, err)
+	require.Equal(t, "viewer", val)
+}
+
+func TestAddFlags_RequestBodyStringWithEnum(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "role", Type: "string", Description: "User role", Enum: []interface{}{"admin", "editor", "viewer"}},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("role")
+	require.NotNil(t, flag)
+	require.Contains(t, flag.Usage, "allowed:")
+	require.Contains(t, flag.Usage, "admin, editor, viewer")
+}
+
+func TestAddFlags_RequestBodyInteger(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "age", Type: "integer", Description: "User age"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetInt("age")
+	require.NoError(t, err)
+	require.Equal(t, 0, val)
+}
+
+func TestAddFlags_RequestBodyIntegerDefaultFloat64(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "age", Type: "integer", Description: "User age", Default: float64(30)},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetInt("age")
+	require.NoError(t, err)
+	require.Equal(t, 30, val)
+}
+
+func TestAddFlags_RequestBodyIntegerDefaultInt(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "age", Type: "integer", Description: "User age", Default: int(42)},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetInt("age")
+	require.NoError(t, err)
+	require.Equal(t, 42, val)
+}
+
+func TestAddFlags_RequestBodyNumber(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "score", Type: "number", Description: "User score"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetFloat64("score")
+	require.NoError(t, err)
+	require.Equal(t, 0.0, val)
+}
+
+func TestAddFlags_RequestBodyNumberDefault(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "score", Type: "number", Description: "User score", Default: float64(99.5)},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetFloat64("score")
+	require.NoError(t, err)
+	require.Equal(t, 99.5, val)
+}
+
+func TestAddFlags_RequestBodyBoolean(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "active", Type: "boolean", Description: "Is active"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetBool("active")
+	require.NoError(t, err)
+	require.Equal(t, false, val)
+}
+
+func TestAddFlags_RequestBodyBooleanDefaultTrue(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "active", Type: "boolean", Description: "Is active", Default: true},
+		},
+	}
+	gen.addFlags(cmd, op)
+	val, err := cmd.Flags().GetBool("active")
+	require.NoError(t, err)
+	require.Equal(t, true, val)
+}
+
+func TestAddFlags_RequestBodyDedupMultipart(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		HasMultiPart: true,
+		MultipartFields: []openapi.RequestBodyProperty{
+			{Name: "title", Description: "From multipart"},
+		},
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "title", Type: "string", Description: "From body"},
+			{Name: "description", Type: "string", Description: "Only in body"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	// title should exist (from multipart) with multipart description
+	titleFlag := cmd.Flags().Lookup("title")
+	require.NotNil(t, titleFlag)
+	require.Contains(t, titleFlag.Usage, "From multipart")
+	// description should exist (only in body, not deduplicated)
+	descFlag := cmd.Flags().Lookup("description")
+	require.NotNil(t, descFlag)
+	require.Contains(t, descFlag.Usage, "Only in body")
+}
+
+func TestAddFlags_EmptyBodyDescription(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "data", Type: "string"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("data")
+	require.NotNil(t, flag)
+	require.Contains(t, flag.Usage, "(request body)")
+}

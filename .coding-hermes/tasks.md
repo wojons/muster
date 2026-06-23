@@ -1,5 +1,24 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for pkg/generator addFlags (AC-351)
+- **Completed:** 2026-06-23 — 25 test functions, all pass. Covers string/int/number/boolean/array param types (with/without defaults), path param skip, required flag annotation, multipart (file flag + form fields), request body properties (string/default/enum, integer/float64/int defaults, number/default, boolean/default=true), body-multipart dedup, empty body description. addFlags coverage: 39.7%→94.9% (+55.2pp). Package coverage: 61.4%→71.9% (+10.5pp). Direct write, no spawn.
+
+## [ ] Add unit tests for pkg/auth cleanupExpired (AC-352)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/auth/oauth2_ratelimit_test.go
+- **Tests:** cleanupExpired removes old entries, cleanupExpired keeps recent entries, cleanupExpired with empty map, cleanupExpired with multiple entries (mixed old+new).
+- **AC:** `go test ./pkg/auth/... -count=1 -run "TestCleanupExpired"` passes. 4+ test functions. Coverage for cleanupExpired: 27.3%→80%+. Use short cleanupInterval + lockoutDuration, add entries with old timestamps, verify deletion.
+- **Package:** pkg/auth/oauth2_ratelimit.go (cleanupExpired L152, currently 27.3%)
+
+## [ ] Add unit tests for pkg/auth decryptMasterKeyFile edge cases (AC-353)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/auth/keychain_test.go
+- **Tests:** decryptMasterKeyFile with invalid base64, decryptMasterKeyFile with valid v2 format, decryptMasterKeyFile with v1 format (no version), decryptMasterKeyFile with legacy raw format, decryptMasterKeyFile with invalid salt, decryptMasterKeyFile with invalid ciphertext, decryptMasterKeyFile with corrupt JSON.
+- **AC:** `go test ./pkg/auth/... -count=1 -run "TestDecryptMasterKeyFile"` passes. 7+ test functions. Coverage for decryptMasterKeyFile: 41.2%→70%+.
+- **Package:** pkg/auth/keychain.go (decryptMasterKeyFile L642, currently 41.2%)
+
 ## [x] Add unit tests for cmd/mcp-server utility functions (AC-350)
 - **Completed:** 2026-06-22 — 2 test functions (14 subtests). isURL: 12 named cases covering http/https/empty/file-path/ftp/ws/localhost/whitespace. mcpActorID: 3 cases (USER pref, LOGNAME fallback, default fallback). Coverage 52.6%→63.2% (+10.6pp). isURL 0%→75%, mcpActorID 0%→100%. Direct write, no spawn.
 - **Priority:** medium

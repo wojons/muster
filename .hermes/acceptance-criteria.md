@@ -4,14 +4,13 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-22 (cron foreman tick #7)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. known pkg/platform environmental failures + stability test timeout). Demo: 23/23 checks pass.
+**Last run:** 2026-06-23 (cron foreman tick #8)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. known pkg/platform environmental failures + stability test timeout).
 **Completed this run:**
-  - AC-350: ✅ Unit tests for cmd/mcp-server utility functions — 2 test functions (14 subtests), all pass. isURL at 75% (12 cases: http/https/empty/file-path/ftp/ws/localhost/whitespace), mcpActorID at 100% (3 cases: USER pref, LOGNAME fallback, default). Coverage 52.6%→63.2% (+10.6pp).
-  - AC-347: ✅ Unit tests for pkg/config watcher — 9 test functions. Coverage 75.8% → 92.2% (+16.4pp). All 5 watcher functions covered (100% on 4/5, GetConfig at 75%). NewWatcher, IsWatching, Stop, WatchConfig (fsnotify callback verified), GetConfig.
-  - AC-348: ✅ Unit tests for pkg/repository/sql GetByAlias + GetByModule — 2 test functions. Coverage 76.2% → 80.4% (+4.2pp). Both 0% functions now at 87.5%.
-  - Infrastructure: Added .gitignore entries for .gitreins/config.yaml.bak, .gitreins/history/, demo/.venv/.
+  - AC-351: ✅ Unit tests for pkg/generator addFlags — 25 test functions, all pass. Covers all param types (string/int/number/boolean/array, with/without defaults), path param skip, required flag annotation, multipart (file flag + form fields), request body properties (string/default/enum, integer/float64/int defaults, number/default, boolean/default=true), body-multipart dedup, empty body description. addFlags coverage: 39.7%→94.9% (+55.2pp). Package: 61.4%→71.9% (+10.5pp).
+  - Board populated with 3 new tasks: AC-351, AC-352, AC-353.
 **Previous runs:**
+  - AC-350: ✅ Unit tests for cmd/mcp-server utility functions — 2 test functions (14 subtests)
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
   - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore.
   - AC-339: ✅ Unit tests for pkg/mcp/handlers/types — 50 test functions, 100% coverage on all 13 functions
@@ -316,6 +315,7 @@
 
 ## Passed Criteria
 
+### AC-351: Unit tests for pkg/generator addFlags ✅ (2026-06-23) — 25 test functions, all pass. addFlags 39.7%→94.9% (+55.2pp). Covers all parameter types (string/int/number/boolean/array, with/without defaults), path param skip, required flag annotation, multipart flags, request body properties (string/default/enum, integer/float64/int defaults, number/default, boolean/default=true), body-multipart dedup, empty body description. Package: 61.4%→71.9% (+10.5pp). Direct write, no spawn.
 ### AC-350: Unit tests for cmd/mcp-server utility functions ✅ (2026-06-22) — 2 test functions (14 subtests), all pass. isURL at 75% (12 cases), mcpActorID at 100% (3 env var cases). Coverage 52.6%→63.2% (+10.6pp). Direct write, no spawn.
 ### AC-349: Unit tests for pkg/auth/token_manager ✅ (2026-06-22) — 12 test functions, all pass. NewTokenManager/Store/Get at 100%, refresh at 86.4%. Coverage 45.6%→52.6% (+7.0pp). Also fixed nil-token panic in Get(). Direct write, no spawn.
 ### AC-348: Unit tests for pkg/repository/sql GetByAlias + GetByModule ✅ (2026-06-22) — 2 test functions, all pass. Coverage 76.2%→80.4% (+4.2pp). GetByAlias 0%→87.5% (found by name + not-found ErrNotFound), GetByModule 0%→87.5% (found + not-found ErrNotFound). Direct write, no spawn.
