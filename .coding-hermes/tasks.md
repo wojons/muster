@@ -1,5 +1,12 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for cmd/mcp-server utility functions (AC-350)
+- **Completed:** 2026-06-22 — 2 test functions (14 subtests). isURL: 12 named cases covering http/https/empty/file-path/ftp/ws/localhost/whitespace. mcpActorID: 3 cases (USER pref, LOGNAME fallback, default fallback). Coverage 52.6%→63.2% (+10.6pp). isURL 0%→75%, mcpActorID 0%→100%. Direct write, no spawn.
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** cmd/mcp-server/main_test.go
+- **AC:** `go test ./cmd/mcp-server/... -count=1 -run "TestIsURL|TestMcpActorID"` passes. Test isURL (all scheme variants) and mcpActorID (env var fallback chain).
+
 ## [x] Add unit tests for pkg/auth/token_manager (AC-349)
 - **Completed:** 2026-06-22 — 12 test functions, all pass. NewTokenManager (fields populated), Store (success/error), Get (valid/load-error/nil-token/expired-no-refresh/expired-with-refresh/refresh-server-error/refresh-bad-JSON/grace-window/refresh-save-error). Coverage 45.6%→52.6% (+7.0pp). NewTokenManager/Store/Get at 100%, refresh at 86.4%. Also fixed nil-token panic in Get() (added nil check). Direct write, no spawn.
 - **Priority:** high

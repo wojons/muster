@@ -1293,3 +1293,52 @@ func TestMain_ErrorPath_SpecLoadingFailed(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to load spec")
 }
+
+func TestIsURL_HTTP(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{"http URL", "http://example.com", true},
+		{"https URL", "https://api.example.com/v1/pets", true},
+		{"https with trailing slash", "https://example.com/", true},
+		{"plain string", "not-a-url", false},
+		{"empty string", "", false},
+		{"file path", "/tmp/spec.yaml", false},
+		{"relative path", "./spec.yaml", false},
+		{"ftp URL", "ftp://files.example.com", false},
+		{"URL with whitespace", "  http://example.com  ", true},
+		{"URL with only scheme", "http://", true},
+		{"ws URL", "ws://localhost", false},
+		{"localhost", "localhost:8080", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, isURL(tt.input))
+		})
+	}
+}
+
+func TestMcpActorID_EnvironmentVariable(t *testing.T) {
+	// Save and restore
+	origUser := os.Getenv("USER")
+	origLogname := os.Getenv("LOGNAME")
+	defer func() {
+		os.Setenv("USER", origUser)
+		os.Setenv("LOGNAME", origLogname)
+	}()
+
+	// Both set: prefer USER
+	os.Setenv("USER", "testuser")
+	os.Setenv("LOGNAME", "otheruser")
+	require.Equal(t, "testuser", mcpActorID())
+
+	// Only LOGNAME set
+	os.Setenv("USER", "")
+	require.Equal(t, "otheruser", mcpActorID())
+
+	// Neither set: fallback
+	os.Setenv("LOGNAME", "")
+	require.Equal(t, "mcp-client", mcpActorID())
+}
