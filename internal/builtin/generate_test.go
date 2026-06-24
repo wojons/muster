@@ -528,3 +528,335 @@ func TestResolveRequestBodySchema(t *testing.T) {
 		assert.Nil(t, result)
 	})
 }
+
+// makeMultipartDoc creates an OpenAPI document with a multipart/form-data
+// operation at the given path and method, with the given property schemas.
+// Fields with Format "binary" are treated as file uploads.
+func makeMultipartDoc(path, method string, properties openapi3.Schemas) *openapi3.T {
+	doc := &openapi3.T{Paths: openapi3.NewPaths()}
+	pi := &openapi3.PathItem{}
+	switch method {
+	case http.MethodPost:
+		pi.Post = &openapi3.Operation{
+			RequestBody: &openapi3.RequestBodyRef{
+				Value: &openapi3.RequestBody{
+					Content: openapi3.Content{
+						"multipart/form-data": &openapi3.MediaType{
+							Schema: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type:       &openapi3.Types{"object"},
+									Properties: properties,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	case http.MethodPut:
+		pi.Put = &openapi3.Operation{
+			RequestBody: &openapi3.RequestBodyRef{
+				Value: &openapi3.RequestBody{
+					Content: openapi3.Content{
+						"multipart/form-data": &openapi3.MediaType{
+							Schema: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type:       &openapi3.Types{"object"},
+									Properties: properties,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	doc.Paths.Set(path, pi)
+	return doc
+}
+
+// makeJSONBodyDoc creates an OpenAPI document with an application/json
+// request body operation at the given path and method.
+func makeJSONBodyDoc(path, method string, properties openapi3.Schemas) *openapi3.T {
+	doc := &openapi3.T{Paths: openapi3.NewPaths()}
+	pi := &openapi3.PathItem{}
+	switch method {
+	case http.MethodPost:
+		pi.Post = &openapi3.Operation{
+			RequestBody: &openapi3.RequestBodyRef{
+				Value: &openapi3.RequestBody{
+					Content: openapi3.Content{
+						"application/json": &openapi3.MediaType{
+							Schema: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type:       &openapi3.Types{"object"},
+									Properties: properties,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	case http.MethodPut:
+		pi.Put = &openapi3.Operation{
+			RequestBody: &openapi3.RequestBodyRef{
+				Value: &openapi3.RequestBody{
+					Content: openapi3.Content{
+						"application/json": &openapi3.MediaType{
+							Schema: &openapi3.SchemaRef{
+								Value: &openapi3.Schema{
+									Type:       &openapi3.Types{"object"},
+									Properties: properties,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	doc.Paths.Set(path, pi)
+	return doc
+}
+
+func TestDetectMultipartOperation(t *testing.T) {
+	t.Run("nil document returns false", func(t *testing.T) {
+		isMulti, fields := detectMultipartOperation(nil, "/upload", http.MethodPost)
+		assert.False(t, isMulti)
+		assert.Nil(t, fields)
+	})
+
+	t.Run("empty path returns false", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{})
+		isMulti, fields := detectMultipartOperation(doc, "", http.MethodPost)
+		assert.False(t, isMulti)
+		assert.Nil(t, fields)
+	})
+
+	t.Run("empty method returns false", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{})
+		isMulti, fields := detectMultipartOperation(doc, "/upload", "")
+		assert.False(t, isMulti)
+		assert.Nil(t, fields)
+	})
+
+	t.Run("non-existent path returns false", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{})
+		isMulti, fields := detectMultipartOperation(doc, "/nonexistent", http.MethodPost)
+		assert.False(t, isMulti)
+		assert.Nil(t, fields)
+	})
+
+	t.Run("no operation for method returns false", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{})
+		isMulti, fields := detectMultipartOperation(doc, "/upload", http.MethodGet)
+		assert.False(t, isMulti)
+		assert.Nil(t, fields)
+	})
+
+	t.Run("operation without requestBody returns false", func(t *testing.T) {
+		doc := &openapi3.T{Paths: openapi3.NewPaths()}
+		pi := &openapi3.PathItem{
+			Post: &openapi3.Operation{}, // no RequestBody
+		}
+		doc.Paths.Set("/tasks", pi)
+		isMulti, fields := detectMultipartOperation(doc, "/tasks", http.MethodPost)
+		assert.False(t, isMulti)
+		assert.Nil(t, fields)
+	})
+
+	t.Run("valid multipart with no fields returns true with empty map", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{})
+		isMulti, fields := detectMultipartOperation(doc, "/upload", http.MethodPost)
+		assert.True(t, isMulti)
+		assert.NotNil(t, fields)
+		assert.Empty(t, fields)
+	})
+
+	t.Run("multipart with only binary fields returns true with empty map", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{
+			"fileName": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{
+					Type:   &openapi3.Types{"string"},
+					Format: "binary",
+				},
+			},
+		})
+		isMulti, fields := detectMultipartOperation(doc, "/upload", http.MethodPost)
+		assert.True(t, isMulti)
+		assert.Empty(t, fields)
+	})
+
+	t.Run("multipart with non-binary fields returns normalized names", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{
+			"title": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		isMulti, fields := detectMultipartOperation(doc, "/upload", http.MethodPost)
+		assert.True(t, isMulti)
+		assert.True(t, fields["title"])
+	})
+
+	t.Run("multipart with mixed binary and non-binary skips binary", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{
+			"fileName": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{
+					Type:   &openapi3.Types{"string"},
+					Format: "binary",
+				},
+			},
+			"title": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+			"description": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		isMulti, fields := detectMultipartOperation(doc, "/upload", http.MethodPost)
+		assert.True(t, isMulti)
+		assert.True(t, fields["title"])
+		assert.True(t, fields["description"])
+		assert.False(t, fields["file-name"], "binary fields should be skipped")
+	})
+
+	t.Run("nil property value skipped gracefully", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPost, openapi3.Schemas{
+			"bad":   &openapi3.SchemaRef{Value: nil},
+			"valid": &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+		})
+		isMulti, fields := detectMultipartOperation(doc, "/upload", http.MethodPost)
+		assert.True(t, isMulti)
+		assert.True(t, fields["valid"])
+		assert.False(t, fields["bad"])
+	})
+
+	t.Run("PUT method works", func(t *testing.T) {
+		doc := makeMultipartDoc("/upload", http.MethodPut, openapi3.Schemas{
+			"name": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		isMulti, fields := detectMultipartOperation(doc, "/upload", http.MethodPut)
+		assert.True(t, isMulti)
+		assert.True(t, fields["name"])
+	})
+}
+
+func TestExtractBodyPropertyNames(t *testing.T) {
+	t.Run("nil document returns nil", func(t *testing.T) {
+		result := extractBodyPropertyNames(nil, "/tasks", http.MethodPost)
+		assert.Nil(t, result)
+	})
+
+	t.Run("empty path returns nil", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/tasks", http.MethodPost, openapi3.Schemas{
+			"name": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		result := extractBodyPropertyNames(doc, "", http.MethodPost)
+		assert.Nil(t, result)
+	})
+
+	t.Run("empty method returns nil", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/tasks", http.MethodPost, openapi3.Schemas{})
+		result := extractBodyPropertyNames(doc, "/tasks", "")
+		assert.Nil(t, result)
+	})
+
+	t.Run("non-existent path returns nil", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/tasks", http.MethodPost, openapi3.Schemas{})
+		result := extractBodyPropertyNames(doc, "/nonexistent", http.MethodPost)
+		assert.Nil(t, result)
+	})
+
+	t.Run("no operation for method returns nil", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/tasks", http.MethodPost, openapi3.Schemas{
+			"name": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		result := extractBodyPropertyNames(doc, "/tasks", http.MethodGet)
+		assert.Nil(t, result)
+	})
+
+	t.Run("operation without requestBody returns nil", func(t *testing.T) {
+		doc := &openapi3.T{Paths: openapi3.NewPaths()}
+		pi := &openapi3.PathItem{
+			Post: &openapi3.Operation{}, // no RequestBody
+		}
+		doc.Paths.Set("/tasks", pi)
+		result := extractBodyPropertyNames(doc, "/tasks", http.MethodPost)
+		assert.Nil(t, result)
+	})
+
+	t.Run("valid JSON body returns normalized to original mapping", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/tasks", http.MethodPost, openapi3.Schemas{
+			"firstName": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+			"lastName": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		result := extractBodyPropertyNames(doc, "/tasks", http.MethodPost)
+		assert.NotNil(t, result)
+		assert.Equal(t, "firstName", result["first-name"])
+		assert.Equal(t, "lastName", result["last-name"])
+	})
+
+	t.Run("no properties returns nil (resolveRequestBodySchema returns nil)", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/tasks", http.MethodPost, openapi3.Schemas{})
+		result := extractBodyPropertyNames(doc, "/tasks", http.MethodPost)
+		assert.Nil(t, result)
+	})
+
+	t.Run("PUT method works", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/tasks", http.MethodPut, openapi3.Schemas{
+			"taskId": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		result := extractBodyPropertyNames(doc, "/tasks", http.MethodPut)
+		assert.NotNil(t, result)
+		assert.Equal(t, "taskId", result["task-id"])
+	})
+
+	t.Run("camelCase with multiple words normalizes correctly", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/users", http.MethodPost, openapi3.Schemas{
+			"createdAtTimestamp": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		result := extractBodyPropertyNames(doc, "/users", http.MethodPost)
+		assert.NotNil(t, result)
+		assert.Equal(t, "createdAtTimestamp", result["created-at-timestamp"])
+	})
+
+	t.Run("already-lowercase property preserved", func(t *testing.T) {
+		doc := makeJSONBodyDoc("/tasks", http.MethodPost, openapi3.Schemas{
+			"name": &openapi3.SchemaRef{
+				Value: &openapi3.Schema{Type: &openapi3.Types{"string"}},
+			},
+		})
+		result := extractBodyPropertyNames(doc, "/tasks", http.MethodPost)
+		assert.NotNil(t, result)
+		assert.Equal(t, "name", result["name"])
+	})
+
+	t.Run("requestBody with nil value returns nil", func(t *testing.T) {
+		doc := &openapi3.T{Paths: openapi3.NewPaths()}
+		pi := &openapi3.PathItem{
+			Post: &openapi3.Operation{
+				RequestBody: &openapi3.RequestBodyRef{
+					Value: nil,
+				},
+			},
+		}
+		doc.Paths.Set("/tasks", pi)
+		result := extractBodyPropertyNames(doc, "/tasks", http.MethodPost)
+		assert.Nil(t, result)
+	})
+}

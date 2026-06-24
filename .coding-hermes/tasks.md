@@ -1,5 +1,12 @@
 # Coding Tasks — Muster
 
+## [x] Additional unit tests for internal/builtin detectMultipartOperation + extractBodyPropertyNames (AC-367)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro (direct write, no spawn)
+- **Files:** internal/builtin/generate_test.go (+335 lines, 2 helper functions, 23 test cases)
+- **Tests:** TestDetectMultipartOperation (12 cases: nil doc, empty path, empty method, non-existent path, no operation, no requestBody, valid empty, only binary, non-binary, mixed binary/non-binary, nil property, PUT method). TestExtractBodyPropertyNames (11 cases: nil doc, empty path, empty method, non-existent path, no operation, no requestBody, valid JSON body, no properties→nil, PUT method, multi-word camelCase, already-lowercase, nil requestBody value).
+- **AC:** `go test ./internal/builtin/... -count=1 -run "TestDetectMultipartOperation|TestExtractBodyPropertyNames"` passes. 23 test cases. detectMultipartOperation 31.6%→94.7% (+63.1pp), extractBodyPropertyNames 31.6%→94.7% (+63.1pp). Package: 67.7%→71.6% (+3.9pp). Direct write, no spawn.
+
 ## [x] Add unit tests for pkg/wasm runtime module loading (AC-364)
 - **Priority:** medium
 - **Model:** deepseek-v4-pro

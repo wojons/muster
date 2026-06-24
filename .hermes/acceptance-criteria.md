@@ -4,9 +4,11 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-24 (cron foreman tick #15)
+**Last run:** 2026-06-24 (cron foreman tick #16)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability).
 **Completed this run:**
+  - AC-367: ✅ Additional unit tests for internal/builtin detectMultipartOperation + extractBodyPropertyNames — 23 test cases (12+11). detectMultipartOperation 31.6%→94.7% (+63.1pp), extractBodyPropertyNames 31.6%→94.7% (+63.1pp). Package: 67.7%→71.6% (+3.9pp). Direct write, no spawn.
+**Previous runs:**
   - AC-365: ✅ Unit tests for pkg/wasm Transform + LoadPlugin — 11 test functions. Transform 0%→100%, Load 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
   - AC-366: ✅ Unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands — 9 test functions. executeAndPrint 0%→93.3%, InitializeDynamicCommands 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in Config (bugfix). Direct write, no spawn.
 **Previous runs:**
@@ -358,4 +360,5 @@
 ### AC-363: Unit tests for internal/builtin DSL HTTP builtins ✅ (2026-06-24) — 24 test functions, all pass. httpGetBuiltin: 4 tests (valid URL, error status, invalid URL, missing arg) 0%→100%. httpPostBuiltin: 3 tests (valid, no body, invalid URL) 0%→100%. httpPutBuiltin: 3 tests (valid, empty body, invalid URL) 0%→92.3%. httpDeleteBuiltin: 3 tests (valid, missing arg, invalid URL) 0%→91.7%. runDsl: 7 tests (simple script, file not found, parse error, compile error, http_get/post/put/delete integration) 0%→94.4%. DSL command + builtin callable: 4 tests. Package: 58.2%→67.7% (+9.5pp). Direct write, no spawn.
 ### AC-364: Unit tests for pkg/wasm runtime module loading ✅ (2026-06-24) — 15 test functions, all pass. CompileModule: 5 tests (valid WASM, empty bytes, invalid bytes, garbage magic, cancelled context) 0%→100%. LoadModuleFromFile: 5 tests (valid file, non-existent, directory, invalid content, cancelled context) 0%→100%. InstantiateModule: 5 tests (compiled module, nil module panic documented, cancelled context, with time limit, zero time limit) 0%→100%. Package: 57.2%→61.1% (+3.9pp). Direct write, no spawn.
 ### AC-365: Unit tests for pkg/wasm Transform + LoadPlugin ✅ (2026-06-24) — 11 test functions, all pass. TestLoadPlugin: 5 tests (ValidModule, NonExistentFile, InvalidWASM, CachedSecondLoad, CancelledContext). TestTransform: 6 tests (ValidModule, NilModule, CancelledContext, EmptyInput, WithZeroMaxExecutionTime, WithShortTimeout). Transform 0%→100%, Load 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
+### AC-367: Additional unit tests for internal/builtin detectMultipartOperation + extractBodyPropertyNames ✅ (2026-06-24) — 23 test cases (12+11), all pass. detectMultipartOperation 31.6%→94.7% (+63.1pp), extractBodyPropertyNames 31.6%→94.7% (+63.1pp). Package: 67.7%→71.6% (+3.9pp). Covers nil doc, empty path/method, non-existent path, no operation, no requestBody, multi-format validation, PUT method, nil property values, camelCase normalization. Direct write, no spawn.
 ### AC-366: Unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands ✅ (2026-06-24) — 9 test functions, all pass. TestExecuteAndPrint: 5 tests (Success, HTTPError, EmptyResponse, ContextCancelled, 404Response). TestInitializeDynamicCommands: 4 tests (ValidSpec, CachedResult, NonExistentFile, InvalidSpec). executeAndPrint 0%→93.3%, InitializeDynamicCommands 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in Config. Direct write, no spawn.
