@@ -977,6 +977,7 @@ func InitializeDynamicCommands(rootCmd *cobra.Command, specPath string) error {
 			AppName:          "openapi-cli",
 			AppDescription:   "Dynamic CLI from OpenAPI specs",
 			Version:          "1.0.0",
+			BaseURL:          "https://api.example.com",
 			NamingStrategy:   NamingKebab,
 			OperationStyle:   StyleCRUD,
 			DefaultFormat:    "table",

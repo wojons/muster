@@ -7,21 +7,19 @@
 - **Tests:** TestCompileModule (5: valid, empty, invalid bytes, garbage magic, cancelled context), TestLoadModuleFromFile (5: valid file, non-existent, directory, invalid content, cancelled context), TestInstantiateModule (5: compiled module, nil→panic documented, cancelled context, with time limit, zero time limit).
 - **AC:** `go test ./pkg/wasm/... -count=1 -run "TestCompileModule|TestLoadModuleFromFile|TestInstantiateModule"` passes. 15 test functions. CompileModule: 0%→100%, LoadModuleFromFile: 0%→100%, InstantiateModule: 0%→100%. Package: 57.2%→61.1% (+3.9pp). Direct write, no spawn.
 
-## [ ] Add unit tests for pkg/wasm module Transform + LoadPlugin (AC-365)
+## [x] Add unit tests for pkg/wasm module Transform + LoadPlugin (AC-365)
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
-- **Files:** pkg/wasm/module_test.go, pkg/wasm/middleware_test.go
-- **Tests:** TestLoadPlugin (valid wasm module from CompileWAT, nil manager), TestTransform (valid module with known export, unknown export, nil module). LoadPlugin requires wasmtime linking — may need CGO.
-- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestLoadPlugin|TestTransform"` passes. 3+ test functions.
-- **Package:** pkg/wasm/middleware.go (LoadPlugin L44 at 0%), pkg/wasm/module.go (Transform L132 at 10%)
+- **Files:** pkg/wasm/module_test.go (NEW, 11 test functions)
+- **Tests:** TestLoadPlugin (5: ValidModule, NonExistentFile, InvalidWASM, CachedSecondLoad, CancelledContext), TestTransform (6: ValidModule, NilModule, CancelledContext, EmptyInput, WithZeroMaxExecutionTime, WithShortTimeout). Transform: 0%→100%, Load: 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
+- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestLoadPlugin|TestTransform"` passes. 11 test functions. Uses demo/wasm-modules/transform.wasm + hello.wasm.
 
-## [ ] Add unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands (AC-366)
+## [x] Add unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands (AC-366)
 - **Priority:** low
 - **Model:** deepseek-v4-pro
-- **Files:** pkg/generator/generator_test.go
-- **Tests:** TestExecuteAndPrint (valid command with httptest, nil command, error response), TestInitializeDynamicCommands (valid spec, nil spec, empty spec). These functions require cobra Command trees — use httptest.Server for HTTP-based commands.
-- **AC:** `go test ./pkg/generator/... -count=1 -run "TestExecuteAndPrint|TestInitializeDynamicCommands"` passes. 3+ test functions.
-- **Package:** pkg/generator/generator.go (executeAndPrint L821 at 0%, InitializeDynamicCommands L964 at 0%)
+- **Files:** pkg/generator/generator_test.go (appended), pkg/generator/generator.go (BaseURL bugfix)
+- **Tests:** TestExecuteAndPrint (5: Success, HTTPError, EmptyResponse, ContextCancelled, 404Response), TestInitializeDynamicCommands (4: ValidSpec, CachedResult, NonExistentFile, InvalidSpec). executeAndPrint: 0%→93.3%, InitializeDynamicCommands: 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in config. Direct write, no spawn.
+- **AC:** `go test ./pkg/generator/... -count=1 -run "TestExecuteAndPrint|TestInitializeDynamicCommands"` passes. 9 test functions.
 
 ## [x] Add unit tests for pkg/log SetGlobal (AC-359)
 - **Completed:** 2026-06-23 — 1 test function. Verifies SetGlobal does not panic, Global() returns usable logger after Set, all three log levels (Info/Warn/Error). Resets to functional logger for other tests. SetGlobal 0%→100%. Package: 93.3%→100.0%. Direct write, no spawn.

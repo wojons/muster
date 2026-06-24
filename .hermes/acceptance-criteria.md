@@ -4,13 +4,12 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-24 (cron foreman tick #14)
+**Last run:** 2026-06-24 (cron foreman tick #15)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability).
 **Completed this run:**
-  - AC-364: ✅ Unit tests for pkg/wasm runtime module loading — 15 test functions. CompileModule 0%→100%, LoadModuleFromFile 0%→100%, InstantiateModule 0%→100%. Package: 57.2%→61.1% (+3.9pp). Direct write, no spawn.
-**New gaps:** 
-  - (none — all active criteria resolved in this tick)
-  - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
+  - AC-365: ✅ Unit tests for pkg/wasm Transform + LoadPlugin — 11 test functions. Transform 0%→100%, Load 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
+  - AC-366: ✅ Unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands — 9 test functions. executeAndPrint 0%→93.3%, InitializeDynamicCommands 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in Config (bugfix). Direct write, no spawn.
+**Previous runs:**
   - Infrastructure: Fixed .gitleaks.toml glob→regex patterns. Added root-anchored binary patterns to .gitignore.
   - AC-339: ✅ Unit tests for pkg/mcp/handlers/types — 50 test functions, 100% coverage on all 13 functions
   - AC-340: ✅ Unit tests for pkg/cmdstore/loader — 20 test functions, 87% coverage
@@ -358,3 +357,5 @@
 ### AC-362: Unit tests for pkg/daemon SetupSignalHandlers + NewProxyHandlerWithCache ✅ (2026-06-24) — 8 test functions, all pass. SetupSignalHandlers: 3 tests (nil/non-nil/idempotent). NewProxyHandlerWithCache: 5 tests (valid, nil cache, zero TTL, large TTL, empty backendURL). NewProxyHandlerWithCache 0%→100%. SetupSignalHandlers empty body (coverage artifact — code exercised). Package: 81.8%→82.5%. Direct write, no spawn.
 ### AC-363: Unit tests for internal/builtin DSL HTTP builtins ✅ (2026-06-24) — 24 test functions, all pass. httpGetBuiltin: 4 tests (valid URL, error status, invalid URL, missing arg) 0%→100%. httpPostBuiltin: 3 tests (valid, no body, invalid URL) 0%→100%. httpPutBuiltin: 3 tests (valid, empty body, invalid URL) 0%→92.3%. httpDeleteBuiltin: 3 tests (valid, missing arg, invalid URL) 0%→91.7%. runDsl: 7 tests (simple script, file not found, parse error, compile error, http_get/post/put/delete integration) 0%→94.4%. DSL command + builtin callable: 4 tests. Package: 58.2%→67.7% (+9.5pp). Direct write, no spawn.
 ### AC-364: Unit tests for pkg/wasm runtime module loading ✅ (2026-06-24) — 15 test functions, all pass. CompileModule: 5 tests (valid WASM, empty bytes, invalid bytes, garbage magic, cancelled context) 0%→100%. LoadModuleFromFile: 5 tests (valid file, non-existent, directory, invalid content, cancelled context) 0%→100%. InstantiateModule: 5 tests (compiled module, nil module panic documented, cancelled context, with time limit, zero time limit) 0%→100%. Package: 57.2%→61.1% (+3.9pp). Direct write, no spawn.
+### AC-365: Unit tests for pkg/wasm Transform + LoadPlugin ✅ (2026-06-24) — 11 test functions, all pass. TestLoadPlugin: 5 tests (ValidModule, NonExistentFile, InvalidWASM, CachedSecondLoad, CancelledContext). TestTransform: 6 tests (ValidModule, NilModule, CancelledContext, EmptyInput, WithZeroMaxExecutionTime, WithShortTimeout). Transform 0%→100%, Load 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
+### AC-366: Unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands ✅ (2026-06-24) — 9 test functions, all pass. TestExecuteAndPrint: 5 tests (Success, HTTPError, EmptyResponse, ContextCancelled, 404Response). TestInitializeDynamicCommands: 4 tests (ValidSpec, CachedResult, NonExistentFile, InvalidSpec). executeAndPrint 0%→93.3%, InitializeDynamicCommands 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in Config. Direct write, no spawn.

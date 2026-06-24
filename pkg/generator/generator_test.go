@@ -1,6 +1,10 @@
 package generator
 
 import (
+	"bytes"
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,9 +12,10 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/wojons/muster/pkg/openapi"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/openapi"
+	"github.com/wojons/muster/pkg/request"
 )
 
 func TestConfigValidate(t *testing.T) {
@@ -1709,4 +1714,161 @@ func TestAddFlags_EmptyBodyDescription(t *testing.T) {
 	flag := cmd.Flags().Lookup("data")
 	require.NotNil(t, flag)
 	require.Contains(t, flag.Usage, "(request body)")
+}
+
+// =============================================================================
+// executeAndPrint tests (AC-366)
+// =============================================================================
+
+func TestExecuteAndPrint_Success(t *testing.T) {
+	// httptest server that returns JSON
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := &cobra.Command{Use: "test"}
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	err := executeAndPrint(builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+	require.Contains(t, output, `"status":"ok"`)
+}
+
+func TestExecuteAndPrint_HTTPError(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"server error"}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := &cobra.Command{Use: "test"}
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	err := executeAndPrint(builder, cmd, context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "HTTP error")
+}
+
+func TestExecuteAndPrint_EmptyResponse(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "DELETE")
+	var buf bytes.Buffer
+	cmd := &cobra.Command{Use: "test"}
+	cmd.SetOut(&buf)
+
+	err := executeAndPrint(builder, cmd, context.Background())
+	require.NoError(t, err)
+}
+
+func TestExecuteAndPrint_ContextCancelled(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`ok`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := &cobra.Command{Use: "test"}
+	cmd.SetOut(&buf)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before execute
+
+	err := executeAndPrint(builder, cmd, ctx)
+	require.Error(t, err)
+}
+
+func TestExecuteAndPrint_404Response(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"not found"}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	builder := request.NewBuilder(ts.URL, "/api/missing", "GET")
+	var buf bytes.Buffer
+	cmd := &cobra.Command{Use: "test"}
+	cmd.SetOut(&buf)
+
+	err := executeAndPrint(builder, cmd, context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "HTTP error")
+}
+
+// =============================================================================
+// InitializeDynamicCommands tests (AC-366)
+// =============================================================================
+
+func TestInitializeDynamicCommands_ValidSpec(t *testing.T) {
+	tmpDir := t.TempDir()
+	specPath := filepath.Join(tmpDir, "test-spec.yaml")
+	err := os.WriteFile(specPath, []byte(petstoreSpecJSON()), 0644)
+	require.NoError(t, err)
+
+	rootCmd := &cobra.Command{Use: "test-cli"}
+
+	err = InitializeDynamicCommands(rootCmd, specPath)
+	require.NoError(t, err)
+
+	// Should have at least one subcommand (pets group)
+	require.NotEmpty(t, rootCmd.Commands())
+}
+
+func TestInitializeDynamicCommands_CachedResult(t *testing.T) {
+	tmpDir := t.TempDir()
+	specPath := filepath.Join(tmpDir, "test-spec.yaml")
+	err := os.WriteFile(specPath, []byte(petstoreSpecJSON()), 0644)
+	require.NoError(t, err)
+
+	rootCmd := &cobra.Command{Use: "test-cli"}
+
+	// First call should load and generate
+	err = InitializeDynamicCommands(rootCmd, specPath)
+	require.NoError(t, err)
+	require.NotEmpty(t, rootCmd.Commands())
+
+	// Second call should find cached result and return nil
+	rootCmd2 := &cobra.Command{Use: "test-cli2"}
+	err = InitializeDynamicCommands(rootCmd2, specPath)
+	require.NoError(t, err)
+	// Cached returns nil — no new subcommands added
+}
+
+func TestInitializeDynamicCommands_NonExistentFile(t *testing.T) {
+	rootCmd := &cobra.Command{Use: "test-cli"}
+
+	err := InitializeDynamicCommands(rootCmd, "/tmp/nonexistent-openapi-spec-12345.yaml")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "load spec")
+}
+
+func TestInitializeDynamicCommands_InvalidSpec(t *testing.T) {
+	tmpDir := t.TempDir()
+	specPath := filepath.Join(tmpDir, "bad-spec.yaml")
+	err := os.WriteFile(specPath, []byte(`not a valid yaml!!!`), 0644)
+	require.NoError(t, err)
+
+	rootCmd := &cobra.Command{Use: "test-cli"}
+
+	err = InitializeDynamicCommands(rootCmd, specPath)
+	require.Error(t, err)
 }
