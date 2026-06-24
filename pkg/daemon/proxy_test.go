@@ -13,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/wojons/muster/pkg/cache"
 )
 
 // =============================================================================
@@ -664,4 +666,168 @@ func TestNewAuthenticatedProxyServer_NilHandler(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	resp.Body.Close()
+}
+
+// =============================================================================
+// SetupSignalHandlers tests
+// =============================================================================
+
+// TestSetupSignalHandlers_NilController verifies that SetupSignalHandlers
+// does not panic when called on a nil controller.
+func TestSetupSignalHandlers_NilController(t *testing.T) {
+	var c *Controller
+	assert.NotPanics(t, func() {
+		c.SetupSignalHandlers()
+	})
+}
+
+// TestSetupSignalHandlers_NonNilController verifies that SetupSignalHandlers
+// does not panic and is a no-op on a valid controller.
+func TestSetupSignalHandlers_NonNilController(t *testing.T) {
+	cfg := ControllerConfig{
+		PidFilePath: "/tmp/muster-test.pid",
+		SocketPath:  "/tmp/muster-test.sock",
+		Version:     "1.0.0",
+	}
+	ctrl, err := NewController(cfg)
+	require.NoError(t, err)
+
+	assert.NotPanics(t, func() {
+		ctrl.SetupSignalHandlers()
+	})
+
+	// Verify no side effects — controller state is unchanged
+	assert.False(t, ctrl.running)
+	assert.Equal(t, "/tmp/muster-test.sock", ctrl.socketPath)
+}
+
+// TestSetupSignalHandlers_Idempotent verifies that calling SetupSignalHandlers
+// multiple times is safe and does not change state.
+func TestSetupSignalHandlers_Idempotent(t *testing.T) {
+	cfg := ControllerConfig{
+		PidFilePath: "/tmp/muster-test.pid",
+		SocketPath:  "/tmp/muster-test.sock",
+	}
+	ctrl, err := NewController(cfg)
+	require.NoError(t, err)
+
+	ctrl.SetupSignalHandlers()
+	ctrl.SetupSignalHandlers()
+	ctrl.SetupSignalHandlers()
+
+	assert.False(t, ctrl.running)
+}
+
+// =============================================================================
+// mockCache implements cache.Cache for testing NewProxyHandlerWithCache.
+// =============================================================================
+
+type mockCache struct {
+	getCalled    bool
+	setCalled    bool
+	deleteCalled bool
+	clearCalled  bool
+	closeCalled  bool
+	statsCalled  bool
+}
+
+func (m *mockCache) Get(ctx context.Context, key string) ([]byte, bool, error) {
+	m.getCalled = true
+	return nil, false, nil
+}
+
+func (m *mockCache) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	m.setCalled = true
+	return nil
+}
+
+func (m *mockCache) Delete(ctx context.Context, key string) error {
+	m.deleteCalled = true
+	return nil
+}
+
+func (m *mockCache) Clear(ctx context.Context) error {
+	m.clearCalled = true
+	return nil
+}
+
+func (m *mockCache) Close() error {
+	m.closeCalled = true
+	return nil
+}
+
+func (m *mockCache) Stats() cache.Stats {
+	m.statsCalled = true
+	return cache.Stats{}
+}
+
+var _ cache.Cache = (*mockCache)(nil)
+
+// =============================================================================
+// NewProxyHandlerWithCache tests
+// =============================================================================
+
+// TestNewProxyHandlerWithCache_Valid verifies that NewProxyHandlerWithCache
+// returns a properly configured ProxyHandler with the given backendURL, cache,
+// and TTL.
+func TestNewProxyHandlerWithCache_Valid(t *testing.T) {
+	backendURL := "http://example.com/api"
+	c := &mockCache{}
+	ttl := 5 * time.Minute
+
+	handler := NewProxyHandlerWithCache(backendURL, c, ttl)
+
+	require.NotNil(t, handler)
+	assert.Equal(t, backendURL, handler.backendURL)
+	assert.True(t, handler.forwardedFor)
+	assert.NotNil(t, handler.httpClient)
+	assert.Equal(t, 30*time.Second, handler.httpClient.Timeout)
+	assert.NotNil(t, handler.httpClient.Transport)
+}
+
+// TestNewProxyHandlerWithCache_NilCache verifies that NewProxyHandlerWithCache
+// handles a nil cache (passes it through to NewCacheRoundTripper).
+func TestNewProxyHandlerWithCache_NilCache(t *testing.T) {
+	backendURL := "http://example.com/api"
+
+	handler := NewProxyHandlerWithCache(backendURL, nil, 1*time.Minute)
+
+	require.NotNil(t, handler)
+	assert.Equal(t, backendURL, handler.backendURL)
+	assert.NotNil(t, handler.httpClient)
+}
+
+// TestNewProxyHandlerWithCache_ZeroTTL verifies that a zero TTL is accepted.
+func TestNewProxyHandlerWithCache_ZeroTTL(t *testing.T) {
+	backendURL := "http://localhost:8080"
+	c := &mockCache{}
+
+	handler := NewProxyHandlerWithCache(backendURL, c, 0)
+
+	require.NotNil(t, handler)
+	assert.Equal(t, backendURL, handler.backendURL)
+	assert.NotNil(t, handler.httpClient)
+}
+
+// TestNewProxyHandlerWithCache_LargeTTL verifies that a large TTL is accepted.
+func TestNewProxyHandlerWithCache_LargeTTL(t *testing.T) {
+	backendURL := "http://backend.internal"
+	c := &mockCache{}
+
+	handler := NewProxyHandlerWithCache(backendURL, c, 24*time.Hour)
+
+	require.NotNil(t, handler)
+	assert.Equal(t, backendURL, handler.backendURL)
+}
+
+// TestNewProxyHandlerWithCache_EmptyBackendURL verifies that an empty backend
+// URL is accepted by the constructor (validation happens at ServeHTTP time).
+func TestNewProxyHandlerWithCache_EmptyBackendURL(t *testing.T) {
+	c := &mockCache{}
+
+	handler := NewProxyHandlerWithCache("", c, time.Minute)
+
+	require.NotNil(t, handler)
+	assert.Equal(t, "", handler.backendURL)
+	assert.NotNil(t, handler.httpClient)
 }

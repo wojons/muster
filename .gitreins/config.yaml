@@ -3,6 +3,9 @@ guards:
   secrets: true
   lint: true
   tests: true
+  lsp: true
+  lsp_tools:
+  - gopls
   test_command: go test -short -count=1 ./...
   go:
     build: true
@@ -13,6 +16,8 @@ evaluator:
   max_time: 5m
   max_output_tokens: 200k
   tool_call_weight: 0.1
+  code_context_budget: 0.70
+  compaction_threshold: 0.90
 defaults:
   model: deepseek-v4-flash
   check_for_updates: true
