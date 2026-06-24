@@ -1,12 +1,11 @@
 # Coding Tasks — Muster
 
-## [ ] Add unit tests for pkg/wasm runtime module loading (AC-364)
+## [x] Add unit tests for pkg/wasm runtime module loading (AC-364)
 - **Priority:** medium
 - **Model:** deepseek-v4-pro
-- **Files:** pkg/wasm/runtime_test.go
-- **Tests:** TestCompileModule (valid wasm bytes, empty, invalid bytes), TestLoadModuleFromFile (valid .wasm file, non-existent, directory), TestInstantiateModule (compiled module, nil module). Use CompileWAT to produce valid .wasm bytes from test WAT strings.
-- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestCompileModule|TestLoadModuleFromFile|TestInstantiateModule"` passes. 5+ test functions. CompileModule 0%→80%+, LoadModuleFromFile 0%→80%+, InstantiateModule 0%→70%+.
-- **Package:** pkg/wasm/runtime.go (CompileModule L212, LoadModuleFromFile L217, InstantiateModule L226 — all at 0%)
+- **Files:** pkg/wasm/runtime_compile_test.go (NEW, 15 test functions)
+- **Tests:** TestCompileModule (5: valid, empty, invalid bytes, garbage magic, cancelled context), TestLoadModuleFromFile (5: valid file, non-existent, directory, invalid content, cancelled context), TestInstantiateModule (5: compiled module, nil→panic documented, cancelled context, with time limit, zero time limit).
+- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestCompileModule|TestLoadModuleFromFile|TestInstantiateModule"` passes. 15 test functions. CompileModule: 0%→100%, LoadModuleFromFile: 0%→100%, InstantiateModule: 0%→100%. Package: 57.2%→61.1% (+3.9pp). Direct write, no spawn.
 
 ## [ ] Add unit tests for pkg/wasm module Transform + LoadPlugin (AC-365)
 - **Priority:** medium

@@ -4,13 +4,10 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-24 (cron foreman tick #13)
+**Last run:** 2026-06-24 (cron foreman tick #14)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability).
 **Completed this run:**
-  - AC-362: ✅ Unit tests for pkg/daemon SetupSignalHandlers + NewProxyHandlerWithCache — 8 test functions. NewProxyHandlerWithCache 0%→100%. SetupSignalHandlers empty body (coverage artifact — code exercised). Package: 81.8%→82.5%.
-  - AC-363: ✅ Unit tests for internal/builtin DSL HTTP builtins — 24 test functions. httpGetBuiltin 0%→100%, httpPostBuiltin 0%→100%, httpPutBuiltin 0%→92.3%, httpDeleteBuiltin 0%→91.7%, runDsl 0%→94.4%. Package: 58.2%→67.7% (+9.5pp).
-  - 32 new test functions total, all pass. Direct writes, zero spawns.
-  - Pre-existing gitreins LSP guard config update committed alongside.
+  - AC-364: ✅ Unit tests for pkg/wasm runtime module loading — 15 test functions. CompileModule 0%→100%, LoadModuleFromFile 0%→100%, InstantiateModule 0%→100%. Package: 57.2%→61.1% (+3.9pp). Direct write, no spawn.
 **New gaps:** 
   - (none — all active criteria resolved in this tick)
   - AC-341: ✅ Unit tests for internal/builtin — 31 new test cases. Coverage 54.3% → 58.2% (+3.9pp).
@@ -360,3 +357,4 @@
 ### AC-361: Unit tests for pkg/completion DefaultHTTPClient ✅ (2026-06-23) — 4 test functions, all pass. NewDefaultHTTPClient 0%→100%, ListResources/ListNamespaces/ListProfiles not-implemented paths verified. Package: 78.3%→93.7%. Direct write, no spawn.
 ### AC-362: Unit tests for pkg/daemon SetupSignalHandlers + NewProxyHandlerWithCache ✅ (2026-06-24) — 8 test functions, all pass. SetupSignalHandlers: 3 tests (nil/non-nil/idempotent). NewProxyHandlerWithCache: 5 tests (valid, nil cache, zero TTL, large TTL, empty backendURL). NewProxyHandlerWithCache 0%→100%. SetupSignalHandlers empty body (coverage artifact — code exercised). Package: 81.8%→82.5%. Direct write, no spawn.
 ### AC-363: Unit tests for internal/builtin DSL HTTP builtins ✅ (2026-06-24) — 24 test functions, all pass. httpGetBuiltin: 4 tests (valid URL, error status, invalid URL, missing arg) 0%→100%. httpPostBuiltin: 3 tests (valid, no body, invalid URL) 0%→100%. httpPutBuiltin: 3 tests (valid, empty body, invalid URL) 0%→92.3%. httpDeleteBuiltin: 3 tests (valid, missing arg, invalid URL) 0%→91.7%. runDsl: 7 tests (simple script, file not found, parse error, compile error, http_get/post/put/delete integration) 0%→94.4%. DSL command + builtin callable: 4 tests. Package: 58.2%→67.7% (+9.5pp). Direct write, no spawn.
+### AC-364: Unit tests for pkg/wasm runtime module loading ✅ (2026-06-24) — 15 test functions, all pass. CompileModule: 5 tests (valid WASM, empty bytes, invalid bytes, garbage magic, cancelled context) 0%→100%. LoadModuleFromFile: 5 tests (valid file, non-existent, directory, invalid content, cancelled context) 0%→100%. InstantiateModule: 5 tests (compiled module, nil module panic documented, cancelled context, with time limit, zero time limit) 0%→100%. Package: 57.2%→61.1% (+3.9pp). Direct write, no spawn.
