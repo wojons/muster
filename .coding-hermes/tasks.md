@@ -1,5 +1,29 @@
 # Coding Tasks — Muster
 
+## [ ] Add unit tests for pkg/wasm runtime module loading (AC-364)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/wasm/runtime_test.go
+- **Tests:** TestCompileModule (valid wasm bytes, empty, invalid bytes), TestLoadModuleFromFile (valid .wasm file, non-existent, directory), TestInstantiateModule (compiled module, nil module). Use CompileWAT to produce valid .wasm bytes from test WAT strings.
+- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestCompileModule|TestLoadModuleFromFile|TestInstantiateModule"` passes. 5+ test functions. CompileModule 0%→80%+, LoadModuleFromFile 0%→80%+, InstantiateModule 0%→70%+.
+- **Package:** pkg/wasm/runtime.go (CompileModule L212, LoadModuleFromFile L217, InstantiateModule L226 — all at 0%)
+
+## [ ] Add unit tests for pkg/wasm module Transform + LoadPlugin (AC-365)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/wasm/module_test.go, pkg/wasm/middleware_test.go
+- **Tests:** TestLoadPlugin (valid wasm module from CompileWAT, nil manager), TestTransform (valid module with known export, unknown export, nil module). LoadPlugin requires wasmtime linking — may need CGO.
+- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestLoadPlugin|TestTransform"` passes. 3+ test functions.
+- **Package:** pkg/wasm/middleware.go (LoadPlugin L44 at 0%), pkg/wasm/module.go (Transform L132 at 10%)
+
+## [ ] Add unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands (AC-366)
+- **Priority:** low
+- **Model:** deepseek-v4-pro
+- **Files:** pkg/generator/generator_test.go
+- **Tests:** TestExecuteAndPrint (valid command with httptest, nil command, error response), TestInitializeDynamicCommands (valid spec, nil spec, empty spec). These functions require cobra Command trees — use httptest.Server for HTTP-based commands.
+- **AC:** `go test ./pkg/generator/... -count=1 -run "TestExecuteAndPrint|TestInitializeDynamicCommands"` passes. 3+ test functions.
+- **Package:** pkg/generator/generator.go (executeAndPrint L821 at 0%, InitializeDynamicCommands L964 at 0%)
+
 ## [x] Add unit tests for pkg/log SetGlobal (AC-359)
 - **Completed:** 2026-06-23 — 1 test function. Verifies SetGlobal does not panic, Global() returns usable logger after Set, all three log levels (Info/Warn/Error). Resets to functional logger for other tests. SetGlobal 0%→100%. Package: 93.3%→100.0%. Direct write, no spawn.
 
