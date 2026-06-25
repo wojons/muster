@@ -1,5 +1,14 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for internal/builtin newCompletionCommand (AC-370)
+- **Completed:** 2026-06-25 — 8 test functions, all pass. TestNewCompletionCommand (3 subtests: structure/ValidArgs/Args), TestNewCompletionCommand_Bash/Zsh/Fish/Powershell (stdout capture), TestNewCompletionCommand_InvalidShell (OnlyValidArgs), TestNewCompletionCommand_NoArgs, TestNewCompletionCommand_ExtraArgs. newCompletionCommand: 25.0%→87.5% (+62.5pp). Package: 71.6%→79.0%. Direct write, no spawn.
+
+## [x] Add unit tests for internal/builtin newProfileCommand (AC-371)
+- **Completed:** 2026-06-25 — 7 test functions, all pass. TestNewProfileCommand_RunList (empty/with-profiles), TestNewProfileCommand_RunShow (found/not-found), TestNewProfileCommand_RunSwitch (valid/missing), TestNewProfileCommand_RunDelete (existing/missing/clears-default). newProfileCommand: 14.6%→100.0% (+85.4pp). Appended to config_test.go. Direct write, no spawn.
+
+## [x] Add unit tests for internal/builtin daemon commands (AC-372)
+- **Completed:** 2026-06-25 — 5 test functions, all pass. TestNewDaemonCommand (subcommand listing), TestNewDaemonStartCommand (structure/flag/RunE), TestNewDaemonStopCommand (structure/flag/RunE), TestNewDaemonStatusCommand (structure/flag/RunE), TestNewDaemonCommands_StopErrors (RunE error path). newDaemonStopCommand: 33.3%→75.0% (+41.7pp). Package: 71.6%→79.0%. Direct write, no spawn.
+
 ## [x] Add unit tests for pkg/wasm InstantiateModuleWithWASI (AC-368)
 - **Priority:** medium
 - **Model:** deepseek-v4-pro (direct write, no spawn)

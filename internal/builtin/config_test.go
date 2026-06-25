@@ -191,3 +191,221 @@ func TestNewProfileCommand(t *testing.T) {
 		assert.NotNil(t, deleteCmd.Args)
 	})
 }
+
+func TestNewProfileCommand_RunList(t *testing.T) {
+	t.Run("list empty profiles", func(t *testing.T) {
+		cfg := &config.Config{}
+		cmd := newProfileCommand(cfg)
+
+		var listCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "list" {
+				listCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, listCmd)
+
+		output, _ := captureStdoutCompletion(func() error {
+			listCmd.Run(listCmd, []string{})
+			return nil
+		})
+		assert.Contains(t, output, "No profiles configured")
+	})
+
+	t.Run("list with profiles", func(t *testing.T) {
+		cfg := &config.Config{
+			Profiles: map[string]config.Profile{
+				"production": {BaseURL: "https://api.example.com", AuthType: "bearer"},
+				"staging":    {BaseURL: "https://staging.example.com", AuthType: "none"},
+			},
+			DefaultProfile: "production",
+		}
+		cmd := newProfileCommand(cfg)
+
+		var listCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "list" {
+				listCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, listCmd)
+
+		output, _ := captureStdoutCompletion(func() error {
+			listCmd.Run(listCmd, []string{})
+			return nil
+		})
+		assert.Contains(t, output, "* production")
+		assert.Contains(t, output, "staging")
+	})
+}
+
+func TestNewProfileCommand_RunShow(t *testing.T) {
+	t.Run("show found profile", func(t *testing.T) {
+		cfg := &config.Config{
+			Profiles: map[string]config.Profile{
+				"production": {BaseURL: "https://api.example.com", AuthType: "bearer"},
+			},
+		}
+		cmd := newProfileCommand(cfg)
+
+		var showCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "show" {
+				showCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, showCmd)
+
+		output, _ := captureStdoutCompletion(func() error {
+			showCmd.Run(showCmd, []string{"production"})
+			return nil
+		})
+		assert.Contains(t, output, "production")
+		assert.Contains(t, output, "https://api.example.com")
+		assert.Contains(t, output, "bearer")
+	})
+
+	t.Run("show not found profile", func(t *testing.T) {
+		cfg := &config.Config{}
+		cmd := newProfileCommand(cfg)
+
+		var showCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "show" {
+				showCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, showCmd)
+
+		output, _ := captureStdoutCompletion(func() error {
+			showCmd.Run(showCmd, []string{"nonexistent"})
+			return nil
+		})
+		assert.Contains(t, output, "not found")
+	})
+}
+
+func TestNewProfileCommand_RunSwitch(t *testing.T) {
+	t.Run("switch to valid profile", func(t *testing.T) {
+		cfg := &config.Config{
+			Profiles: map[string]config.Profile{
+				"production": {BaseURL: "https://api.example.com"},
+				"staging":    {BaseURL: "https://staging.example.com"},
+			},
+			DefaultProfile: "production",
+		}
+		cmd := newProfileCommand(cfg)
+
+		var switchCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "switch" {
+				switchCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, switchCmd)
+
+		output, _ := captureStdoutCompletion(func() error {
+			switchCmd.Run(switchCmd, []string{"staging"})
+			return nil
+		})
+		assert.Contains(t, output, "staging")
+		assert.Equal(t, "staging", cfg.DefaultProfile)
+	})
+
+	t.Run("switch to missing profile", func(t *testing.T) {
+		cfg := &config.Config{}
+		cmd := newProfileCommand(cfg)
+
+		var switchCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "switch" {
+				switchCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, switchCmd)
+
+		output, _ := captureStdoutCompletion(func() error {
+			switchCmd.Run(switchCmd, []string{"nonexistent"})
+			return nil
+		})
+		assert.Contains(t, output, "not found")
+	})
+}
+
+func TestNewProfileCommand_RunDelete(t *testing.T) {
+	t.Run("delete existing profile", func(t *testing.T) {
+		cfg := &config.Config{
+			Profiles: map[string]config.Profile{
+				"staging":    {BaseURL: "https://staging.example.com"},
+				"production": {BaseURL: "https://api.example.com"},
+			},
+			DefaultProfile: "staging",
+		}
+		cmd := newProfileCommand(cfg)
+
+		var deleteCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "delete" {
+				deleteCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, deleteCmd)
+
+		output, _ := captureStdoutCompletion(func() error {
+			deleteCmd.Run(deleteCmd, []string{"staging"})
+			return nil
+		})
+		assert.Contains(t, output, "Deleted")
+		_, exists := cfg.Profiles["staging"]
+		assert.False(t, exists)
+	})
+
+	t.Run("delete non-existent profile", func(t *testing.T) {
+		cfg := &config.Config{}
+		cmd := newProfileCommand(cfg)
+
+		var deleteCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "delete" {
+				deleteCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, deleteCmd)
+
+		output, _ := captureStdoutCompletion(func() error {
+			deleteCmd.Run(deleteCmd, []string{"nonexistent"})
+			return nil
+		})
+		assert.Contains(t, output, "not found")
+	})
+
+	t.Run("delete clears default profile", func(t *testing.T) {
+		cfg := &config.Config{
+			Profiles: map[string]config.Profile{
+				"production": {BaseURL: "https://api.example.com"},
+			},
+			DefaultProfile: "production",
+		}
+		cmd := newProfileCommand(cfg)
+
+		var deleteCmd *cobra.Command
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "delete" {
+				deleteCmd = sub
+				break
+			}
+		}
+		require.NotNil(t, deleteCmd)
+
+		deleteCmd.Run(deleteCmd, []string{"production"})
+		assert.Equal(t, "", cfg.DefaultProfile)
+	})
+}

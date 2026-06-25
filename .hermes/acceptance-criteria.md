@@ -7,9 +7,9 @@
 **Last run:** 2026-06-24 (cron foreman tick #16)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability).
 **Completed this run:**
-  - AC-368: ✅ Unit tests for pkg/wasm InstantiateModuleWithWASI — 7 test functions. InstantiateModuleWithWASI 0%→88.9%. Package: 77.2%→88.7% (+11.5pp). Direct write, no spawn.
-  - AC-369: ✅ Unit tests for pkg/wasm Execute + ExecuteWithContext — 15 test functions. Execute 0%→100%, ExecuteWithContext 0%→96.3%. Package: 77.2%→88.7% (+11.5pp combined). Direct write, no spawn.
-  - Combined: 22 total test functions, pkg/wasm coverage 77.2%→88.7% (+11.5pp).
+  - AC-370: ✅ Unit tests for internal/builtin newCompletionCommand — 8 test functions. newCompletionCommand: 25.0%→87.5% (+62.5pp). Package: 71.6%→79.0% (+7.4pp). Direct write, no spawn.
+  - AC-371: ✅ Unit tests for internal/builtin newProfileCommand — 7 test functions. newProfileCommand: 14.6%→100.0% (+85.4pp). Package: 71.6%→79.0% (+7.4pp combined). Direct write, no spawn.
+  - AC-372: ✅ Unit tests for internal/builtin daemon commands — 5 test functions. newDaemonStopCommand: 33.3%→75.0% (+41.7pp). Package: 71.6%→79.0% (+7.4pp combined). Direct write, no spawn.
 **Previous runs:**
   - AC-365: ✅ Unit tests for pkg/wasm Transform + LoadPlugin — 11 test functions. Transform 0%→100%, Load 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
   - AC-366: ✅ Unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands — 9 test functions. executeAndPrint 0%→93.3%, InitializeDynamicCommands 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in Config (bugfix). Direct write, no spawn.
@@ -316,6 +316,10 @@
 ---
 
 ## Passed Criteria
+
+### AC-372: Unit tests for internal/builtin daemon commands ✅ (2026-06-25) — 5 test functions, all pass. newDaemonStopCommand: 33.3%→75.0% (+41.7pp). Package: 71.6%→79.0% (+7.4pp combined). Covers TestNewDaemonCommand (subcommand listing), TestNewDaemonStart/Stop/StatusCommand (structure/--socket flag/RunE), TestNewDaemonCommands_StopErrors (error path). Note: start/status RunE paths not unit-testable — require running daemon. Direct write, no spawn.
+### AC-371: Unit tests for internal/builtin newProfileCommand ✅ (2026-06-25) — 7 test functions, all pass. newProfileCommand: 14.6%→100.0% (+85.4pp). Package: 71.6%→79.0% (+7.4pp combined). Covers TestNewProfileCommand_RunList (empty/with-profiles), TestNewProfileCommand_RunShow (found/not-found), TestNewProfileCommand_RunSwitch (valid/missing), TestNewProfileCommand_RunDelete (existing/missing/clears-default). Uses os.Stdout capture for fmt.Println output. Direct write, no spawn.
+### AC-370: Unit tests for internal/builtin newCompletionCommand ✅ (2026-06-25) — 8 test functions, all pass. newCompletionCommand: 25.0%→87.5% (+62.5pp). Package: 71.6%→79.0% (+7.4pp combined). Covers TestNewCompletionCommand (structure/ValidArgs/Args), TestNewCompletionCommand_Bash/Zsh/Fish/Powershell (stdout capture + content assertions), TestNewCompletionCommand_InvalidShell (OnlyValidArgs), TestNewCompletionCommand_NoArgs/ExtraArgs (cobra validation). Uses root.Execute() with SetArgs for proper cobra subcommand resolution. Direct write, no spawn.
 
 ### AC-368: Unit tests for pkg/wasm InstantiateModuleWithWASI ✅ (2026-06-24) — 7 test functions, all pass. InstantiateModuleWithWASI: 0%→88.9%. Package: 77.2%→88.7% (+11.5pp combined with AC-369). Covers ValidModule, WASIDisabled, InvalidModule, CancelledContext, WithExecutionTimeout, ZeroTimeout, NilCompiled. Direct write, no spawn.
 ### AC-369: Unit tests for pkg/wasm Execute + ExecuteWithContext ✅ (2026-06-24) — 15 test functions, all pass. Execute: 0%→100%, ExecuteWithContext: 0%→96.3%. Package: 77.2%→88.7% (+11.5pp combined). Covers ValidFunction, FunctionNotFound, InvalidWASM, CancelledContext, WithTimeout, UnsupportedArgType, Int32Arg, Int64Arg, Uint32Arg, Uint64Arg, NativeIntArg, ExecuteWithContext_ValidFunction/CancelledContext/WithTimeout/ZeroTimeout. Direct write, no spawn.
