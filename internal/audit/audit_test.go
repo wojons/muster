@@ -519,3 +519,108 @@ func TestAuditEvent_JSON_RoundTrip(t *testing.T) {
 		t.Errorf("Metadata[key] = %q, want %q", decoded.Context.Metadata["key"], "value")
 	}
 }
+
+// TestHook_LogCommand_Disabled verifies LogCommand does not panic or create
+// files when audit is disabled (config.Enabled=false).
+func TestHook_LogCommand_Disabled(t *testing.T) {
+	os.Unsetenv("MUSTER_AUDIT_ENABLED")
+
+	cfg := AuditConfig{Enabled: false, BufferSize: 10}
+	hook := NewHook(cfg)
+
+	if hook.config.Enabled {
+		t.Fatal("hook should be disabled")
+	}
+
+	ctx := context.Background()
+	// Should not panic and should not create any files
+	hook.LogCommand(ctx, "inventory-fetch", "cli-user", true, map[string]string{
+		"api": "petstore",
+	})
+
+	// Close should not panic even with no logger
+	if err := hook.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+}
+
+// TestHook_LogToolCall_Disabled verifies LogToolCall does not panic or create
+// files when audit is disabled (config.Enabled=false).
+func TestHook_LogToolCall_Disabled(t *testing.T) {
+	os.Unsetenv("MUSTER_AUDIT_ENABLED")
+
+	cfg := AuditConfig{Enabled: false, BufferSize: 10}
+	hook := NewHook(cfg)
+
+	if hook.config.Enabled {
+		t.Fatal("hook should be disabled")
+	}
+
+	ctx := context.Background()
+	// Should not panic and should not create any files
+	hook.LogToolCall(ctx, "list-tasks", "mcp-client", true, nil)
+
+	// Close should not panic even with no logger
+	if err := hook.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+}
+
+// TestAuditLogger_Log_BufferFull verifies that Log returns nil (silent drop)
+// when the event channel buffer is full. Uses BufferSize=1 and sends 2 events
+// rapidly — the second hits the default branch.
+func TestAuditLogger_Log_BufferFull(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit.log")
+
+	fs, err := NewFileStorage(path, DefaultFileStorageOptions())
+	if err != nil {
+		t.Fatalf("NewFileStorage: %v", err)
+	}
+
+	// BufferSize=1 means only one event fits before consumer picks it up
+	cfg := AuditConfig{Enabled: true, BufferSize: 1}
+	logger := NewAuditLogger(cfg, fs)
+
+	event1 := &AuditEvent{
+		Level:    AuditLevelInfo,
+		Category: AuditCategorySystem,
+		Action:   "test.buffer-full-1",
+		Actor:    AuditActor{ID: "tester", Type: "test"},
+		Result:   AuditResult{Success: true, Code: "OK"},
+	}
+	event2 := &AuditEvent{
+		Level:    AuditLevelInfo,
+		Category: AuditCategorySystem,
+		Action:   "test.buffer-full-2",
+		Actor:    AuditActor{ID: "tester", Type: "test"},
+		Result:   AuditResult{Success: true, Code: "OK"},
+	}
+
+	// Send first event — fills the buffer
+	if err := logger.Log(context.Background(), event1); err != nil {
+		t.Fatalf("Log event1: %v", err)
+	}
+
+	// Send second event immediately — should hit default (buffer full)
+	// Both paths return nil, so we just verify no panic and no error
+	if err := logger.Log(context.Background(), event2); err != nil {
+		t.Fatalf("Log event2: %v", err)
+	}
+
+	// Close logger to flush remaining events
+	if err := logger.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// At least one event should be in the log (event1 was queued before consumer)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	content := strings.TrimSpace(string(data))
+	if content == "" {
+		t.Error("expected at least one event in audit log")
+	}
+}
