@@ -1,5 +1,19 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for pkg/wasm InstantiateModuleWithWASI (AC-368)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro (direct write, no spawn)
+- **Files:** pkg/wasm/runtime_wasi_test.go (NEW, 7 test functions)
+- **Tests:** TestInstantiateModuleWithWASI_ValidModule, TestInstantiateModuleWithWASI_WASIDisabled, TestInstantiateModuleWithWASI_InvalidModule, TestInstantiateModuleWithWASI_CancelledContext, TestInstantiateModuleWithWASI_WithExecutionTimeout, TestInstantiateModuleWithWASI_ZeroTimeout, TestInstantiateModuleWithWASI_NilCompiled.
+- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestInstantiateModuleWithWASI" -timeout 30s` passes. 7 test functions. InstantiateModuleWithWASI: 0%→88.9%. Package: 77.2%→88.7% (+11.5pp). Direct write, no spawn.
+
+## [x] Add unit tests for pkg/wasm Execute + ExecuteWithContext (AC-369)
+- **Priority:** medium
+- **Model:** deepseek-v4-pro (direct write, no spawn)
+- **Files:** pkg/wasm/runtime_execute_test.go (NEW, 15 test functions)
+- **Tests:** TestExecute_ValidFunction, TestExecute_FunctionNotFound, TestExecute_InvalidWASM, TestExecute_CancelledContext, TestExecute_WithTimeout, TestExecute_UnsupportedArgType, TestExecute_Int32Arg, TestExecute_Int64Arg, TestExecute_Uint32Arg, TestExecute_Uint64Arg, TestExecute_NativeIntArg, TestExecuteWithContext_ValidFunction, TestExecuteWithContext_CancelledContext, TestExecuteWithContext_WithTimeout, TestExecuteWithContext_ZeroTimeout.
+- **AC:** `go test ./pkg/wasm/... -count=1 -run "TestExecute|TestExecuteWithContext" -timeout 30s` passes. 15 test functions. Execute: 0%→100%, ExecuteWithContext: 0%→96.3%. Package: 77.2%→88.7% (+11.5pp) combined with AC-368. Direct write, no spawn.
+
 ## [x] Additional unit tests for internal/builtin detectMultipartOperation + extractBodyPropertyNames (AC-367)
 - **Priority:** medium
 - **Model:** deepseek-v4-pro (direct write, no spawn)
