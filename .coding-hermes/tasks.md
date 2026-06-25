@@ -1,5 +1,8 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for internal/audit disabled-path + buffer-full (AC-373)
+- **Completed:** 2026-06-25 — 3 test functions, all pass. TestHook_LogCommand_Disabled (disabled no-panic), TestHook_LogToolCall_Disabled (disabled no-panic), TestAuditLogger_Log_BufferFull (BufferSize=1, 2 rapid sends → default branch). AuditLogger.Log: 66.7%→100.0% (+33.3pp). internal/audit package: 89.7%→90.4% (+0.7pp). Direct write, no spawn.
+
 ## [x] Add unit tests for internal/builtin newCompletionCommand (AC-370)
 - **Completed:** 2026-06-25 — 8 test functions, all pass. TestNewCompletionCommand (3 subtests: structure/ValidArgs/Args), TestNewCompletionCommand_Bash/Zsh/Fish/Powershell (stdout capture), TestNewCompletionCommand_InvalidShell (OnlyValidArgs), TestNewCompletionCommand_NoArgs, TestNewCompletionCommand_ExtraArgs. newCompletionCommand: 25.0%→87.5% (+62.5pp). Package: 71.6%→79.0%. Direct write, no spawn.
 

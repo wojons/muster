@@ -25,6 +25,8 @@
 **New gaps:** 
   - (none — all active criteria resolved)
 
+### AC-373: Unit tests for internal/audit disabled-path + buffer-full ✅ (2026-06-25) — 3 test functions, all pass. TestHook_LogCommand_Disabled (disabled no-panic), TestHook_LogToolCall_Disabled (disabled no-panic), TestAuditLogger_Log_BufferFull (BufferSize=1, 2 rapid sends → default branch). AuditLogger.Log: 66.7%→100.0% (+33.3pp). internal/audit package: 89.7%→90.4% (+0.7pp). Direct write, no spawn.
+
 ## Demo Infrastructure (Fake Apps)
 
 | Service | Port | Language | What it provides |
