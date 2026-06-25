@@ -7,7 +7,9 @@
 **Last run:** 2026-06-24 (cron foreman tick #16)
 **Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability).
 **Completed this run:**
-  - AC-367: ✅ Additional unit tests for internal/builtin detectMultipartOperation + extractBodyPropertyNames — 23 test cases (12+11). detectMultipartOperation 31.6%→94.7% (+63.1pp), extractBodyPropertyNames 31.6%→94.7% (+63.1pp). Package: 67.7%→71.6% (+3.9pp). Direct write, no spawn.
+  - AC-368: ✅ Unit tests for pkg/wasm InstantiateModuleWithWASI — 7 test functions. InstantiateModuleWithWASI 0%→88.9%. Package: 77.2%→88.7% (+11.5pp). Direct write, no spawn.
+  - AC-369: ✅ Unit tests for pkg/wasm Execute + ExecuteWithContext — 15 test functions. Execute 0%→100%, ExecuteWithContext 0%→96.3%. Package: 77.2%→88.7% (+11.5pp combined). Direct write, no spawn.
+  - Combined: 22 total test functions, pkg/wasm coverage 77.2%→88.7% (+11.5pp).
 **Previous runs:**
   - AC-365: ✅ Unit tests for pkg/wasm Transform + LoadPlugin — 11 test functions. Transform 0%→100%, Load 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
   - AC-366: ✅ Unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands — 9 test functions. executeAndPrint 0%→93.3%, InitializeDynamicCommands 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in Config (bugfix). Direct write, no spawn.
@@ -315,6 +317,8 @@
 
 ## Passed Criteria
 
+### AC-368: Unit tests for pkg/wasm InstantiateModuleWithWASI ✅ (2026-06-24) — 7 test functions, all pass. InstantiateModuleWithWASI: 0%→88.9%. Package: 77.2%→88.7% (+11.5pp combined with AC-369). Covers ValidModule, WASIDisabled, InvalidModule, CancelledContext, WithExecutionTimeout, ZeroTimeout, NilCompiled. Direct write, no spawn.
+### AC-369: Unit tests for pkg/wasm Execute + ExecuteWithContext ✅ (2026-06-24) — 15 test functions, all pass. Execute: 0%→100%, ExecuteWithContext: 0%→96.3%. Package: 77.2%→88.7% (+11.5pp combined). Covers ValidFunction, FunctionNotFound, InvalidWASM, CancelledContext, WithTimeout, UnsupportedArgType, Int32Arg, Int64Arg, Uint32Arg, Uint64Arg, NativeIntArg, ExecuteWithContext_ValidFunction/CancelledContext/WithTimeout/ZeroTimeout. Direct write, no spawn.
 ### AC-356: Unit tests for pkg/client NewRateLimitRoundTripper ✅ (2026-06-23) — 8 test functions, all pass. NewRateLimitRoundTripper: 4 tests (valid rate/burst, zero rate, zero burst, nil inner→DefaultTransport) 66.7%→100%. RoundTrip: 4 tests (passthrough, blocks when exceeded, 429 body contents, proto preserved on 429) 100%. Package: 92.9%. Direct write, no spawn.
 ### AC-355: Unit tests for pkg/auth encrypt + getApplicationSecret ✅ (2026-06-23) — 9 test functions, all pass. encrypt: 7 tests (valid 32/24/16-byte keys, invalid 31/33-byte keys, empty/nil plaintext) 72.7%→81.8%. getApplicationSecret: 2 tests (with/without appSecret) 66.7%→100%. Package: 54.2%→58.7%. Note: 16/24-byte keys are valid AES-128/192. Direct write, no spawn.
 ### AC-354: Unit tests for pkg/cache purgeExpired + evictOne ✅ (2026-06-23) — 7 test functions, all pass. purgeExpired: 4 tests (removes expired, keeps non-expired, empty no-op, all expired) 0%→100%. evictOne: 3 tests (evicts LRU, empty no-op, progressive eviction) 75%→100%. Package: 97.9%. Direct write, no spawn.
