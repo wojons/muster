@@ -4,12 +4,15 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-24 (cron foreman tick #16)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability).
-**Completed this run:**
-  - AC-370: ✅ Unit tests for internal/builtin newCompletionCommand — 8 test functions. newCompletionCommand: 25.0%→87.5% (+62.5pp). Package: 71.6%→79.0% (+7.4pp). Direct write, no spawn.
-  - AC-371: ✅ Unit tests for internal/builtin newProfileCommand — 7 test functions. newProfileCommand: 14.6%→100.0% (+85.4pp). Package: 71.6%→79.0% (+7.4pp combined). Direct write, no spawn.
-  - AC-372: ✅ Unit tests for internal/builtin daemon commands — 5 test functions. newDaemonStopCommand: 33.3%→75.0% (+41.7pp). Package: 71.6%→79.0% (+7.4pp combined). Direct write, no spawn.
+**Last run:** 2026-06-25 (cron foreman tick #17)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability). Demo: 23/23 checks pass. Overall coverage: 85.4%.
+**Completed this run:** None — board was empty. Health check only.
+**Remaining coverage gaps (not critical):**
+  - internal/platform/linux/ (411 lines, 0% — D-Bus Secret Service, requires session bus)
+  - pkg/auth/keychain_secret_service_linux.go (54 lines, 0% — D-Bus delegation)
+  - Various entrypoints (main functions, handlePanic, handleFatal)
+  - Integration-level functions (createRunHandler 1.4%, handleStart 13.3%, handleProxyStart 9.5%)
+  - Platform-specific stubs (macOS/Windows keychain)
 **Previous runs:**
   - AC-365: ✅ Unit tests for pkg/wasm Transform + LoadPlugin — 11 test functions. Transform 0%→100%, Load 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
   - AC-366: ✅ Unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands — 9 test functions. executeAndPrint 0%→93.3%, InitializeDynamicCommands 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in Config (bugfix). Direct write, no spawn.
