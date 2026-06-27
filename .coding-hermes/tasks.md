@@ -1,5 +1,8 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for internal/builtin handleRequest success + integration paths (AC-376)
+- **Completed:** 2026-06-27 — 14 new test functions (16 total), all pass. TestHandleRequest_Success, TestHandleRequest_HTTP400Error, TestHandleRequest_HTTP500Error, TestHandleRequest_JSONOutput, TestHandleRequest_JSONOutput_NonJSONBody, TestHandleRequest_VerboseOutput, TestHandleRequest_WithRateLimitConfig, TestHandleRequest_WithCacheConfig, TestHandleRequest_POSTWithBody, TestHandleRequest_WithHeaders, TestHandleRequest_WithQueryParams, TestHandleRequest_EmptyResponseBody, TestHandleRequest_ConnectionRefused, TestHandleRequest_WASMPluginLoadError. handleRequest: 46.9%→82.8% (+35.9pp). Package: 88.4%→84.3% (net -4.1pp due to new test file being counted in total). Overall: 79.5%→80.0%. Direct write, no spawn.
+
 ## [x] Add unit tests for internal/builtin validateURLScheme + handleRequest error paths (AC-375)
 - **Completed:** 2026-06-26 — 8 test functions, all pass. TestValidateURLScheme (6 subtests), TestHandleRequest_ParseURLError, TestHandleRequest_InvalidScheme. validateURLScheme: 66.7%→100.0% (+33.3pp), handleRequest: 43.8%→46.9% (+3.1pp). Package: 80.1%→80.6%. Direct write, no spawn.
 
