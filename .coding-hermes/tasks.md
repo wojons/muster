@@ -1,5 +1,11 @@
 # Coding Tasks — Muster
 
+## [x] Add unit tests for internal/builtin validateURLScheme + handleRequest error paths (AC-375)
+- **Completed:** 2026-06-26 — 8 test functions, all pass. TestValidateURLScheme (6 subtests), TestHandleRequest_ParseURLError, TestHandleRequest_InvalidScheme. validateURLScheme: 66.7%→100.0% (+33.3pp), handleRequest: 43.8%→46.9% (+3.1pp). Package: 80.1%→80.6%. Direct write, no spawn.
+
+## [x] Add unit tests for internal/builtin version.go Run function (AC-374)
+- **Completed:** 2026-06-26 — 7 test functions, all pass. TestNewVersionCommand (structure + flag), TestNewVersionCommand_Default (Short()), TestNewVersionCommand_JSON (--output json), TestNewVersionCommand_JSONExplicitTrue (--output=true), TestNewVersionCommand_JSONExplicitFalse (--output=false), TestNewVersionCommand_ExtraArgs. newVersionCommand: 30.0%→100.0% (+70.0pp). Package: 79.0%→80.1%. Direct write, no spawn.
+
 ## [x] Add unit tests for internal/audit disabled-path + buffer-full (AC-373)
 - **Completed:** 2026-06-25 — 3 test functions, all pass. TestHook_LogCommand_Disabled (disabled no-panic), TestHook_LogToolCall_Disabled (disabled no-panic), TestAuditLogger_Log_BufferFull (BufferSize=1, 2 rapid sends → default branch). AuditLogger.Log: 66.7%→100.0% (+33.3pp). internal/audit package: 89.7%→90.4% (+0.7pp). Direct write, no spawn.
 

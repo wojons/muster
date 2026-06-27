@@ -4,9 +4,9 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-25 (cron foreman tick #17)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability). Demo: 23/23 checks pass. Overall coverage: 85.4%.
-**Completed this run:** None — board was empty. Health check only.
+**Last run:** 2026-06-26 (cron foreman tick #18)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 44 packages pass (excl. test/stability, pkg/platform). Coverage: 79.6%.
+**Completed this run:** AC-374 (version.go Run tests: 30.0%→100.0%), AC-375 (validateURLScheme + handleRequest error-path tests: validateURLScheme 66.7%→100.0%, handleRequest 43.8%→46.9%). Package: 79.0%→80.6%.
 **Remaining coverage gaps (not critical):**
   - internal/platform/linux/ (411 lines, 0% — D-Bus Secret Service, requires session bus)
   - pkg/auth/keychain_secret_service_linux.go (54 lines, 0% — D-Bus delegation)
@@ -322,7 +322,10 @@
 
 ## Passed Criteria
 
-### AC-372: Unit tests for internal/builtin daemon commands ✅ (2026-06-25) — 5 test functions, all pass. newDaemonStopCommand: 33.3%→75.0% (+41.7pp). Package: 71.6%→79.0% (+7.4pp combined). Covers TestNewDaemonCommand (subcommand listing), TestNewDaemonStart/Stop/StatusCommand (structure/--socket flag/RunE), TestNewDaemonCommands_StopErrors (error path). Note: start/status RunE paths not unit-testable — require running daemon. Direct write, no spawn.
+### AC-375: Unit tests for internal/builtin validateURLScheme + handleRequest error paths ✅ (2026-06-26) — 8 test functions, all pass. TestValidateURLScheme (6 subtests: http/https valid, ftp/empty/HTTP-uppercase/gopher invalid), TestHandleRequest_ParseURLError (control char in URL), TestHandleRequest_InvalidScheme (ftp:// rejected). validateURLScheme: 66.7%→100.0% (+33.3pp), handleRequest: 43.8%→46.9% (+3.1pp). Package: 80.1%→80.6% (+0.5pp). Direct write, no spawn.
+### AC-374: Unit tests for internal/builtin version.go Run function ✅ (2026-06-26) — 7 test functions, all pass. TestNewVersionCommand (command structure + --output flag), TestNewVersionCommand_Default (prints Short()), TestNewVersionCommand_JSON (--output json), TestNewVersionCommand_JSONExplicitTrue (--output=true), TestNewVersionCommand_JSONExplicitFalse (--output=false), TestNewVersionCommand_ExtraArgs (silently ignored). newVersionCommand: 30.0%→100.0% (+70.0pp). Package: 79.0%→80.1% (+1.1pp). Direct write, no spawn.
+
+### AC-373: Unit tests for internal/audit disabled-path + buffer-full ✅ (2026-06-25) — 3 test functions, all pass.
 ### AC-371: Unit tests for internal/builtin newProfileCommand ✅ (2026-06-25) — 7 test functions, all pass. newProfileCommand: 14.6%→100.0% (+85.4pp). Package: 71.6%→79.0% (+7.4pp combined). Covers TestNewProfileCommand_RunList (empty/with-profiles), TestNewProfileCommand_RunShow (found/not-found), TestNewProfileCommand_RunSwitch (valid/missing), TestNewProfileCommand_RunDelete (existing/missing/clears-default). Uses os.Stdout capture for fmt.Println output. Direct write, no spawn.
 ### AC-370: Unit tests for internal/builtin newCompletionCommand ✅ (2026-06-25) — 8 test functions, all pass. newCompletionCommand: 25.0%→87.5% (+62.5pp). Package: 71.6%→79.0% (+7.4pp combined). Covers TestNewCompletionCommand (structure/ValidArgs/Args), TestNewCompletionCommand_Bash/Zsh/Fish/Powershell (stdout capture + content assertions), TestNewCompletionCommand_InvalidShell (OnlyValidArgs), TestNewCompletionCommand_NoArgs/ExtraArgs (cobra validation). Uses root.Execute() with SetArgs for proper cobra subcommand resolution. Direct write, no spawn.
 
