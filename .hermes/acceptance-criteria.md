@@ -5,7 +5,7 @@
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
 **Last run:** 2026-06-28 (cron foreman tick #20)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability, pkg/platform). Coverage: 79.9%. demo/run-all.sh: 23/23 ✅.
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 44 packages with tests pass (excl. test/stability, pkg/platform; 8 packages have no test files). Coverage: 79.9%. demo/run-all.sh: 23/23 ✅.
 **Completed this run:** (none — board already clean; all ACs passed, all tasks [x], all 36 gitreins tasks complete)
 **Remaining 0% functions:** all non-actionable (entrypoints, platform stubs, D-Bus Secret Service).
 **Remaining coverage gaps (not critical):**
