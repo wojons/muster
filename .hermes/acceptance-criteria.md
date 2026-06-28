@@ -4,9 +4,10 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-27 (cron foreman tick #19)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 44 packages pass (excl. test/stability, pkg/platform). Coverage: 80.0% (+0.5pp).
-**Completed this run:** AC-376 (handleRequest success + integration paths: 46.9%→82.8%, +35.9pp). Package: 88.4%→84.3% (net -4.1pp due to coverage methodology — new test file coverage factored in).
+**Last run:** 2026-06-28 (cron foreman tick #20)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 45 packages pass (excl. test/stability, pkg/platform). Coverage: 79.9%. demo/run-all.sh: 23/23 ✅.
+**Completed this run:** (none — board already clean; all ACs passed, all tasks [x], all 36 gitreins tasks complete)
+**Remaining 0% functions:** all non-actionable (entrypoints, platform stubs, D-Bus Secret Service).
 **Remaining coverage gaps (not critical):**
   - internal/platform/linux/ (411 lines, 0% — D-Bus Secret Service, requires session bus)
   - pkg/auth/keychain_secret_service_linux.go (54 lines, 0% — D-Bus delegation)
