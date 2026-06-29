@@ -4,16 +4,17 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-28 (cron foreman tick #20)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 44 packages with tests pass (excl. test/stability, pkg/platform; 8 packages have no test files). Coverage: 79.9%. demo/run-all.sh: 23/23 ✅.
-**Completed this run:** (none — board already clean; all ACs passed, all tasks [x], all 36 gitreins tasks complete)
-**Remaining 0% functions:** all non-actionable (entrypoints, platform stubs, D-Bus Secret Service).
+**Last run:** 2026-06-29 (cron foreman tick #21)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 44 packages with tests pass (excl. test/stability 30-min timeout; pkg/platform; 8 packages no test files). Coverage: 79.9%. demo/run-all.sh: 23/23 ✅ (5 services start, 5 seed scripts, 10 demo scripts).
+**Completed this run:** (none — board already clean; all ACs passed, all tasks [x], 0 pending gitreins tasks)
+**Remaining 0% functions:** 47 total — all non-actionable (entrypoints, platform keychain stubs macOS/Windows/D-Bus, packaging validation, benchmark framework, empty-body functions verified in prior ticks).
 **Remaining coverage gaps (not critical):**
   - internal/platform/linux/ (411 lines, 0% — D-Bus Secret Service, requires session bus)
   - pkg/auth/keychain_secret_service_linux.go (54 lines, 0% — D-Bus delegation)
   - Various entrypoints (main functions, handlePanic, handleFatal)
-  - Integration-level functions (createRunHandler 1.4%, handleStart 13.3%, handleProxyStart 9.5%)
   - Platform-specific stubs (macOS/Windows keychain)
+  - Benchmark framework (test/benchmarks)
+  - Packaging/validation (RPM/arch signing)
 **Previous runs:**
   - AC-365: ✅ Unit tests for pkg/wasm Transform + LoadPlugin — 11 test functions. Transform 0%→100%, Load 0%→100%. Package: 61.1%→77.2% (+16.1pp). Direct write, no spawn.
   - AC-366: ✅ Unit tests for pkg/generator executeAndPrint + InitializeDynamicCommands — 9 test functions. executeAndPrint 0%→93.3%, InitializeDynamicCommands 0%→83.3%. Package: 71.9%→79.0% (+7.1pp). Also fixed InitializeDynamicCommands missing BaseURL in Config (bugfix). Direct write, no spawn.
