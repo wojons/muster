@@ -1,5 +1,7 @@
 # Coding Tasks — Muster
 
+> **⚠ CI / billing note:** wojons org billing failure affects Muster CI since 2026-06-28. All workflow runs return "recent account payments have failed". Not a code fix — resolve via GitHub billing.
+
 ## [x] Add unit tests for internal/builtin handleRequest success + integration paths (AC-376)
 - **Completed:** 2026-06-27 — 14 new test functions (16 total), all pass. TestHandleRequest_Success, TestHandleRequest_HTTP400Error, TestHandleRequest_HTTP500Error, TestHandleRequest_JSONOutput, TestHandleRequest_JSONOutput_NonJSONBody, TestHandleRequest_VerboseOutput, TestHandleRequest_WithRateLimitConfig, TestHandleRequest_WithCacheConfig, TestHandleRequest_POSTWithBody, TestHandleRequest_WithHeaders, TestHandleRequest_WithQueryParams, TestHandleRequest_EmptyResponseBody, TestHandleRequest_ConnectionRefused, TestHandleRequest_WASMPluginLoadError. handleRequest: 46.9%→82.8% (+35.9pp). Package: 88.4%→84.3% (net -4.1pp due to new test file being counted in total). Overall: 79.5%→80.0%. Direct write, no spawn.
 
