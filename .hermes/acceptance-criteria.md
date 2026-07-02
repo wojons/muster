@@ -4,9 +4,9 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-06-29 (cron foreman tick #21)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All 44 packages with tests pass (excl. test/stability 30-min timeout; pkg/platform; 8 packages no test files). Coverage: 79.9%. demo/run-all.sh: 23/23 ✅ (5 services start, 5 seed scripts, 10 demo scripts).
-**Completed this run:** (none — board already clean; all ACs passed, all tasks [x], 0 pending gitreins tasks)
+**Last run:** 2026-07-02 (cron foreman tick #22)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. All packages with tests pass (excl. pkg/platform env failures). demo/run-all.sh: 23/23 ✅ (5 services start, 5 seed scripts, 10 demo scripts).
+**Completed this run:** Fixed demo 03-file-workflow.sh — /tmp disk quota caused both "echo: write error: Disk quota exceeded" and cascading "content mismatch" failure. Changed temp file path from /tmp/muster-demo.txt to /home/kara/muster/tmp-muster-demo.txt (both echo redirect and @data-binary reference). Demo now passes all 23 checks.
 **Remaining 0% functions:** 47 total — all non-actionable (entrypoints, platform keychain stubs macOS/Windows/D-Bus, packaging validation, benchmark framework, empty-body functions verified in prior ticks).
 **Remaining coverage gaps (not critical):**
   - internal/platform/linux/ (411 lines, 0% — D-Bus Secret Service, requires session bus)
