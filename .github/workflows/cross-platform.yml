@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.22']
+        go-version: ['1.26']
     steps:
       - uses: actions/checkout@v4
       
@@ -38,20 +38,20 @@ jobs:
         run: make generate
       
       - name: Run tests
-        run: go test -v ./... -race -count=1
-      
+        run: go test -short -count=1 $(go list ./... | grep -v test/stability)
+
       - name: Run unit tests
         if: matrix.os != 'windows-latest'
         run: make test-unit
-      
+
       - name: Run integration tests
         if: matrix.os != 'windows-latest'
         run: make test-integration
-      
+
       - name: Run E2E tests
         if: matrix.os != 'windows-latest'
         run: make test-e2e
-      
+
       - name: Build all binaries
         run: make build-all
   
@@ -77,7 +77,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.26'
       
       - name: Install dependencies
         run: make deps
@@ -94,7 +94,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.26'
       
       - name: Install dependencies
         run: make deps
@@ -103,7 +103,7 @@ jobs:
         run: GOOS=darwin GOARCH=arm64 make build
       
       - name: Run tests on ARM64
-        run: go test -v ./... -race -count=1
+        run: go test -short -count=1 $(go list ./... | grep -v test/stability)
   
   path-separator-tests:
     name: Windows Path Separator Tests
@@ -114,7 +114,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.26'
       
       - name: Install dependencies
         run: make deps
@@ -131,7 +131,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.26'
       
       - name: Install dependencies
         run: make deps

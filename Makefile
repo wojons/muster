@@ -158,6 +158,12 @@ test: ## Run all tests
 	@go test -v -race -coverprofile=coverage.out ./...
 	@echo "✓ Tests complete"
 
+.PHONY: test-short
+test-short: ## Run all tests excluding long-running (stability) tests
+	@echo "Running tests (short mode)..."
+	@go test -short -count=1 -skip "TestDaemon_Stability_30Minute" ./...
+	@echo "✓ Short tests complete"
+
 .PHONY: test-unit
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."

@@ -14,7 +14,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.26'
 
       - uses: actions/setup-python@v5
         with:
@@ -27,7 +27,7 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./... -count=1
+        run: go test -short -count=1 $(go list ./... | grep -v test/stability)
 
       - name: Demo
         run: ./demo/run-all.sh

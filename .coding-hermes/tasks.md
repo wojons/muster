@@ -1,6 +1,6 @@
 # Coding Tasks — Muster
 
-> **⚠ CI / billing note:** wojons org billing failure affects Muster CI since 2026-06-28. All workflow runs return "recent account payments have failed". Not a code fix — resolve via GitHub billing.
+> **⚠ CI note:** wojons org billing **resolved** as of 2026-07-04. CI now runs and reveals real test/build failures across Linux, macOS, and Windows. See `## [ ] Fix CI: muster — cross-platform test failures` below.
 
 ## [x] Add unit tests for internal/builtin handleRequest success + integration paths (AC-376)
 - **Completed:** 2026-06-27 — 14 new test functions (16 total), all pass. TestHandleRequest_Success, TestHandleRequest_HTTP400Error, TestHandleRequest_HTTP500Error, TestHandleRequest_JSONOutput, TestHandleRequest_JSONOutput_NonJSONBody, TestHandleRequest_VerboseOutput, TestHandleRequest_WithRateLimitConfig, TestHandleRequest_WithCacheConfig, TestHandleRequest_POSTWithBody, TestHandleRequest_WithHeaders, TestHandleRequest_WithQueryParams, TestHandleRequest_EmptyResponseBody, TestHandleRequest_ConnectionRefused, TestHandleRequest_WASMPluginLoadError. handleRequest: 46.9%→82.8% (+35.9pp). Package: 88.4%→84.3% (net -4.1pp due to new test file being counted in total). Overall: 79.5%→80.0%. Direct write, no spawn.
@@ -287,7 +287,17 @@
 - **AC:** `go test ./pkg/daemon/... -count=1 -run "TestTokenManager" -timeout 30s` passes. 10+ test functions.
 - **Package:** pkg/daemon/token_manager.go (50 lines, 5 exported functions, all at 0% coverage)
 
-## [x] Add unit tests for pkg/mcp/server (AC-337)
+## [ ] Fix CI: muster — cross-platform test failures (build, daemon proxy, timeouts)
+- **Priority:** high
+- **CI Run:** https://github.com/wojons/muster/actions/runs/28716096080
+- **Errors:**
+  1. `pkg/platform [build failed]` — Platform package fails to build on all platforms
+  2. `TestDaemonSocket_ProxyFlow/Step1_SocketCreation` — Daemon proxy socket creation fails
+  3. `TestBinaryExecution_ContextTimeout` — Binary timeout in MCP server tests
+  4. Stability/Security test suites time out at 10m (goroutine leak, daemon unhealthy ERROR:502)
+  5. `pkg/daemon` — `TestProxyServer_Start_ReplacesOldListener` etc. all fail
+  6. Cross-platform: Windows credential errors, macOS socket bind "invalid argument"
+- **Note:** CI has been failing since ~June 30. Last 5 runs all red. Not a billing issue — tests execute but fail. All projects at github.com/wojons/muster.
 - **Completed:** 2026-06-21 — 16 test functions, all pass. Covers NewServer (stdin/stdout/stderr/handlers/shutdownChan/concurrencySem), IsInitialized, RegisterHandler, Shutdown, Run (initialize/method-not-found/parse-error/context-cancel/shutdown/empty-line/tools-list/MCP-error/generic-error via io.Pipe), mustMarshal (valid/nil), JSONRPCResponse serialization, JSONRPCRequest serialization. Server.go: 100% on 8/10 functions, 82.6% on Run.
 - **Priority:** high
 - **Model:** deepseek-v4-pro (direct write)

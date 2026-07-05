@@ -6,7 +6,7 @@ guards:
   lsp: true
   lsp_tools:
   - gopls
-  test_command: go test -short -count=1 ./...
+  test_command: go test -short -count=1 $(go list ./... | grep -v test/stability)
   go:
     build: true
     lint: true

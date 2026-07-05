@@ -1,3 +1,5 @@
+//go:build linux
+
 package platform
 
 import (
@@ -87,5 +89,3 @@ func TestLinuxKeychain(t *testing.T) {
 		}
 	})
 }
-
-
