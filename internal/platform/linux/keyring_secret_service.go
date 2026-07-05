@@ -11,11 +11,11 @@ import (
 // SecretServiceKeyring provides access to the Linux Secret Service API
 // via D-Bus for secure credential storage.
 type SecretServiceKeyring struct {
-	conn         *dbus.Conn
-	service      dbus.BusObject
-	sessionPath  dbus.ObjectPath
-	collection   dbus.ObjectPath
-	connected    bool
+	conn        *dbus.Conn
+	service     dbus.BusObject
+	sessionPath dbus.ObjectPath
+	collection  dbus.ObjectPath
+	connected   bool
 }
 
 // NewSecretServiceKeyring creates a new Secret Service keyring client.

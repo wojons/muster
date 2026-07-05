@@ -207,5 +207,3 @@ func isJSONContentType(ct string) bool {
 	ct = strings.TrimSpace(ct)
 	return ct == "application/json" || strings.HasSuffix(ct, "+json")
 }
-
-

@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/wojons/muster/pkg/mcp"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/mcp"
 )
 
 func TestMain_FullExecutionFlow(t *testing.T) {

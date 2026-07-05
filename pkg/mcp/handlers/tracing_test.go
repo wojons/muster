@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/wojons/muster/internal/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/internal/telemetry"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 )

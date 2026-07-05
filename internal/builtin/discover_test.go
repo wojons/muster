@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wojons/muster/pkg/openapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/openapi"
 )
 
 func TestNewDiscoverCommand(t *testing.T) {

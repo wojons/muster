@@ -23,10 +23,10 @@ var (
 
 // Command-line flags
 var (
-	backendURL  string
-	socketPath  string
-	pidFile     string
-	wasmPlugin  string
+	backendURL string
+	socketPath string
+	pidFile    string
+	wasmPlugin string
 )
 
 func main() {

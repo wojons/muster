@@ -218,10 +218,10 @@ func TestCalculateDelay_Exponential(t *testing.T) {
 		attempt int
 		want    time.Duration
 	}{
-		{0, 100 * time.Millisecond},  // 2^0 * 100ms = 100ms
-		{1, 200 * time.Millisecond},  // 2^1 * 100ms = 200ms
-		{2, 400 * time.Millisecond},  // 2^2 * 100ms = 400ms
-		{3, 800 * time.Millisecond},  // 2^3 * 100ms = 800ms
+		{0, 100 * time.Millisecond}, // 2^0 * 100ms = 100ms
+		{1, 200 * time.Millisecond}, // 2^1 * 100ms = 200ms
+		{2, 400 * time.Millisecond}, // 2^2 * 100ms = 400ms
+		{3, 800 * time.Millisecond}, // 2^3 * 100ms = 800ms
 	}
 	for _, tt := range tests {
 		delay := r.calculateDelay(tt.attempt)

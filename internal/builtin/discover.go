@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/openapi"
-	"github.com/spf13/cobra"
 )
 
 // newDiscoverCommand creates the "discover" subcommand.

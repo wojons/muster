@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/config"
 )
 
 func TestMain(m *testing.M) {

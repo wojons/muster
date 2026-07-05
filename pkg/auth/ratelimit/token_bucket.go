@@ -8,11 +8,11 @@ import (
 
 // TokenBucket implements a token bucket rate limiter.
 type TokenBucket struct {
-	capacity  int
-	fillRate  float64 // tokens per second
-	tokens    float64
-	lastFill  time.Time
-	mu        sync.Mutex
+	capacity int
+	fillRate float64 // tokens per second
+	tokens   float64
+	lastFill time.Time
+	mu       sync.Mutex
 }
 
 // NewTokenBucket creates a new token bucket with the given capacity and fill rate.

@@ -56,19 +56,19 @@ type AuditContext struct {
 
 // AuditEvent represents a single auditable event.
 type AuditEvent struct {
-	Timestamp  time.Time
-	EventType  string
-	User       string
-	Level      AuditLevel
-	Category   AuditCategory
-	Action     string
-	Actor      AuditActor
-	Resource   AuditResource
-	Result     AuditResult
-	Context    AuditContext
-	Success    bool
-	Details    map[string]interface{}
-	Error      string
+	Timestamp time.Time
+	EventType string
+	User      string
+	Level     AuditLevel
+	Category  AuditCategory
+	Action    string
+	Actor     AuditActor
+	Resource  AuditResource
+	Result    AuditResult
+	Context   AuditContext
+	Success   bool
+	Details   map[string]interface{}
+	Error     string
 }
 
 // AuditConfig holds configuration for audit logging.

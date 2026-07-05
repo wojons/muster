@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/config"
 )
 
 // =============================================================================
@@ -241,9 +241,9 @@ func TestHandleRequest_VerboseOutput(t *testing.T) {
 func TestHandleRequest_WithRateLimitConfig(t *testing.T) {
 	cfg := &config.Config{
 		RateLimit: config.RateLimitConfig{
-			Enabled:   true,
+			Enabled:    true,
 			RatePerSec: 10,
-			Burst:     5,
+			Burst:      5,
 		},
 	}
 

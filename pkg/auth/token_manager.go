@@ -12,11 +12,11 @@ import (
 
 // TokenManager manages OAuth2 tokens with automatic refresh.
 type TokenManager struct {
-	storage     TokenStorage
-	tokenURL    string
-	clientID    string
+	storage      TokenStorage
+	tokenURL     string
+	clientID     string
 	clientSecret string
-	client      *http.Client
+	client       *http.Client
 }
 
 // NewTokenManager creates a new TokenManager.

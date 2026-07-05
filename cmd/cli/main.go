@@ -15,11 +15,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/wojons/muster/internal/audit"
 	builtpkg "github.com/wojons/muster/internal/builtin"
 	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/config"
-	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

@@ -253,8 +253,8 @@ func TestRuntime_SetNetworkPolicy_AllowlistPolicy(t *testing.T) {
 
 func TestIsValidCapabilityName(t *testing.T) {
 	tests := []struct {
-		name    string
-		valid   bool
+		name  string
+		valid bool
 	}{
 		{"", false},
 		{"network", true},

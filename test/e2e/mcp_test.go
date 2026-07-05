@@ -38,7 +38,7 @@ func TestMCP_Initialize(t *testing.T) {
 	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-_, _ = io.Copy(io.Discard, stderr)
+		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -97,7 +97,7 @@ func TestMCP_ListTools(t *testing.T) {
 	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-_, _ = io.Copy(io.Discard, stderr)
+		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -162,7 +162,7 @@ func TestMCP_CallTool(t *testing.T) {
 	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-_, _ = io.Copy(io.Discard, stderr)
+		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -223,7 +223,7 @@ func TestMCP_ListResources(t *testing.T) {
 	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-_, _ = io.Copy(io.Discard, stderr)
+		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -280,7 +280,7 @@ func TestMCP_ReadResource(t *testing.T) {
 	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-_, _ = io.Copy(io.Discard, stderr)
+		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -366,7 +366,7 @@ func TestMCP_MultipleRequests(t *testing.T) {
 	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-_, _ = io.Copy(io.Discard, stderr)
+		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)
@@ -423,7 +423,7 @@ func TestMCP_ErrorHandling(t *testing.T) {
 	defer func() { _ = cmd.Process.Kill() }()
 
 	go func() {
-_, _ = io.Copy(io.Discard, stderr)
+		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	time.Sleep(500 * time.Millisecond)

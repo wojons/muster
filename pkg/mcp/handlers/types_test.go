@@ -142,14 +142,16 @@ type mockCommandRegistry struct {
 	commands []Command
 }
 
-func (m *mockCommandRegistry) ListCommands() []Command                      { return m.commands }
-func (m *mockCommandRegistry) GetCommand(name string) *Command              { return nil }
+func (m *mockCommandRegistry) ListCommands() []Command         { return m.commands }
+func (m *mockCommandRegistry) GetCommand(name string) *Command { return nil }
 func (m *mockCommandRegistry) ExecuteCommand(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
 	return nil, nil
 }
-func (m *mockCommandRegistry) AddCommand(cmd Command) error                 { return fmt.Errorf("read-only") }
-func (m *mockCommandRegistry) RemoveCommand(name string) error              { return fmt.Errorf("read-only") }
-func (m *mockCommandRegistry) UpdateCommand(name string, cmd Command) error { return fmt.Errorf("read-only") }
+func (m *mockCommandRegistry) AddCommand(cmd Command) error    { return fmt.Errorf("read-only") }
+func (m *mockCommandRegistry) RemoveCommand(name string) error { return fmt.Errorf("read-only") }
+func (m *mockCommandRegistry) UpdateCommand(name string, cmd Command) error {
+	return fmt.Errorf("read-only")
+}
 
 func TestNewListToolsHandler_Empty(t *testing.T) {
 	mock := &mockCommandRegistry{}
@@ -191,15 +193,15 @@ type toolListerRegistry struct {
 	tools []Tool
 }
 
-func (t *toolListerRegistry) ListTools() []Tool                                      { return t.tools }
-func (t *toolListerRegistry) ListCommands() []Command                                { return nil }
+func (t *toolListerRegistry) ListTools() []Tool       { return t.tools }
+func (t *toolListerRegistry) ListCommands() []Command { return nil }
 func (t *toolListerRegistry) ExecuteCommand(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
 	return nil, nil
 }
-func (t *toolListerRegistry) AddCommand(cmd Command) error     { return nil }
-func (t *toolListerRegistry) RemoveCommand(name string) error  { return nil }
+func (t *toolListerRegistry) AddCommand(cmd Command) error                 { return nil }
+func (t *toolListerRegistry) RemoveCommand(name string) error              { return nil }
 func (t *toolListerRegistry) UpdateCommand(name string, cmd Command) error { return nil }
-func (t *toolListerRegistry) GetCommand(name string) *Command  { return nil }
+func (t *toolListerRegistry) GetCommand(name string) *Command              { return nil }
 
 func TestNewListToolsHandler_ToolLister(t *testing.T) {
 	tl := &toolListerRegistry{

@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/wojons/muster/pkg/log"
 	"github.com/spf13/viper"
+	"github.com/wojons/muster/pkg/log"
 )
 
 // Watcher enables hot-reloading of configuration files using fsnotify.

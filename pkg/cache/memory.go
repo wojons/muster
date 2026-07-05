@@ -35,13 +35,13 @@ func (e *entry) isExpired() bool {
 // eviction when the cache exceeds its maximum size. Expired entries
 // are removed lazily on access and periodically by a background goroutine.
 type MemoryCache struct {
-	mu       sync.RWMutex
-	items    map[string]*list.Element
-	lru      *list.List
-	maxSize  int
-	stats    Stats
-	stopCh   chan struct{}
-	doneCh   chan struct{}
+	mu      sync.RWMutex
+	items   map[string]*list.Element
+	lru     *list.List
+	maxSize int
+	stats   Stats
+	stopCh  chan struct{}
+	doneCh  chan struct{}
 }
 
 // NewMemoryCache creates a new MemoryCache with the given maximum number

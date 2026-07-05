@@ -140,9 +140,9 @@ type ReadResourceResult struct {
 
 // InitializeResult is the result of an initialize request.
 type InitializeResult struct {
-	ProtocolVersion string       `json:"protocolVersion"`
-	Capabilities    interface{}  `json:"capabilities"`
-	ServerInfo      ServerInfo   `json:"serverInfo"`
+	ProtocolVersion string      `json:"protocolVersion"`
+	Capabilities    interface{} `json:"capabilities"`
+	ServerInfo      ServerInfo  `json:"serverInfo"`
 }
 
 // ServerInfo contains information about the MCP server.
@@ -174,10 +174,10 @@ func (e *MCPError) Error() string {
 
 // Command represents an MCP command/tool definition.
 type Command struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description,omitempty"`
-	Flags       []Flag     `json:"flags,omitempty"`
-	Args        []string   `json:"args,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Flags       []Flag   `json:"flags,omitempty"`
+	Args        []string `json:"args,omitempty"`
 }
 
 // Flag represents a command flag.

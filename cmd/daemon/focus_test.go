@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/daemon"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/daemon"
 )
 
 func TestHandleStart_NilController(t *testing.T) {

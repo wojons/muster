@@ -31,43 +31,43 @@ type QuerySet struct {
 	Delete string
 
 	// Alias queries
-	AliasCreate          string
-	AliasGetByID         string
-	AliasGetByName       string
-	AliasGetByInventory  string
-	AliasGetByModule     string
-	AliasUpdate          string
-	AliasDelete          string
+	AliasCreate            string
+	AliasGetByID           string
+	AliasGetByName         string
+	AliasGetByInventory    string
+	AliasGetByModule       string
+	AliasUpdate            string
+	AliasDelete            string
 	AliasDeleteByInventory string
 
 	// Audit queries
-	AuditCreate    string
-	AuditGetByID   string
+	AuditCreate      string
+	AuditGetByID     string
 	AuditGetByEntity string
-	AuditList      string
-	AuditCount     string
-	AuditCleanup   string
+	AuditList        string
+	AuditCount       string
+	AuditCleanup     string
 
 	// Fingerprint queries
-	FingerprintCreate        string
-	FingerprintGetByID       string
-	FingerprintGetBySpec     string
-	FingerprintGetByHash     string
-	FingerprintUpdate        string
-	FingerprintDelete        string
-	FingerprintDeleteBySpec  string
-	FingerprintExists        string
+	FingerprintCreate       string
+	FingerprintGetByID      string
+	FingerprintGetBySpec    string
+	FingerprintGetByHash    string
+	FingerprintUpdate       string
+	FingerprintDelete       string
+	FingerprintDeleteBySpec string
+	FingerprintExists       string
 
 	// Inventory queries
-	InventoryCreate       string
-	InventoryGetByID      string
-	InventoryGetByAlias   string
-	InventoryGetByModule  string
-	InventoryUpdate       string
-	InventoryDelete       string
-	InventoryList         string
-	InventoryCount        string
-	InventorySearch       string
+	InventoryCreate      string
+	InventoryGetByID     string
+	InventoryGetByAlias  string
+	InventoryGetByModule string
+	InventoryUpdate      string
+	InventoryDelete      string
+	InventoryList        string
+	InventoryCount       string
+	InventorySearch      string
 
 	// RateLimit queries
 	RateLimitCreate      string

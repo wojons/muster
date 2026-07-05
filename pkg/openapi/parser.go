@@ -78,9 +78,9 @@ type Operation struct {
 	Description     string
 	Parameters      []Parameter
 	RequestBody     []RequestBodyProperty
-	HasMultiPart    bool                 // true if requestBody supports multipart/form-data
+	HasMultiPart    bool                  // true if requestBody supports multipart/form-data
 	MultipartFields []RequestBodyProperty // non-file fields in multipart form
-	ServerURL       string               // resolved server URL for this operation
+	ServerURL       string                // resolved server URL for this operation
 }
 
 // Parameters is a convenience type for a slice of Parameter values.

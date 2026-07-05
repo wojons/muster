@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/wojons/muster/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/internal/version"
 )
 
 // captureStdout runs fn while capturing os.Stdout, returns the captured string

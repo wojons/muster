@@ -11,16 +11,16 @@ type Config struct {
 	Profiles       map[string]Profile `mapstructure:"profiles"`
 
 	// CLI / runtime settings
-	ConfigFile  string        `mapstructure:"config_file"`
-	Host        string        `mapstructure:"host"`
-	Verbose     bool          `mapstructure:"verbose"`
-	LogLevel    string        `mapstructure:"log_level"`
-	LogFormat   string        `mapstructure:"log_format"`
-	DatabaseURL string        `mapstructure:"database_url"`
-	AuthToken   string        `mapstructure:"auth_token"`
-	Timeout     time.Duration `mapstructure:"timeout"`
-	MaxRetries  int           `mapstructure:"max_retries"`
-	AuditEnabled bool         `mapstructure:"audit_enabled"`
+	ConfigFile   string        `mapstructure:"config_file"`
+	Host         string        `mapstructure:"host"`
+	Verbose      bool          `mapstructure:"verbose"`
+	LogLevel     string        `mapstructure:"log_level"`
+	LogFormat    string        `mapstructure:"log_format"`
+	DatabaseURL  string        `mapstructure:"database_url"`
+	AuthToken    string        `mapstructure:"auth_token"`
+	Timeout      time.Duration `mapstructure:"timeout"`
+	MaxRetries   int           `mapstructure:"max_retries"`
+	AuditEnabled bool          `mapstructure:"audit_enabled"`
 
 	// Sub-configs
 	Cache     CacheConfig     `mapstructure:"cache"`

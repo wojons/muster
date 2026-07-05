@@ -500,7 +500,7 @@ type mockHandler struct {
 	method string
 }
 
-func (m *mockHandler) Method() string                                      { return m.method }
+func (m *mockHandler) Method() string { return m.method }
 func (m *mockHandler) Handle(ctx context.Context, params json.RawMessage) (interface{}, error) {
 	return "ok", nil
 }
@@ -522,11 +522,11 @@ func (g *genericErrorHandler) Handle(ctx context.Context, params json.RawMessage
 // emptyRegistry implements handlers.CommandRegistry with no commands
 type emptyRegistry struct{}
 
-func (e *emptyRegistry) ListCommands() []handlers.Command           { return nil }
-func (e *emptyRegistry) GetCommand(name string) *handlers.Command   { return nil }
+func (e *emptyRegistry) ListCommands() []handlers.Command         { return nil }
+func (e *emptyRegistry) GetCommand(name string) *handlers.Command { return nil }
 func (e *emptyRegistry) ExecuteCommand(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
 	return nil, nil
 }
-func (e *emptyRegistry) AddCommand(cmd handlers.Command) error     { return nil }
-func (e *emptyRegistry) RemoveCommand(name string) error            { return nil }
+func (e *emptyRegistry) AddCommand(cmd handlers.Command) error                 { return nil }
+func (e *emptyRegistry) RemoveCommand(name string) error                       { return nil }
 func (e *emptyRegistry) UpdateCommand(name string, cmd handlers.Command) error { return nil }

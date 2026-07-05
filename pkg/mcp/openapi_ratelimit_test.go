@@ -27,7 +27,7 @@ func testSpec(baseURL string) *openapi3.T {
 		Get: &openapi3.Operation{
 			OperationID: "testGet",
 			Summary:     "Test GET endpoint",
-			Responses: &openapi3.Responses{},
+			Responses:   &openapi3.Responses{},
 		},
 	}
 	pathItem.Get.Responses.Set("200", &openapi3.ResponseRef{

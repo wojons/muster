@@ -254,7 +254,7 @@ func TestMCP_Procure(t *testing.T) {
 	})
 
 	go func() {
-_, _ = io.Copy(io.Discard, stderr)
+		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
 	req := map[string]interface{}{

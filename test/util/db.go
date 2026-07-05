@@ -3,8 +3,8 @@
 package util
 
 import (
-	"database/sql"
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 

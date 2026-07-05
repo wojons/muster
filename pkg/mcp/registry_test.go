@@ -83,7 +83,7 @@ func TestToolRegistry_ListCommands_Empty(t *testing.T) {
 func TestToolRegistry_ListCommands_WithFlags(t *testing.T) {
 	tools := []OpenAPITool{
 		{
-			Name: "search",
+			Name:        "search",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"Search query"}},"required":["query"]}`),
 		},
 	}
@@ -131,7 +131,7 @@ func TestToolRegistry_GetCommand_NotFound(t *testing.T) {
 func TestToolRegistry_GetCommand_WithFlags(t *testing.T) {
 	tools := []OpenAPITool{
 		{
-			Name: "update-item",
+			Name:        "update-item",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string","in":"path","description":"Item ID"},"name":{"type":"string","description":"New name"}},"required":["id"]}`),
 		},
 	}

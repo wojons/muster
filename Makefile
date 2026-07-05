@@ -161,7 +161,7 @@ test: ## Run all tests
 .PHONY: test-short
 test-short: ## Run all tests excluding long-running (stability) tests
 	@echo "Running tests (short mode)..."
-	@go test -short -count=1 -skip "TestDaemon_Stability_30Minute" ./...
+	@go test -short -count=1 -timeout 120s $$(go list ./... | grep -v test/stability)
 	@echo "✓ Short tests complete"
 
 .PHONY: test-unit

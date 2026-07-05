@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/config"
 )
 
 // TestHarness provides system-wide test isolation and state management

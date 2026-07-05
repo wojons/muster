@@ -96,7 +96,7 @@ func NewExecutorWithRateLimit(baseURL string, operations []*openapi.Operation, r
 		transport = client.NewRateLimitRoundTripper(transport, ratePerSec, burst)
 	}
 	return &OpenAPIExecutor{
-		baseURL:    baseURL,
+		baseURL: baseURL,
 		client: &http.Client{
 			Transport: transport,
 		},

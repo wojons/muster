@@ -34,11 +34,11 @@ type MCPServerConfig struct {
 }
 
 var (
-	specPathFlag  = flag.String("spec", "", "Path to OpenAPI specification file")
-	baseURLFlag   = flag.String("base-url", "", "Base URL for API operations")
-	logLevelFlag  = flag.String("log-level", "info", "Log level")
-	logOutputFlag = flag.String("log-output", "stderr", "Log output destination")
-	auditFlag     = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
+	specPathFlag   = flag.String("spec", "", "Path to OpenAPI specification file")
+	baseURLFlag    = flag.String("base-url", "", "Base URL for API operations")
+	logLevelFlag   = flag.String("log-level", "info", "Log level")
+	logOutputFlag  = flag.String("log-output", "stderr", "Log output destination")
+	auditFlag      = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
 	wasmPluginFlag = flag.String("wasm-plugin", "", "Path to WASM plugin for response transformation")
 )
 

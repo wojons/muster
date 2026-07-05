@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/client"
-	"github.com/wojons/muster/pkg/retry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/client"
+	"github.com/wojons/muster/pkg/retry"
 )
 
 // TestProductionErrorScenarios tests real production error handling

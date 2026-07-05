@@ -172,13 +172,13 @@ func TestRealCLIIntegration(t *testing.T) {
 
 				// Test 2: Execute POST /pets request
 				t.Run("CreatePet", func(t *testing.T) {
-				builder := request.NewBuilder(server.URL, "/pets", "POST")
-				jsonBytes, _ := json.Marshal(map[string]interface{}{
-					"name":   "Spike",
-					"tag":    "dog",
-					"status": "available",
-				})
-				builder.JSONBody(string(jsonBytes))
+					builder := request.NewBuilder(server.URL, "/pets", "POST")
+					jsonBytes, _ := json.Marshal(map[string]interface{}{
+						"name":   "Spike",
+						"tag":    "dog",
+						"status": "available",
+					})
+					builder.JSONBody(string(jsonBytes))
 
 					resp, err := builder.Execute(ctx)
 					require.NoError(t, err, "Failed to execute request")

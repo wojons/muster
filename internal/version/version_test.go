@@ -9,9 +9,9 @@ import (
 
 func TestInfo_Short(t *testing.T) {
 	tests := []struct {
-		name    string
-		info    Info
-		want    string
+		name string
+		info Info
+		want string
 	}{
 		{
 			name: "standard version",

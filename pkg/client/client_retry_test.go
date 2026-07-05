@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/retry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/retry"
 )
 
 // TestClient_WithRetryConfig tests the WithRetryConfig option
@@ -55,11 +55,11 @@ func TestClient_Retry_SuccessOnFirstAttempt(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -88,11 +88,11 @@ func TestClient_Retry_RetriesOn5xxStatusCodes(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     5,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  5,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -121,11 +121,11 @@ func TestClient_Retry_RetriesOn429StatusCode(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -162,12 +162,12 @@ func TestClient_Retry_NoRetryOn4xxStatusCodes(t *testing.T) {
 			defer server.Close()
 
 			config := retry.RetryConfig{
-				MaxAttempts:     5,
-				InitialDelay:    10 * time.Millisecond,
-				MaxDelay:        100 * time.Millisecond,
-				BackoffType: "linear",
-				Jitter:  false,
-					}
+				MaxAttempts:  5,
+				InitialDelay: 10 * time.Millisecond,
+				MaxDelay:     100 * time.Millisecond,
+				BackoffType:  "linear",
+				Jitter:       false,
+			}
 
 			client := NewClient(WithRetryConfig(config))
 
@@ -192,11 +192,11 @@ func TestClient_Retry_Exhaustion(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -213,11 +213,11 @@ func TestClient_Retry_Exhaustion(t *testing.T) {
 // TestClient_Retry_NetworkError tests that network errors trigger retries
 func TestClient_Retry_NetworkError(t *testing.T) {
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -245,11 +245,11 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -328,11 +328,11 @@ func TestClient_Retry_RespectsContextCancellation(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     10,
-		InitialDelay:    100 * time.Millisecond,
-		MaxDelay:        500 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  10,
+		InitialDelay: 100 * time.Millisecond,
+		MaxDelay:     500 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -362,11 +362,11 @@ func TestClient_Retry_ResponseBodyPreserved(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -396,11 +396,11 @@ func TestClient_Retry_ConcurrentRequests(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))
@@ -469,11 +469,11 @@ func TestClient_Retry_WithCustomHTTPClient(t *testing.T) {
 	}
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(
@@ -513,11 +513,11 @@ func TestClient_Retry_IntegrationWithHeaders(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(
@@ -551,11 +551,11 @@ func TestClient_Retry_WithBaseURL(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(
@@ -586,11 +586,11 @@ func TestClient_Retry_DoMethodDirectly(t *testing.T) {
 	defer server.Close()
 
 	config := retry.RetryConfig{
-		MaxAttempts:     3,
-		InitialDelay:    10 * time.Millisecond,
-		MaxDelay:        100 * time.Millisecond,
-		BackoffType: "linear",
-		Jitter:  false,
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
 	}
 
 	client := NewClient(WithRetryConfig(config))

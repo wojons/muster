@@ -77,15 +77,15 @@ func setupDB(t *testing.T) *sql.DB {
 func fullQuerySet() *QuerySet {
 	return &QuerySet{
 		// Inventory
-		InventoryCreate:     "INSERT INTO inventories (name, description, path, created_at, updated_at) VALUES (?, ?, ?, datetime('now'), datetime('now'))",
-		InventoryGetByID:    "SELECT id, name, description, path, created_at, updated_at FROM inventories WHERE id = ?",
-		InventoryGetByAlias: "SELECT id, name, description, path, created_at, updated_at FROM inventories WHERE name = ?",
+		InventoryCreate:      "INSERT INTO inventories (name, description, path, created_at, updated_at) VALUES (?, ?, ?, datetime('now'), datetime('now'))",
+		InventoryGetByID:     "SELECT id, name, description, path, created_at, updated_at FROM inventories WHERE id = ?",
+		InventoryGetByAlias:  "SELECT id, name, description, path, created_at, updated_at FROM inventories WHERE name = ?",
 		InventoryGetByModule: "SELECT id, name, description, path, created_at, updated_at FROM inventories WHERE id = ?",
-		InventoryUpdate:     "UPDATE inventories SET name = ?, description = ?, path = ?, updated_at = ? WHERE id = ?",
-		InventoryDelete:     "DELETE FROM inventories WHERE id = ?",
-		InventoryList:       "SELECT id, name, description, path, created_at, updated_at FROM inventories ORDER BY id LIMIT ? OFFSET ?",
-		InventoryCount:      "SELECT COUNT(*) FROM inventories",
-		InventorySearch:     "SELECT id, name, description, path, created_at, updated_at FROM inventories WHERE name LIKE ? OR description LIKE ? ORDER BY id LIMIT ? OFFSET ?",
+		InventoryUpdate:      "UPDATE inventories SET name = ?, description = ?, path = ?, updated_at = ? WHERE id = ?",
+		InventoryDelete:      "DELETE FROM inventories WHERE id = ?",
+		InventoryList:        "SELECT id, name, description, path, created_at, updated_at FROM inventories ORDER BY id LIMIT ? OFFSET ?",
+		InventoryCount:       "SELECT COUNT(*) FROM inventories",
+		InventorySearch:      "SELECT id, name, description, path, created_at, updated_at FROM inventories WHERE name LIKE ? OR description LIKE ? ORDER BY id LIMIT ? OFFSET ?",
 
 		// RateLimit
 		RateLimitCreate:      "INSERT INTO rate_limits (key, count, window, expires_at, created_at) VALUES (?, ?, ?, ?, datetime('now'))",
@@ -98,12 +98,12 @@ func fullQuerySet() *QuerySet {
 		RateLimitIncrement:   "INSERT INTO rate_limits (key, count, window, expires_at, created_at) VALUES (?, 1, ?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET count = count + 1",
 
 		// Audit
-		AuditCreate:    "INSERT INTO audits (action, entity_type, entity_id, user_id, data, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-		AuditGetByID:   "SELECT id, action, entity_type, entity_id, user_id, data, created_at FROM audits WHERE id = ?",
+		AuditCreate:      "INSERT INTO audits (action, entity_type, entity_id, user_id, data, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
+		AuditGetByID:     "SELECT id, action, entity_type, entity_id, user_id, data, created_at FROM audits WHERE id = ?",
 		AuditGetByEntity: "SELECT id, action, entity_type, entity_id, user_id, data, created_at FROM audits WHERE entity_type = ? AND entity_id = ? ORDER BY id LIMIT ? OFFSET ?",
-		AuditList:      "SELECT id, action, entity_type, entity_id, user_id, data, created_at FROM audits ORDER BY id LIMIT ? OFFSET ?",
-		AuditCount:     "SELECT COUNT(*) FROM audits",
-		AuditCleanup:   "DELETE FROM audits WHERE created_at < ?",
+		AuditList:        "SELECT id, action, entity_type, entity_id, user_id, data, created_at FROM audits ORDER BY id LIMIT ? OFFSET ?",
+		AuditCount:       "SELECT COUNT(*) FROM audits",
+		AuditCleanup:     "DELETE FROM audits WHERE created_at < ?",
 
 		// Fingerprint
 		FingerprintCreate:       "INSERT INTO fingerprints (hash, spec_id, algorithm, created_at) VALUES (?, ?, ?, datetime('now'))",
@@ -116,13 +116,13 @@ func fullQuerySet() *QuerySet {
 		FingerprintExists:       "SELECT EXISTS(SELECT 1 FROM fingerprints WHERE hash = ?)",
 
 		// Alias
-		AliasCreate:          "INSERT INTO aliases (name, description, inventory_id, module_id, created_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
-		AliasGetByID:         "SELECT id, name, description, inventory_id, module_id, created_at, updated_at FROM aliases WHERE id = ?",
-		AliasGetByName:       "SELECT id, name, description, inventory_id, module_id, created_at, updated_at FROM aliases WHERE name = ?",
-		AliasGetByInventory:  "SELECT id, name, description, inventory_id, module_id, created_at, updated_at FROM aliases WHERE inventory_id = ? ORDER BY id LIMIT ? OFFSET ?",
-		AliasGetByModule:     "SELECT id, name, description, inventory_id, module_id, created_at, updated_at FROM aliases WHERE module_id = ? ORDER BY id LIMIT ? OFFSET ?",
-		AliasUpdate:          "UPDATE aliases SET name = ?, description = ?, inventory_id = ?, module_id = ?, updated_at = ? WHERE id = ?",
-		AliasDelete:          "DELETE FROM aliases WHERE id = ?",
+		AliasCreate:            "INSERT INTO aliases (name, description, inventory_id, module_id, created_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))",
+		AliasGetByID:           "SELECT id, name, description, inventory_id, module_id, created_at, updated_at FROM aliases WHERE id = ?",
+		AliasGetByName:         "SELECT id, name, description, inventory_id, module_id, created_at, updated_at FROM aliases WHERE name = ?",
+		AliasGetByInventory:    "SELECT id, name, description, inventory_id, module_id, created_at, updated_at FROM aliases WHERE inventory_id = ? ORDER BY id LIMIT ? OFFSET ?",
+		AliasGetByModule:       "SELECT id, name, description, inventory_id, module_id, created_at, updated_at FROM aliases WHERE module_id = ? ORDER BY id LIMIT ? OFFSET ?",
+		AliasUpdate:            "UPDATE aliases SET name = ?, description = ?, inventory_id = ?, module_id = ?, updated_at = ? WHERE id = ?",
+		AliasDelete:            "DELETE FROM aliases WHERE id = ?",
 		AliasDeleteByInventory: "DELETE FROM aliases WHERE inventory_id = ?",
 	}
 }

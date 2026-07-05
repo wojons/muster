@@ -511,12 +511,12 @@ func TestSanitizeProxyPath(t *testing.T) {
 		{"/api/tasks", "/api/tasks"},
 		{"/api/tasks/../tasks", ""}, // path traversal
 		{"/api/../../etc/passwd", ""},
-		{"api", "/api"},             // missing leading slash
+		{"api", "/api"}, // missing leading slash
 		{"/api/./tasks", "/api/tasks"},
 		{"/api//tasks", "/api/tasks"},
 		{"/api", "/api"},
-		{"path\x00traversal", ""},   // null byte
-		{"/path\r\ninjection", ""},  // newline smuggling
+		{"path\x00traversal", ""},  // null byte
+		{"/path\r\ninjection", ""}, // newline smuggling
 	}
 
 	for _, tt := range tests {

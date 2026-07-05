@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/auth"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/auth"
 )
 
 // ============================================================================

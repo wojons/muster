@@ -686,8 +686,8 @@ func TestBuildRequest_BasicGET(t *testing.T) {
 
 func TestBuildRequest_HeadersOverrideDefaults(t *testing.T) {
 	b := NewBuilder("https://api.example.com")
-	b.SetHeader("Accept", "application/json")       // default
-	b.SetHeader("Authorization", "Bearer default")  // default
+	b.SetHeader("Accept", "application/json")      // default
+	b.SetHeader("Authorization", "Bearer default") // default
 	// Request-specific headers should override defaults
 	req, err := b.BuildRequest("GET", "/data", nil, map[string]string{
 		"Accept":        "text/html",       // override

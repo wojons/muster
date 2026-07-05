@@ -31,7 +31,7 @@ func TestMCPIntegration(t *testing.T) {
 		if strings.Contains(r.URL.Path, "/pets") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`[{"id": "1", "name": "Fluffy", "species": "cat"}]`))
+			_, _ = w.Write([]byte(`[{"id": "1", "name": "Fluffy", "species": "cat"}]`))
 			return
 		}
 

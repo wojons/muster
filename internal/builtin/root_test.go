@@ -4,10 +4,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/wojons/muster/internal/audit"
-	"github.com/wojons/muster/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/internal/audit"
+	"github.com/wojons/muster/pkg/config"
 )
 
 func TestNewRootCommand(t *testing.T) {

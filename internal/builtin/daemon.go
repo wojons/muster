@@ -3,8 +3,8 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/wojons/muster/pkg/daemon"
 	"github.com/spf13/cobra"
+	"github.com/wojons/muster/pkg/daemon"
 )
 
 func newDaemonCommand() *cobra.Command {

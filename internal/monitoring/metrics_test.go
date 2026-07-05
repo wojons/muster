@@ -399,9 +399,9 @@ func TestMetricsServer_HealthEndpoints(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	tests := []struct {
-		name   string
-		path   string
-		want   int
+		name string
+		path string
+		want int
 	}{
 		{"health", "/health", http.StatusOK},
 		{"liveness", "/health/live", http.StatusOK},

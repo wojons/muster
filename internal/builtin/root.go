@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/cmdstore"
 	"github.com/wojons/muster/pkg/config"
-	"github.com/spf13/cobra"
 )
 
 // NewRootCommand creates the root cobra command.

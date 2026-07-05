@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/wojons/muster/pkg/cmdstore"
 	"github.com/wojons/muster/pkg/config"
 	"github.com/wojons/muster/pkg/generator"
 	"github.com/wojons/muster/pkg/openapi"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 func newGenerateCommand(cfg *config.Config) *cobra.Command {

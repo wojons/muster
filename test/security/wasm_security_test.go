@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/wasm"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/wasm"
 )
 
 // ============================================================================

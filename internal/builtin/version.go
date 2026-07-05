@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/wojons/muster/internal/version"
 	"github.com/spf13/cobra"
+	"github.com/wojons/muster/internal/version"
 )
 
 // newVersionCommand creates the version command

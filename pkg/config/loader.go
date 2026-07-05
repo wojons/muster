@@ -153,7 +153,7 @@ func (l *Loader) applyEnvOverrides(cfg *Config) {
 }
 
 func parseDuration(s string) (time.Duration, error) { return time.ParseDuration(s) }
-func parseInt(s string) (int, error)              { var n int; _, err := fmt.Sscanf(s, "%d", &n); return n, err }
+func parseInt(s string) (int, error)                { var n int; _, err := fmt.Sscanf(s, "%d", &n); return n, err }
 
 // setDefaultPaths sets platform-specific default paths
 func (l *Loader) setDefaultPaths(cfg *Config) {

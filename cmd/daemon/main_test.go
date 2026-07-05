@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wojons/muster/pkg/daemon"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/daemon"
 )
 
 func TestRun_HelpAction(t *testing.T) {

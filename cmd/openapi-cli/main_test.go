@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/wojons/muster/internal/builtin"
 	"github.com/wojons/muster/pkg/config"
-	"github.com/stretchr/testify/require"
 )
 
 func TestRun_ConfigLoad(t *testing.T) {

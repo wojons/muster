@@ -96,7 +96,6 @@ func TestWASM_ConcurrentExecution(t *testing.T) {
 
 		skipIfNoWasmFile(t, transformWasm)
 
-
 		mgr := wasm.NewModuleManager(nil)
 		ctx := context.Background()
 		lm, err := mgr.Load(ctx, transformWasm)
@@ -215,7 +214,6 @@ func TestWASM_Middleware(t *testing.T) {
 func TestWASM_ModuleManager(t *testing.T) {
 	t.Run("Load_and_unload_cycle", func(t *testing.T) {
 		t.Skip("skipping: wazero module lifecycle in test suite may contend on resources with other tests")
-
 
 		mgr := wasm.NewModuleManager(nil)
 		ctx := context.Background()

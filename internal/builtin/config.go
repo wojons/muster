@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/wojons/muster/pkg/config"
 	"github.com/spf13/cobra"
+	"github.com/wojons/muster/pkg/config"
 )
 
 func newConfigCommand(cfg *config.Config) *cobra.Command {

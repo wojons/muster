@@ -170,8 +170,8 @@ func TestCommandStore_Load_FromMeta(t *testing.T) {
 	store := cmdstore.NewCommandStore()
 
 	data := &cmdstore.StoredData{
-		Version:  "1.0",
-		BaseURL:  "https://api.example.com",
+		Version: "1.0",
+		BaseURL: "https://api.example.com",
 		Commands: []cmdstore.CommandMetadata{
 			{Name: "test", Method: "GET", Path: "/test", BaseURL: "https://api.example.com"},
 		},

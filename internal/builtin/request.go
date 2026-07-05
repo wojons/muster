@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/wojons/muster/pkg/cache"
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/config"
 	"github.com/wojons/muster/pkg/request"
 	"github.com/wojons/muster/pkg/wasm"
-	"github.com/spf13/cobra"
 )
 
 func newRequestCommand(cfg *config.Config) *cobra.Command {

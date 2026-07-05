@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"github.com/wojons/muster/pkg/log"
 	"github.com/wojons/muster/pkg/request"
-	"github.com/spf13/cobra"
 )
 
 // Loader reconstructs commands from stored metadata
