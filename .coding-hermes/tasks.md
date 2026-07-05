@@ -1,6 +1,18 @@
 # Coding Tasks — Muster
 
-> **⚠ CI note:** wojons org billing **resolved** as of 2026-07-04. CI now runs and reveals real test/build failures across Linux, macOS, and Windows. See `## [ ] Fix CI: muster — cross-platform test failures` below.
+> **⚠ CI note:** wojons org billing **resolved** as of 2026-07-04. CI now runs with real failures. Previous cross-platform failures fixed (Go version, build tags, timeouts). New libseccomp issue emerged.
+
+## [x] Fix CI: muster — libseccomp-dev missing in CI (CGo dependency)
+- **Priority:** high
+- **CI Run:** https://github.com/wojons/muster/actions/runs/28740330556
+- **Error:** `go build ./...` fails: `Package libseccomp was not found in the pkg-config search path`
+- **Root cause:** `github.com/seccomp/libseccomp-golang@v0.11.1` requires `libseccomp-dev` system package. GitHub Actions Ubuntu runners don't have it by default. This cascades: blocks build (CI workflow), blocks tests (test workflow), blocks deps-audit (security workflow).
+- **Fix:** Added `sudo apt-get update && sudo apt-get install -y libseccomp-dev` to:
+  - `ci.yml` — build-and-test job
+  - `build.yml` — test, integration, security, and linux matrix build jobs
+  - `cross-platform.yml` — test-matrix (Linux), platform-specific (Linux-SELinux), socket-permission-test jobs
+  - 3 workflow files, 8 jobs patched total.
+- **Completed:** 2026-07-05 (cron foreman tick #25)
 
 ## [x] Add unit tests for internal/builtin handleRequest success + integration paths (AC-376)
 - **Completed:** 2026-06-27 — 14 new test functions (16 total), all pass. TestHandleRequest_Success, TestHandleRequest_HTTP400Error, TestHandleRequest_HTTP500Error, TestHandleRequest_JSONOutput, TestHandleRequest_JSONOutput_NonJSONBody, TestHandleRequest_VerboseOutput, TestHandleRequest_WithRateLimitConfig, TestHandleRequest_WithCacheConfig, TestHandleRequest_POSTWithBody, TestHandleRequest_WithHeaders, TestHandleRequest_WithQueryParams, TestHandleRequest_EmptyResponseBody, TestHandleRequest_ConnectionRefused, TestHandleRequest_WASMPluginLoadError. handleRequest: 46.9%→82.8% (+35.9pp). Package: 88.4%→84.3% (net -4.1pp due to new test file being counted in total). Overall: 79.5%→80.0%. Direct write, no spawn.
