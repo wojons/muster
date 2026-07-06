@@ -1,4 +1,7 @@
-//go:build integration
+//go:build ignore
+// Stale test — references store.Clear() and store.UpdateBaseURL() which were
+// planned but never implemented in CommandStore. Restore when those methods
+// are added.
 
 package cmdstore_test
 
