@@ -167,7 +167,7 @@ test-short: ## Run all tests excluding long-running (stability) tests
 .PHONY: test-unit
 test-unit: ## Run unit tests only
 	@echo "Running unit tests..."
-	@go test -v -short ./...
+	@go test -v -short $$(go list ./... | grep -v test/stability)
 	@echo "✓ Unit tests complete"
 
 .PHONY: test-integration
