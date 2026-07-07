@@ -335,6 +335,12 @@
 - **Fix:** Changed build tag from `//go:build integration` to `//go:build ignore` on all three files. They are preserved as aspirational specs but excluded from compilation. `make test-integration` now passes.
 - **Completed:** 2026-07-06 (cron foreman tick #26). Pushing libseccomp fix + stale test gating this tick.
 
+## [x] Fix CI: exclude test/stability from make test-unit (tick #28)
+- **Priority:** high
+- **Fix:** `make test-unit` called `go test -v -short ./...` which includes `test/stability`. CI workflows already exclude `test/stability` via `grep -v`, but the Makefile target did not. Aligned with `test-short` target convention.
+- **Completed:** 2026-07-07 (cron foreman tick #28)
+- **Commit:** `43f1c50`
+
 ## [x] Fix CI: Muster Test step failing — seccomp SIGABRT on GitHub Actions
 - **Priority:** high
 - **Fix:** Updated `seccompAvailable` in `pkg/platform/seccomp_sandbox_test.go` to check `GITHUB_ACTIONS`/`CI` env vars BEFORE making any libseccomp CGo calls. Also added missing `seccompAvailable(t)` call to `TestSeccompFilter_LimitFileAccess_RestrictsFileOperations`.
