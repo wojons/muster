@@ -21,12 +21,27 @@ import (
 )
 
 // seccompAvailable checks if seccomp kernel support is available.
-// It attempts to create and load a minimal seccomp filter; if the kernel
-// lacks CONFIG_SECCOMP (common in containers), it skips the test.
+// It attempts to create, add a rule, and load a minimal seccomp filter;
+// if the kernel lacks CONFIG_SECCOMP (common in containers) or the
+// runtime environment blocks libseccomp CGo calls (GitHub Actions
+// runners), it skips the test.
+// Note: on GitHub Actions runners, libseccomp CGo calls
+// (seccomp_rule_add_array) can trigger SIGABRT/SIGSYS before
+// returning an error, so we check for CI first.
 //
 // axiom:trace work_item=ac-015-platform-test-guards spec=specs/02-Workflows.md impl=pkg/platform/seccomp_sandbox_test.go
 func seccompAvailable(t *testing.T) {
 	t.Helper()
+
+	// On GitHub Actions and other CI runners, libseccomp CGo calls
+	// (seccomp_rule_add_array) can trigger SIGABRT/SIGSYS because
+	// the runner's own seccomp profile is too restrictive.
+	// We must skip BEFORE making any CGo calls.
+	if os.Getenv("GITHUB_ACTIONS") == "true" || os.Getenv("CI") == "true" {
+		t.Skip("seccomp tests skipped on CI runners (libseccomp CGo calls may trigger SIGABRT)")
+		return
+	}
+
 	filter, err := seccomp.NewFilter(seccomp.ActAllow)
 	if err != nil {
 		t.Skipf("seccomp not available: cannot create filter: %v", err)
@@ -306,6 +321,7 @@ func TestSeccompFilter_LimitFileAccess_RestrictsFileOperations(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 
