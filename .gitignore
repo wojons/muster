@@ -80,3 +80,4 @@ _storage/
 
 # Demo Python virtualenv
 demo/.venv/
+/muster
