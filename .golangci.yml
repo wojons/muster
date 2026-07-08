@@ -1,5 +1,4 @@
-version: "2"
-
+# v1 format for golangci-lint v1.x
 run:
   timeout: 5m
   tests: true
@@ -10,8 +9,6 @@ linters:
     - errcheck
     - govet
     - ineffassign
-    ## Removed unsupported linters for compatibility:
-    ## bodyclose, depguard, gocritic, gosimple, misspell, staticcheck, unconvert, unused
 
 linters-settings:
   govet:
@@ -21,20 +18,6 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     check-blank: false
-
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-
-  misspell:
-    locale: US
-
-  staticcheck:
-    checks: [ "all" ]
 
 issues:
   exclude-use-default: false
