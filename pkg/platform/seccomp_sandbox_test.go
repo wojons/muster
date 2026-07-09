@@ -353,6 +353,7 @@ func TestSeccompFilter_EnableStrictMode_KillsProcess(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// This test is dangerous - it would kill the current process
 	// Instead, we verify the filter creation works
@@ -378,6 +379,7 @@ func TestSeccompFilter_VerifySyscall_NotInLists(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 
@@ -417,6 +419,7 @@ func TestSeccompFilter_CheckSeccompSupport(t *testing.T) {
 		assert.False(t, supported)
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	supported := CheckSeccompSupport()
 	assert.True(t, supported, "seccomp should be supported on Linux")
@@ -446,6 +449,7 @@ func TestSeccompFilter_Apply_UninitializedFilter(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	// Don't initialize with any syscalls
@@ -476,6 +480,7 @@ func TestSeccompFilter_ApplyToProcess_NotLoaded(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	err := sf.ApplyProfile(SeccompProfileMinimal)
@@ -577,6 +582,7 @@ func TestSeccompFilter_InvalidProfile(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	sf := NewSeccompFilter(SeccompModeFilter)
 	invalidProfile := SeccompProfile(999)
@@ -1031,6 +1037,7 @@ func TestSeccomp_E2E_RuntimeBlocks(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("seccomp only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// If we're the child process, run the filter test
 	if os.Getenv("_SECCOMP_E2E_CHILD") == "1" {

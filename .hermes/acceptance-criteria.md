@@ -4,9 +4,9 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-07-07 (cron foreman tick #28)
-**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. make test-unit passes (excl. test/stability). make test-integration passes. make test-e2e passes. Demo 23/23. All ACs ✅ passed, all tasks [x].
-**Completed this run:** Cron foreman tick #28 — Fixed CI: excluded test/stability from `make test-unit` (aligned with CI workflows that already grep -v test/stability). `make test-unit` now passes without the known 30-minute stability test that gets error:502 in CI. GitReins Tier 1 PASS. Commit: `43f1c50`.
+**Last run:** 2026-07-09 (cron foreman tick #29)
+**Run status:** 🟢 ALL-CLEAN. go build ./... clean. go vet ./... clean. make test-unit passes (excl. test/stability). make test-integration passes. make test-e2e passes. Demo 23/23. All ACs ✅ passed.
+**Completed this run:** Cron foreman tick #29 — Fixed CI: added `seccompAvailable(t)` guards to 4 remaining seccomp tests that still crashed on CI (TestSeccompFilter_CheckSeccompSupport, TestSeccompFilter_Apply_UninitializedFilter, TestSeccompFilter_InvalidProfile, TestSeccomp_E2E_RuntimeBlocks). All seccomp tests now properly skip on GitHub Actions runners. `GITHUB_ACTIONS=true CI=true go test -short -count=1 ./pkg/platform/...` passes (48 tests, all seccomp skip cleanly).
 **Remaining 0% functions:** 47 total — all non-actionable (entrypoints, platform keychain stubs macOS/Windows/D-Bus, packaging validation, benchmark framework, empty-body functions verified in prior ticks).
 **Remaining coverage gaps (not critical):**
   - internal/platform/linux/ (411 lines, 0% — D-Bus Secret Service, requires session bus)

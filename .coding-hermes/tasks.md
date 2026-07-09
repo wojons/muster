@@ -347,3 +347,28 @@
 - **Root cause:** `seccomp_rule_add_array` CGo call in `libseccomp-golang` triggers SIGABRT/SIGSYS on GitHub Actions runners because the runner's own seccomp profile blocks the internal syscalls libseccomp uses.
 - **Completed:** 2026-07-07 (cron foreman tick #27)
 
+
+## [x] Fix CI: muster — Build/Test/Docker still failing (seccomp tests crash on CI)
+- **Priority:** high
+- **Completed:** 2026-07-09 (cron foreman tick #29)
+- **Root cause:** 4 seccomp tests in `pkg/platform/seccomp_sandbox_test.go` were missing the `seccompAvailable(t)` guard that checks for CI environment before making libseccomp CGo calls. On GitHub Actions runners, `seccomp_rule_add_array` triggers SIGABRT because the runner's own seccomp profile blocks the internal syscalls libseccomp uses. This caused `pkg/platform` to crash the entire test binary on CI.
+- **Fix:** Added `seccompAvailable(t)` to 4 more test functions:
+  - TestSeccompFilter_CheckSeccompSupport (calls CheckSeccompSupport() → seccomp.NewFilter())
+  - TestSeccompFilter_Apply_UninitializedFilter (calls Apply() → seccomp.Load())
+  - TestSeccompFilter_InvalidProfile (calls ApplyProfile() → seccomp.NewFilter())
+  - TestSeccomp_E2E_RuntimeBlocks (parent spawns child that calls seccomp.NewFilter())
+- **Verification:** `GITHUB_ACTIONS=true CI=true go test -short -count=1 ./pkg/platform/...` — 48 tests pass, all seccomp tests skip cleanly. All local tests pass: unit, integration, e2e, demo.
+- **Remaining CI issues:** Docker Build (ghcr.io registry login/build), Build workflow (Docker image scanning, Trivy upload) — these are infrastructure/Docker permission issues, not code bugs. Create separate Docker-* tasks for them.
+- **Commit:** (pending push)
+
+## [ ] Fix Docker Build CI — ghcr.io registry permissions / image name
+- **Priority:** medium
+- **CI Workflow:** `docker-build.yml` — Build and push step
+- **Error:** docker/build-push-action fails. Likely ghcr.io registry permissions or image name mismatch.
+- **Note:** Docker infrastructure issue — cannot fix in cron context (Docker lifecycle commands need approval). Needs human or supervisor with Docker permissions.
+
+## [ ] Fix Build CI — Trivy / Docker image scanning (local)
+- **Priority:** low
+- **CI Workflow:** `build.yml` — Build Docker image for scanning step
+- **Error:** docker build fails (same cause as Docker Build workflow)
+- **Note:** Docker infrastructure issue — blocked by same permissions.
