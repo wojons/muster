@@ -21,38 +21,57 @@ import (
 )
 
 // seccompAvailable checks if seccomp kernel support is available.
-// It attempts to create, add a rule, and load a minimal seccomp filter;
-// if the kernel lacks CONFIG_SECCOMP (common in containers) or the
-// runtime environment blocks libseccomp CGo calls (GitHub Actions
-// runners), it skips the test.
-// Note: on GitHub Actions runners, libseccomp CGo calls
-// (seccomp_rule_add_array) can trigger SIGABRT/SIGSYS before
-// returning an error, so we check for CI first.
+// It runs a minimal seccomp program in a subprocess because
+// broken libseccomp installations can SIGSEGV mid-CGo-call with
+// no recoverable error — the only safe check is out-of-process.
 //
 // axiom:trace work_item=ac-015-platform-test-guards spec=specs/02-Workflows.md impl=pkg/platform/seccomp_sandbox_test.go
 func seccompAvailable(t *testing.T) {
 	t.Helper()
 
-	// On GitHub Actions and other CI runners, libseccomp CGo calls
-	// (seccomp_rule_add_array) can trigger SIGABRT/SIGSYS because
-	// the runner's own seccomp profile is too restrictive.
-	// We must skip BEFORE making any CGo calls.
+	// On GitHub Actions and CI runners, libseccomp CGo calls
+	// can trigger SIGABRT/SIGSYS. Skip immediately.
 	if os.Getenv("GITHUB_ACTIONS") == "true" || os.Getenv("CI") == "true" {
 		t.Skip("seccomp tests skipped on CI runners (libseccomp CGo calls may trigger SIGABRT)")
 		return
 	}
 
-	filter, err := seccomp.NewFilter(seccomp.ActAllow)
+	// Run a minimal probe in a subprocess. On hosts with broken
+	// libseccomp (ABI mismatch), the probe will die from SIGSEGV
+	// and we skip safely from the parent.
+	probe := exec.Command(os.Args[0], "-test.run", "TestSeccompProbe", "-test.v=false")
+	probe.Env = append(os.Environ(), "MUSTER_SECCOMP_PROBE=1")
+	out, err := probe.CombinedOutput()
 	if err != nil {
-		t.Skipf("seccomp not available: cannot create filter: %v", err)
+		t.Skipf("seccomp not available (subprocess probe failed): %v\n%s", err, string(out))
 		return
+	}
+}
+
+// TestSeccompProbe is a minimal test that exercises the full CGo seccomp
+// chain. It is only run as a subprocess by seccompAvailable(); it never
+// runs as part of the normal test suite (skip unless MUSTER_SECCOMP_PROBE=1).
+// If any CGo call segfaults, the subprocess dies and the parent skips all
+// seccomp tests safely.
+func TestSeccompProbe(t *testing.T) {
+	if os.Getenv("MUSTER_SECCOMP_PROBE") != "1" {
+		t.Skip("probe only runs as subprocess from seccompAvailable()")
+	}
+	filter, err := seccomp.NewFilter(seccomp.ActKillProcess)
+	if err != nil {
+		t.Fatalf("NewFilter: %v", err)
+	}
+	defer filter.Release()
+	id, err := seccomp.GetSyscallFromName("read")
+	if err != nil {
+		t.Fatalf("GetSyscallFromName: %v", err)
+	}
+	if err := filter.AddRule(id, seccomp.ActAllow); err != nil {
+		t.Fatalf("AddRule: %v", err)
 	}
 	if err := filter.Load(); err != nil {
-		filter.Release()
-		t.Skipf("seccomp not available: cannot load filter (kernel may lack CONFIG_SECCOMP): %v", err)
-		return
+		t.Fatalf("Load: %v", err)
 	}
-	filter.Release()
 }
 
 // TestSeccompFilter_AllowSyscall_BlocksDeniedSyscalls tests that denied syscalls are blocked
