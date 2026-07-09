@@ -67,12 +67,12 @@ func (m *ModuleManager) Load(ctx context.Context, path string) (*LoadedModule, e
 	rt := wazero.NewRuntime(ctx)
 	compiled, err := rt.CompileModule(ctx, wasmBytes)
 	if err != nil {
-		rt.Close(ctx)
+		_ = rt.Close(ctx)
 		m.execMu.Unlock()
 		return nil, fmt.Errorf("wasm: compile module %q: %w", path, err)
 	}
-	compiled.Close(ctx)
-	rt.Close(ctx)
+	_ = compiled.Close(ctx)
+	_ = rt.Close(ctx)
 	m.execMu.Unlock()
 
 	lm := &LoadedModule{
@@ -170,7 +170,7 @@ func (m *ModuleManager) Transform(ctx context.Context, lm *LoadedModule, jsonDat
 		m.execMu.Unlock()
 		return nil, fmt.Errorf("wasm: execution timed out for module %q", lm.Name)
 	case res := <-resultCh:
-		wasmRT.Close(context.Background())
+		_ = wasmRT.Close(context.Background())
 		m.execMu.Unlock()
 		return res.data, res.err
 	}
@@ -188,7 +188,7 @@ func runWASMModule(ctx context.Context, wasmRT wazero.Runtime, wasmBytes []byte,
 	if err != nil {
 		return nil, fmt.Errorf("wasm: compile module %q: %w", name, err)
 	}
-	defer compiled.Close(ctx)
+	defer func() { _ = compiled.Close(ctx) }()
 
 	// Set up stdin/stdout
 	stdin := bytes.NewReader(stdinData)

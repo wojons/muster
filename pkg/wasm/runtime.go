@@ -292,7 +292,7 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, wasmBytes []byte, fnNa
 	if err != nil {
 		return nil, fmt.Errorf("wasm: instantiate module: %w", err)
 	}
-	defer mod.Close(ctx)
+	defer func() { _ = mod.Close(ctx) }()
 
 	// Look up the exported function
 	fn := mod.ExportedFunction(fnName)
