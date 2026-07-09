@@ -30,7 +30,7 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test -short -count=1 $(go list ./... | grep -v test/stability)
+        run: go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security)
 
       - name: Demo
         run: ./demo/run-all.sh

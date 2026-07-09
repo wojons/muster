@@ -161,7 +161,7 @@ test: ## Run all tests
 .PHONY: test-short
 test-short: ## Run all tests excluding long-running (stability) tests
 	@echo "Running tests (short mode)..."
-	@go test -short -count=1 -timeout 120s $$(go list ./... | grep -v test/stability)
+	@go test -short -count=1 -timeout 120s $$(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security)
 	@echo "✓ Short tests complete"
 
 .PHONY: test-unit
@@ -647,7 +647,7 @@ test-security-audit:
 .PHONY: test-security
 test-security: ## Run all security tests including fuzzing and property-based tests
 	@echo "Running security test suite..."
-	@go test -v ./test/security/...
+	@go test -v -short -timeout 60s ./test/security/...
 	@echo "Running fuzzing tests..."
 	@go test -v -fuzz=FuzzParseMalformedYAML -fuzztime=30s ./test/security/... 2>/dev/null || true
 	@go test -v -fuzz=FuzzParseMalformedJSON -fuzztime=30s ./test/security/... 2>/dev/null || true

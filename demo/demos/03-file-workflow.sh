@@ -10,11 +10,12 @@ echo "═══ Demo 03: File Workflow — ByteStash ═══"
 HOST=http://localhost:9802
 curl -sf "$HOST/health" > /dev/null || fail "ByteStash not running"
 
-echo "upload" > /home/kara/muster/tmp-muster-demo.txt
+TMPFILE=$(mktemp)
+echo "upload" > "$TMPFILE"
 echo -n "Uploading... "
 UPLOAD=$(curl -sf -X POST "$HOST/uploads" -H "Content-Type: application/json" -d '{"filename":"demo.txt","folder_id":""}')
 UPLOAD_ID=$(echo "$UPLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-curl -sf -X PUT "$HOST/uploads/$UPLOAD_ID/parts/1" --data-binary @/home/kara/muster/tmp-muster-demo.txt > /dev/null
+curl -sf -X PUT "$HOST/uploads/$UPLOAD_ID/parts/1" --data-binary @"$TMPFILE" > /dev/null
 curl -sf -X POST "$HOST/uploads/$UPLOAD_ID/complete" > /dev/null
 FID=$(curl -sf "$HOST/uploads/$UPLOAD_ID" | python3 -c "import sys,json; print(json.load(sys.stdin).get('file_id',''))")
 [ -n "$FID" ] || fail "upload"
@@ -35,5 +36,5 @@ TID=$(curl -sf "$HOST/trash" | python3 -c "import sys,json; print(json.load(sys.
 curl -sf -X POST "$HOST/trash/$TID/recover" > /dev/null
 curl -sf "$HOST/files/$FID" > /dev/null || fail "recover"
 pass "recovered"
-rm -f /home/kara/muster/tmp-muster-demo.txt
+rm -f "$TMPFILE"
 pass "File workflow complete"

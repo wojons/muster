@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/pbkdf2"
@@ -269,6 +270,12 @@ func (k *WindowsKeychain) List(service string) ([]Account, error) {
 type FileKeychain struct {
 	basePath  string
 	appSecret []byte // runtime-generated application secret, populated during getMasterKeyFromFile
+
+	// Cached master key — avoids repeated D-Bus SessionBus() calls which
+	// deadlock under concurrent access (godbus uses a global sync.Mutex).
+	masterKey     []byte
+	masterKeyOnce sync.Once
+	masterKeyErr  error
 }
 
 func NewFileKeychain() *FileKeychain {
@@ -374,20 +381,28 @@ func (k *FileKeychain) deriveKey(service, account string) ([]byte, error) {
 	// Instead of simple SHA256 of service:account (which is deterministic and public),
 	// we use a salted key derivation with a master key to ensure secrecy
 
-	masterKey, err := k.getMasterKey()
-	if err != nil {
-		// Fallback: use a file-based master key
-		masterKey, err = k.getMasterKeyFromFile()
-		if err != nil {
-			// SECURITY FIX (SEC-002): Remove weak fallback and fail closed
-			// Using a predictable master key based on OS is a critical security vulnerability
-			// as it would allow anyone to decrypt credentials knowing only the OS type
-			return nil, ErrMissingMasterKey
+	// Cache the master key on first access via sync.Once — this prevents
+	// 50 concurrent goroutines from all calling dbus.SessionBus() simultaneously,
+	// which deadlocks on godbus's global sync.Mutex.
+	k.masterKeyOnce.Do(func() {
+		k.masterKey, k.masterKeyErr = k.getMasterKey()
+		if k.masterKeyErr != nil {
+			// Fallback: use a file-based master key
+			k.masterKey, k.masterKeyErr = k.getMasterKeyFromFile()
+			if k.masterKeyErr != nil {
+				// SECURITY FIX (SEC-002): Remove weak fallback and fail closed
+				return
+			}
+			// New master key was generated; try to persist it in the platform keychain
+			// for future retrievals by getMasterKey().
+			k.storeMasterKeyInPlatformKeychain(k.masterKey)
 		}
-		// New master key was generated; try to persist it in the platform keychain
-		// for future retrievals by getMasterKey().
-		k.storeMasterKeyInPlatformKeychain(masterKey)
+	})
+
+	if k.masterKeyErr != nil {
+		return nil, ErrMissingMasterKey
 	}
+	masterKey := k.masterKey
 
 	// Derive salt from service+account hash
 	salt := sha256.Sum256([]byte(fmt.Sprintf("%s:%s", service, account)))
@@ -478,6 +493,14 @@ func (k *FileKeychain) getMasterKeyFromMacOSKeychain() ([]byte, error) {
 
 // axiom:trace work_item=auth-keychain-fix-02 spec=pkg/auth/keychain.go plan=phase-1/task-2/step-2-2+phase-2/task-3/step-3-1 impl=getMasterKeyFromLinuxKeychain test=pkg/auth/keychain_test.go
 func (k *FileKeychain) getMasterKeyFromLinuxKeychain() ([]byte, error) {
+	// Skip D-Bus Secret Service in headless/CI environments where no session bus
+	// is available. dbus.SessionBus() blocks indefinitely when no bus exists,
+	// which causes test timeouts (especially TestCredential_ConcurrentAccess with
+	// 50 goroutines all blocking on the same global mutex).
+	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
+		return k.getMasterKeyFromFile()
+	}
+
 	// Try Secret Service first for master key storage (D-Bus Secret Service)
 	// This provides hardware-backed or user-session-scoped key storage via gnome-keyring/kwallet.
 	secretService, err := NewSecretServiceKeychain()
