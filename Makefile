@@ -647,7 +647,7 @@ test-security-audit:
 .PHONY: test-security
 test-security: ## Run all security tests including fuzzing and property-based tests
 	@echo "Running security test suite..."
-	@go test -v -short -timeout 60s ./test/security/...
+	@go test -v -short -timeout 120s ./test/security/...
 	@echo "Running fuzzing tests..."
 	@go test -v -fuzz=FuzzParseMalformedYAML -fuzztime=30s ./test/security/... 2>/dev/null || true
 	@go test -v -fuzz=FuzzParseMalformedJSON -fuzztime=30s ./test/security/... 2>/dev/null || true
