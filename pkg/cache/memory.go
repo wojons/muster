@@ -3,6 +3,7 @@ package cache
 import (
 	"container/list"
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -78,7 +79,10 @@ func (c *MemoryCache) Get(_ context.Context, key string) ([]byte, bool, error) {
 		return nil, false, nil
 	}
 
-	ent := elem.Value.(*entry)
+	ent, ok := elem.Value.(*entry)
+	if !ok {
+		return nil, false, fmt.Errorf("cache: invalid entry type in items map")
+	}
 	if ent.isExpired() {
 		c.removeElement(elem)
 		c.stats.Misses++
@@ -106,7 +110,10 @@ func (c *MemoryCache) Set(_ context.Context, key string, value []byte, ttl time.
 
 	// If key exists, update in place
 	if elem, ok := c.items[key]; ok {
-		ent := elem.Value.(*entry)
+		ent, ok := elem.Value.(*entry)
+		if !ok {
+			return fmt.Errorf("cache: invalid entry type in items map")
+		}
 		ent.value = value
 		ent.createdAt = now
 		ent.ttl = ttl
@@ -205,7 +212,10 @@ func (c *MemoryCache) purgeExpired() {
 	defer c.mu.Unlock()
 
 	for _, elem := range c.items {
-		ent := elem.Value.(*entry)
+		ent, ok := elem.Value.(*entry)
+		if !ok {
+			continue
+		}
 		if ent.isExpired() {
 			c.removeElement(elem)
 		}
@@ -226,6 +236,9 @@ func (c *MemoryCache) evictOne() {
 // map. Must be called while holding c.mu.
 func (c *MemoryCache) removeElement(elem *list.Element) {
 	c.lru.Remove(elem)
-	ent := elem.Value.(*entry)
+	ent, ok := elem.Value.(*entry)
+	if !ok {
+		return
+	}
 	delete(c.items, ent.key)
 }

@@ -35,7 +35,7 @@ func TestTracer_Start(t *testing.T) {
 	tr, sr := newTestTracer()
 
 	ctx := context.Background()
-	ctx, sp := tr.Start(ctx, "test-span")
+	_, sp := tr.Start(ctx, "test-span")
 
 	if sp == nil {
 		t.Fatal("Start returned nil span")
@@ -332,7 +332,7 @@ func TestTracer_Start_ContextPropagation(t *testing.T) {
 
 	ctx := context.Background()
 	ctx, sp1 := tr.Start(ctx, "parent")
-	ctx, sp2 := tr.Start(ctx, "child")
+	_, sp2 := tr.Start(ctx, "child")
 
 	// Both spans should share context lineage
 	if sp1 == nil || sp2 == nil {
