@@ -4,9 +4,20 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-07-10 (cron foreman tick #32)
+**Last run:** 2026-07-10 (cron foreman tick #33)
 **Run status:** 🟢 CLEAN. go build ./... clean. go vet ./... clean. make test-unit passes. Demo 23/23. CI billing still blocked.
-**Completed this run:** Cron foreman tick #32 — Lint fixes:
+**Completed this run:** Cron foreman tick #33 — Discovery sweep (board empty, all coding tasks [x]):
+  1. **Git state:** Clean. Identity correct.
+  2. **Build:** `make build` ✅ — CLI, MCP server, daemon all build.
+  3. **Vet:** `make vet` ✅ — clean.
+  4. **Tests:** `make test-unit` ✅ — all pass.
+  5. **Demo:** 23/23 ✅.
+  6. **CLI:** All subcommands functional (config, daemon, discover, dsl, generate, request, version, completion, auth, inventory, modules).
+  7. **Discovery findings — 2 new [ ] tasks queued:**
+     - **Wiring gap: CLI `daemon start` doesn't spawn daemon binary.** The daemon binary (`cmd/daemon`) has full proxy/socket/signal handling but the CLI stub only sets a memory flag and exits. Queue as high-priority task.
+     - **Stub: `initializeHTTPClient()` in cmd/cli/main.go.** Creates http.Client with Timeout/Transport but throws it away. TODO since prior ticks. Queue as medium-priority task.
+  8. **Lint:** golangci-lint shows pre-existing errcheck/unusedwrite only — no new issues.
+**Previous run:** 2026-07-10 (cron foreman tick #32) — Lint fixes:
   1. **ineffassign in telemetry_test.go**: 2 unused context return values from tr.Start() → replaced with `_`
   2. **errcheck in pkg/cache/memory.go**: 4 unchecked type assertions (elem.Value.(*entry)) → two-value form with error check
   3. All remaining golangci-lint issues are pre-existing fieldalignment (govet) — cosmetic struct layout optimizations, not bugs.

@@ -379,3 +379,27 @@
 - **CI:** ALL jobs across all workflows blocked with: "The job was not started because recent account payments have failed or your spending limit needs to be increased."
 - **Impact:** No CI runs can execute. golangci-lint fix, security timeout fix, and docker non-blocking fix from tick #31 could NOT be verified because jobs never started.
 - **Note:** Needs human with billing access to wojons org. Previously resolved 2026-07-04 but recurred 2026-07-09.
+
+## [ ] Wire CLI `daemon start` to spawn daemon binary
+- **Priority:** high
+- **Model:** Grok 4.5 or GLM 5.2
+- **Files:** internal/builtin/daemon.go, cmd/daemon/main.go
+- **Problem:** `daemon start` CLI command calls Controller.Start() which only sets `running=true` in ephemeral memory and exits. The daemon binary (`cmd/daemon`) has full proxy/socket/signal support (handleProxyStart, handleStart with signal handling) but the CLI doesn't spawn it as a subprocess.
+- **Expected:** `daemon start` should exec or spawn the daemon binary (built at `bin/daemon`) as a background process. Then `daemon status` and `daemon stop` should detect and manage the running daemon via PID file/socket.
+- **AC:**
+  1. `daemon start` spawns `bin/daemon proxy --backend-url <url>` as background process
+  2. `daemon status` detects running daemon via PID file and shows Running/Stopped correctly
+  3. `daemon stop` sends SIGTERM to the daemon process and cleans up PID file + socket
+  4. `curl --unix-socket /tmp/muster-daemon.sock http://localhost/health` returns 200 after start
+  5. All existing daemon tests pass
+
+## [ ] Wire initializeHTTPClient stub to global HTTP client
+- **Priority:** medium
+- **Model:** deepseek-v4-flash
+- **Files:** cmd/cli/main.go
+- **Problem:** `initializeHTTPClient()` at line 266 creates an `http.Client` with Timeout and Transport configured but throws it away with `_ =`. Comment says `// TODO: Store in global or pass to commands that need it`. The configured client is never actually used.
+- **AC:**
+  1. Created HTTP client is stored in a package-level variable and used when making requests
+  2. Or: client config (Timeout, Transport) is passed to commands that need it
+  3. `go build ./...` + `go vet ./...` clean
+  4. All existing tests pass
