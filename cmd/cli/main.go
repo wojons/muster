@@ -35,11 +35,12 @@ const (
 )
 
 var (
-	cfg       *config.Config
-	logger    *zap.Logger
-	auditHook *audit.Hook
-	auditFlag bool
-	loader    *config.Loader
+	cfg        *config.Config
+	logger     *zap.Logger
+	auditHook  *audit.Hook
+	auditFlag  bool
+	loader     *config.Loader
+	httpClient *http.Client
 )
 
 func main() {
@@ -264,7 +265,7 @@ func initializeLogger() error {
 }
 
 func initializeHTTPClient() {
-	_ = &http.Client{
+	httpClient = &http.Client{
 		Timeout: cfg.Timeout,
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
@@ -272,7 +273,12 @@ func initializeHTTPClient() {
 			IdleConnTimeout:     90 * time.Second,
 		},
 	}
-	// TODO: Store in global or pass to commands that need it
+}
+
+// GetHTTPClient returns the shared HTTP client configured with global timeout
+// and connection pool settings. Returns nil if initializeHTTPClient has not been called.
+func GetHTTPClient() *http.Client {
+	return httpClient
 }
 
 func setupSignalHandling(cancel context.CancelFunc) <-chan os.Signal {
