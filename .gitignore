@@ -73,6 +73,9 @@ __pycache__/
 _storage/
 .gitreins/tasks.yaml
 
+# Hilo code graph
+.vfs/
+
 # GitReins backups and history
 .gitreins/config.yaml.bak
 .gitreins/config.yaml.v*-bak
