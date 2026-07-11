@@ -387,13 +387,7 @@
 - 13 new test functions. GitReins Tier 2: 5/5 PASS. Tier 1: guard PASS (pipeline test timeout is config issue).
 - Commit: d078a1c
 
-## [ ] Wire initializeHTTPClient stub to global HTTP client
-- **Priority:** medium
-- **Model:** deepseek-v4-flash
-- **Files:** cmd/cli/main.go
-- **Problem:** `initializeHTTPClient()` at line 266 creates an `http.Client` with Timeout and Transport configured but throws it away with `_ =`. Comment says `// TODO: Store in global or pass to commands that need it`. The configured client is never actually used.
-- **AC:**
-  1. Created HTTP client is stored in a package-level variable and used when making requests
-  2. Or: client config (Timeout, Transport) is passed to commands that need it
-  3. `go build ./...` + `go vet ./...` clean
-  4. All existing tests pass
+## [x] Wire initializeHTTPClient stub to global HTTP client
+- **Completed:** 2026-07-11 (cron foreman tick #34) — DS V4 Flash worker. +13/-7 in cmd/cli/main.go.
+- Added httpClient *http.Client package var. initializeHTTPClient() now stores client. GetHTTPClient() getter exported.
+- Commit: 19331a1

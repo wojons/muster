@@ -1,28 +1,28 @@
+defaults:
+  check_for_updates: true
+  model: deepseek-v4-flash
+  update_check_ttl: 24h
+evaluator:
+  code_context_budget: 0.7
+  compaction_threshold: 0.9
+  max_iterations: 100
+  max_output_tokens: 200k
+  max_time: 15m
+  tool_call_weight: 0.1
 guards:
-  test_mode: full
-  secrets: true
-  lint: true
-  tests: true
-  lsp: true
-  lsp_tools:
-  - gopls
-  test_command: go test -short -count=1 $(go list ./... | grep -v test/stability)
   go:
     build: true
     lint: true
     tests: true
-evaluator:
-  max_iterations: 25
-  max_time: 5m
-  max_output_tokens: 200k
-  tool_call_weight: 0.1
-  code_context_budget: 0.70
-  compaction_threshold: 0.90
-defaults:
-  model: deepseek-v4-flash
-  check_for_updates: true
-  update_check_ttl: 24h
+  lint: true
+  lsp: true
+  lsp_tools:
+  - gopls
+  secrets: true
+  test_command: go test -short -count=1 $(go list ./... | grep -v test/stability)
+  test_mode: full
+  tests: true
 history:
   enabled: true
-  storage: git
   max_verdicts: 1000
+  storage: git
