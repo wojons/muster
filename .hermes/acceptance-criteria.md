@@ -4,19 +4,24 @@
 **Spec count:** 233 specification files
 **Binary:** `openapi-cli` (cli, mcp-server, daemon)
 **Container:** opencode-muster (Up)
-**Last run:** 2026-07-10 (cron foreman tick #33)
-**Run status:** 🟢 CLEAN. go build ./... clean. go vet ./... clean. make test-unit passes. Demo 23/23. CI billing still blocked.
-**Completed this run:** Cron foreman tick #33 — Discovery sweep (board empty, all coding tasks [x]):
-  1. **Git state:** Clean. Identity correct.
+**Last run:** 2026-07-11 (cron foreman tick #35)
+**Run status:** 🟢 CLEAN. make build ✅. make vet ✅. make test-unit ✅. Demo 5/5 ✅. CLI daemon start→status→stop cycle works. CI billing still blocked.
+**Completed this run:** Cron foreman tick #35 — Discovery sweep (board empty of actionable tasks):
+  1. **Git state:** Binary diff (expected), .vfs/ untracked. Identity correct (totalwindupflightsystems).
   2. **Build:** `make build` ✅ — CLI, MCP server, daemon all build.
   3. **Vet:** `make vet` ✅ — clean.
   4. **Tests:** `make test-unit` ✅ — all pass.
-  5. **Demo:** 23/23 ✅.
-  6. **CLI:** All subcommands functional (config, daemon, discover, dsl, generate, request, version, completion, auth, inventory, modules).
-  7. **Discovery findings — 2 new [ ] tasks queued:**
-     - **Wiring gap: CLI `daemon start` doesn't spawn daemon binary.** The daemon binary (`cmd/daemon`) has full proxy/socket/signal handling but the CLI stub only sets a memory flag and exits. Queue as high-priority task.
-     - **Stub: `initializeHTTPClient()` in cmd/cli/main.go.** Creates http.Client with Timeout/Transport but throws it away. TODO since prior ticks. Queue as medium-priority task.
-  8. **Lint:** golangci-lint shows pre-existing errcheck/unusedwrite only — no new issues.
+  5. **Demo:** 5/5 ✅ — all integration tests pass.
+  6. **CLI usability:** Daemon start→status→stop cycle verified functional. All subcommands responsive.
+  7. **GitReins guard:** PASS — secrets, go_build, go_lint, go_tests all green.
+  8. **SKILL.md:** Created for Vercel compatibility (required by coding-hermes-cron Tick 0d).
+  9. **.gitignore:** Added .vfs/ to gitignore for Hilo cache.
+  10. **CI:** All workflows still billing-blocked ("recent account payments have failed"). Needs human.
+  11. **Discovery findings — 0 new actionable gaps.** All three pending [ ] tasks are infrastructure/billing blockers:
+      - `[ ] Fix CI billing` (critical) — needs human with billing access
+      - `[ ] Fix Docker Build CI` (medium) — Docker permissions blocker
+      - `[ ] Fix Build CI — Trivy` (low) — Docker permissions blocker
+      No stubs, TODOs, or spec gaps found. Codebase is clean.
 **Previous run:** 2026-07-10 (cron foreman tick #32) — Lint fixes:
   1. **ineffassign in telemetry_test.go**: 2 unused context return values from tr.Start() → replaced with `_`
   2. **errcheck in pkg/cache/memory.go**: 4 unchecked type assertions (elem.Value.(*entry)) → two-value form with error check
