@@ -125,10 +125,12 @@ func TestNewRootCommand_HasAllSubcommands(t *testing.T) {
 	cfg := &config.Config{Version: "test"}
 	root := builtin.NewRootCommand(cfg)
 
+	// "help" is intentionally NOT in this list — Cobra auto-registers its
+	// own default "help" command and adding a second one causes duplicate
+	// entries in the Available Commands list.
 	expectedCommands := []string{
 		"version",
 		"config",
-		"help",
 		"completion",
 		"init",
 		"auth",

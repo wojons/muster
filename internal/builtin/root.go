@@ -3,7 +3,6 @@ package builtin
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/wojons/muster/internal/audit"
@@ -23,6 +22,12 @@ func NewRootCommandWithAudit(cfg *config.Config, auditHook *audit.Hook) *cobra.C
 	return newRootCommand(cfg, auditHook)
 }
 
+// persistedCommands is the set of cobra commands added to the root at
+// construction time from on-disk storage. We keep track of them so we
+// can hide them for meta-commands (help, version, completion, __complete)
+// where they would otherwise pollute the output.
+var persistedCommands []*cobra.Command
+
 // newRootCommand is the shared implementation for both constructors.
 func newRootCommand(cfg *config.Config, auditHook *audit.Hook) *cobra.Command {
 	root := &cobra.Command{
@@ -32,11 +37,23 @@ func newRootCommand(cfg *config.Config, auditHook *audit.Hook) *cobra.Command {
 and serves them via MCP protocol.`,
 		Version: version.Get().Short(),
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// When the user invokes a meta-command, hide the
+			// dynamically-loaded persisted commands so they don't
+			// pollute help/version/completion output. This mirrors
+			// the skip in cmd/cli/main.go persistentPreRun so
+			// stored commands are not advertised in the same
+			// contexts where we skip config initialization.
+			if isMetaCommandName(cmd.Name()) {
+				hidePersistedCommands(cmd.Root(), true)
+			}
 			if auditHook != nil {
 				auditHook.LogCommand(cmd.Context(), cmd.CommandPath(), cliActorID(), true, nil)
 			}
 		},
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			// Restore visibility so a follow-up invocation (e.g.
+			// completion -> generated command) sees them again.
+			hidePersistedCommands(cmd.Root(), false)
 			// This is called on success. Errors before command execution
 			// (e.g. arg parsing) are captured by ExecuteContext returning an error.
 			if auditHook != nil {
@@ -48,7 +65,9 @@ and serves them via MCP protocol.`,
 	// Add built-in commands
 	root.AddCommand(newVersionCommand())
 	root.AddCommand(newConfigCommand(cfg))
-	root.AddCommand(newHelpCommand())
+	// Note: "help" is intentionally NOT added here. Cobra auto-registers
+	// its own default "help" command; adding a second one previously
+	// caused two "help" entries in the Available Commands list.
 	root.AddCommand(newCompletionCommand())
 	root.AddCommand(newInitCommand())
 	root.AddCommand(newAuthCommand())
@@ -66,6 +85,26 @@ and serves them via MCP protocol.`,
 	return root
 }
 
+// isMetaCommandName reports whether the named command is a meta-command
+// for which persisted (on-disk generated) commands should be hidden.
+// Mirrors the skip in cmd/cli/main.go persistentPreRun.
+func isMetaCommandName(name string) bool {
+	switch name {
+	case "help", "version", "completion", "__complete":
+		return true
+	}
+	return false
+}
+
+// hidePersistedCommands toggles the Hidden flag on every command added
+// by loadPersistedCommands. We don't RemoveCommand because the
+// persistent pre-run / post-run pair needs to round-trip visibility.
+func hidePersistedCommands(root *cobra.Command, hidden bool) {
+	for _, cmd := range persistedCommands {
+		cmd.Hidden = hidden
+	}
+}
+
 // cliActorID returns the actor identifier for CLI audit events.
 func cliActorID() string {
 	if user := os.Getenv("USER"); user != "" {
@@ -77,14 +116,16 @@ func cliActorID() string {
 	return "unknown"
 }
 
-// loadPersistedCommands loads previously generated commands from storage
+// loadPersistedCommands loads previously generated commands from storage.
+// The on-disk path is taken from cfg.PersistedCommandsPath when set so
+// tests can redirect reads to a temp directory; otherwise the default
+// $XDG_DATA_HOME/openapi-cli/commands.json is used.
+//
+// Each loaded command is tracked in the package-level persistedCommands
+// slice so newRootCommand can hide it when a meta-command (help, version,
+// completion, __complete) is being executed.
 func loadPersistedCommands(root *cobra.Command, cfg *config.Config) {
-	// Get command storage path
-	dataDir := os.Getenv("XDG_DATA_HOME")
-	if dataDir == "" {
-		dataDir = filepath.Join(os.Getenv("HOME"), ".local", "share")
-	}
-	dataPath := filepath.Join(dataDir, "openapi-cli", "commands.json")
+	dataPath := resolvePersistedCommandsPath(cfg)
 
 	// Create command store and loader
 	store := cmdstore.NewCommandStore(dataPath)
@@ -115,6 +156,7 @@ func loadPersistedCommands(root *cobra.Command, cfg *config.Config) {
 	if len(commands) > 0 {
 		for _, cmd := range commands {
 			root.AddCommand(cmd)
+			persistedCommands = append(persistedCommands, cmd)
 		}
 		if cfg != nil && cfg.Verbose {
 			fmt.Fprintf(os.Stderr, "Loaded %d commands from storage (base URL: %s)\n", len(commands), baseURL)

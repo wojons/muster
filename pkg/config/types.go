@@ -36,6 +36,13 @@ type Config struct {
 	ConfigDir string `mapstructure:"-"`
 	CacheDir  string `mapstructure:"-"`
 	DataDir   string `mapstructure:"-"`
+
+	// PersistedCommandsPath overrides the default on-disk location used to
+	// store and load generated command metadata. When empty, the loader
+	// falls back to $XDG_DATA_HOME/openapi-cli/commands.json. Tests use
+	// this to redirect persistence to a temp directory and avoid
+	// polluting the production data directory.
+	PersistedCommandsPath string `mapstructure:"-"`
 }
 
 // Profile represents a named configuration profile

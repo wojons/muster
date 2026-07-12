@@ -90,7 +90,7 @@ Commands are persisted to storage and loaded on subsequent CLI invocations.`,
 				return fmt.Errorf("convert commands to metadata: %w", err)
 			}
 
-			if err := persistCommands(metadata); err != nil {
+			if err := persistCommands(metadata, cfg); err != nil {
 				return fmt.Errorf("persist commands: %w", err)
 			}
 			fmt.Printf("✓ Commands persisted to storage\n")
@@ -512,15 +512,26 @@ func computeSpecHash(data []byte) string {
 	return fmt.Sprintf("%x", hash)[:16]
 }
 
-// persistCommands saves command metadata to storage
-func persistCommands(metadata *cmdstore.StoredData) error {
-	// Get command storage path
+// persistCommands saves command metadata to storage.
+// The output path is taken from cfg.PersistedCommandsPath when set, so
+// tests can redirect writes to a temp directory. When unset, it falls
+// back to the default XDG data directory used in production.
+func persistCommands(metadata *cmdstore.StoredData, cfg *config.Config) error {
+	dataPath := resolvePersistedCommandsPath(cfg)
+	store := cmdstore.NewCommandStore(dataPath)
+	return store.Save(metadata)
+}
+
+// resolvePersistedCommandsPath returns the on-disk path used to store
+// generated command metadata. Honours cfg.PersistedCommandsPath when set,
+// otherwise falls back to $XDG_DATA_HOME/openapi-cli/commands.json.
+func resolvePersistedCommandsPath(cfg *config.Config) string {
+	if cfg != nil && cfg.PersistedCommandsPath != "" {
+		return cfg.PersistedCommandsPath
+	}
 	dataDir := os.Getenv("XDG_DATA_HOME")
 	if dataDir == "" {
 		dataDir = filepath.Join(os.Getenv("HOME"), ".local", "share")
 	}
-	dataPath := filepath.Join(dataDir, "openapi-cli", "commands.json")
-
-	store := cmdstore.NewCommandStore(dataPath)
-	return store.Save(metadata)
+	return filepath.Join(dataDir, "openapi-cli", "commands.json")
 }
