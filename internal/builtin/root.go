@@ -116,6 +116,8 @@ func loadPersistedCommands(root *cobra.Command, cfg *config.Config) {
 		for _, cmd := range commands {
 			root.AddCommand(cmd)
 		}
-		fmt.Fprintf(os.Stderr, "Loaded %d commands from storage (base URL: %s)\n", len(commands), baseURL)
+		if cfg != nil && cfg.Verbose {
+			fmt.Fprintf(os.Stderr, "Loaded %d commands from storage (base URL: %s)\n", len(commands), baseURL)
+		}
 	}
 }
