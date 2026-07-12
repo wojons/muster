@@ -361,6 +361,20 @@
 - **Remaining CI issues:** Docker Build (ghcr.io registry login/build), Build workflow (Docker image scanning, Trivy upload) — these are infrastructure/Docker permission issues, not code bugs. Create separate Docker-* tasks for them.
 - **Commit:** (pending push)
 
+## [ ] Fix CLI UX: stale stored commands from test data poisoning production CLI
+- **Priority:** medium
+- **Discovered:** 2026-07-11 discovery sweep
+- **Symptom:** Every CLI invocation prints `Loaded 1 commands from storage (base URL: http://127.0.0.1:33777)` to stderr. `list-pets` command injected into help output. Caused by stale `~/.local/share/openapi-cli/commands.json` written during test runs.
+- **Root cause:** Tests or generate command write to user's XDG_DATA_HOME directory; data persists and pollutes production CLI.
+- **Fix options:** (a) Clean up after tests that write to disk, (b) use tmp dir for tests instead of real DATA_HOME, (c) make the message DEBUG-level instead of always-printed, (d) suppress "Loaded N commands" message for help/version subcommands.
+- **Files:** internal/builtin/root.go (loadPersistedCommands), pkg/cmdstore/
+
+## [ ] Fix CLI UX: duplicate "help" entry in Available Commands
+- **Priority:** low
+- **Discovered:** 2026-07-11 discovery sweep
+- **Symptom:** `openapi-cli help` shows two "help" entries: "help — Show help information" and "help — Help about any command". The stored "list-pets" command may have a help subcommand causing duplication.
+- **Files:** internal/builtin/root.go
+
 ## [ ] Fix Docker Build CI — ghcr.io registry permissions / image name
 - **Priority:** medium
 - **CI Workflow:** `docker-build.yml` — Build and push step
