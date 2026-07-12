@@ -1,6 +1,6 @@
 # Coding Tasks — Muster
 
-> **⚠ CI note:** wojons org billing **resolved** as of 2026-07-04. CI now runs with real failures. Previous cross-platform failures fixed (Go version, build tags, timeouts). New libseccomp issue emerged.
+> **⚠ CI note:** All CI runs failing since 2026-07-09 with 4-8s durations across ALL workflows (CI, Build, Cross-Platform, Docker). Last successful run: 2026-07-09 (`fix(lint): explicit error discard on Close()`). ALL subsequent commits (including markdown-only board updates) fail identically fast — consistent with runner/infrastructure issue, not code. Billing was supposedly resolved 2026-07-04 but CI degraded 5 days later. Needs human investigation: GitHub Actions org-level settings, runner availability, or Node.js 24 migration deadline (June 2, 2026 per actions/checkout@v4 deprecation notice).
 
 ## [x] Fix CI: muster — libseccomp-dev missing in CI (CGo dependency)
 - **Priority:** high
@@ -414,3 +414,9 @@
 - **Completed:** 2026-07-11 (cron foreman tick #34) — DS V4 Flash worker. +13/-7 in cmd/cli/main.go.
 - Added httpClient *http.Client package var. initializeHTTPClient() now stores client. GetHTTPClient() getter exported.
 - Commit: 19331a1
+
+## [ ] INVESTIGATE — CI failing for all commits since 2026-07-09 (4-8s durations)
+- **Priority:** high
+- **Symptom:** Every CI run across all 4 workflows (CI, Build, Cross-Platform, Docker) completes in 4-8 seconds regardless of commit content. Markdown-only commits fail identically to code commits. Last successful run: 2026-07-09.
+- **Likely cause:** GitHub Actions infrastructure issue — billing, runner availability, or Node.js 24 migration. NOT a code issue (local build + tests pass).
+- **Discovery sweep:** tick #36, 2026-07-12. Build passes locally (go1.26.1). Tests pass locally. No remote commits. No open issues.
