@@ -361,17 +361,26 @@
 - **Remaining CI issues:** Docker Build (ghcr.io registry login/build), Build workflow (Docker image scanning, Trivy upload) — these are infrastructure/Docker permission issues, not code bugs. Create separate Docker-* tasks for them.
 - **Commit:** (pending push)
 
-## [ ] Fix CLI UX: stale stored commands from test data poisoning production CLI
+## [x] Fix CLI UX: stale stored commands from test data poisoning production CLI
 - **Priority:** medium
 - **Discovered:** 2026-07-11 discovery sweep
+- **Completed:** 2026-07-12 (cron foreman tick #35)
+- **Fix:** (1) Removed duplicate built-in "help" command (Cobra provides default). (2) Added hide/show toggle for persisted commands on meta-commands (help/version/completion) via PersistentPreRun/PersistentPostRun. (3) Added configurable PersistedCommandsPath to Config struct for test isolation. (4) Added resolvePersistedCommandsPath helper shared by loadPersistedCommands and persistCommands.
+- **Commit:** 136822d
+- **Files:** internal/builtin/root.go (+60/-20), internal/builtin/generate.go (+27/-10), pkg/config/types.go (+7), root_test.go, main_test.go
+- **Worker:** MiniMax-M3 @ minimax (review-loop killed, work verified on disk)
 - **Symptom:** Every CLI invocation prints `Loaded 1 commands from storage (base URL: http://127.0.0.1:33777)` to stderr. `list-pets` command injected into help output. Caused by stale `~/.local/share/openapi-cli/commands.json` written during test runs.
 - **Root cause:** Tests or generate command write to user's XDG_DATA_HOME directory; data persists and pollutes production CLI.
 - **Fix options:** (a) Clean up after tests that write to disk, (b) use tmp dir for tests instead of real DATA_HOME, (c) make the message DEBUG-level instead of always-printed, (d) suppress "Loaded N commands" message for help/version subcommands.
 - **Files:** internal/builtin/root.go (loadPersistedCommands), pkg/cmdstore/
 
-## [ ] Fix CLI UX: duplicate "help" entry in Available Commands
+## [x] Fix CLI UX: duplicate "help" entry in Available Commands
 - **Priority:** low
 - **Discovered:** 2026-07-11 discovery sweep
+- **Completed:** 2026-07-12 (cron foreman tick #35 — combined with stale commands fix)
+- **Fix:** Removed duplicate built-in "help" command registration. Cobra auto-provides its own default "help" command; registering a second one caused "help — Show help information" and "help — Help about any command" to both appear.
+- **Commit:** 136822d
+- **Files:** internal/builtin/root.go (removed newHelpCommand() registration)
 - **Symptom:** `openapi-cli help` shows two "help" entries: "help — Show help information" and "help — Help about any command". The stored "list-pets" command may have a help subcommand causing duplication.
 - **Files:** internal/builtin/root.go
 
