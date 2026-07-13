@@ -40,13 +40,17 @@ func TestNewDiscoverCommand(t *testing.T) {
 		assert.Contains(t, err.Error(), "must start with http:// or https://")
 	})
 
-	t.Run("handles unreachable URL", func(t *testing.T) {
+	t.Run("handles unreachable/error URL", func(t *testing.T) {
 		cmd := newDiscoverCommand()
 
 		err := cmd.RunE(cmd, []string{"http://localhost:19999/nonexistent"})
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "fetch spec")
+		// Accept either error path: connection refused (wraps with "fetch spec") or
+		// non-200 status (wraps with "unexpected status") — depends on port state.
+		errStr := err.Error()
+		assert.True(t, strings.Contains(errStr, "fetch spec") || strings.Contains(errStr, "unexpected status"),
+			"error should indicate fetch failure, got: %s", errStr)
 	})
 }
 
