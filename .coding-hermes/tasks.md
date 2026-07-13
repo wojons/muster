@@ -398,10 +398,8 @@
 
 ## [x] Fix TEST — pkg/platform seccomp test flake on retry (-count=3)
 - **Priority:** medium
-- **Discovered:** 2026-07-13 discovery sweep (tick #40)
-- **Completed:** 2026-07-13 (cron foreman tick #40)
-- **Fix:** Added `seccompFilterLoaded` package-level var in `seccomp_sandbox_test.go` that tracks whether any test in the package has loaded a seccomp filter into the process. `seccompAvailable()` now skips when this flag is set. `TestCapabilityRestrictions_SeccompIntegration` sets the flag after `Apply()`. This prevents SIGSEGV on `go test -count=N` because subsequent iterations correctly skip when the seccomp filter (which persists for the process lifetime) blocks CGo/pthread.
-- **Commit:** b84a398
+- **Completed:** 2026-07-13 (cron foreman tick #40 — commit b84a398; verified tick #41)
+- **Resolution:** Three-part fix: (1) Replaced subprocess probe with direct `/proc/sys/kernel/seccomp/actions_avail` check — the `exec.Command` probe hung on `-count=N` because repeated self-spawning interacts poorly with Go's test runner. (2) Added `seccompFilterLoaded` package-level flag set after `TestCapabilityRestrictions_SeccompIntegration` loads a filter — prevents subsequent tests from trying seccomp operations in a process with an already-loaded filter. (3) Added `seccompAvailable(t)` guard to `TestCapabilityRestrictions_SeccompIntegration` itself. Verified: `go test -count=3 ./pkg/platform/...` passes in 0.3s.
 - **Files:** pkg/platform/seccomp_sandbox_test.go, pkg/platform/capability_test.go
 
 ## [x] Fix LINT — fieldalignment violations in 8 structs (make lint)
