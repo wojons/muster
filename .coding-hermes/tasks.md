@@ -384,11 +384,12 @@
 - **Symptom:** `openapi-cli help` shows two "help" entries: "help — Show help information" and "help — Help about any command". The stored "list-pets" command may have a help subcommand causing duplication.
 - **Files:** internal/builtin/root.go
 
-## [ ] Fix Docker Build CI — ghcr.io registry permissions / image name
+## [x] Fix Docker Build CI — ghcr.io registry permissions / image name
 - **Priority:** medium
-- **CI Workflow:** `docker-build.yml` — Build and push step
-- **Error:** docker/build-push-action fails. Likely ghcr.io registry permissions or image name mismatch.
-- **Note:** Docker infrastructure issue — cannot fix in cron context (Docker lifecycle commands need approval). Needs human or supervisor with Docker permissions.
+- **Completed:** 2026-07-12 (cron foreman tick #37)
+- **Fix:** Changed IMAGE_NAME from `openapi-cli/openapi-cli` to `${{ github.repository }}` (wojons/muster) — ghcr.io namespaces are per-org, and `openapi-cli` was a different org that doesn't exist under wojons.
+- **Commit:** f4c50ca
+- **Verification:** Local build+vet+guard pass. CI verification blocked by billing (all workflows fail with 4-8s).
 
 ## [ ] Fix Build CI — Trivy / Docker image scanning (local)
 - **Priority:** low
