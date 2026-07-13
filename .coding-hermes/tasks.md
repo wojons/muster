@@ -416,8 +416,8 @@
 - Added httpClient *http.Client package var. initializeHTTPClient() now stores client. GetHTTPClient() getter exported.
 - Commit: 19331a1
 
-## [ ] INVESTIGATE — CI failing for all commits since 2026-07-09 (4-8s durations)
+## [x] INVESTIGATE — CI failing for all commits since 2026-07-09 (4-8s durations)
 - **Priority:** high
-- **Symptom:** Every CI run across all 4 workflows (CI, Build, Cross-Platform, Docker) completes in 4-8 seconds regardless of commit content. Markdown-only commits fail identically to code commits. Last successful run: 2026-07-09.
-- **Likely cause:** GitHub Actions infrastructure issue — billing, runner availability, or Node.js 24 migration. NOT a code issue (local build + tests pass).
-- **Discovery sweep:** tick #36, 2026-07-12. Build passes locally (go1.26.1). Tests pass locally. No remote commits. No open issues.
+- **Completed:** 2026-07-13 (cron foreman tick #38)
+- **Findings:** Root cause CONFIRMED — GitHub Actions billing block. Verified via `gh run view 29221068039 --json` — job `build-and-test` completed in 4s with ZERO steps executed (conclusion: failure, status: completed, startedAt=completedAt). All 5 most recent runs (29221068048 through 29221054570) show identical pattern: 4-9s durations, all workflows, all commits including markdown-only. This is definitively NOT a code issue — local `go build ./...` + `go vet ./...` both pass clean. The billing task below captures the specific error: "recent account payments have failed or spending limit needs to be increased."
+- **Action:** Needs human with billing access to wojons GitHub org. Previously resolved 2026-07-04, recurred 2026-07-09. The Trivy/Docker Build CI task is also blocked by this — no CI jobs can start until billing is restored.
