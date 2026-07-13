@@ -396,11 +396,18 @@
 - **Completed:** 2026-07-13 (cron foreman tick #39)
 - **Resolution:** Tick #31 already added `continue-on-error: true` to all three steps (docker build L112, trivy-action L116, upload-sarif L127). Docker build gracefully handles no-daemon with `|| echo "Docker build skipped"`. No further code changes needed — the steps are non-blocking. CI billing issue (separate task) blocks verification of ALL workflows.
 
+## [ ] Fix TEST — pkg/platform seccomp test flake on retry (-count=3)
+- **Priority:** medium
+- **Discovered:** 2026-07-13 discovery sweep (tick #40)
+- **Symptom:** `TestCapabilityRestrictions_SeccompIntegration` passes on `-count=1` but crashes with `pthread_create failed: Operation not permitted` + SIGSEGV on `-count=3`. The seccomp-filtered child process exhausts thread/sandbox resources when run rapidly back-to-back.
+- **Files:** pkg/platform/seccomp_sandbox_test.go
+- **Fix options:** (a) Add a mutex/once guard so seccomp tests serialize across `-count=N` runs per test binary instance (b) add runtime.GOOS check + skip for known-flaky environments (c) use `t.Cleanup` to properly tear down seccomp filters between iterations.
+
 ## [ ] Fix CI billing — GitHub Actions spending limit reached
 - **Priority:** critical
 - **CI:** ALL jobs across all workflows blocked with: "The job was not started because recent account payments have failed or your spending limit needs to be increased."
 - **Impact:** No CI runs can execute. golangci-lint fix, security timeout fix, and docker non-blocking fix from tick #31 could NOT be verified because jobs never started.
-- **Note:** Needs human with billing access to wojons org. Previously resolved 2026-07-04 but recurred 2026-07-09.
+- **Note:** Needs human with billing access to wojons org. Previously resolved 2026-07-04 but recurred 2026-07-09. Tick #40 confirms: no change in status.
 
 ## [x] Wire CLI `daemon start` to spawn daemon binary
 - **Completed:** 2026-07-11 (cron foreman tick #34) — Grok 4.5 worker. +392/-12 across daemon.go + daemon_test.go.
