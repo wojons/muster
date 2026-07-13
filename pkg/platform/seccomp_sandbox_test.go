@@ -20,6 +20,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// seccompFilterLoaded tracks whether a seccomp filter has been loaded into
+// this process by any test in this package. Once loaded, seccomp filters
+// persist for the process lifetime and block CGo/pthread operations.
+// All seccomp tests must skip when this flag is true — otherwise
+// subsequent test iterations (via -count=N) crash with SIGSEGV.
+var seccompFilterLoaded bool
+
 // seccompAvailable checks if seccomp kernel support is available.
 // It runs a minimal seccomp program in a subprocess because
 // broken libseccomp installations can SIGSEGV mid-CGo-call with
@@ -36,14 +43,20 @@ func seccompAvailable(t *testing.T) {
 		return
 	}
 
-	// Run a minimal probe in a subprocess. On hosts with broken
-	// libseccomp (ABI mismatch), the probe will die from SIGSEGV
-	// and we skip safely from the parent.
-	probe := exec.Command(os.Args[0], "-test.run", "TestSeccompProbe", "-test.v=false")
-	probe.Env = append(os.Environ(), "MUSTER_SECCOMP_PROBE=1")
-	out, err := probe.CombinedOutput()
-	if err != nil {
-		t.Skipf("seccomp not available (subprocess probe failed): %v\n%s", err, string(out))
+	// If any test in this package already loaded a seccomp filter
+	// into this process, all subsequent seccomp operations will fail
+	// because the filter blocks the necessary CGo/pthread calls.
+	if seccompFilterLoaded {
+		t.Skip("seccomp filter already loaded in this process (test iteration reuse)")
+		return
+	}
+
+	// Check kernel seccomp support via /proc.
+	// The subprocess probe approach (exec.Command, TestSeccompProbe) hangs
+	// with -count=N because repeated subprocess spawning interacts poorly
+	// with the Go test runner's own process management.
+	if _, err := os.Stat("/proc/sys/kernel/seccomp/actions_avail"); err != nil {
+		t.Skipf("seccomp not available: /proc/sys/kernel/seccomp/actions_avail not found (%v)", err)
 		return
 	}
 }

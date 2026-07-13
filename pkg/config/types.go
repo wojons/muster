@@ -57,12 +57,12 @@ type Profile struct {
 
 // CacheConfig represents caching configuration
 type CacheConfig struct {
-	Enabled  bool          `mapstructure:"enabled"`
-	Type     string        `mapstructure:"type"` // memory, redis, disk
-	TTL      time.Duration `mapstructure:"ttl"`
-	MaxSize  int64         `mapstructure:"max_size"` // bytes
 	Redis    RedisConfig   `mapstructure:"redis"`
+	Type     string        `mapstructure:"type"` // memory, redis, disk
 	DiskPath string        `mapstructure:"disk_path"`
+	MaxSize  int64         `mapstructure:"max_size"` // bytes
+	TTL      time.Duration `mapstructure:"ttl"`
+	Enabled  bool          `mapstructure:"enabled"`
 }
 
 // RateLimitConfig represents request rate limiting configuration.
@@ -88,37 +88,37 @@ type AuthConfig struct {
 
 // KeychainConfig represents keychain integration settings
 type KeychainConfig struct {
-	Enabled  bool   `mapstructure:"enabled"`
 	Service  string `mapstructure:"service"`
+	Enabled  bool   `mapstructure:"enabled"`
 	Fallback bool   `mapstructure:"fallback"`
 }
 
 // DaemonConfig represents daemon mode configuration
 type DaemonConfig struct {
-	Enabled        bool          `mapstructure:"enabled"`
 	SocketPath     string        `mapstructure:"socket_path"`
 	PIDFile        string        `mapstructure:"pid_file"`
 	LogFile        string        `mapstructure:"log_file"`
 	LogLevel       string        `mapstructure:"log_level"`
-	MaxConnections int           `mapstructure:"max_connections"`
 	Timeout        time.Duration `mapstructure:"timeout"`
+	MaxConnections int           `mapstructure:"max_connections"`
+	Enabled        bool          `mapstructure:"enabled"`
 }
 
 // InventoryConfig represents inventory fetching configuration
 type InventoryConfig struct {
 	URL             string        `mapstructure:"url"`
-	CacheEnabled    bool          `mapstructure:"cache_enabled"`
-	CacheTTL        time.Duration `mapstructure:"cache_ttl"`
-	SignatureVerify bool          `mapstructure:"signature_verify"`
 	PublicKeyPath   string        `mapstructure:"public_key_path"`
+	CacheTTL        time.Duration `mapstructure:"cache_ttl"`
+	CacheEnabled    bool          `mapstructure:"cache_enabled"`
+	SignatureVerify bool          `mapstructure:"signature_verify"`
 }
 
 // MCPConfig represents MCP server configuration
 type MCPConfig struct {
-	Enabled       bool     `mapstructure:"enabled"`
 	ServerName    string   `mapstructure:"server_name"`
 	ServerVersion string   `mapstructure:"server_version"`
 	Capabilities  []string `mapstructure:"capabilities"`
+	Enabled       bool     `mapstructure:"enabled"`
 }
 
 // LoggingConfig represents logging configuration shared by all entry points.
@@ -132,8 +132,8 @@ type LoggingConfig struct {
 
 // PluginConfig represents plugin system configuration
 type PluginConfig struct {
-	Enabled   bool     `mapstructure:"enabled"`
 	Paths     []string `mapstructure:"paths"`
+	Enabled   bool     `mapstructure:"enabled"`
 	AutoLoad  bool     `mapstructure:"auto_load"`
 	VerifySig bool     `mapstructure:"verify_signatures"`
 }

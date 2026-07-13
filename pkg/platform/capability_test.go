@@ -155,6 +155,7 @@ func TestCapabilityRestrictions_SeccompIntegration(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("capabilities only supported on Linux")
 	}
+	seccompAvailable(t)
 
 	// Create a seccomp filter
 	sf := NewSeccompFilter(SeccompModeFilter)
@@ -162,6 +163,10 @@ func TestCapabilityRestrictions_SeccompIntegration(t *testing.T) {
 	require.NoError(t, err)
 	err = sf.Apply()
 	require.NoError(t, err)
+
+	// Mark that a seccomp filter is now loaded into this process.
+	// All subsequent seccomp tests in this package must skip.
+	seccompFilterLoaded = true
 
 	// With seccomp + capability restrictions, the process should be heavily sandboxed
 	assert.True(t, sf.loaded, "seccomp filter should be loaded")

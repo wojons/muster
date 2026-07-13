@@ -15,9 +15,9 @@ import (
 type Watcher struct {
 	v        *viper.Viper
 	onChange func()
-	watching bool
-	mu       sync.RWMutex
 	stopCh   chan struct{}
+	mu       sync.RWMutex
+	watching bool
 }
 
 // NewWatcher creates a new configuration watcher for the given viper instance.

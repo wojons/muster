@@ -257,8 +257,8 @@ func TestSystem_CachingBehavior(t *testing.T) {
 }
 
 type requestResult struct {
-	fromCache bool
 	data      []byte
+	fromCache bool
 }
 
 func makeCachedRequest(path string, useCache bool) requestResult {
