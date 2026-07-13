@@ -396,12 +396,29 @@
 - **Completed:** 2026-07-13 (cron foreman tick #39)
 - **Resolution:** Tick #31 already added `continue-on-error: true` to all three steps (docker build L112, trivy-action L116, upload-sarif L127). Docker build gracefully handles no-daemon with `|| echo "Docker build skipped"`. No further code changes needed — the steps are non-blocking. CI billing issue (separate task) blocks verification of ALL workflows.
 
-## [ ] Fix TEST — pkg/platform seccomp test flake on retry (-count=3)
+## [x] Fix TEST — pkg/platform seccomp test flake on retry (-count=3)
 - **Priority:** medium
 - **Discovered:** 2026-07-13 discovery sweep (tick #40)
-- **Symptom:** `TestCapabilityRestrictions_SeccompIntegration` passes on `-count=1` but crashes with `pthread_create failed: Operation not permitted` + SIGSEGV on `-count=3`. The seccomp-filtered child process exhausts thread/sandbox resources when run rapidly back-to-back.
-- **Files:** pkg/platform/seccomp_sandbox_test.go
-- **Fix options:** (a) Add a mutex/once guard so seccomp tests serialize across `-count=N` runs per test binary instance (b) add runtime.GOOS check + skip for known-flaky environments (c) use `t.Cleanup` to properly tear down seccomp filters between iterations.
+- **Completed:** 2026-07-13 (cron foreman tick #40)
+- **Fix:** Added `seccompFilterLoaded` package-level var in `seccomp_sandbox_test.go` that tracks whether any test in the package has loaded a seccomp filter into the process. `seccompAvailable()` now skips when this flag is set. `TestCapabilityRestrictions_SeccompIntegration` sets the flag after `Apply()`. This prevents SIGSEGV on `go test -count=N` because subsequent iterations correctly skip when the seccomp filter (which persists for the process lifetime) blocks CGo/pthread.
+- **Commit:** b84a398
+- **Files:** pkg/platform/seccomp_sandbox_test.go, pkg/platform/capability_test.go
+
+## [x] Fix LINT — fieldalignment violations in 8 structs (make lint)
+- **Priority:** medium
+- **Discovered:** 2026-07-13 discovery sweep (tick #40)
+- **Completed:** 2026-07-13 (cron foreman tick #40)
+- **Fix:** Reordered fields in 8 structs: PluginConfig, KeychainConfig, DaemonConfig, InventoryConfig, MCPConfig, CacheConfig (types.go), Watcher (watcher.go), requestResult (cli_workflow_test.go). Note: 100+ pre-existing fieldalignment violations remain across the codebase — these 8 were the ones flagged in the initial discovery lint run. Full fix would require touching 50+ files.
+- **Commit:** b84a398
+- **Files:** pkg/config/types.go, pkg/config/watcher.go, test/functional/workflows/cli_workflow_test.go
+
+## [x] Fix BUILD — make validate references non-existent internal/security/ package
+- **Priority:** medium
+- **Discovered:** 2026-07-13 discovery sweep (tick #40)
+- **Completed:** 2026-07-13 (cron foreman tick #40)
+- **Fix:** Made `security-audit` target match `test-security-audit` pattern: guard `go test ./internal/security/...` with `[ -d "./internal/security" ]` check, with graceful fallback message.
+- **Commit:** b84a398
+- **Files:** Makefile
 
 ## [ ] Fix CI billing — GitHub Actions spending limit reached
 - **Priority:** critical
