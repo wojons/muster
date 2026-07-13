@@ -422,7 +422,7 @@
 - **Priority:** critical
 - **CI:** ALL jobs across all workflows blocked with: "The job was not started because recent account payments have failed or your spending limit needs to be increased."
 - **Impact:** No CI runs can execute. golangci-lint fix, security timeout fix, and docker non-blocking fix from tick #31 could NOT be verified because jobs never started.
-- **Note:** Needs human with billing access to wojons org. Previously resolved 2026-07-04 but recurred 2026-07-09. Tick #40 confirms: no change in status.
+- **Note:** Needs human with billing access to wojons org. Previously resolved 2026-07-04 but recurred 2026-07-09. Tick #40 confirms: no change in status. All other tasks resolved by sibling tick (b84a398).
 
 ## [x] Wire CLI `daemon start` to spawn daemon binary
 - **Completed:** 2026-07-11 (cron foreman tick #34) — Grok 4.5 worker. +392/-12 across daemon.go + daemon_test.go.
