@@ -145,8 +145,8 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
 		return fmt.Errorf("load spec: %w", err)
 	}
 
-	if err := doc.Validate(context.Background()); err != nil {
-		return fmt.Errorf("validate spec: %w", err)
+	if validateErr := doc.Validate(context.Background()); validateErr != nil {
+		return fmt.Errorf("validate spec: %w", validateErr)
 	}
 
 	fmt.Fprintf(os.Stderr, "Loaded spec: %s (%s)\n", doc.Info.Title, doc.Info.Version)

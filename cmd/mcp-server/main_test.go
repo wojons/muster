@@ -988,12 +988,12 @@ func TestLoadAndRegisterTools_NoSpecPath(t *testing.T) {
 	// Test loading without spec path (should early return)
 	config := &MCPServerConfig{
 		SpecPath: "",
-		BaseURL:  "",
 	}
 
 	// Should not call actual loading functions
 	// Just verify function handles empty path
 	require.Empty(t, config.SpecPath)
+	_ = config.BaseURL // informational — BaseURL unused when SpecPath empty
 }
 
 func TestLoadAndRegisterTools_SpecValidation_InvalidOperation(t *testing.T) {
