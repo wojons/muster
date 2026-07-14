@@ -100,8 +100,8 @@ func (f *ErrorFormatter) Format(w io.Writer, err error) error {
 // FormatBytes returns formatted error as bytes.
 func (f *ErrorFormatter) FormatBytes(err error) ([]byte, error) {
 	var buf strings.Builder
-	if err := f.Format(&buf, err); err != nil {
-		return nil, err
+	if fmtErr := f.Format(&buf, err); fmtErr != nil {
+		return nil, fmtErr
 	}
 	return []byte(buf.String()), nil
 }

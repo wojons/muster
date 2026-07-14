@@ -242,12 +242,12 @@ func (r *StabilityTestRunner) performHealthCheck(t *testing.T) (*DaemonMetrics, 
 		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode == http.StatusOK {
 			metrics.HealthStatus = "healthy"
-			body, err := io.ReadAll(resp.Body)
-			if err == nil {
+			body, readErr := io.ReadAll(resp.Body)
+			if readErr == nil {
 				var healthResp struct {
 					Status string `json:"status"`
 				}
-				if err := json.Unmarshal(body, &healthResp); err == nil {
+				if unmarshalErr := json.Unmarshal(body, &healthResp); unmarshalErr == nil {
 					metrics.HealthStatus = healthResp.Status
 				}
 			}

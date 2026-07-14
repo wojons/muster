@@ -42,8 +42,8 @@ type AppError struct {
 	code     Code
 	message  string
 	severity Severity
-	details  map[string]interface{}
 	cause    error
+	details  map[string]interface{}
 }
 
 // New creates a new AppError with the given code and message.
@@ -156,9 +156,8 @@ func IsError(err error, code Code) bool {
 	}
 	// Walk the error chain
 	for {
-		unwrapped := err
 		if u, ok := err.(interface{ Unwrap() error }); ok {
-			unwrapped = u.Unwrap()
+			unwrapped := u.Unwrap()
 			if unwrapped == nil {
 				break
 			}
