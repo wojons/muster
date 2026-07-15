@@ -21,16 +21,18 @@ import (
 )
 
 type MCPServerConfig struct {
-	LogLevel              string
-	LogOutput             string
+	// Pointer-containing fields first (reduces GC scan area)
+	LogLevel   string
+	LogOutput  string
+	SpecPath   string // Path to OpenAPI spec file
+	BaseURL    string // Base URL for API operations
+	WasmPlugin string // Path to WASM plugin for response transformation
+	// Non-pointer fields
+	MaxConcurrentCommands int
+	CommandTimeout        time.Duration
 	EnableTools           bool
 	EnableResources       bool
 	EnablePrompts         bool
-	MaxConcurrentCommands int
-	CommandTimeout        time.Duration
-	SpecPath              string // Path to OpenAPI spec file
-	BaseURL               string // Base URL for API operations
-	WasmPlugin            string // Path to WASM plugin for response transformation
 }
 
 var (
