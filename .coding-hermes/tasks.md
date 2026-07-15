@@ -422,7 +422,18 @@
 - **Priority:** critical
 - **CI:** ALL jobs across all workflows blocked with: "The job was not started because recent account payments have failed or your spending limit needs to be increased."
 - **Impact:** No CI runs can execute. golangci-lint fix, security timeout fix, and docker non-blocking fix from tick #31 could NOT be verified because jobs never started.
-- **Note:** Needs human with billing access to wojons org. Previously resolved 2026-07-04 but recurred 2026-07-09. Tick #38 confirmed root cause. Tick #42 (2026-07-13 20:39 UTC): no change — run 29253955589 still "account payments have failed." ALL 5 most recent runs (markdown-only through code commits) fail identically in 4-9s with zero steps executed. The bare "Fix CI pipeline — multiple workflows failing" task was merged here — same root cause (billing), no separate pipeline issues exist.
+- **Note:** Needs human with billing access to wojons org. Previously resolved 2026-07-04 but recurred 2026-07-09. Tick #38 confirmed root cause. Tick #42 (2026-07-13 20:39 UTC): no change — run 29253955589 still "account payments have failed." ALL 5 most recent runs (markdown-only through code commits) fail identically in 4-9s with zero steps executed. The bare "Fix CI pipeline — multiple workflows failing" task was merged here — same root cause (billing), no separate pipeline issues exist. Tick #46 (2026-07-15): no change — runs 29424799097/99113/99193 all 4-5s, zero steps. Human-blocked, ~10 ticks pending.
+
+## [x] Fix LINT — unusedwrite violations in test/security/wasm_security_test.go (tick #46)
+- **Priority:** low
+- **Discovered:** 2026-07-15 discovery sweep (tick #46)
+- **Completed:** 2026-07-15 (cron foreman tick #46 — direct fix, no spawn)
+- **Fix:** Added missing require.Equal assertions for MaxFileDescriptors, MaxFileSize, MaxConcurrentThreads, MaxFuel in TestWASM_SandboxLimitsEnforcement. 4 unusedwrite violations resolved.
+- **Commit:** e076f71
+- **Verification:** `go build ./...` ✅, `go vet ./...` ✅, `golangci-lint run ./test/security/wasm_security_test.go` — zero unusedwrite. `go test ./test/security/... -run TestWASM_SandboxLimitsEnforcement` ✅.
+- **Files:** test/security/wasm_security_test.go (+4 assertions)
+
+> **Discovery sweep (tick #46):** 2 TODOs in test harness stubs (pre-existing, low priority). 5 exploits/ + 3 test-util directories untested (not production code). `TestCredential_ConcurrentAccess` hangs on crypto/FIPS contention (pre-existing, unrelated). CI billing still blocked (4-5s durations, zero steps).
 
 ## [x] Wire CLI `daemon start` to spawn daemon binary
 - **Completed:** 2026-07-11 (cron foreman tick #34) — Grok 4.5 worker. +392/-12 across daemon.go + daemon_test.go.
