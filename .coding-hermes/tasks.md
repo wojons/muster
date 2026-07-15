@@ -465,9 +465,9 @@
 - **Commit:** bf73547
 - **Files:** cmd/mcp-server/main.go
 
-## [ ] Fix LINT — errcheck: unchecked resp.Body.Close in oauth2_flow.go + token_manager.go
+## [x] Fix LINT — errcheck: unchecked resp.Body.Close in oauth2_flow.go + token_manager.go
 - **Priority:** low
-- **Discovered:** 2026-07-14 discovery sweep (tick #44)
-- **Violations:** `pkg/auth/oauth2_flow.go:103` — `defer resp.Body.Close()`, `pkg/auth/token_manager.go:91` — `defer resp.Body.Close()`
-- **Fix:** Add `_ =` to discard the error: `defer func() { _ = resp.Body.Close() }()` — OR add `//nolint:errcheck` comment per line
+- **Completed:** 2026-07-15 (cron foreman tick #45)
+- **Fix:** Wrapped both `defer resp.Body.Close()` in `defer func() { _ = resp.Body.Close() }()`. Verified errcheck clean on pkg/auth/..., build+vet+test+guard PASS.
+- **Commit:** 3606ad0
 - **Files:** pkg/auth/oauth2_flow.go, pkg/auth/token_manager.go
