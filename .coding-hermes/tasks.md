@@ -482,4 +482,13 @@
 - **Fix:** Wrapped both `defer resp.Body.Close()` in `defer func() { _ = resp.Body.Close() }()`. Verified errcheck clean on pkg/auth/..., build+vet+test+guard PASS.
 - **Commit:** 3606ad0
 - **Files:** pkg/auth/oauth2_flow.go, pkg/auth/token_manager.go
-## [ ] Fix CI: chore: board update — tick #46: unusedwrite lint fix (e076f71) + disc… — run #122 on main
+## [ ] Fix TEST — TestNewCompletionCommand_Bash pipe-buffer deadlock in captureStdoutCompletion
+- **Priority:** medium
+- **Discovered:** 2026-07-15 discovery sweep (tick #47)
+- **Root cause:** `captureStdoutCompletion()` (completion_test.go:15-28) writes to pipe before reading — `fn()` calls `GenBashCompletion` which writes the full bash completion output to the pipe. If output exceeds 64KB pipe buffer, `GenBashCompletion` blocks on write because nothing reads from the pipe until after `fn()` returns. Classic pipe-buffer deadlock. Bash completion output is the largest (full CLI tree with all persisted commands).
+- **Affected tests:** TestNewCompletionCommand_Bash (consistently hangs), potentially TestNewCompletionCommand_Zsh/Fish/Powershell as command tree grows.
+- **Fix:** Spawn a goroutine to drain the pipe concurrently while `fn()` runs, or replace `os.Pipe()` with `bytes.Buffer` + `os.Stdout` override using a buffer.
+- **Files:** internal/builtin/completion_test.go (captureStdoutCompletion helper)
+- **Verification:** `go test ./internal/builtin/... -count=1 -run "TestNewCompletionCommand_Bash" -timeout 10s` passes without hang.
+
+> **Discovery sweep (tick #47):** CI billing still blocked (all 5 runs 4-5s, zero steps — human-blocked since 2026-07-09). `make lint` pre-existing fieldalignment+errcheck unchanged. 2 TODOs in test harness stubs (pre-existing, low priority). Internal/builtin `TestNewCompletionCommand_Bash` pipe-buffer deadlock discovered (new task above). Board-update CI run #122 (from tick #46) auto-failed for billing — not a code issue.
