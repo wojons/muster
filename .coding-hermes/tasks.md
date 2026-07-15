@@ -455,3 +455,19 @@
 - **Commit:** (this tick)
 - **Verification:** `go build ./...`, `go vet ./...`, `go test ./... -count=1 -short` all pass. 45/45 packages green.
 - **Files:** pkg/errors/errors.go, pkg/cli/error_formatter.go, test/stability/daemon_stability_test.go
+
+## [x] Fix CI: golangci-lint — fieldalignment in cmd/mcp-server MCPServerConfig
+- **Priority:** medium
+- **Discovered:** 2026-07-14 discovery sweep (tick #43)
+- **Completed:** 2026-07-14 (cron foreman tick #44 — direct fix, no spawn)
+- **Fix:** Reordered MCPServerConfig struct fields — grouped pointer-containing fields (strings) first to reduce GC scan area from 96 to 72 pointer bytes. No behavioral change.
+- **Verification:** `go build ./...`, `go vet ./...`, `go test ./cmd/mcp-server/... -count=1 -short`, `golangci-lint run ./cmd/mcp-server/...` all pass. 45/45 packages green. gitreins guard PASS.
+- **Commit:** bf73547
+- **Files:** cmd/mcp-server/main.go
+
+## [ ] Fix LINT — errcheck: unchecked resp.Body.Close in oauth2_flow.go + token_manager.go
+- **Priority:** low
+- **Discovered:** 2026-07-14 discovery sweep (tick #44)
+- **Violations:** `pkg/auth/oauth2_flow.go:103` — `defer resp.Body.Close()`, `pkg/auth/token_manager.go:91` — `defer resp.Body.Close()`
+- **Fix:** Add `_ =` to discard the error: `defer func() { _ = resp.Body.Close() }()` — OR add `//nolint:errcheck` comment per line
+- **Files:** pkg/auth/oauth2_flow.go, pkg/auth/token_manager.go
