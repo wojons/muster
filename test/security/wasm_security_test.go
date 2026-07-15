@@ -26,6 +26,10 @@ func TestWASM_SandboxLimitsEnforcement(t *testing.T) {
 	}
 	require.Equal(t, uint64(64*1024*1024), limits.MaxMemory)
 	require.Equal(t, 10*time.Second, limits.MaxExecutionTime)
+	require.Equal(t, 64, limits.MaxFileDescriptors)
+	require.Equal(t, uint64(10*1024*1024), limits.MaxFileSize)
+	require.Equal(t, 4, limits.MaxConcurrentThreads)
+	require.Equal(t, uint64(1_000_000_000), limits.MaxFuel)
 }
 
 // TestWASM_ExecutionTimeoutEnforcement verifies CPU timeout is configured
