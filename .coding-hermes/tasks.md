@@ -482,3 +482,4 @@
 - **Fix:** Wrapped both `defer resp.Body.Close()` in `defer func() { _ = resp.Body.Close() }()`. Verified errcheck clean on pkg/auth/..., build+vet+test+guard PASS.
 - **Commit:** 3606ad0
 - **Files:** pkg/auth/oauth2_flow.go, pkg/auth/token_manager.go
+## [ ] Fix CI: chore: board update — tick #46: unusedwrite lint fix (e076f71) + disc… — run #122 on main
