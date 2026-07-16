@@ -497,3 +497,15 @@
 > **Discovery sweep (tick #50):** CI billing still blocked (all 5 recent runs 4-6s, zero steps — human-blocked since 2026-07-09). `make build` ✅ (3 binaries: openapi-cli, openapi-daemon, openapi-mcp). `go build ./...` + `go vet ./...` ✅. `go mod verify` ✅ (all modules). Core tests: pkg/ ✅, cmd/ ✅, internal/ ✅. ZERO TODOs/FIXMEs in production code. Test harness stubs have 2 pre-existing TODOs (low priority). CLI/MCP/Daemon binaries all respond correctly. `govulncheck` not installed (tooling gap). No remote commits, no new issues. Board empty — project genuinely complete. **Idle tick #2.**
 
 > **Discovery sweep (tick #51):** CI billing still blocked (all 5 recent runs 4-10s, zero steps — human-blocked since 2026-07-09). `make build` ✅ (3 binaries). `go build ./...` + `go vet ./...` ✅. `go mod verify` ✅ (all modules). Core packages test: pkg/ ✅, cmd/ ✅, internal/ ✅. ZERO TODOs/FIXMEs in production code. No remote commits, no new issues. Board has 1 BLOCKED task (CI billing, human). No new tasks. **Idle tick #5.** Foreman already paused from tick #4.
+
+## [ ] DEPS — update Go toolchain to 1.26.5 (GO-2026-5856 / CVE-2026-42505, Medium)
+- **Priority:** medium
+- **Discovered:** 2026-07-16 discovery sweep (tick #52)
+- **Vuln:** GO-2026-5856 — Encrypted Client Hello privacy leak in crypto/tls
+- **CVE:** CVE-2026-42505 (CVSS 5.3, Medium)
+- **Affected:** crypto/tls@go1.26.1 → Fixed in go1.26.5
+- **Traces:** pkg/daemon/proxy.go, pkg/wasm/middleware.go, pkg/cli/error_formatter.go, test/util/redis.go, pkg/client/cache.go
+- **Fix:** Update go.mod `go` directive to `1.26.5` → triggers Go toolchain auto-download. Verify with `go build ./...` + `go vet ./...` + `govulncheck ./...` clean.
+- **Files:** go.mod
+
+> **Discovery sweep (tick #52):** govulncheck found GO-2026-5856 (CVE-2026-42505, Medium) — crypto/tls ECH privacy leak. Go 1.26.1→1.26.5 fix. CI billing still blocked (all 3 recent runs 4-7s, zero steps — human-blocked since 2026-07-09). `make build` ✅ (3 binaries), `go build ./...` + `go vet ./...` ✅, all core tests green, zero TODOs, `make demo` ✅ (ALL INTEGRATION TESTS PASSED). Created DEPS task for Go toolchain bump. DuckBrain unreachable (connection error) — idle counter not persisted.
