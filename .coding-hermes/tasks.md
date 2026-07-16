@@ -490,4 +490,4 @@
 - **Commit:** 7e57b81
 - **Verification:** `go test ./internal/builtin/... -count=1 -run "TestNewCompletionCommand"` — all 8 tests pass in 0.006s. Build+vet+guard PASS. Full suite (52 packages) green.
 
-> **Discovery sweep (tick #47):** CI billing still blocked (all 5 runs 4-5s, zero steps — human-blocked since 2026-07-09). `make lint` pre-existing fieldalignment+errcheck unchanged. 2 TODOs in test harness stubs (pre-existing, low priority). Internal/builtin `TestNewCompletionCommand_Bash` pipe-buffer deadlock discovered (new task above). Board-update CI run #122 (from tick #46) auto-failed for billing — not a code issue.
+> **Discovery sweep (tick #48):** CI billing still blocked (all 3 runs 5-6s, zero steps — human-blocked since 2026-07-09). Build clean (all 3 binaries). 44/52 packages test green (test/stability daemon timeout is pre-existing). 3 TODOs in test harness stubs (pre-existing, low priority). `make lint` still blocked on pre-existing fieldalignment+errcheck (golangci-lint not in PATH anyway). Board empty except CI billing — no new tasks to create.
