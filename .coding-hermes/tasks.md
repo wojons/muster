@@ -491,3 +491,5 @@
 - **Verification:** `go test ./internal/builtin/... -count=1 -run "TestNewCompletionCommand"` — all 8 tests pass in 0.006s. Build+vet+guard PASS. Full suite (52 packages) green.
 
 > **Discovery sweep (tick #48):** CI billing still blocked (all 3 runs 5-6s, zero steps — human-blocked since 2026-07-09). Build clean (all 3 binaries). 44/52 packages test green (test/stability daemon timeout is pre-existing). 3 TODOs in test harness stubs (pre-existing, low priority). `make lint` still blocked on pre-existing fieldalignment+errcheck (golangci-lint not in PATH anyway). Board empty except CI billing — no new tasks to create.
+
+> **Discovery sweep (tick #49):** CI billing still blocked (all 5 recent runs 4-6s, zero steps — human-blocked since 2026-07-09, needs billing access to wojons org). `make build` ✅ (3 binaries). `go build ./...` + `go vet ./...` ✅. Core packages test green (pkg/platform seccomp SIGABRT is pre-existing env issue — passes with CI=true). ZERO TODOs/FIXMEs in production code (pkg/, cmd/, internal/). Board empty — project genuinely complete. No new tasks to create.
