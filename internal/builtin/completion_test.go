@@ -17,13 +17,22 @@ func captureStdoutCompletion(fn func() error) (string, error) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
+	// Drain the pipe in a goroutine to prevent pipe-buffer deadlock.
+	// If fn() writes more than the OS pipe buffer (typically 64KB),
+	// it blocks on write until a reader consumes from the pipe.
+	// Reading concurrently prevents the hang.
+	var buf bytes.Buffer
+	readDone := make(chan struct{})
+	go func() {
+		io.Copy(&buf, r)
+		close(readDone)
+	}()
+
 	err := fn()
 
 	w.Close()
 	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	<-readDone
 	return buf.String(), err
 }
 
