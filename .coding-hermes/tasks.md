@@ -498,7 +498,7 @@
 
 > **Discovery sweep (tick #51):** CI billing still blocked (all 5 recent runs 4-10s, zero steps — human-blocked since 2026-07-09). `make build` ✅ (3 binaries). `go build ./...` + `go vet ./...` ✅. `go mod verify` ✅ (all modules). Core packages test: pkg/ ✅, cmd/ ✅, internal/ ✅. ZERO TODOs/FIXMEs in production code. No remote commits, no new issues. Board has 1 BLOCKED task (CI billing, human). No new tasks. **Idle tick #5.** Foreman already paused from tick #4.
 
-## [ ] DEPS — update Go toolchain to 1.26.5 (GO-2026-5856 / CVE-2026-42505, Medium)
+## [x] DEPS — update Go toolchain to 1.26.5 (GO-2026-5856 / CVE-2026-42505, Medium)
 - **Priority:** medium
 - **Discovered:** 2026-07-16 discovery sweep (tick #52)
 - **Vuln:** GO-2026-5856 — Encrypted Client Hello privacy leak in crypto/tls
@@ -507,5 +507,8 @@
 - **Traces:** pkg/daemon/proxy.go, pkg/wasm/middleware.go, pkg/cli/error_formatter.go, test/util/redis.go, pkg/client/cache.go
 - **Fix:** Update go.mod `go` directive to `1.26.5` → triggers Go toolchain auto-download. Verify with `go build ./...` + `go vet ./...` + `govulncheck ./...` clean.
 - **Files:** go.mod
+- **Completed:** 2026-07-16 (cron foreman tick #53). Go 1.26.5 auto-downloaded. Build ✅, vet ✅, 44/44 core packages test ✅. Guard PASS. Commit 939038c.
 
 > **Discovery sweep (tick #52):** govulncheck found GO-2026-5856 (CVE-2026-42505, Medium) — crypto/tls ECH privacy leak. Go 1.26.1→1.26.5 fix. CI billing still blocked (all 3 recent runs 4-7s, zero steps — human-blocked since 2026-07-09). `make build` ✅ (3 binaries), `go build ./...` + `go vet ./...` ✅, all core tests green, zero TODOs, `make demo` ✅ (ALL INTEGRATION TESTS PASSED). Created DEPS task for Go toolchain bump. DuckBrain unreachable (connection error) — idle counter not persisted.
+
+> **Tick #53:** DEPS task completed — Go 1.26.1→1.26.5 (commit 939038c). Build ✅, vet ✅, 44/44 packages test ✅, guard PASS. CI billing still blocked (human). Board now has 1 BLOCKED task (CI billing) — no actionable tasks. DuckBrain still unreachable for idle counter persist. **This is a non-idle tick (worker spawned task completed).**
