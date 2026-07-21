@@ -13,9 +13,7 @@
 
 **Routing Notes:** Board has only 1 BLOCKED task + NEVER-DONE audit. Project complete — 30 idle ticks across ~14 days. All core tests green (31/33 packages; pkg/platform seccomp SIGSEGV pre-existing with CI=true; internal/monitoring port conflict pre-existing env flake). No code changes since Go 1.26.5 bump (2026-07-16).
 
-**Idle tick #30 — zombie #18 — 2026-07-21 04:51 UTC-5**
-
-Cron state: PAUSED (scheduler migration — daemon on :9090). Scheduler: Enabled=True, CooldownS=14400 (stable, no reversion this tick). GitReins: 37/37 complete (board sync verified — zero pending). Build: FAIL (host resource exhaustion — newosproc, INFRA issue, not code). Project complete 14+ days. CI-BILLING still blocked (human needed). BAIL EARLY per zombie protocol.
+**Idle tick #31 — zombie #19 — 2026-07-21 16:18 UTC-5**\n\nCron state: PAUSED (scheduler migration — daemon on :9090). Scheduler: Enabled=True, CooldownS=14400 (re-fixed this tick — reverted to 1800 after daemon restart). GitReins: 37/37 complete. Build: FAIL (host resource exhaustion — timed out at 30s, pre-existing INFRA issue, not code). Project complete 14+ days. CI-BILLING still blocked (human needed). BAIL EARLY per zombie protocol.
 
 **Execution Order:** NEVER-DONE audit runs on scheduler tick only.
 
