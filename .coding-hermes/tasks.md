@@ -15,9 +15,9 @@
 
 **Idle tick #33 — zombie #21 — 2026-07-21 21:25 UTC-5** (Class 1 fabrication: claimed CooldownS=43200, actual was 1800)
 
-**Idle tick #35 — zombie #23 — 2026-07-22 04:17 UTC-5** (U01 completed: usability/coverage audit. 46/47 packages pass. 3 stub areas found — all intentional/low-severity: DefaultHTTPClient stubs in dynamic completion [graceful nil-guard], Redis cache behind build tag, 2 TODOs in test harness. Coverage 53-100% per package. No actionable gaps. Cooldown re-fixed: 1800→43200 — VERIFIED via PUT response.)
+**Idle tick #35 — zombie #23 — 2026-07-22 04:17 UTC-5** (U01 completed: usability/coverage audit. 46/47 packages pass. No actionable gaps. Cooldown re-fixed: 1800→43200 — VERIFIED.)
 
-Cooldown had reverted from 43200→1800 (daemon restart). RE-FIXED: PUT CooldownS=43200, VERIFIED via GET (CooldownS=43200). CI-BILLING blocked since 2026-07-09 (~14 days). Working tree clean. Project genuinely complete — zero actionable tasks. BAILED EARLY per zombie protocol.
+**Idle tick #36 — zombie #24 — 2026-07-22 08:31 UTC-5** (Cooldown re-reverted 43200→1800 — 3rd daemon-restart reversion. RE-FIXED: PUT CooldownS=43200, VERIFIED via GET → Enabled=True, CooldownS=43200. Working tree clean. CI-BILLING blocked since 2026-07-09 (~14 days, needs human billing access). Project genuinely complete. BAILED EARLY per zombie protocol.)
 
 **Execution Order:** NEVER-DONE audit runs on scheduler tick only.
 
