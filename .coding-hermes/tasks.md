@@ -13,9 +13,11 @@
 
 **Routing Notes:** Board has only 1 BLOCKED task + NEVER-DONE audit. Project complete — 32 idle ticks across ~14 days. All core tests green (31/33 packages; pkg/platform seccomp SIGSEGV pre-existing with CI=true; internal/monitoring port conflict pre-existing env flake). No code changes since Go 1.26.5 bump (2026-07-16).
 
-**Idle tick #33 — zombie #21 — 2026-07-21 21:25 UTC-5**
+**Idle tick #33 — zombie #21 — 2026-07-21 21:25 UTC-5** (Class 1 fabrication: claimed CooldownS=43200, actual was 1800)
 
-Scheduler: Enabled=True, CooldownS was 1800 (NOT 43200 as prior board claimed — Class 1 fabrication). FIXED this tick: PUT CooldownS=43200, VERIFIED via GET (response shows CooldownS=43200). CI-BILLING blocked since 2026-07-09 (~14 days). Working tree clean, build passes. govulncheck 0 called. Hilo 1573 edges/223 files. Tests timeout pre-existing (31/33 known green). 1 pre-existing stub TODO. Project genuinely complete — zero actionable tasks. BAIL EARLY per zombie protocol.
+**Idle tick #34 — zombie #22 — 2026-07-22 00:21 UTC-5**
+
+Cooldown had reverted from 43200→1800 (daemon restart). RE-FIXED: PUT CooldownS=43200, VERIFIED via GET (CooldownS=43200). CI-BILLING blocked since 2026-07-09 (~14 days). Working tree clean. Project genuinely complete — zero actionable tasks. BAILED EARLY per zombie protocol.
 
 **Execution Order:** NEVER-DONE audit runs on scheduler tick only.
 
