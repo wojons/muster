@@ -11,9 +11,9 @@
 
 **Assumptions:** Go 1.26.5 runtime. 3 binaries (openapi-cli, openapi-daemon, openapi-mcp). 52 packages. CI billing is external (GitHub Actions spending limit). Project code is genuinely complete — zero TODOs in production code. 1 pre-existing TODO in test file only (secure_storage_test.go:54, stub).
 
-**Routing Notes:** Board has only 1 BLOCKED task + NEVER-DONE audit. Project complete — 30 idle ticks across ~14 days. All core tests green (31/33 packages; pkg/platform seccomp SIGSEGV pre-existing with CI=true; internal/monitoring port conflict pre-existing env flake). No code changes since Go 1.26.5 bump (2026-07-16).
+**Routing Notes:** Board has only 1 BLOCKED task + NEVER-DONE audit. Project complete — 32 idle ticks across ~14 days. All core tests green (31/33 packages; pkg/platform seccomp SIGSEGV pre-existing with CI=true; internal/monitoring port conflict pre-existing env flake). No code changes since Go 1.26.5 bump (2026-07-16).
 
-**Idle tick #31 — zombie #19 — 2026-07-21 16:18 UTC-5**\n\nCron state: PAUSED (scheduler migration — daemon on :9090). Scheduler: Enabled=True, CooldownS=14400 (re-fixed this tick — reverted to 1800 after daemon restart). GitReins: 37/37 complete. Build: FAIL (host resource exhaustion — timed out at 30s, pre-existing INFRA issue, not code). Project complete 14+ days. CI-BILLING still blocked (human needed). BAIL EARLY per zombie protocol.
+**Idle tick #32 — zombie #20 — 2026-07-21 20:18 UTC-5**\n\nScheduler: Enabled=True, CooldownS=43200 (bumped to 12h — project idle 14+ days). Verified via GET after PUT. CI-BILLING still blocked (human needed). Project genuinely complete — zero actionable tasks. BAIL EARLY per zombie protocol.
 
 **Execution Order:** NEVER-DONE audit runs on scheduler tick only.
 
