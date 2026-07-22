@@ -7,6 +7,7 @@
 | ID | Task | Priority | Complexity | Deps | Tags | Model | Reasoning | Fallback |
 |----|------|----------|------------|------|------|-------|-----------|----------|
 | CI-BILLING | GitHub Actions spending limit reached — ALL CI jobs blocked | Critical | 1 (admin) | — | — | — | BLOCKED: Needs human with billing access to wojons org. Blocked since 2026-07-09 (~14 days) | — |
+| U01 | Usability & coverage audit — find gaps in endpoint wiring, UX flow, error handling, edge cases, test coverage | High | 3±1 | — | +++testing, ++endpoint-verification, ++code-review, +e2e, -vision | DS-V4-Flash | Medium | GLM-5.2 |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
 **Assumptions:** Go 1.26.5 runtime. 3 binaries (openapi-cli, openapi-daemon, openapi-mcp). 52 packages. CI billing is external (GitHub Actions spending limit). Project code is genuinely complete — zero TODOs in production code. 1 pre-existing TODO in test file only (secure_storage_test.go:54, stub).
