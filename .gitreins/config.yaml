@@ -1,14 +1,3 @@
-defaults:
-  check_for_updates: true
-  model: deepseek-v4-flash
-  update_check_ttl: 24h
-evaluator:
-  code_context_budget: 0.7
-  compaction_threshold: 0.9
-  max_iterations: 100
-  max_output_tokens: 200k
-  max_time: 15m
-  tool_call_weight: 0.1
 guards:
   go:
     build: true
@@ -22,6 +11,19 @@ guards:
   test_command: go test -short -count=1 $(go list ./... | grep -v test/stability)
   test_mode: full
   tests: true
+evaluator:
+  max_iterations: 50
+  max_time: 10m
+  max_input_tokens: 0.2M
+  max_output_tokens: 0.4M
+  tool_call_weight: 0.1
+  fast_track: auto
+
+defaults:
+  model: deepseek-v4-flash
+  provider: deepseek-foreman
+  api_key_env: GITREINS_LLM_API_KEY
+
 history:
   enabled: true
   max_verdicts: 1000

@@ -1,0 +1,17 @@
+# Muster — Code Owners
+# Default owner for all files
+* @wojons
+
+# Core packages
+/pkg/ @wojons
+/cmd/ @wojons
+/internal/ @wojons
+
+# Specs and docs
+/specs/ @wojons
+/docs/ @wojons
+
+# CI and build
+/.github/ @wojons
+/Makefile @wojons
+/Dockerfile @wojons
