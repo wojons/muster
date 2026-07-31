@@ -34,7 +34,7 @@
 |----|------|-----|-----|------|------|-------|-----|----------|
 | CI-BILLING | GitHub Actions spending limit reached — ALL CI jobs blocked | Critical | 1 | — | — | BLOCKED: Needs human with billing access to wojons org (~16 days) | — | — |
 | E2E-001 | E2E Testing Tick (self-improving loop) 🔁 Recurring every 5-10 ticks | High | 4 | — | ++browser, ++screenshots, ++verification | GPT-5.6 Luna | High | Step 3.7 Flash |
-| GITREINS-JUDGE | Bump GitReins judge limits — 591 source files: max_iterations 50→100, max_time ≥30m (supervisor audit 2026-07-31, 2E) | High | 1 | — | ++quality,++config | deepseek-v4-flash | Low | GLM-5.2 |
+| ✅ GITREINS-JUDGE | Bump GitReins judge limits — RESOLVED tick #67: caps 100 iter / 30m / 1M in / 2M out, checker PASS | High | 1 | — | ++quality,++config | deepseek-v4-flash | Low | GLM-5.2 |
 | NEVER-DONE | 11-point audit sweep | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Medium | GLM-5.2 |
 
 ## Completed Summary
@@ -483,3 +483,24 @@
 **Board detection:** M1=0 M2=1 (GITREINS-JUDGE permanent fixture) M3=0 M4=0. GitReins: 0 pending.
 
 **Verdict:** ZOMBIE/PAUSE-REQUESTED — 66th idle tick. No code changes since tick #49 (15 days). All 37 GitReins tasks verified complete. CI billing blocked (GitHub Actions spending limit, ~24 days). CRON_PAUSE_REQUESTED active since tick #61. gofmt: 3 test files with cosmetic formatting drift (unchanged from prior ticks). Judge caps undersized but non-blocking for zombie state. Zero actionable gaps — project is genuinely complete and needs human action (GitHub billing) before any foreman work is useful. Skipped full 11-point audit in deference to pause request. Cooldown: 43200s.
+
+### Tick 67 — 2026-07-31 15:50 UTC (DeepSeek V4 Flash)
+
+| # | Gate | Result | Detail |
+|---|------|--------|--------|
+| 1 | CRON_PAUSE_REQUESTED | ACTIVE | Verified on disk: .coding-hermes/CRON_PAUSE_REQUESTED (from tick #61) |
+| 2 | Git status | PASS | Only tasks.md + CRON_PAUSE_REQUESTED untracked; .gitreins/config.yaml modified this tick — no source changes since tick #49 |
+| 3 | Go build | PASS | go build ./... clean |
+| 4 | Go vet | PASS | go vet ./... clean |
+| 5 | Hilo graph | PASS | 1583 edges, 223 files — fresh warm+stats this tick, matches board history |
+| 6 | GitReins guard | PASS | secrets/build/lint/tests all green (config-only change) |
+| 7 | GitReins dual-source | PASS | 38/38 tasks complete, 0 pending. Board consistent — no drift. |
+| 8 | GITREINS-JUDGE | FIXED | Supervisor audit 2026-07-31 flagged caps undersized (444 files, max_iterations=50). Bumped evaluator caps: max_iterations 50→100, max_time 10m→30m, max_input_tokens 0.2M→1M, max_output_tokens 0.4M→2M. check-gitreins-judge.py: PASS (model=deepseek-v4-flash). |
+| 9 | Scheduler cooldown | FIXED | Reverted to 900s (19th documented reversion). PUT CooldownS=43200 → GET-verified 43200, Enabled=true. |
+| 10 | gofmt | WARN | Same 3 test files (pkg/auth/ratelimit/integration_test.go, pkg/cmdstore/integration_test.go, pkg/events/dispatcher_integration_test.go) — cosmetic, pre-existing |
+| 11 | DuckBrain | PASS | Status + activity keys updated this tick |
+| 12 | Off-by-one | PASS | Health ok (uptime 169h) |
+
+**Board detection:** M1=0 M2=0 (GITREINS-JUDGE resolved this tick) M3=0 M4=0. GitReins: 0 pending.
+
+**Verdict:** ZOMBIE/PAUSE-REQUESTED — 67th tick, no code changes since tick #49 (15 days). Executed GITREINS-JUDGE (supervisor-flagged caps bump, verified PASS) and re-executed scheduler self-pause (cooldown 900→43200, 19th reversion fixed, API-verified). CI billing still blocked (GitHub Actions spending limit, ~25 days). CRON_PAUSE_REQUESTED active since tick #61. 0 remaining actionable gaps — project needs human (billing) + fleet.toml entry for permanent 12h cooldown. Cooldown: 43200s.
