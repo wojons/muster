@@ -84,3 +84,11 @@ _storage/
 # Demo Python virtualenv
 demo/.venv/
 /muster
+
+# Hilo
+.vfs/graph/graph.db
+.vfs/graph/graph.db.wal
+
+# coding-hermes board — local DuckDB cache (rebuildable from parquet)
+.coding-hermes/board/board.db
+.coding-hermes/board/board.db.wal
