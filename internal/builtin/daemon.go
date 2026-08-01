@@ -310,6 +310,7 @@ func newDaemonStatusCommand() *cobra.Command {
 					fmt.Printf("Status: Running\n")
 					fmt.Printf("  PID: %d\n", pid)
 					fmt.Printf("  Socket: %s\n", socketPath)
+					fmt.Printf("  Started: %s\n", processStartTime(pid))
 					return nil
 				}
 				fmt.Println("Status: Stopped")
