@@ -78,6 +78,9 @@ and serves them via MCP protocol.`,
 	root.AddCommand(newRequestCommand(cfg))
 	root.AddCommand(newDaemonCommand())
 	root.AddCommand(newDslCommand())
+	root.AddCommand(newWebhookCommand(cfg))
+	root.AddCommand(newTenantCommand(cfg))
+	root.AddCommand(newAuditCommand())
 
 	// Load and add persisted commands from storage
 	loadPersistedCommands(root, cfg)
