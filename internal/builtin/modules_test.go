@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,15 +35,57 @@ func TestModulesCommand_RunMissingFile(t *testing.T) {
 	require.Error(t, cmd.Execute())
 }
 
+// TestModulesCommand_RunInvalidModule verifies error on non-wasm bytes.
+func TestModulesCommand_RunInvalidModule(t *testing.T) {
+	badPath := filepath.Join(t.TempDir(), "bad.wasm")
+	require.NoError(t, os.WriteFile(badPath, []byte("this is not a wasm binary"), 0o644))
+
+	cmd := newModulesCommand()
+	cmd.SetArgs([]string{"run", badPath})
+	require.Error(t, cmd.Execute())
+}
+
+// TestModulesCommand_RunNonIntegerArg verifies error on non-numeric args.
+func TestModulesCommand_RunNonIntegerArg(t *testing.T) {
+	wasmPath := filepath.Join("..", "..", "testdata", "wasm-modules", "add.wasm")
+	if _, err := os.Stat(wasmPath); err != nil {
+		t.Skip("testdata/wasm-modules/add.wasm not present")
+	}
+
+	cmd := newModulesCommand()
+	cmd.SetArgs([]string{"run", "--fn", "add", wasmPath, "twenty"})
+	require.Error(t, cmd.Execute())
+}
+
 // TestModulesCommand_RunHelloWasm executes the bundled hello.wasm.
 func TestModulesCommand_RunHelloWasm(t *testing.T) {
 	wasmPath := filepath.Join("..", "..", "testdata", "wasm-modules", "hello.wasm")
 	if _, err := os.Stat(wasmPath); err != nil {
 		t.Skip("testdata/wasm-modules/hello.wasm not present")
 	}
+
+	var buf bytes.Buffer
 	cmd := newModulesCommand()
+	cmd.SetOut(&buf)
 	cmd.SetArgs([]string{"run", wasmPath})
 	require.NoError(t, cmd.Execute())
+	assert.Contains(t, buf.String(), "Output: [42]")
+}
+
+// TestModulesCommand_RunArgsPassthrough verifies positional args are
+// passed as parameters to the exported function (add(20, 22) -> 42).
+func TestModulesCommand_RunArgsPassthrough(t *testing.T) {
+	wasmPath := filepath.Join("..", "..", "testdata", "wasm-modules", "add.wasm")
+	if _, err := os.Stat(wasmPath); err != nil {
+		t.Skip("testdata/wasm-modules/add.wasm not present")
+	}
+
+	var buf bytes.Buffer
+	cmd := newModulesCommand()
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"run", "--fn", "add", wasmPath, "20", "22"})
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, buf.String(), "Output: [42]")
 }
 
 // TestWasmRuntime_ExecuteHelloModule verifies the runtime executes the
