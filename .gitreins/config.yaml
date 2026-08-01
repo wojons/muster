@@ -10,14 +10,18 @@ guards:
   secrets: true
   test_command: go test -short -count=1 $(go list ./... | grep -v test/stability)
   test_mode: full
+  test_timeout: 600
+  hook_timeout: 900
   tests: true
 evaluator:
+  model: deepseek-v4-flash
   max_iterations: 100
   max_time: 30m
   max_input_tokens: 1M
   max_output_tokens: 2M
   tool_call_weight: 0.1
   fast_track: auto
+  file_scope: changed
 
 defaults:
   model: deepseek-v4-flash
