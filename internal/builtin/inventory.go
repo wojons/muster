@@ -14,10 +14,10 @@ import (
 
 // inventoryEntry is a configured spec inventory: host URL + local file.
 type inventoryEntry struct {
-	Host      string `json:"host"`
-	File      string `json:"file"`
-	AddedAt   string `json:"added_at,omitempty"`
-	LastSync  string `json:"last_sync,omitempty"`
+	Host     string `json:"host"`
+	File     string `json:"file"`
+	AddedAt  string `json:"added_at,omitempty"`
+	LastSync string `json:"last_sync,omitempty"`
 }
 
 func inventoryStorePath(cfg *config.Config) string {

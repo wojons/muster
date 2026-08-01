@@ -63,7 +63,7 @@ RUN go test -v -short -timeout 120s $$(go list ./... | grep -v -e test/stability
 # Using specific digest for reproducible security scanning
 # Enhanced with secret scanning and SBOM generation
 # =============================================================================
-FROM aquasec/trivy:latest@sha256:4a6c8a8c5e8f3e9a2b1c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5 AS security-scanner
+FROM aquasec/trivy:latest AS security-scanner
 
 # Install additional security tools
 RUN apk add --no-cache jq curl

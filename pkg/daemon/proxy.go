@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -691,8 +692,10 @@ func sanitizeProxyPath(path string) string {
 		}
 	}
 
-	// Clean the path to resolve . and normalize separators
-	cleaned := filepath.Clean(path)
+	// Clean the path to resolve . and normalize separators.
+	// Use path.Clean (forward-slash semantics) not filepath.Clean —
+	// filepath.Clean converts / to \ on Windows, corrupting URL paths.
+	cleaned := pathpkg.Clean(path)
 
 	// Double-check after cleaning (belt and suspenders)
 	if strings.Contains(cleaned, "..") {

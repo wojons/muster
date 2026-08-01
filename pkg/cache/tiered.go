@@ -116,15 +116,15 @@ func (c *TieredCache) Stats() Stats {
 
 // CacheManager tracks hit rates and exposes typed cache access.
 type CacheManager struct {
-	mu       sync.RWMutex
-	caches   map[string]Cache
-	names    []string
-	hitRate  *hitRateTracker
+	mu      sync.RWMutex
+	caches  map[string]Cache
+	names   []string
+	hitRate *hitRateTracker
 }
 
 type hitRateTracker struct {
-	hits   atomic.Uint64
-	total  atomic.Uint64
+	hits  atomic.Uint64
+	total atomic.Uint64
 }
 
 // NewCacheManager creates a CacheManager with an empty cache registry.
@@ -164,9 +164,9 @@ func (m *CacheManager) Names() []string {
 // TypedCache wraps a Cache with a concrete value type, handling
 // serialization so callers work with T instead of []byte.
 type TypedCache[T any] struct {
-	inner   Cache
-	encode  func(T) ([]byte, error)
-	decode  func([]byte) (T, error)
+	inner  Cache
+	encode func(T) ([]byte, error)
+	decode func([]byte) (T, error)
 }
 
 // NewTypedCache creates a typed view over an underlying Cache.
