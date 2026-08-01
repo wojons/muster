@@ -122,7 +122,7 @@ func TestResolveSocketPath(t *testing.T) {
 }
 
 func TestPidFileForSocket(t *testing.T) {
-	assert.Equal(t, "/tmp/muster-daemon.sock.pid", pidFileForSocket(defaultDaemonSocket))
+	assert.Equal(t, "/tmp/openapi-cli.sock.pid", pidFileForSocket(defaultDaemonSocket))
 	assert.Equal(t, "/var/run/foo.sock.pid", pidFileForSocket("/var/run/foo.sock"))
 }
 

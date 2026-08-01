@@ -65,7 +65,7 @@ func run() error {
 
 	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flagSet.StringVar(&backendURL, "backend-url", "", "Backend URL for proxy mode")
-	flagSet.StringVar(&socketPath, "socket-path", "/tmp/muster-daemon.sock", "Path for Unix domain socket")
+	flagSet.StringVar(&socketPath, "socket-path", "/tmp/openapi-cli.sock", "Path for Unix domain socket")
 	flagSet.StringVar(&pidFile, "pid-file", "", "Path for PID file (default: <socket-path>.pid")
 	flagSet.StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 	err := flagSet.Parse(flagArgs)
@@ -133,7 +133,11 @@ func handleStart(controller *daemon.Controller) error {
 		return fmt.Errorf("controller is required")
 	}
 
-	err := controller.Start()
+	// Start the controller with the default socket handler so the Unix
+	// socket is actually created and /health endpoints are served.
+	// (Controller.Start() alone only flips the running flag — it does not
+	// listen on the socket.)
+	err := controller.StartWithSocket(createDaemonHandler())
 	if err != nil {
 		return fmt.Errorf("start daemon: %w", err)
 	}
@@ -153,7 +157,36 @@ func handleStart(controller *daemon.Controller) error {
 	// Wait for shutdown signal
 	<-sigCh
 	fmt.Println("Shutting down daemon...")
-	return controller.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return controller.Shutdown(ctx)
+}
+
+// createDaemonHandler returns the default HTTP handler for the daemon,
+// exposing the root info endpoint plus /health endpoints.
+func createDaemonHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, `{"status":"ok","message":"Muster daemon is running"}`)
+	})
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, `{"status":"healthy"}`)
+	})
+	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, `{"status":"alive","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
+	})
+	mux.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = fmt.Fprintf(w, `{"status":"ready","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
+	})
+	return mux
 }
 
 func handleProxyStart(controller *daemon.Controller, handler http.Handler) error {
@@ -238,7 +271,7 @@ func handleStatus(controller *daemon.Controller) error {
 	fmt.Printf("  Running:     %v\n", status.Running)
 	fmt.Printf("  PID:         %d\n", status.PID)
 	fmt.Printf("  Start time:  %v\n", status.StartTime)
-	fmt.Printf("  Socket:      %s\n", "/tmp/muster-daemon.sock")
+	fmt.Printf("  Socket:      %s\n", socketPath)
 	fmt.Printf("  Token file:  %s\n", controller.GetTokenPath())
 	fmt.Printf("  Version:     %s\n", status.Version)
 	return nil

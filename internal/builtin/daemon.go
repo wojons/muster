@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultDaemonSocket = "/tmp/muster-daemon.sock"
+	defaultDaemonSocket = "/tmp/openapi-cli.sock"
 	daemonBinaryName    = "openapi-daemon"
 )
 
