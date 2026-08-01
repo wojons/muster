@@ -33,7 +33,7 @@ func (l *SandboxLimits) Validate() error {
 	if l.MaxFuel == 0 {
 		return fmt.Errorf("wasm: fuel limit must be > 0")
 	}
-	if l.MaxExecutionTime == 0 {
+	if l.MaxExecutionTime <= 0 {
 		return fmt.Errorf("wasm: execution time limit must be > 0")
 	}
 	if l.MaxFileSize == 0 {
