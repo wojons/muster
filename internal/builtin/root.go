@@ -70,8 +70,8 @@ and serves them via MCP protocol.`,
 	// caused two "help" entries in the Available Commands list.
 	root.AddCommand(newCompletionCommand())
 	root.AddCommand(newInitCommand())
-	root.AddCommand(newAuthCommand())
-	root.AddCommand(newInventoryCommand())
+	root.AddCommand(newAuthCommand(cfg))
+	root.AddCommand(newInventoryCommand(cfg))
 	root.AddCommand(newModulesCommand())
 	root.AddCommand(newDiscoverCommand())
 	root.AddCommand(newGenerateCommand(cfg))

@@ -156,7 +156,7 @@ func newDaemonStartCommand() *cobra.Command {
 
 			pid := execCmd.Process.Pid
 			if err := writePIDFile(pidPath, pid); err != nil {
-				_ = syscall.Kill(pid, syscall.SIGTERM)
+				_ = terminateProcess(pid)
 				return fmt.Errorf("write PID file: %w", err)
 			}
 
@@ -215,7 +215,7 @@ func newDaemonStopCommand() *cobra.Command {
 					return nil
 				}
 
-				if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+				if err := terminateProcess(pid); err != nil {
 					return fmt.Errorf("send SIGTERM to PID %d: %w", pid, err)
 				}
 

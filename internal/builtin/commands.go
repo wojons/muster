@@ -21,20 +21,6 @@ func newInitCommand() *cobra.Command {
 	}
 }
 
-func newAuthCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "auth",
-		Short: "Manage authentication credentials",
-	}
-}
-
-func newInventoryCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "inventory",
-		Short: "Manage spec inventories",
-	}
-}
-
 func newModulesCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "modules",
