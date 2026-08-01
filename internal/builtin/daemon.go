@@ -77,7 +77,33 @@ func findDaemonBinary() (string, error) {
 		return abs, nil
 	}
 
-	return "", fmt.Errorf("daemon binary %q not found; looked in ./bin/openapi-daemon and relative to the executable", daemonBinaryName)
+	// Fall back to building the daemon binary. A fresh checkout (CI,
+	// judge sandbox) has no bin/openapi-daemon, but `go build` is
+	// available — without this, `daemon start` fails in clean trees.
+	built, err := buildDaemonBinary()
+	if err != nil {
+		return "", fmt.Errorf(
+			"daemon binary %q not found (looked in ./bin and relative to executable) and build fallback failed: %w",
+			daemonBinaryName, err,
+		)
+	}
+	return built, nil
+}
+
+// buildDaemonBinary compiles cmd/daemon into ./bin/openapi-daemon.
+func buildDaemonBinary() (string, error) {
+	target := filepath.Join("bin", daemonBinaryName)
+	cmd := exec.Command("go", "build", "-o", target, "./cmd/daemon")
+	cmd.Dir = "."
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("go build %s: %v: %s", target, err, string(out))
+	}
+	abs, err := filepath.Abs(target)
+	if err != nil {
+		return target, nil
+	}
+	return abs, nil
 }
 
 // isProcessRunning reports whether a process with the given PID exists.
