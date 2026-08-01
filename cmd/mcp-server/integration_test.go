@@ -181,7 +181,15 @@ func buildMCPServer() (string, error) {
 	cmd.Dir = "." // Current directory is cmd/mcp-server when tests run
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("build failed: %v: %s", err, string(output))
+		// Concurrent go builds (judge tier2 LLM running builds in parallel
+		// with the tier1 test suite) can transiently fail; retry once.
+		cmd2 := exec.Command("go", "build", "-o", binaryPath, ".")
+		cmd2.Dir = "."
+		if output2, err2 := cmd2.CombinedOutput(); err2 == nil {
+			return binaryPath, nil
+		} else {
+			return "", fmt.Errorf("build failed (first: %v: %s; retry: %v: %s)", err, string(output), err2, string(output2))
+		}
 	}
 
 	return binaryPath, nil
