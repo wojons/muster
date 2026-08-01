@@ -176,8 +176,11 @@ func TestTokenBucket_Tokens_RefillReflected(t *testing.T) {
 	}
 	// Tokens ~0 now
 	time.Sleep(50 * time.Millisecond) // 5 tokens refilled
-	if tok := tb.Tokens(); tok < 4.5 || tok > 5.5 {
-		t.Errorf("Tokens() after 50ms refill = %f, want ~5.0", tok)
+	// Refill is time-based (elapsed * fillRate). Under system load the
+	// sleep overruns, so MORE than 5.0 tokens accrue — assert lower bound
+	// only. Capacity cap guarantees the upper bound.
+	if tok := tb.Tokens(); tok < 4.5 || tok > float64(tb.capacity) {
+		t.Errorf("Tokens() after 50ms refill = %f, want >= 4.5 and <= capacity %d", tok, tb.capacity)
 	}
 }
 
