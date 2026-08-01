@@ -15,14 +15,11 @@ guards:
   tests: true
 evaluator:
   model: deepseek-v4-flash
-  max_iterations: 100
-  max_time: 30m
-  max_input_tokens: 10M
-  max_output_tokens: 2M
+  max_iterations: 200
+  max_time: "45m"
+  max_input_tokens: "10M"
+  max_output_tokens: "2M"
   tool_call_weight: 0.1
-  # AC tasks have zero changed files — 'changed' scope (the default) makes
-  # read_file/search_pattern reject every path and the judge can't verify
-  # anything. 'full' lets it read the whole repo.
   file_scope: full
   fast_track: auto
 
