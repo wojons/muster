@@ -29,10 +29,15 @@ func TestSandboxedFS_SymlinkedRootMacOSSemantics(t *testing.T) {
 	sb, err := NewSandboxedFS([]string{root}, false)
 	require.NoError(t, err)
 
+	// The caller's real dir may itself sit under a symlink (macOS /var ->
+	// /private/var), so canonicalize the expected prefix like Resolve does.
+	canonReal, err := filepath.EvalSymlinks(real)
+	require.NoError(t, err)
+
 	// 1. Path inside through the symlinked root resolves.
 	resolved, err := sb.Resolve(filepath.Join(root, "real", "a.txt"))
 	require.NoError(t, err)
-	assert.True(t, strings.HasPrefix(resolved, filepath.Join(real, "sandbox")), "resolved=%s", resolved)
+	assert.True(t, strings.HasPrefix(resolved, filepath.Join(canonReal, "sandbox")), "resolved=%s", resolved)
 
 	// 2. A symlink INSIDE the sandbox pointing OUTSIDE still escapes.
 	outside := filepath.Join(real, "outside")

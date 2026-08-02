@@ -27,8 +27,15 @@ import (
 // escapes the allowed roots, preventing classic sandbox escapes via
 // symlink chains.
 type SandboxedFS struct {
-	// roots are the absolute directory paths the sandbox may access.
+	// roots are the canonical (symlink-resolved) absolute directory paths
+	// the sandbox may access. Resolve results compare against these.
 	roots []string
+
+	// lexicalRoots are the caller's root paths as given (absolutized +
+	// cleaned, NOT symlink-resolved). On macOS a caller may pass /var/...
+	// which canonicalizes to /private/var/...; lexical containment of the
+	// caller's path is decided against this form.
+	lexicalRoots []string
 
 	// allowWrite controls whether files under the roots may be created
 	// or modified. When false the sandbox is read-only.
@@ -46,12 +53,14 @@ func NewSandboxedFS(roots []string, allowWrite bool) (*SandboxedFS, error) {
 		return nil, fmt.Errorf("wasm: sandboxed fs requires at least one root directory")
 	}
 	abs := make([]string, 0, len(roots))
+	lex := make([]string, 0, len(roots))
 	for _, r := range roots {
 		a, err := filepath.Abs(r)
 		if err != nil {
 			return nil, fmt.Errorf("wasm: resolve sandbox root %q: %w", r, err)
 		}
 		a = filepath.Clean(a)
+		lex = append(lex, a)
 		// Canonicalize so EvalSymlinks results in Resolve compare equal.
 		// On macOS /var is a symlink to /private/var, so a root under
 		// /var would otherwise reject every resolved path.
@@ -60,7 +69,7 @@ func NewSandboxedFS(roots []string, allowWrite bool) (*SandboxedFS, error) {
 		}
 		abs = append(abs, a)
 	}
-	return &SandboxedFS{roots: abs, allowWrite: allowWrite}, nil
+	return &SandboxedFS{roots: abs, lexicalRoots: lex, allowWrite: allowWrite}, nil
 }
 
 // Roots returns the allowed root directories (absolute).
@@ -107,17 +116,19 @@ func (s *SandboxedFS) Resolve(path string) (string, error) {
 		}
 	}
 
+	// Lexical containment check against the caller's root forms. The
+	// caller's path is accepted if it lexically lives under a root as
+	// given (macOS /var/... caller roots) OR under a canonical root.
+	if !s.withinLexical(abs) && !s.withinRoot(canonAbs) {
+		return "", fmt.Errorf("wasm: path %q outside sandbox roots %v", path, s.lexicalRoots)
+	}
+
 	// Symlink escape prevention: a canonical form that leaves the roots is
 	// an escape, regardless of the lexical form the caller passed in.
 	if canonAbs != abs && !s.withinRoot(canonAbs) {
 		return "", fmt.Errorf("wasm: path %q escapes sandbox via symlink (target %q)", path, canonAbs)
 	}
 	abs = canonAbs
-
-	// Lexical containment check against every root.
-	if !s.withinRoot(abs) {
-		return "", fmt.Errorf("wasm: path %q outside sandbox roots %v", path, s.roots)
-	}
 
 	// Resolve the real target if it exists and verify it stays inside.
 	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
@@ -129,6 +140,18 @@ func (s *SandboxedFS) Resolve(path string) (string, error) {
 	// Path does not exist yet (e.g. a new file). The canonical ancestor was
 	// already verified above — the caller's open/write surfaces the ENOENT.
 	return abs, nil
+}
+
+// withinLexical reports whether abs is lexically inside any root as the
+// caller gave it (absolutized, not symlink-resolved). This is the form the
+// caller's own path is in on macOS (/var/... instead of /private/var/...).
+func (s *SandboxedFS) withinLexical(abs string) bool {
+	for _, root := range s.lexicalRoots {
+		if abs == root || strings.HasPrefix(abs, root+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // withinRoot reports whether abs is lexically inside any allowed root.
