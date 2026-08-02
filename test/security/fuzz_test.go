@@ -3,7 +3,7 @@ package security
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 	"sync"
 	"testing"
@@ -288,28 +288,28 @@ func TestPathTraversalAttack(t *testing.T) {
 }
 
 // sanitizePath simulates path sanitization (should be implemented in actual code)
-func sanitizePath(path string) string {
+func sanitizePath(input string) string {
 	// First pass: keep as-is if not encoded
-	cleaned := path
+	cleaned := input
 
 	// Try URL decoding (handle %XX encoding)
-	if strings.Contains(path, "%") {
+	if strings.Contains(input, "%") {
 		// Manual URL decoding for %XX sequences
 		var decoded strings.Builder
-		for i := 0; i < len(path); i++ {
-			if path[i] == '%' && i+2 < len(path) {
+		for i := 0; i < len(input); i++ {
+			if input[i] == '%' && i+2 < len(input) {
 				// Try to decode hex
-				hexStr := path[i+1 : i+3]
+				hexStr := input[i+1 : i+3]
 				if decodedByte, err := fmt.Sscanf(hexStr, "%02x", new(byte)); err == nil && decodedByte == 1 {
 					var b byte
 					_, _ = fmt.Sscanf(hexStr, "%02x", &b)
 					decoded.WriteByte(b)
 					i += 2
 				} else {
-					decoded.WriteByte(path[i])
+					decoded.WriteByte(input[i])
 				}
 			} else {
-				decoded.WriteByte(path[i])
+				decoded.WriteByte(input[i])
 			}
 		}
 		cleaned = decoded.String()
@@ -322,7 +322,7 @@ func sanitizePath(path string) string {
 	cleaned = strings.ReplaceAll(cleaned, "\x00", "")
 
 	// Clean path
-	cleaned = filepath.Clean(cleaned)
+	cleaned = path.Clean(cleaned)
 
 	// Remove leading slashes
 	cleaned = strings.TrimPrefix(cleaned, "/")
@@ -340,7 +340,7 @@ func sanitizePath(path string) string {
 		return ""
 	}
 
-	return filepath.Join(cleanParts...)
+	return path.Join(cleanParts...)
 }
 
 // ============================================================================

@@ -96,27 +96,38 @@ func (s *SandboxedFS) Resolve(path string) (string, error) {
 	}
 	abs = filepath.Clean(abs)
 
+	// Canonicalize the deepest existing ancestor so comparisons are
+	// canonical-to-canonical (roots are canonicalized at construction; on
+	// macOS /var is a symlink to /private/var). A symlinked parent that
+	// resolves outside the roots is a sandbox escape.
+	canonAbs := abs
+	if parent := deepestExistingAncestor(abs); parent != "" {
+		if resolvedParent, err := filepath.EvalSymlinks(parent); err == nil && resolvedParent != parent {
+			canonAbs = filepath.Join(resolvedParent, strings.TrimPrefix(abs, parent))
+		}
+	}
+
+	// Symlink escape prevention: a canonical form that leaves the roots is
+	// an escape, regardless of the lexical form the caller passed in.
+	if canonAbs != abs && !s.withinRoot(canonAbs) {
+		return "", fmt.Errorf("wasm: path %q escapes sandbox via symlink (target %q)", path, canonAbs)
+	}
+	abs = canonAbs
+
 	// Lexical containment check against every root.
 	if !s.withinRoot(abs) {
 		return "", fmt.Errorf("wasm: path %q outside sandbox roots %v", path, s.roots)
 	}
 
-	// Symlink escape prevention: resolve the real target if it exists.
+	// Resolve the real target if it exists and verify it stays inside.
 	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
 		if !s.withinRoot(resolved) {
 			return "", fmt.Errorf("wasm: path %q escapes sandbox via symlink (target %q)", path, resolved)
 		}
 		return resolved, nil
 	}
-	// Path does not exist yet (e.g. a new file). Walk the deepest existing
-	// ancestor and verify it does not escape via a symlinked parent.
-	if parent := deepestExistingAncestor(abs); parent != "" {
-		if resolved, err := filepath.EvalSymlinks(parent); err == nil {
-			if !s.withinRoot(resolved) {
-				return "", fmt.Errorf("wasm: path %q escapes sandbox via symlinked parent %q", path, parent)
-			}
-		}
-	}
+	// Path does not exist yet (e.g. a new file). The canonical ancestor was
+	// already verified above — the caller's open/write surfaces the ENOENT.
 	return abs, nil
 }
 

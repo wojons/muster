@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -252,6 +253,9 @@ func buildDaemonBinary() (string, error) {
 	}
 
 	binaryPath := filepath.Join(tmpDir, "test-daemon")
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
 
 	// Build from package directory
 	cmd := exec.Command("go", "build", "-o", binaryPath, ".")

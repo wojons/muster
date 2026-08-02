@@ -125,17 +125,39 @@ func TestMCP_ListTools(t *testing.T) {
 	require.NoError(t, err)
 	_, _ = stdin.Write(append(reqJSON, '\n'))
 
-	outputBuf := make([]byte, 8192)
-	n, _ := stdout.Read(outputBuf)
-	resp1 := strings.TrimSpace(string(outputBuf[:n]))
-
-	outputBuf = make([]byte, 8192)
-	n, err = stdout.Read(outputBuf)
-	require.NoError(t, err)
-	resp2 := strings.TrimSpace(string(outputBuf[:n]))
+	// Read two newline-delimited JSON-RPC responses (initialize + tools/list).
+	// Raw pipe reads are unsafe here: responses can coalesce into a single
+	// read or split across reads, so a fixed-size Read blocks until the
+	// context kills the process (EOF) whenever framing shifts.
+	reader := bufio.NewReader(stdout)
+	resp1, err := readMCPResponse(ctx, reader)
+	require.NoError(t, err, "initialize response")
+	resp2, err := readMCPResponse(ctx, reader)
+	require.NoError(t, err, "tools/list response")
 
 	t.Logf("Initialize response: %s", resp1)
 	t.Logf("List tools response: %s", resp2)
+}
+
+// readMCPResponse reads one newline-delimited JSON-RPC response from the MCP
+// server's stdout, honoring ctx. It returns io.EOF if the server exits before
+// responding and ctx.Err() if the deadline fires first.
+func readMCPResponse(ctx context.Context, r *bufio.Reader) (string, error) {
+	type lineResult struct {
+		line string
+		err  error
+	}
+	ch := make(chan lineResult, 1)
+	go func() {
+		line, err := r.ReadBytes('\n')
+		ch <- lineResult{string(line), err}
+	}()
+	select {
+	case res := <-ch:
+		return strings.TrimSpace(res.line), res.err
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 }
 
 func TestMCP_CallTool(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -175,6 +176,9 @@ func buildMCPServer() (string, error) {
 	}
 
 	binaryPath := filepath.Join(tmpDir, "test-mcp-server")
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
 
 	// Build from package directory (cmd/mcp-server) for correct path resolution
 	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
