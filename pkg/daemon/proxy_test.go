@@ -17,6 +17,19 @@ import (
 	"github.com/wojons/muster/pkg/cache"
 )
 
+// socketTestDir returns a SHORT temp directory for Unix socket tests.
+// t.TempDir() embeds the test name under a long TMPDIR (e.g. GitHub's
+// /var/folders/.../T/TestProxyServer_Start_ReplacesOldListener123456/001),
+// pushing the socket path past macOS's 104-byte sockaddr_un.sun_path limit —
+// bind() then fails with EINVAL ("bind: invalid argument").
+func socketTestDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "ms-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
 // =============================================================================
 // Controller tests
 // =============================================================================
@@ -101,7 +114,7 @@ func TestController_Stop(t *testing.T) {
 // TestController_Stop_WithProxyServer verifies that Stop() also shuts down
 // an attached proxy server.
 func TestController_Stop_WithProxyServer(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	ctrl, err := NewController(ControllerConfig{
@@ -181,7 +194,7 @@ func TestController_Restart(t *testing.T) {
 	assert.True(t, ctrl.IsRunning())
 
 	// Restart from running state
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 	ctrl2, _ := NewController(ControllerConfig{
 		SocketPath: socketPath,
@@ -241,7 +254,7 @@ func TestController_Handler(t *testing.T) {
 
 // TestController_Shutdown verifies graceful shutdown.
 func TestController_Shutdown(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	ctrl, err := NewController(ControllerConfig{
@@ -269,7 +282,7 @@ func TestController_Kill(t *testing.T) {
 	assert.Contains(t, err.Error(), "not running")
 
 	// Kill when running with proxy server
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	ctrl2, err := NewController(ControllerConfig{
@@ -312,7 +325,7 @@ func TestNewProxyServer(t *testing.T) {
 
 // TestProxyServer_Start tests starting a ProxyServer on a Unix socket.
 func TestProxyServer_Start(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -355,7 +368,7 @@ func TestProxyServer_Start(t *testing.T) {
 // time replaces the old listener — no error is returned. The old socket is removed
 // and a new listener is created.
 func TestProxyServer_Start_ReplacesOldListener(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	ps := NewProxyServer(socketPath, nil)
@@ -385,7 +398,7 @@ func TestProxyServer_Start_ReplacesOldListener(t *testing.T) {
 
 // TestProxyServer_Stop verifies clean shutdown.
 func TestProxyServer_Stop(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	ps := NewProxyServer(socketPath, nil)
@@ -409,7 +422,7 @@ func TestProxyServer_Stop_NotStarted(t *testing.T) {
 
 // TestProxyServer_HealthEndpoint verifies the default health endpoints.
 func TestProxyServer_HealthEndpoint(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	ps := NewProxyServer(socketPath, nil) // nil handler → createDefaultHandler
@@ -557,7 +570,7 @@ func TestIsHopHeader(t *testing.T) {
 // TestNewAuthenticatedProxyServer verifies that NewAuthenticatedProxyServer
 // creates a proxy server with token authentication middleware.
 func TestNewAuthenticatedProxyServer(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	tm := NewTokenManager()
@@ -610,7 +623,7 @@ func TestNewAuthenticatedProxyServer(t *testing.T) {
 // TestNewAuthenticatedProxyServer_InvalidToken verifies that an invalid
 // token is rejected with 401.
 func TestNewAuthenticatedProxyServer_InvalidToken(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	tm := NewTokenManager()
@@ -640,7 +653,7 @@ func TestNewAuthenticatedProxyServer_InvalidToken(t *testing.T) {
 // TestNewAuthenticatedProxyServer_NilHandler verifies that a nil handler
 // falls back to the default handler.
 func TestNewAuthenticatedProxyServer_NilHandler(t *testing.T) {
-	socketDir := t.TempDir()
+	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	tm := NewTokenManager()

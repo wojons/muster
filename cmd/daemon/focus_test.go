@@ -13,6 +13,14 @@ import (
 	"github.com/wojons/muster/pkg/daemon"
 )
 
+func socketTestDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "ms-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
 func TestHandleStart_NilController(t *testing.T) {
 	err := handleStart(nil)
 	require.Error(t, err)
@@ -44,7 +52,7 @@ func TestHandleProxyStart_NilController(t *testing.T) {
 }
 
 func TestController_Start_AlreadyRunning(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 	pidFile := filepath.Join(tmpDir, "test.pid")
 
@@ -72,7 +80,7 @@ func TestController_Start_AlreadyRunning(t *testing.T) {
 }
 
 func TestController_Stop_NotRunning(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -86,7 +94,7 @@ func TestController_Stop_NotRunning(t *testing.T) {
 }
 
 func TestController_Kill_NotRunning(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -100,7 +108,7 @@ func TestController_Kill_NotRunning(t *testing.T) {
 }
 
 func TestController_Status_NotRunning(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -116,7 +124,7 @@ func TestController_Status_NotRunning(t *testing.T) {
 }
 
 func TestController_IsRunning_NotRunning(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -129,7 +137,7 @@ func TestController_IsRunning_NotRunning(t *testing.T) {
 }
 
 func TestController_Restart(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test-restart.sock")
 	pidFile := filepath.Join(tmpDir, "test-restart.pid")
 
@@ -148,7 +156,7 @@ func TestController_Restart(t *testing.T) {
 }
 
 func TestController_Shutdown_NotStarted(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -164,7 +172,7 @@ func TestController_Shutdown_NotStarted(t *testing.T) {
 }
 
 func TestController_ServeHTTP(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,7 +190,7 @@ func TestController_ServeHTTP(t *testing.T) {
 }
 
 func TestController_DefaultLogger(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -198,7 +206,7 @@ func TestController_DefaultLogger(t *testing.T) {
 }
 
 func TestController_Version(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -214,7 +222,7 @@ func TestController_Version(t *testing.T) {
 }
 
 func TestController_MultipleStartStop(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test-multi.sock")
 	pidFile := filepath.Join(tmpDir, "test-multi.pid")
 
@@ -246,7 +254,7 @@ func TestController_MultipleStartStop(t *testing.T) {
 }
 
 func TestStartWithSocket_HandlerSetup(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "h.sock")
 	pidFile := filepath.Join(tmpDir, "h.pid")
 
@@ -274,7 +282,7 @@ func TestStartWithSocket_HandlerSetup(t *testing.T) {
 }
 
 func TestHandleProxyStart_SocketPath(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "p.sock")
 	pidFile := filepath.Join(tmpDir, "p.pid")
 
@@ -315,7 +323,7 @@ func TestRun_WithVersionVar(t *testing.T) {
 	testVersion := "test-1.0.0"
 	Version = testVersion
 
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -334,7 +342,7 @@ func TestRun_WithVersionVar(t *testing.T) {
 func TestRun_BackendURLParsing(t *testing.T) {
 	backendURL = "http://example.com"
 
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -350,7 +358,7 @@ func TestRun_BackendURLParsing(t *testing.T) {
 }
 
 func TestController_StartThenStop(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test-startstop.sock")
 	pidFile := filepath.Join(tmpDir, "test-startstop.pid")
 
@@ -372,7 +380,7 @@ func TestController_StartThenStop(t *testing.T) {
 }
 
 func TestController_StatusWhileRunning(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test-status-run.sock")
 	pidFile := filepath.Join(tmpDir, "test-status-run.pid")
 
@@ -416,7 +424,7 @@ func TestDaemonLogger_ErrorNoPanic(t *testing.T) {
 }
 
 func TestController_NilHandler(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
@@ -430,7 +438,7 @@ func TestController_NilHandler(t *testing.T) {
 }
 
 func TestController_Cleanup(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "c.sock")
 	pidFile := filepath.Join(tmpDir, "c.pid")
 
@@ -461,7 +469,7 @@ func TestController_Cleanup(t *testing.T) {
 }
 
 func TestController_Errors(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
 
 	var controller *daemon.Controller
