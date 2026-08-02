@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +48,9 @@ func TestRealCLIIntegration(t *testing.T) {
 
 	// 2. Build the CLI binary
 	binaryPath := filepath.Join(t.TempDir(), "test-cli")
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
 	buildCmd := exec.Command("go", "build", "-o", binaryPath, repoRoot+"/cmd/openapi-cli")
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\n%s", err, out)

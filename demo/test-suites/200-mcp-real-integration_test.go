@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -44,6 +45,9 @@ func TestMCPIntegration(t *testing.T) {
 
 	// 2. Build the actual MCP server binary
 	binaryPath := filepath.Join(t.TempDir(), "mcp-server")
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
 	buildCmd := exec.Command("go", "build", "-o", binaryPath, repoRoot+"/cmd/mcp-server")
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build MCP server: %v\n%s", err, out)

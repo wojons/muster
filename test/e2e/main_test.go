@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -30,6 +31,11 @@ func buildBinary() (string, error) {
 	cliBinPath := filepath.Join(tmpDir, "muster-e2e")
 	mcpBinPath := filepath.Join(tmpDir, "muster-e2e-mcp")
 	daemonBinPath := filepath.Join(tmpDir, "muster-e2e-daemon")
+	if runtime.GOOS == "windows" {
+		cliBinPath += ".exe"
+		mcpBinPath += ".exe"
+		daemonBinPath += ".exe"
+	}
 
 	// Build CLI
 	cliCmd := exec.Command("go", "build", "-o", cliBinPath, "./cmd/openapi-cli")

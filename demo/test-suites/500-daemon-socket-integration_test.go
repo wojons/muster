@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -45,6 +46,9 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 
 	// Build the actual daemon binary
 	binaryPath := filepath.Join(t.TempDir(), "daemon")
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
 	buildCmd := exec.Command("go", "build", "-o", binaryPath, repoRoot+"/cmd/daemon")
 	if out, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build daemon: %v\n%s", err, out)

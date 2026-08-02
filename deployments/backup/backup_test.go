@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -25,14 +26,18 @@ func TestBackupScriptsExist(t *testing.T) {
 				t.Fatalf("Script does not exist: %s", script)
 			}
 
-			// Check file is executable
-			info, err := os.Stat(script)
-			if err != nil {
-				t.Fatalf("Cannot stat script: %v", err)
-			}
-
-			if info.Mode()&0111 == 0 {
-				t.Errorf("Script is not executable: %s", script)
+			// Check file is executable. POSIX-only: git on Windows does not
+			// preserve mode bits (core.filemode=false), so every script
+			// checks out non-executable — the exec-bit assertion is
+			// meaningless there. Existence + bash syntax still verified.
+			if runtime.GOOS != "windows" {
+				info, err := os.Stat(script)
+				if err != nil {
+					t.Fatalf("Cannot stat script: %v", err)
+				}
+				if info.Mode()&0111 == 0 {
+					t.Errorf("Script is not executable: %s", script)
+				}
 			}
 		})
 	}

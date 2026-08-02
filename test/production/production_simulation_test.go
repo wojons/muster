@@ -46,6 +46,10 @@ func TestProductionSimulation(t *testing.T) {
 
 		cliBinary := filepath.Join(tmpDir, "muster-cli")
 		mcpBinary := filepath.Join(tmpDir, "muster-mcp")
+		if runtime.GOOS == "windows" {
+			cliBinary += ".exe"
+			mcpBinary += ".exe"
+		}
 
 		// Build CLI
 		buildCmd := filepath.Join(repoRoot, "cmd", "openapi-cli")
