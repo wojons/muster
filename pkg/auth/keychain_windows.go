@@ -126,6 +126,12 @@ func (k *windowsKeychainNative) Get(service, account string) (string, error) {
 	}
 	defer procCredFree.Call(uintptr(unsafe.Pointer(cred)))
 
+	// Empty blob (empty password stored) — CredentialBlob may be nil
+	// with size 0; dereferencing it would panic.
+	if cred.CredentialBlobSize == 0 || cred.CredentialBlob == 0 {
+		return "", nil
+	}
+
 	// Convert UTF-16 blob to Go string
 	blobPtr := (*uint16)(unsafe.Pointer(cred.CredentialBlob))
 	blobSlice := (*[1 << 30]uint16)(unsafe.Pointer(blobPtr))[:cred.CredentialBlobSize/2]
