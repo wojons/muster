@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -107,18 +106,8 @@ func buildDaemonBinary() (string, error) {
 }
 
 // isProcessRunning reports whether a process with the given PID exists.
-func isProcessRunning(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	// Signal 0 checks for existence without delivering a real signal.
-	err = proc.Signal(syscall.Signal(0))
-	return err == nil
-}
+// Platform-specific: unix uses signal-0 probes, windows uses OpenProcess.
+// See isprocess_unix.go / isprocess_windows.go.
 
 func readPIDFile(path string) (int, error) {
 	data, err := os.ReadFile(path)

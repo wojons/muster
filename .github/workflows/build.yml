@@ -164,6 +164,11 @@ jobs:
         env:
           GOOS: ${{ matrix.platform.os }}
           GOARCH: ${{ matrix.platform.arch }}
+          # Cross-compilation must not use cgo: the project has no cgo
+          # sources, and with CGO_ENABLED=1 the host gcc (amd64) tries to
+          # assemble runtime/cgo for the target arch and fails
+          # (gcc_arm64.S assembler errors on linux/arm64).
+          CGO_ENABLED: 0
         run: make build
 
   release:

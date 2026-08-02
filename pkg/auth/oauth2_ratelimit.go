@@ -115,8 +115,12 @@ func (rl *OAuthRateLimiter) checkAccountLockout(identifier string) error {
 	tracker.mu.RLock()
 	defer tracker.mu.RUnlock()
 
-	// Check if lockout period has expired
-	if time.Since(tracker.lastTry) > rl.lockoutDuration {
+	// Check if lockout period has expired. A zero/negative lockout
+	// duration means "no lockout" (expires instantly) — checked
+	// explicitly because coarse OS clocks (Windows ~15.6ms tick) can
+	// make time.Since() return 0 for back-to-back attempts, which
+	// would keep `0 > 0` false and leave the account locked forever.
+	if rl.lockoutDuration <= 0 || time.Since(tracker.lastTry) > rl.lockoutDuration {
 		// Auto-clear after lockout period
 		rl.failedMu.Lock()
 		delete(rl.failedAttempts, identifier)

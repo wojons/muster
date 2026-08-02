@@ -10,9 +10,15 @@ type Token struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 }
 
-// IsExpired returns true if the token is expired or will expire within 60 seconds.
+// IsExpired reports whether the token should be considered expired,
+// applying a 60-second grace period: a token is treated as expired when
+// its remaining lifetime is at or below the grace window. The comparison
+// is `!Before` (>=) rather than `After` (>) so the exact boundary is
+// deterministic regardless of OS clock granularity — with strict `>`,
+// two time.Now() calls landing in the same coarse clock tick (Windows
+// ~15.6ms) would make now+60s == expiresAt and report a live token.
 func (t *Token) IsExpired() bool {
-	return time.Now().Add(60 * time.Second).After(t.ExpiresAt)
+	return !time.Now().Add(60 * time.Second).Before(t.ExpiresAt)
 }
 
 // TokenStorage is the interface for token persistence.

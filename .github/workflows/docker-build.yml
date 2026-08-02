@@ -18,6 +18,7 @@ jobs:
       contents: read
       packages: write
       security-events: write   # upload-sarif requires it
+      actions: read            # upload-sarif@v3 wait-for-processing queries workflow-runs
 
     steps:
     - name: Checkout

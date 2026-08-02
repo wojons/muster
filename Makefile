@@ -27,8 +27,12 @@ GO_VERSION := $(shell go version | awk '{print $$3}')
 # Build flags
 LDFLAGS := -ldflags "-X github.com/openapi-cli/openapi-cli/internal/version.Version=$(VERSION) -X github.com/openapi-cli/openapi-cli/internal/version.Commit=$(COMMIT) -X github.com/openapi-cli/openapi-cli/internal/version.BuildDate=$(BUILD_DATE) -X github.com/openapi-cli/openapi-cli/internal/version.Branch=$(BRANCH) -X github.com/openapi-cli/openapi-cli/internal/version.GoVersion=$(GO_VERSION) -X github.com/openapi-cli/openapi-cli/internal/builtin/version.Version=$(VERSION) -X github.com/openapi-cli/openapi-cli/internal/builtin/version.Commit=$(COMMIT) -X github.com/openapi-cli/openapi-cli/internal/builtin/version.BuildDate=$(BUILD_DATE) -s -w"
 
-# CGO configuration for SQLite
-CGO_ENABLED := 1
+# CGO configuration for SQLite (only pkg/repository uses cgo; the built
+# binaries openapi-cli/mcp-server/daemon are pure Go). `?=` lets CI and
+# cross-compile invocations override via environment (CGO_ENABLED=0),
+# which is required for cross-arch builds where the host gcc cannot
+# assemble the target's runtime/cgo.
+CGO_ENABLED ?= 1
 
 # Platform targets
 PLATFORMS := \

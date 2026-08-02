@@ -369,7 +369,13 @@ func testConnectionRefusedError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "connection refused")
+	// Error text differs by platform: Linux/macOS report "connection
+	// refused", Windows reports "connectex: ... actively refused it".
+	// Accept either phrasing so the assertion is cross-platform.
+	errText := err.Error()
+	assert.True(t,
+		strings.Contains(errText, "connection refused") || strings.Contains(errText, "refused"),
+		"expected connection-refused error, got: %s", errText)
 }
 
 // testDNSErrorResolutionFailure tests DNS resolution failures

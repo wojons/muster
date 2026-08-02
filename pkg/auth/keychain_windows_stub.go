@@ -1,8 +1,11 @@
+//go:build !windows
+// +build !windows
+
 package auth
 
 // windowsKeychainNative is a stub keychain implementation used when the
 // native Windows Credential Manager is not available. On Windows, a real
-// implementation in a _windows.go file overrides this stub.
+// implementation in keychain_windows.go overrides this stub.
 type windowsKeychainNative struct{}
 
 // NewWindowsKeychainNative creates a new Windows keychain native client.
