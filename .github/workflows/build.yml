@@ -37,11 +37,13 @@ jobs:
         run: make test-short
       
       - name: Run linter
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v7
         with:
           # Pin explicitly — `version: latest` resolves to v1.64.8 (built
           # with go1.24), which cannot target go1.26 ("Go language version
           # used to build golangci-lint is lower than the targeted Go version").
+          # Action v7 required: v3 passes --out-format=github-actions, which
+          # golangci-lint v2 removed (renamed --output.formats).
           version: v2.12.2
 
   integration:
