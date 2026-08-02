@@ -470,7 +470,7 @@ func TestNewSQLiteStore_ValidWALMode(t *testing.T) {
 
 	// Verify WAL files are created
 	walPath := path + "-wal"
-	_, err = os.Stat(walPath)
+	_, _ = os.Stat(walPath)
 	// WAL file may not exist yet if no writes — that's fine
 	// Just verify the store is functional
 	if err := store.DB().Ping(); err != nil {

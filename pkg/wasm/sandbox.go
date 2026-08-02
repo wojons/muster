@@ -38,8 +38,9 @@ type SandboxedFS struct {
 }
 
 // NewSandboxedFS creates a filesystem sandbox with the given allowed
-// directories. Roots are absolutized; a non-existent root is an error so
-// misconfiguration surfaces at construction time.
+// directories. Roots are absolutized and canonicalized (symlinks resolved);
+// a non-existent root is an error so misconfiguration surfaces at
+// construction time.
 func NewSandboxedFS(roots []string, allowWrite bool) (*SandboxedFS, error) {
 	if len(roots) == 0 {
 		return nil, fmt.Errorf("wasm: sandboxed fs requires at least one root directory")
@@ -50,7 +51,14 @@ func NewSandboxedFS(roots []string, allowWrite bool) (*SandboxedFS, error) {
 		if err != nil {
 			return nil, fmt.Errorf("wasm: resolve sandbox root %q: %w", r, err)
 		}
-		abs = append(abs, filepath.Clean(a))
+		a = filepath.Clean(a)
+		// Canonicalize so EvalSymlinks results in Resolve compare equal.
+		// On macOS /var is a symlink to /private/var, so a root under
+		// /var would otherwise reject every resolved path.
+		if canon, err := filepath.EvalSymlinks(a); err == nil {
+			a = canon
+		}
+		abs = append(abs, a)
 	}
 	return &SandboxedFS{roots: abs, allowWrite: allowWrite}, nil
 }

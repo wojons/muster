@@ -75,7 +75,7 @@ func (r *CacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	// Only cache 2xx responses
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		body, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if readErr != nil {
 			return nil, fmt.Errorf("cache: read response body: %w", readErr)
 		}

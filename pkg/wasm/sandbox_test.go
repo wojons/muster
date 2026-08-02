@@ -15,7 +15,7 @@ import (
 
 // TestSandboxedFS_Resolve_AllowsInsideRoot verifies paths within the root pass.
 func TestSandboxedFS_Resolve_AllowsInsideRoot(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	sb, err := NewSandboxedFS([]string{root}, false)
 	require.NoError(t, err)
 
@@ -54,7 +54,7 @@ func TestSandboxedFS_Resolve_SymlinkEscape(t *testing.T) {
 
 // TestSandboxedFS_Resolve_SymlinkWithinRoot verifies symlinks staying inside pass.
 func TestSandboxedFS_Resolve_SymlinkWithinRoot(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	realDir := filepath.Join(root, "real")
 	require.NoError(t, os.MkdirAll(realDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(realDir, "a.txt"), []byte("x"), 0644))
@@ -68,6 +68,17 @@ func TestSandboxedFS_Resolve_SymlinkWithinRoot(t *testing.T) {
 	resolved, err := sb.Resolve(filepath.Join(link, "a.txt"))
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(resolved, realDir))
+}
+
+// canonicalTempDir returns a symlink-free absolute temp dir (macOS /var is a
+// symlink to /private/var, which would trip EvalSymlinks-based comparisons).
+func canonicalTempDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if canon, err := filepath.EvalSymlinks(dir); err == nil {
+		return canon
+	}
+	return dir
 }
 
 // TestSandboxedFS_New_NoRoots verifies construction fails without roots.

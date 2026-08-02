@@ -62,7 +62,9 @@ jobs:
     - name: Scan image
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        # The metadata-action tags branch pushes as <branch> (e.g. main),
+        # not latest — scanning :latest would fail with image not found.
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
         format: 'sarif'
         output: 'trivy-results.sarif'
 

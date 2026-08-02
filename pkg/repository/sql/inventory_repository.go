@@ -144,7 +144,7 @@ func (r *inventoryRepository) List(ctx context.Context, opts repository.ListOpti
 	if err != nil {
 		return nil, fmt.Errorf("failed to list inventories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var inventories []*repository.Inventory
 	for rows.Next() {
@@ -187,7 +187,7 @@ func (r *inventoryRepository) Search(ctx context.Context, query string, opts rep
 	if err != nil {
 		return nil, fmt.Errorf("failed to search inventories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var inventories []*repository.Inventory
 	for rows.Next() {

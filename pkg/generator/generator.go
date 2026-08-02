@@ -342,13 +342,13 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		case "number":
 			defaultVal := 0.0
 			if param.Default != nil {
-				defaultVal = param.Default.(float64)
+				defaultVal, _ = param.Default.(float64)
 			}
 			cmd.Flags().Float64P(flagName, shorthand, defaultVal, description)
 		case "boolean":
 			defaultVal := false
 			if param.Default != nil {
-				defaultVal = param.Default.(bool)
+				defaultVal, _ = param.Default.(bool)
 			}
 			cmd.Flags().BoolP(flagName, shorthand, defaultVal, description)
 		case "array":
@@ -464,7 +464,7 @@ func (g *Generator) addStringFlag(cmd *cobra.Command, name, shorthand string, pa
 
 		defaultVal := ""
 		if param.Default != nil {
-			defaultVal = param.Default.(string)
+			defaultVal, _ = param.Default.(string)
 		}
 		cmd.Flags().StringP(name, shorthand, defaultVal, description)
 		return
@@ -472,7 +472,7 @@ func (g *Generator) addStringFlag(cmd *cobra.Command, name, shorthand string, pa
 
 	defaultVal := ""
 	if param.Default != nil {
-		defaultVal = param.Default.(string)
+		defaultVal, _ = param.Default.(string)
 	}
 	cmd.Flags().StringP(name, shorthand, defaultVal, description)
 }
@@ -831,7 +831,7 @@ func executeAndPrint(builder *request.Builder, cmd *cobra.Command, ctx context.C
 		return fmt.Errorf("read response body: %w", err)
 	}
 	if len(body) > 0 {
-		fmt.Fprintln(cmd.OutOrStdout(), string(body))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(body))
 	}
 
 	if resp.StatusCode >= 400 {

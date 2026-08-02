@@ -56,7 +56,7 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("fetch spec from %q: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status %d from %q: %s", resp.StatusCode, url, resp.Status)
@@ -90,15 +90,15 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 
 	// Print header
 	w := cmd.OutOrStdout()
-	fmt.Fprintf(w, "API: %s (v%s)\n", title, version)
-	fmt.Fprintf(w, "Base URL: %s\n", getBaseURL(url))
+	_, _ = fmt.Fprintf(w, "API: %s (v%s)\n", title, version)
+	_, _ = fmt.Fprintf(w, "Base URL: %s\n", getBaseURL(url))
 
 	if len(operations) == 0 {
-		fmt.Fprintln(w, "\nNo operations found in the spec.")
+		_, _ = fmt.Fprintln(w, "\nNo operations found in the spec.")
 		return nil
 	}
 
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 
 	// Sort operations: by tag, then path, then method
 	sortOperations(operations)
@@ -113,11 +113,11 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 
 		if tag != currentTag {
 			currentTag = tag
-			fmt.Fprintln(w, tag)
+			_, _ = fmt.Fprintln(w, tag)
 		}
 
 		// Format:   METHOD  /path          operationId
-		fmt.Fprintf(w, "  %-6s %-40s %s\n", op.Method, op.Path, op.ID)
+		_, _ = fmt.Fprintf(w, "  %-6s %-40s %s\n", op.Method, op.Path, op.ID)
 	}
 
 	return nil
@@ -176,7 +176,7 @@ func fetchSpec(url string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, resp.Status)

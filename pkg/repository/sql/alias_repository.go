@@ -102,7 +102,7 @@ func (r *aliasRepository) GetByInventory(ctx context.Context, inventoryID int64,
 	if err != nil {
 		return nil, fmt.Errorf("failed to list aliases: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var aliases []*repository.Alias
 	for rows.Next() {
@@ -135,7 +135,7 @@ func (r *aliasRepository) GetByModule(ctx context.Context, moduleID int64, opts 
 	if err != nil {
 		return nil, fmt.Errorf("failed to list aliases by module: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var aliases []*repository.Alias
 	for rows.Next() {

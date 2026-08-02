@@ -76,7 +76,7 @@ func httpGetBuiltin(thread *starlark.Thread, fn *starlark.Builtin, args starlark
 	if err != nil {
 		return starlark.None, fmt.Errorf("http_get %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	return starlark.Tuple{starlark.MakeInt(int(resp.StatusCode)), starlark.String(strings.TrimSpace(string(body)))}, nil
 }
@@ -90,7 +90,7 @@ func httpPostBuiltin(thread *starlark.Thread, fn *starlark.Builtin, args starlar
 	if err != nil {
 		return starlark.None, fmt.Errorf("http_post %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	return starlark.Tuple{starlark.MakeInt(int(resp.StatusCode)), starlark.String(strings.TrimSpace(string(respBody)))}, nil
 }
@@ -109,7 +109,7 @@ func httpPutBuiltin(thread *starlark.Thread, fn *starlark.Builtin, args starlark
 	if err != nil {
 		return starlark.None, fmt.Errorf("http_put %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	return starlark.Tuple{starlark.MakeInt(int(resp.StatusCode)), starlark.String(strings.TrimSpace(string(respBody)))}, nil
 }
@@ -127,7 +127,7 @@ func httpDeleteBuiltin(thread *starlark.Thread, fn *starlark.Builtin, args starl
 	if err != nil {
 		return starlark.None, fmt.Errorf("http_delete %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	return starlark.Tuple{starlark.MakeInt(int(resp.StatusCode)), starlark.String(strings.TrimSpace(string(body)))}, nil
 }

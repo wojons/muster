@@ -75,6 +75,13 @@ func runCLI(ctx context.Context, sigChan <-chan os.Signal) error {
 		return persistentPostRun(cmd, args)
 	}
 
+	// A canceled context takes priority even if the command completed — the
+	// select below would otherwise race between done and ctx.Done() when
+	// both are ready, returning nil instead of the cancellation error.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	done := make(chan error, 1)
 	go func() {
 		done <- rootCmd.ExecuteContext(ctx)
@@ -82,6 +89,9 @@ func runCLI(ctx context.Context, sigChan <-chan os.Signal) error {
 
 	select {
 	case err := <-done:
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return err
 	case sig := <-sigChan:
 		return fmt.Errorf("received signal: %v", sig)

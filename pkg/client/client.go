@@ -219,7 +219,11 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 		return nil, err
 	}
 
-	return result.(*http.Response), nil
+	res, ok := result.(*http.Response)
+	if !ok {
+		return nil, fmt.Errorf("request: unexpected result type %T", result)
+	}
+	return res, nil
 }
 
 // shouldRetryStatusCode determines if an HTTP status code should trigger a retry.

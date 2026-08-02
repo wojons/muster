@@ -22,7 +22,7 @@ func TestDB(t *testing.T) (*sql.DB, func()) {
 	}
 
 	if err := db.Ping(); err != nil {
-		db.Close()
+		_ = db.Close()
 		t.Fatalf("failed to ping test database: %v", err)
 	}
 

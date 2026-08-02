@@ -59,7 +59,7 @@ func (b *Builder) ExecuteWithResult(ctx context.Context) (*ExecuteResult, error)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -177,14 +177,14 @@ func (b *Builder) buildMultipartBody() (io.Reader, string, error) {
 		}
 		part, err := w.CreateFormFile(fieldName, filepath.Base(filePath))
 		if err != nil {
-			file.Close()
+			_ = file.Close()
 			return nil, "", fmt.Errorf("create form file: %w", err)
 		}
 		if _, err := io.Copy(part, file); err != nil {
-			file.Close()
+			_ = file.Close()
 			return nil, "", fmt.Errorf("copy file content: %w", err)
 		}
-		file.Close()
+		_ = file.Close()
 	}
 
 	for fieldName, value := range b.multipartExtra {

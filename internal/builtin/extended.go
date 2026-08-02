@@ -138,7 +138,7 @@ var webhookTestClient = &http.Client{Timeout: 10 * time.Second}
 func probeWebhookURL(url string) (int, error) {
 	resp, err := webhookTestClient.Head(url)
 	if err == nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusMethodNotAllowed && resp.StatusCode != http.StatusNotImplemented {
 			return resp.StatusCode, nil
 		}
@@ -147,7 +147,7 @@ func probeWebhookURL(url string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 	return resp.StatusCode, nil
 }
@@ -212,9 +212,9 @@ daemon to deliver event notifications.`,
 	create.Flags().StringVar(&createName, "name", "", "Webhook name")
 	create.Flags().StringVar(&createURL, "url", "", "Webhook callback URL")
 	create.Flags().StringVar(&createEvents, "events", "", "Comma-separated event types to subscribe to")
-	create.MarkFlagRequired("name")
-	create.MarkFlagRequired("url")
-	create.MarkFlagRequired("events")
+	_ = create.MarkFlagRequired("name")
+	_ = create.MarkFlagRequired("url")
+	_ = create.MarkFlagRequired("events")
 	cmd.AddCommand(create)
 
 	cmd.AddCommand(&cobra.Command{

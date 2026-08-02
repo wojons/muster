@@ -39,8 +39,10 @@ jobs:
       - name: Run linter
         uses: golangci/golangci-lint-action@v3
         with:
-          version: latest
-          args: --go=1.26
+          # Pin explicitly — `version: latest` resolves to v1.64.8 (built
+          # with go1.24), which cannot target go1.26 ("Go language version
+          # used to build golangci-lint is lower than the targeted Go version").
+          version: v2.12.2
 
   integration:
     runs-on: ubuntu-latest

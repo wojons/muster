@@ -1,30 +1,35 @@
-# v1 format for golangci-lint v1.x
+# v2 format for golangci-lint v2.x (migrated from v1, 2026-08-01)
+# v1 intent preserved: errcheck (type assertions), govet, ineffassign.
+# NOTES:
+# - v1's govet check-shadowing was REMOVED in golangci v1.57+ — dead config
+#   in v1.64.8 (never enforced), so it is not carried into v2.
+# - v1's govet enable-all (fieldalignment etc.) never passed on go1.26 code
+#   (v1.64.8 built with go1.24 could not parse it) — not carried forward.
+# - v1's exclude-use-default:false maps to presets: [] (no default excludes).
+version: "2"
+
 run:
   timeout: 5m
   tests: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
     - govet
     - ineffassign
-
-linters-settings:
-  govet:
-    check-shadowing: true
-    enable-all: true
-
-  errcheck:
-    check-type-assertions: true
-    check-blank: false
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+  exclusions:
+    presets: []
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec

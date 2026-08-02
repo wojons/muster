@@ -129,7 +129,7 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 		if err := interceptor.LoadPlugin(context.Background(), wasmPlugin); err != nil {
 			return fmt.Errorf("wasm: load plugin %q: %w", wasmPlugin, err)
 		}
-		defer interceptor.Close(context.Background())
+		defer func() { _ = interceptor.Close(context.Background()) }()
 
 		contentType := resp.Header.Get("Content-Type")
 		transformed, err := interceptor.TransformResponseBody(context.Background(), body, contentType, wasmPlugin)
@@ -157,10 +157,10 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 				enc.SetIndent("", "  ")
 				_ = enc.Encode(data)
 			} else {
-				fmt.Fprintln(os.Stdout, string(body))
+				_, _ = fmt.Fprintln(os.Stdout, string(body))
 			}
 		} else {
-			fmt.Fprintln(os.Stdout, string(body))
+			_, _ = fmt.Fprintln(os.Stdout, string(body))
 		}
 	}
 

@@ -77,7 +77,7 @@ func (r *auditRepository) GetByEntity(ctx context.Context, entityType string, en
 	if err != nil {
 		return nil, fmt.Errorf("failed to list audit logs: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var audits []*repository.Audit
 	for rows.Next() {
@@ -110,7 +110,7 @@ func (r *auditRepository) List(ctx context.Context, opts repository.ListOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list audit logs: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var audits []*repository.Audit
 	for rows.Next() {

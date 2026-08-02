@@ -106,7 +106,7 @@ func (i *Interceptor) InterceptResponse(resp *http.Response, pluginPath string) 
 
 	// Read original body
 	originalBody, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if err != nil {
 		return fmt.Errorf("wasm: read response body: %w", err)
 	}

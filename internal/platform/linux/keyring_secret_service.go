@@ -48,7 +48,7 @@ func (k *SecretServiceKeyring) Connect() error {
 		dbus.MakeVariant(""),
 	).Store(&sessionOutput, &sessionPath)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("open session: %w", err)
 	}
 
@@ -57,7 +57,7 @@ func (k *SecretServiceKeyring) Connect() error {
 	// environments, which breaks the fallback).
 	collectionPath, err := k.findOrCreateCollection(conn, service)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("collection: %w", err)
 	}
 
@@ -140,7 +140,7 @@ func (k *SecretServiceKeyring) dismissPrompt(conn *dbus.Conn, promptPath dbus.Ob
 // Disconnect closes the D-Bus connection and clears state.
 func (k *SecretServiceKeyring) Disconnect() error {
 	if k.conn != nil {
-		k.conn.Close()
+		_ = k.conn.Close()
 	}
 	k.conn = nil
 	k.service = nil

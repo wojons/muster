@@ -38,7 +38,7 @@ func (dc *DynamicCompleter) CompleteResources(ctx context.Context, toComplete st
 	key := "resources:"
 
 	if cached, ok := dc.cache.Get(key); ok {
-		entries := cached.([]string)
+		entries, _ := cached.([]string)
 		return filterCompletions(entries, toComplete), nil
 	}
 
@@ -68,7 +68,7 @@ func (dc *DynamicCompleter) CompleteNamespaces(ctx context.Context, toComplete s
 	key := "namespaces"
 
 	if cached, ok := dc.cache.Get(key); ok {
-		entries := cached.([]string)
+		entries, _ := cached.([]string)
 		return filterCompletions(entries, toComplete), nil
 	}
 
@@ -95,7 +95,7 @@ func (dc *DynamicCompleter) CompleteProfiles(ctx context.Context, toComplete str
 	key := "profiles"
 
 	if cached, ok := dc.cache.Get(key); ok {
-		entries := cached.([]string)
+		entries, _ := cached.([]string)
 		return filterCompletions(entries, toComplete), nil
 	}
 

@@ -301,7 +301,7 @@ func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx co
 	}
 
 	if len(body) > 0 {
-		fmt.Fprintln(cmd.OutOrStdout(), string(body))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(body))
 	}
 
 	if resp.StatusCode >= 400 {

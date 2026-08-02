@@ -55,7 +55,7 @@ integers and passed as parameters to the target function in order.`,
 			}
 
 			runtime := wasm.NewRuntime(nil, wasm.DefaultLimits())
-			defer runtime.Close()
+			defer func() { _ = runtime.Close() }()
 
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -73,9 +73,9 @@ integers and passed as parameters to the target function in order.`,
 			if !result.Success {
 				return fmt.Errorf("wasm execution failed (memory: %d bytes)", result.MemoryUsed)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Executed %s (function: %s)\n", path, fnName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Executed %s (function: %s)\n", path, fnName)
 			if result.Output != nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "Output: %v\n", result.Output)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Output: %v\n", result.Output)
 			}
 			return nil
 		},
