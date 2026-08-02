@@ -56,7 +56,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     ./cmd/mcp-server
 
 # Run tests (exclude platform-specific and security tests that need special environments)
-RUN go test -v -short -timeout 120s $$(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security) 2>&1 | tee test-results.txt
+# Note: single $(...) — Docker interpolates only $var/${var}, not $(...); double-$$ breaks /bin/sh
+RUN go test -v -short -timeout 120s $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security) 2>&1 | tee test-results.txt
 
 # =============================================================================
 # STAGE 2: Security Scan
