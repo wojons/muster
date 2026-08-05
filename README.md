@@ -24,13 +24,13 @@ Three deployment modes, one codebase. CLI for humans, MCP for AI agents, daemon 
 # Build
 git clone https://github.com/wojons/muster.git
 cd muster
-go build ./...
+make build-cli
 
 # Point at any OpenAPI spec
 ./bin/openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
 
 # Execute operations
-./bin/openapi-cli request GET https://petstore3.swagger.io/api/v3/pet/findByStatus --status available
+./bin/openapi-cli request GET https://petstore3.swagger.io/api/v3/pet/findByStatus -p status=available
 
 # Run the full demo (5 mock services, 10 scripts, all 7 surfaces)
 ./demo/run-all.sh
