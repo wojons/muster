@@ -18,6 +18,8 @@ Muster reads an OpenAPI specification and generates executable commands — no c
 
 Three deployment modes, one codebase. CLI for humans, MCP for AI agents, daemon for infrastructure. WASM for extensibility, Starlark for scripting. Import the Go packages directly for programmatic use.
 
+> 📖 New here? The [Integration Guide](docs/integration-guide.md) has a runnable example for every surface — CLI, MCP, daemon, Go library, Docker, WASM, and Starlark — with real commands and outputs.
+
 ## Quick start
 
 ```bash
@@ -76,6 +78,8 @@ openapi-cli dsl run workflow.star
 
 ## MCP Server
 
+**`openapi-mcp` is the canonical (and only) MCP server binary** — built by `make build-mcp` from `cmd/mcp-server`. No other MCP binary is produced by the build; if a stray `mcp-server` or `openapi-cli-mcp-server` appears in `bin/`, it is a stale artifact from an ad-hoc build — delete it and rebuild.
+
 Add to your Claude Desktop config or any MCP client:
 
 ```json
@@ -111,13 +115,14 @@ import (
 )
 
 // Parse any OpenAPI spec
-doc, _ := openapi.Parse(specBytes, opts)
+parser := openapi.NewParser()
+doc, _ := parser.Parse(ctx, specBytes, openapi.DefaultParseOptions())
 
-// Use the HTTP client with auth, rate limiting, caching
-c := client.New(client.WithAuth(token), client.WithRateLimit(100))
+// Use the HTTP client with base URL, retry, and default headers
+c := client.NewClient(client.WithBaseURL("https://api.example.com"), client.WithTimeout(30*time.Second))
 ```
 
-26 public packages under `pkg/`. The same packages the CLI uses.
+26 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
 
 ## Build from source
 
