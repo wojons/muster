@@ -1,11 +1,10 @@
 package test
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -134,6 +133,12 @@ paths:
 	}()
 
 	// 6. Test tools/list via JSON-RPC
+	// Responses are newline-delimited JSON-RPC frames (pkg/mcp writeResponse
+	// uses Fprintln + Flush). Read frames line-by-line: reading to EOF instead
+	// blocked until the 30s context deadline killed the server (~29s per
+	// subtest) even though each response arrives in milliseconds.
+	stdoutReader := bufio.NewReader(stdout)
+
 	t.Run("ListTools", func(t *testing.T) {
 		jsonReq := map[string]interface{}{
 			"jsonrpc": "2.0",
@@ -149,14 +154,14 @@ paths:
 			t.Fatalf("Failed to write newline: %v", err)
 		}
 
-		// Read response
-		var buf bytes.Buffer
-		if _, err := io.Copy(&buf, stdout); err != nil {
+		// Read the response frame (arrives immediately; do not wait for EOF)
+		line, err := stdoutReader.ReadBytes('\n')
+		if err != nil && len(line) == 0 {
 			t.Fatalf("Failed to read from MCP server: %v", err)
 		}
 
 		var result map[string]interface{}
-		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		if err := json.Unmarshal(line, &result); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
 
@@ -195,15 +200,15 @@ paths:
 			return
 		}
 
-		// Read response
-		var buf bytes.Buffer
-		if _, err := io.Copy(&buf, stdout); err != nil {
+		// Read the response frame (arrives immediately; do not wait for EOF)
+		line, err := stdoutReader.ReadBytes('\n')
+		if err != nil && len(line) == 0 {
 			t.Logf("Failed to read response: %v", err)
 			return
 		}
 
 		var result map[string]interface{}
-		if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		if err := json.Unmarshal(line, &result); err != nil {
 			t.Logf("Failed to decode response: %v", err)
 			return
 		}
