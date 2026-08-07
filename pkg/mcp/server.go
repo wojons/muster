@@ -63,7 +63,7 @@ func NewServer(stdin io.Reader, stdout, stderr io.Writer) *Server {
 }
 
 func (s *Server) registerHandlers() {
-	s.handlers.Register(handlers.NewInitializeHandler("openapi-cli-mcp", "1.0.0"))
+	s.handlers.Register(handlers.NewInitializeHandler("openapi-mcp", "1.0.0"))
 	s.handlers.Register(handlers.NewInitializedHandler())
 }
 
