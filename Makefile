@@ -25,7 +25,7 @@ GOBIN := $(GOPATH)/bin
 GO_VERSION := $(shell go version | awk '{print $$3}')
 
 # Build flags
-LDFLAGS := -ldflags "-X github.com/openapi-cli/openapi-cli/internal/version.Version=$(VERSION) -X github.com/openapi-cli/openapi-cli/internal/version.Commit=$(COMMIT) -X github.com/openapi-cli/openapi-cli/internal/version.BuildDate=$(BUILD_DATE) -X github.com/openapi-cli/openapi-cli/internal/version.Branch=$(BRANCH) -X github.com/openapi-cli/openapi-cli/internal/version.GoVersion=$(GO_VERSION) -X github.com/openapi-cli/openapi-cli/internal/builtin/version.Version=$(VERSION) -X github.com/openapi-cli/openapi-cli/internal/builtin/version.Commit=$(COMMIT) -X github.com/openapi-cli/openapi-cli/internal/builtin/version.BuildDate=$(BUILD_DATE) -s -w"
+LDFLAGS := -ldflags "-X github.com/wojons/muster/internal/version.Version=$(VERSION) -X github.com/wojons/muster/internal/version.Commit=$(COMMIT) -X github.com/wojons/muster/internal/version.BuildDate=$(BUILD_DATE) -X github.com/wojons/muster/internal/version.Branch=$(BRANCH) -X github.com/wojons/muster/internal/version.GoVersion=$(GO_VERSION) -s -w"
 
 # CGO configuration for SQLite (only pkg/repository uses cgo; the built
 # binaries openapi-cli/mcp-server/daemon are pure Go). `?=` lets CI and
@@ -81,11 +81,11 @@ build-all: ## Build all binaries
 	@echo "Building all binaries $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
 	@echo "  → Building CLI..."
-	@CGO_ENABLED=$(CGO_ENABLED) go build -o $(BUILD_DIR)/$(CLI_BINARY) ./cmd/openapi-cli
+	@CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY) ./cmd/openapi-cli
 	@echo "  → Building MCP server..."
-	@CGO_ENABLED=$(CGO_ENABLED) go build -o $(BUILD_DIR)/$(MCP_BINARY) ./cmd/mcp-server
+	@CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(MCP_BINARY) ./cmd/mcp-server
 	@echo "  → Building daemon..."
-	@CGO_ENABLED=$(CGO_ENABLED) go build -o $(BUILD_DIR)/$(DAEMON_BINARY) ./cmd/daemon
+	@CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(DAEMON_BINARY) ./cmd/daemon
 	@echo "✓ All builds complete"
 
 # =============================================================================
