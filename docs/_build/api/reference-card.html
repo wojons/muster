@@ -121,151 +121,91 @@
 <td><code>-v, --version</code></td>
 <td>Show version</td>
 </tr>
-<tr>
-<td><code>-c, --config &lt;path&gt;</code></td>
-<td>Config file path</td>
-</tr>
-<tr>
-<td><code>-d, --debug</code></td>
-<td>Enable debug</td>
-</tr>
-<tr>
-<td><code>-q, --quiet</code></td>
-<td>Suppress output</td>
-</tr>
-<tr>
-<td><code>--profile &lt;name&gt;</code></td>
-<td>Configuration profile</td>
-</tr>
 </tbody>
 </table>
-<h2 id="specification-commands">Specification Commands</h2>
-<h3 id="spec-validate"><code>spec validate</code></h3>
-<pre><code class="language-bash">openapi-cli spec validate &lt;spec-path&gt; [options]
+<h2 id="discovery">Discovery</h2>
+<h3 id="discover"><code>discover</code></h3>
+<pre><code class="language-bash">openapi-cli discover &lt;url&gt;
 </code></pre>
-<p>Options: <code>--strict</code>, <code>--format &lt;text|json&gt;</code></p>
-<h3 id="spec-info"><code>spec info</code></h3>
-<pre><code class="language-bash">openapi-cli spec info &lt;spec-path&gt;
-</code></pre>
-<h3 id="spec-convert"><code>spec convert</code></h3>
-<pre><code class="language-bash">openapi-cli spec convert &lt;input&gt; &lt;output&gt;
-</code></pre>
-<p>Options: <code>--from &lt;yaml|json&gt;</code>, <code>--to &lt;yaml|json&gt;</code></p>
+<p>Fetch a remote OpenAPI 3.x spec and display operations grouped by tag.</p>
 <h2 id="cli-generation">CLI Generation</h2>
-<h3 id="init"><code>init</code></h3>
-<pre><code class="language-bash">openapi-cli init &lt;spec-path&gt; [options]
+<h3 id="generate"><code>generate</code></h3>
+<pre><code class="language-bash">openapi-cli generate &lt;spec-path-or-url&gt; [flags]
 </code></pre>
-<p>Options: <code>--output &lt;dir&gt;</code>, <code>--config &lt;file&gt;</code></p>
-<h3 id="inventory-list"><code>inventory list</code></h3>
-<pre><code class="language-bash">openapi-cli inventory list &lt;spec-path&gt; [options]
+<p>Options: <code>-u, --base-url &lt;url&gt;</code></p>
+<h3 id="init-help-topic-only-not-yet-implemented"><code>init</code> (help topic only — not yet implemented)</h3>
+<pre><code class="language-bash">openapi-cli init   # prints help text; does nothing
 </code></pre>
-<p>Options: <code>--tag &lt;tag&gt;</code>, <code>--method &lt;method&gt;</code>, <code>--format &lt;table|json&gt;</code></p>
+<h2 id="inventory">Inventory</h2>
+<h3 id="inventory_1"><code>inventory</code></h3>
+<pre><code class="language-bash">openapi-cli inventory [command]
+</code></pre>
+<p>Subcommands: <code>add</code> (<code>--host &lt;url&gt; --file &lt;path&gt;</code>), <code>list</code>, <code>remove</code> (<code>--host &lt;url&gt;</code>)</p>
 <h2 id="api-interaction">API Interaction</h2>
-<h3 id="api-request"><code>api request</code></h3>
-<pre><code class="language-bash">openapi-cli api request [METHOD] &lt;path&gt; [options]
+<h3 id="request"><code>request</code></h3>
+<pre><code class="language-bash">openapi-cli request &lt;method&gt; &lt;url&gt; [flags]
 </code></pre>
-<p>Options: <code>--spec &lt;path&gt;</code>, <code>--body &lt;json&gt;</code>, <code>--header &lt;k=v&gt;</code>, <code>--query &lt;k=v&gt;</code></p>
-<h3 id="api-batch"><code>api batch</code></h3>
-<pre><code class="language-bash">openapi-cli api batch &lt;batch-file&gt;
-</code></pre>
-<h2 id="documentation">Documentation</h2>
-<h3 id="docs-generate"><code>docs generate</code></h3>
-<pre><code class="language-bash">openapi-cli docs generate &lt;spec-path&gt; [options]
-</code></pre>
-<p>Options: <code>--output &lt;dir&gt;</code>, <code>--format &lt;markdown|html&gt;</code></p>
-<h3 id="docs-serve"><code>docs serve</code></h3>
-<pre><code class="language-bash">openapi-cli docs serve [options]
-</code></pre>
-<p>Options: <code>--port &lt;port&gt;</code>, <code>--dir &lt;dir&gt;</code></p>
-<h2 id="mcp-server">MCP Server</h2>
-<h3 id="mcp-server_1"><code>mcp-server</code></h3>
-<pre><code class="language-bash">openapi-cli mcp-server [options]
-</code></pre>
-<p>Options: <code>--spec &lt;path&gt;</code>, <code>--port &lt;port&gt;</code>, <code>--stdio</code></p>
-<h2 id="wasm">WASM</h2>
-<h3 id="wasm-run"><code>wasm run</code></h3>
-<pre><code class="language-bash">openapi-cli wasm run &lt;module.wasm&gt; [options]
-</code></pre>
-<p>Options: <code>--function &lt;name&gt;</code>, <code>--arg &lt;value&gt;</code>, <code>--memory &lt;size&gt;</code>, <code>--timeout &lt;duration&gt;</code></p>
-<h3 id="wasm-compile"><code>wasm compile</code></h3>
-<pre><code class="language-bash">openapi-cli wasm compile &lt;input&gt; &lt;output&gt; [options]
-</code></pre>
-<p>Options: <code>--language &lt;go|rust&gt;</code>, <code>--optimize</code></p>
+<p>Options: <code>-b, --body &lt;json&gt;</code>, <code>-H, --header &lt;k=v&gt;</code> (repeatable), <code>-o, --output &lt;json|yaml|table&gt;</code>, <code>-p, --param &lt;k=v&gt;</code> (repeatable), <code>--timeout &lt;duration&gt;</code>, <code>-v, --verbose</code>, <code>--wasm-plugin &lt;path&gt;</code></p>
 <h2 id="dsl">DSL</h2>
 <h3 id="dsl-run"><code>dsl run</code></h3>
-<pre><code class="language-bash">openapi-cli dsl run &lt;script.star&gt; [options]
+<pre><code class="language-bash">openapi-cli dsl run &lt;file.star&gt;
 </code></pre>
-<p>Options: <code>--spec &lt;path&gt;</code>, <code>--var &lt;name=value&gt;</code>, <code>--timeout &lt;duration&gt;</code></p>
+<p>Execute a Starlark script with <code>http_get</code>, <code>http_post</code>, <code>http_put</code>, <code>http_delete</code> builtins.</p>
 <h2 id="daemon">Daemon</h2>
-<h3 id="daemon-start"><code>daemon start</code></h3>
-<pre><code class="language-bash">openapi-cli daemon start [options]
+<h3 id="daemon_1"><code>daemon</code></h3>
+<pre><code class="language-bash">openapi-cli daemon [command]
 </code></pre>
-<p>Options: <code>--socket &lt;path&gt;</code>, <code>--pid-file &lt;path&gt;</code></p>
-<h3 id="daemon-stop"><code>daemon stop</code></h3>
-<pre><code class="language-bash">openapi-cli daemon stop [options]
-</code></pre>
-<p>Options: <code>--force</code></p>
-<h3 id="daemon-status"><code>daemon status</code></h3>
-<pre><code class="language-bash">openapi-cli daemon status
-</code></pre>
+<p>Subcommands: <code>start</code> (<code>--socket &lt;path&gt;</code>, <code>--backend-url &lt;url&gt;</code>), <code>status</code> (<code>--socket &lt;path&gt;</code>), <code>stop</code> (<code>--socket &lt;path&gt;</code>)</p>
 <h2 id="configuration">Configuration</h2>
-<h3 id="config-show"><code>config show</code></h3>
-<pre><code class="language-bash">openapi-cli config show [section]
+<h3 id="config"><code>config</code></h3>
+<pre><code class="language-bash">openapi-cli config [command]
 </code></pre>
-<h3 id="config-set"><code>config set</code></h3>
-<pre><code class="language-bash">openapi-cli config set &lt;key&gt; &lt;value&gt;
-</code></pre>
-<h3 id="config-unset"><code>config unset</code></h3>
-<pre><code class="language-bash">openapi-cli config unset &lt;key&gt;
-</code></pre>
-<h3 id="config-validate"><code>config validate</code></h3>
-<pre><code class="language-bash">openapi-cli config validate
-</code></pre>
+<p>Subcommands: <code>profile</code> (<code>list</code>, <code>show</code>, <code>switch</code>, <code>delete</code>), <code>show</code></p>
 <h2 id="authentication">Authentication</h2>
-<h3 id="auth-login"><code>auth login</code></h3>
-<pre><code class="language-bash">openapi-cli auth login &lt;provider&gt; [options]
+<h3 id="auth"><code>auth</code></h3>
+<pre><code class="language-bash">openapi-cli auth [command]
 </code></pre>
-<p>Options: <code>--client-id &lt;id&gt;</code>, <code>--client-secret &lt;secret&gt;</code>, <code>--scopes &lt;list&gt;</code></p>
-<h3 id="auth-logout"><code>auth logout</code></h3>
-<pre><code class="language-bash">openapi-cli auth logout [provider]
+<p>Subcommands: <code>add</code> (<code>--name &lt;n&gt; --type &lt;api-key|bearer|basic&gt; --value &lt;v&gt;</code>), <code>list</code>, <code>remove &lt;name&gt;</code>, <code>mtls</code> (<code>generate</code>, <code>configure</code>, <code>info</code>)</p>
+<h2 id="audit">Audit</h2>
+<h3 id="audit_1"><code>audit</code></h3>
+<pre><code class="language-bash">openapi-cli audit [command]
 </code></pre>
-<h3 id="auth-status"><code>auth status</code></h3>
-<pre><code class="language-bash">openapi-cli auth status
+<p>Subcommands: <code>log</code> (<code>--filter &lt;text&gt;</code>, <code>--limit &lt;n&gt;</code>), <code>info</code>, <code>show</code> (<code>--limit &lt;n&gt;</code>), <code>status</code></p>
+<h2 id="tenant">Tenant</h2>
+<h3 id="tenant_1"><code>tenant</code></h3>
+<pre><code class="language-bash">openapi-cli tenant [command]
 </code></pre>
-<h3 id="credentials-store"><code>credentials store</code></h3>
-<pre><code class="language-bash">openapi-cli credentials store &lt;name&gt; [options]
+<p>Subcommands: <code>current</code>, <code>list</code>, <code>set &lt;id&gt;</code>, <code>show</code>, <code>switch &lt;id&gt;</code></p>
+<h2 id="webhook">Webhook</h2>
+<h3 id="webhook_1"><code>webhook</code></h3>
+<pre><code class="language-bash">openapi-cli webhook [command]
 </code></pre>
-<p>Options: <code>--header &lt;name&gt;</code>, <code>--value &lt;value&gt;</code></p>
-<h3 id="credentials-list"><code>credentials list</code></h3>
-<pre><code class="language-bash">openapi-cli credentials list
+<p>Subcommands: <code>create</code> (<code>--name &lt;n&gt; --url &lt;u&gt; --events &lt;list&gt;</code>), <code>delete &lt;id&gt;</code>, <code>list</code>, <code>subscribe &lt;url&gt; &lt;event&gt;</code>, <code>test &lt;id&gt;</code></p>
+<h2 id="wasm-modules">WASM Modules</h2>
+<h3 id="modules-run"><code>modules run</code></h3>
+<pre><code class="language-bash">openapi-cli modules run &lt;file.wasm&gt; [args...] [flags]
 </code></pre>
-<h3 id="credentials-remove"><code>credentials remove</code></h3>
-<pre><code class="language-bash">openapi-cli credentials remove &lt;name&gt;
-</code></pre>
-<h2 id="cache">Cache</h2>
-<h3 id="cache-clear"><code>cache clear</code></h3>
-<pre><code class="language-bash">openapi-cli cache clear
-</code></pre>
-<h3 id="cache-stats"><code>cache stats</code></h3>
-<pre><code class="language-bash">openapi-cli cache stats
-</code></pre>
+<p>Options: <code>--fn &lt;name&gt;</code> (default: <code>_start</code>)</p>
 <h2 id="utilities">Utilities</h2>
-<h3 id="doctor"><code>doctor</code></h3>
-<pre><code class="language-bash">openapi-cli doctor
-</code></pre>
 <h3 id="version"><code>version</code></h3>
-<pre><code class="language-bash">openapi-cli version
+<pre><code class="language-bash">openapi-cli version [flags]
+</code></pre>
+<p>Options: <code>--output</code> (JSON format)</p>
+<h3 id="completion"><code>completion</code></h3>
+<pre><code class="language-bash">openapi-cli completion [bash|zsh|fish|powershell]
 </code></pre>
 <h3 id="help"><code>help</code></h3>
 <pre><code class="language-bash">openapi-cli help [command]
 </code></pre>
+<h2 id="mcp-server">MCP Server</h2>
+<p>The MCP server is a separate binary (<code>openapi-mcp</code>), built with <code>make build</code>:</p>
+<pre><code class="language-bash">./bin/openapi-mcp --help
+</code></pre>
 <h2 id="output-formats">Output Formats</h2>
 <ul>
-<li><code>--output json</code> - JSON output</li>
-<li><code>--output pretty</code> - Pretty-printed JSON</li>
-<li><code>--output table</code> - Table format</li>
-<li><code>--output text</code> - Plain text</li>
-<li><code>--format &lt;format&gt;</code> - Alias</li>
+<li><code>-o table</code> - Table format (default)</li>
+<li><code>-o json</code> - JSON output</li>
+<li><code>-o yaml</code> - YAML output</li>
 </ul>
 <h2 id="environment-variables">Environment Variables</h2>
 <table>
@@ -371,24 +311,22 @@
 <li><strong>Project</strong>: <code>./openapi-cli.yaml</code></li>
 </ul>
 <h2 id="common-workflows">Common Workflows</h2>
-<h3 id="initialize-from-spec">Initialize from spec</h3>
-<pre><code class="language-bash">openapi-cli init openapi.json &amp;&amp; openapi-cli --help
+<h3 id="discover-and-generate-from-a-spec">Discover and generate from a spec</h3>
+<pre><code class="language-bash">openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
 </code></pre>
 <h3 id="quick-api-test">Quick API test</h3>
-<pre><code class="language-bash">openapi-cli api request GET /pet/1 --spec openapi.json
+<pre><code class="language-bash">openapi-cli request GET https://petstore.swagger.io/v2/pet/1
 </code></pre>
-<h3 id="mcp-server_2">MCP server</h3>
-<pre><code class="language-bash">openapi-cli mcp-server --spec openapi.json
+<h3 id="mcp-server_1">MCP server</h3>
+<pre><code class="language-bash">./bin/openapi-mcp --spec openapi.json
 </code></pre>
 <h3 id="with-environment-variables">With environment variables</h3>
-<pre><code class="language-bash">export API_KEY=secret &amp;&amp; openapi-cli api request POST /pet --body '{&quot;name&quot;:&quot;Fluffy&quot;}'
-</code></pre>
-<h3 id="interactive-mode">Interactive mode</h3>
-<pre><code class="language-bash">openapi-cli interactive
+<pre><code class="language-bash">export API_KEY=secret
+openapi-cli request GET https://api.example.com/pet/1 -H &quot;X-API-Key: $API_KEY&quot;
 </code></pre>
 <h3 id="generate-docs">Generate docs</h3>
-<pre><code class="language-bash">openapi-cli docs generate openapi.yaml --output ./docs
-</code></pre>
+<p>(Not yet implemented — use <code>discover</code> to explore specs and <code>generate</code> to create CLI commands.)</p>
 <h2 id="quick-config-examples">Quick Config Examples</h2>
 <h3 id="minimal-config">Minimal config</h3>
 <pre><code class="language-yaml">openapi-cli:
@@ -440,24 +378,20 @@
 <td><code>chmod +x /usr/local/bin/openapi-cli</code></td>
 </tr>
 <tr>
-<td>Invalid spec</td>
-<td><code>openapi-cli spec validate --strict spec.yaml</code></td>
+<td>Unknown command</td>
+<td>Run <code>openapi-cli --help</code> for the real command list</td>
 </tr>
 <tr>
 <td>401 errors</td>
-<td><code>openapi-cli auth login --provider your-provider</code></td>
+<td><code>openapi-cli auth add --name myapi --type api-key --value &lt;key&gt;</code></td>
 </tr>
 <tr>
 <td>Timeout</td>
-<td><code>openapi-cli config set http.timeout 60s</code></td>
+<td><code>openapi-cli request ... --timeout 60s</code></td>
 </tr>
 <tr>
 <td>Debug info</td>
-<td><code>openapi-cli --debug &lt;command&gt;</code></td>
-</tr>
-<tr>
-<td>Full check</td>
-<td><code>openapi-cli doctor</code></td>
+<td><code>openapi-cli audit log</code> for recent events</td>
 </tr>
 </tbody>
 </table>

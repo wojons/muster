@@ -219,15 +219,14 @@
 <pre><code class="language-json">{
   &quot;commands&quot;: [
     {
-      &quot;name&quot;: &quot;init&quot;,
-      &quot;description&quot;: &quot;Initialize CLI from spec&quot;,
-      &quot;usage&quot;: &quot;openapi-cli init &lt;spec-path&gt;&quot;,
-      &quot;aliases&quot;: [&quot;init&quot;]
+      &quot;name&quot;: &quot;generate&quot;,
+      &quot;description&quot;: &quot;Generate CLI commands from spec&quot;,
+      &quot;usage&quot;: &quot;openapi-cli generate &lt;spec-path-or-url&gt;&quot;
     },
     {
       &quot;name&quot;: &quot;inventory list&quot;,
-      &quot;description&quot;: &quot;List API resources&quot;,
-      &quot;usage&quot;: &quot;openapi-cli inventory list &lt;spec-path&gt;&quot;
+      &quot;description&quot;: &quot;List configured inventories&quot;,
+      &quot;usage&quot;: &quot;openapi-cli inventory list&quot;
     }
   ]
 }
@@ -238,10 +237,10 @@
 </code></pre>
 <p><strong>Request Body</strong>:</p>
 <pre><code class="language-json">{
-  &quot;command&quot;: &quot;init&quot;,
+  &quot;command&quot;: &quot;generate&quot;,
   &quot;args&quot;: [&quot;petstore.json&quot;],
   &quot;options&quot;: {
-    &quot;output&quot;: &quot;./config&quot;,
+    &quot;baseUrl&quot;: &quot;https://api.example.com&quot;,
     &quot;verbose&quot;: true
   }
 }
@@ -250,7 +249,7 @@
 <pre><code class="language-json">{
   &quot;success&quot;: true,
   &quot;exitCode&quot;: 0,
-  &quot;stdout&quot;: &quot;Configuration initialized&quot;,
+  &quot;stdout&quot;: &quot;Commands generated from petstore.json&quot;,
   &quot;stderr&quot;: &quot;&quot;
 }
 </code></pre>
@@ -259,7 +258,7 @@
   -H &quot;Content-Type: application/json&quot; \
   -d '{
     &quot;command&quot;: &quot;inventory list&quot;,
-    &quot;args&quot;: [&quot;petstore.json&quot;],
+    &quot;args&quot;: [],
     &quot;options&quot;: {&quot;format&quot;: &quot;json&quot;}
   }'
 </code></pre>
@@ -664,7 +663,7 @@ curl -X POST http://localhost:8080/commands/execute \
   -H &quot;X-API-Key: your-secret&quot; \
   -d '{
     &quot;command&quot;: &quot;inventory list&quot;,
-    &quot;args&quot;: [&quot;petstore.json&quot;],
+    &quot;args&quot;: [],
     &quot;options&quot;: {&quot;format&quot;: &quot;json&quot;}
   }'
 </code></pre>
@@ -763,7 +762,7 @@ curl -X POST http://localhost:8080/spec/validate -d @spec.json
 
 # Make request
 curl -X POST http://localhost:8080/commands/execute \
-  -d '{&quot;command&quot;: &quot;inventory list&quot;, &quot;args&quot;: [&quot;petstore.json&quot;]}'
+  -d '{&quot;command&quot;: &quot;inventory list&quot;, &quot;args&quot;: []}'
 </code></pre>
 <h3 id="automated-testing-with-curl">Automated Testing with curl</h3>
 <pre><code class="language-bash">#!/bin/bash
@@ -789,9 +788,9 @@ echo &quot;All tests passed!&quot;
 <h3 id="connection-refused">Connection Refused</h3>
 <p><strong>Issue</strong>: <code>curl: (7) Failed to connect to localhost port 8080</code></p>
 <p><strong>Solution</strong>: Ensure the REST API is enabled and running:</p>
-<pre><code class="language-bash">openapi-cli config set mcp.enabled true
-openapi-cli config set mcp.port 8080
-openapi-cli mcp-server
+<pre><code class="language-bash"># Ensure the MCP server is built and running:
+make build
+./bin/openapi-mcp --port 8080
 </code></pre>
 <h3 id="authentication-failed">Authentication Failed</h3>
 <p><strong>Issue</strong>: <code>{"error":{"code":"AUTH_FAILED"}}</code></p>

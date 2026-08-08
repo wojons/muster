@@ -107,169 +107,131 @@
 <h2 id="what-youll-learn">What You'll Learn</h2>
 <p>This quickstart will show you how to:
 1. Verify your installation
-2. Load an OpenAPI specification<br />
-3. Generate CLI commands automatically
+2. Explore a remote OpenAPI specification
+3. Generate CLI commands from a spec
 4. Make your first API request
-5. Run as an MCP server</p>
+5. Run as a daemon or MCP server</p>
 <h2 id="step-1-verify-installation">Step 1: Verify Installation</h2>
 <pre><code class="language-bash">openapi-cli --version
-# Expected: openapi-cli 1.0.0
+# Expected: openapi-cli v0.1.0-... (version info)
 
-openapi-cli doctor
-# Runs system checks and confirms all components are working
+openapi-cli version
+# Prints detailed version information
 </code></pre>
-<h2 id="step-2-load-an-openapi-specification">Step 2: Load an OpenAPI Specification</h2>
+<h2 id="step-2-explore-an-openapi-specification">Step 2: Explore an OpenAPI Specification</h2>
 <p>Download our example PetStore spec or use your own:</p>
 <pre><code class="language-bash"># Save example spec
 curl -L https://raw.githubusercontent.com/swagger-api/swagger-petstore/master/openapi.json -o petstore.json
 
-# Verify spec loads
-openapi-cli spec validate petstore.json
-# ✓ Specification is valid
+# Discover API operations from a remote spec
+openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+# Output: all operations grouped by tag (method, path, operationId)
 </code></pre>
-<p><strong>What's happening</strong>: OpenAPI CLI parses and validates the OpenAPI specification, ensuring it's compliant with the specification.</p>
-<h2 id="step-3-list-available-api-resources">Step 3: List Available API Resources</h2>
-<pre><code class="language-bash">openapi-cli inventory list petstore.json
+<p><strong>What's happening</strong>: OpenAPI CLI fetches the spec from the URL, parses it, and
+displays every endpoint with its HTTP method, path, and operationId. No commands
+are persisted — this is a read-only exploration.</p>
+<h2 id="step-3-generate-cli-commands">Step 3: Generate CLI Commands</h2>
+<p>OpenAPI CLI can generate CLI commands from your API specification:</p>
+<pre><code class="language-bash"># Generate commands from a local spec file
+openapi-cli generate petstore.json
 
-Available Resources:
-  /pet                              [POST] Add a new pet
-  /pet/{petId}                      [GET]    Find pet by ID
-  /pet/findByStatus                [GET]    Finds pets by status
-  /pet/{petId}                      [DELETE] Delete pet
-  /store/inventory                 [GET]    Returns pet inventories
-  /store/order/{orderId}           [GET]    Find purchase order
-  /user                             [POST]   Create user
-  /user/{username}                 [GET]    Get user by username
-  ...
+# Or from a remote URL
+openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
+
+# With a custom base URL
+openapi-cli generate openapi.yaml --base-url https://api.example.com/v1
 </code></pre>
-<p><strong>What's happening</strong>: The tool parses the OpenAPI specification and lists all available endpoints with their HTTP methods.</p>
-<h2 id="step-4-generate-cli-commands">Step 4: Generate CLI Commands</h2>
-<p>OpenAPI CLI automatically generates CLI commands from your API specification:</p>
-<pre><code class="language-bash"># Initialize CLI with spec
-openapi-cli init petstore.json
+<p>After generation, the spec's operations become available as CLI commands
+(persisted to storage and loaded on subsequent invocations).</p>
+<p><strong>What's happening</strong>: The generator parses the OpenAPI spec and creates Cobra
+commands for each API operation. These are persisted so they survive restarts.</p>
+<p><strong>Managing the store</strong>: Use <code>openapi-cli generate --list</code> to inspect the current
+store (spec path, hash, generated at, command count) and <code>openapi-cli generate --clear</code>
+to remove it. If you generate from a different spec, the CLI warns before
+overwriting the existing store.</p>
+<h2 id="step-4-make-your-first-api-request">Step 4: Make Your First API Request</h2>
+<pre><code class="language-bash"># Make a direct HTTP request
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1
 
-# See generated commands
-openapi-cli --help
-# Available Commands:
-#   pet       Pet operations
-#   store     Store operations
-#   user      User operations
+# With query parameters
+openapi-cli request GET https://petstore.swagger.io/v2/pet/findByStatus --param status=available
 
-# Explore pet commands
-openapi-cli pet --help
-# Available Commands:
-#   add         Add a new pet to the store
-#   find-id     Find pet by ID
-#   find-status Find pets by status
-#   update      Update an existing pet
-#   delete      Delete a pet
+# POST with a JSON body
+openapi-cli request POST https://petstore.swagger.io/v2/pet --body '{&quot;name&quot;:&quot;Fluffy&quot;,&quot;status&quot;:&quot;available&quot;}'
+
+# JSON output
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --output json
+
+# Add headers
+openapi-cli request GET https://api.example.com/pet/1 -H &quot;Authorization: Bearer token123&quot;
 </code></pre>
-<p><strong>What's happening</strong>: OpenAPI CLI dynamically generates CLI commands that mirror the structure of your API, making it intuitive to interact with.</p>
-<h2 id="step-5-make-your-first-api-request">Step 5: Make Your First API Request</h2>
-<pre><code class="language-bash"># Find a pet by ID
-openapi-cli pet find-id --petId 1
+<p><strong>What's happening</strong>: The <code>request</code> command is a general-purpose HTTP client
+with support for headers, query parameters, body data, and multiple output
+formats (table, json, yaml).</p>
+<h2 id="step-5-run-as-a-daemon">Step 5: Run as a Daemon</h2>
+<p>Start the daemon for background API proxying and persistent connections:</p>
+<pre><code class="language-bash"># Start daemon with a Unix socket
+openapi-cli daemon start --socket /tmp/openapi-cli.sock
 
-# Response:
-# {
-#   &quot;id&quot;: 1,
-#   &quot;name&quot;: &quot;Fluffy&quot;,
-#   &quot;status&quot;: &quot;available&quot;,
-#   &quot;category&quot;: {
-#     &quot;id&quot;: 0,
-#     &quot;name&quot;: &quot;string&quot;
-#   },
-#   &quot;tags&quot;: [
-#     {
-#       &quot;id&quot;: 0,
-#   ...
-}
+# Make requests through the socket
+curl --unix-socket /tmp/openapi-cli.sock http://localhost/pet/1
 
-# Find pets by status
-openapi-cli pet find-status --status available
+# Check daemon status
+openapi-cli daemon status
 
-# Add a new pet
-openapi-cli pet add --name Fluffy --status available --category.name Dog
-
-# Get formatted output
-openapi-cli pet find-id --petId 1 --format table
-# ID  Name    Status     Category
-# --  ----    ------     --------
-# 1   Fluffy  available  Dog
+# Stop daemon
+openapi-cli daemon stop
 </code></pre>
-<p><strong>What's happening</strong>: Commands automatically build requests, handle parameters, format responses, and display results in your preferred format.</p>
 <h2 id="step-6-run-as-mcp-server">Step 6: Run as MCP Server</h2>
-<p>For AI assistant integration, run as MCP server:</p>
-<pre><code class="language-bash">openapi-cli mcp-server
+<p>The MCP server is a separate binary (<code>openapi-mcp</code>), built alongside the CLI:</p>
+<pre><code class="language-bash"># Build all binaries
+make build
 
-# This starts the MCP server over stdio for protocol communication
-# The server will:
-# - List all available tools (API endpoints)
-# - Execute tool calls (API requests)
-# - Handle resource access
+# Run the MCP server
+./bin/openapi-mcp --help
 </code></pre>
-<p><strong>Integration Example</strong>:</p>
-<pre><code class="language-javascript">// Claude Desktop configuration: ~/Library/Application Support/Claude/claude_desktop_config.json
-{
+<p><strong>Integration Example</strong> (Claude Desktop configuration):</p>
+<pre><code class="language-json">{
   &quot;mcpServers&quot;: {
     &quot;openapi-cli&quot;: {
-      &quot;command&quot;: &quot;openapi-cli&quot;,
-      &quot;args&quot;: [&quot;mcp-server&quot;, &quot;--spec&quot;, &quot;/path/to/petstore.json&quot;]
+      &quot;command&quot;: &quot;/path/to/bin/openapi-mcp&quot;,
+      &quot;args&quot;: [&quot;--spec&quot;, &quot;/path/to/petstore.json&quot;]
     }
   }
 }
 </code></pre>
-<h2 id="step-7-generate-api-documentation">Step 7: Generate API Documentation</h2>
-<pre><code class="language-bash"># Generate comprehensive documentation from spec
-openapi-cli docs generate petstore.json --output ./docs
-
-# Output includes:
-# docs/index.html            # Full documentation
-# docs/api/                  # API reference
-# docs/schemas/              # Data models
-</code></pre>
-<p>Open <code>docs/index.html</code> in your browser to explore interactive API documentation with Swagger UI.</p>
 <h2 id="common-workflows">Common Workflows</h2>
-<h3 id="interactive-prompt-mode">Interactive Prompt Mode</h3>
-<pre><code class="language-bash">openapi-cli interactive
-
-# You'll enter an interactive shell:
-&gt; pet find-id --petId 1
-&gt; store inventory --format table
-&gt; user create --username testuser --email test@example.com
-&gt; exit
-</code></pre>
 <h3 id="use-custom-configurations">Use Custom Configurations</h3>
-<pre><code class="language-bash">openapi-cli config set base-url https://petstore.swagger.io/v2
-openapi-cli config set timeout 30
-openapi-cli config set output-format json
+<pre><code class="language-bash">openapi-cli config show
+openapi-cli config profile list
+openapi-cli config profile switch production
+</code></pre>
+<h3 id="manage-authentication">Manage Authentication</h3>
+<pre><code class="language-bash"># Store an API key in the OS keychain
+openapi-cli auth add --name myapi --type api-key --value sk-abc123
 
-# Check configuration
-openapi-cli config show
+# List stored credentials
+openapi-cli auth list
+
+# Remove a credential
+openapi-cli auth remove myapi
 </code></pre>
 <h3 id="build-automation-with-starlark">Build Automation with Starlark</h3>
 <pre><code class="language-bash"># Create a script file: api-test.star
-#!/usr/bin/env openapi-cli dsl
-
-# Find pet
-pet = api.pet.find_id(pet_id=1)
-print(f&quot;Found pet: {pet['name']}&quot;)
-
-# Update pet
-pet['status'] = 'sold'
-api.pet.update(id=1, body=pet)
+# Uses builtins: http_get, http_post, http_put, http_delete
 
 # Run script
-openapi-cli dsl run api-test.star --spec petstore.json
+openapi-cli dsl run api-test.star
 </code></pre>
-<h3 id="run-as-daemon-with-socket">Run as Daemon with Socket</h3>
-<pre><code class="language-bash"># Start daemon
-openapi-cli daemon start --socket /tmp/openapi-cli.sock
+<h3 id="manage-spec-inventories">Manage Spec Inventories</h3>
+<pre><code class="language-bash"># Add an inventory mapping a host to a local file
+openapi-cli inventory add --host https://api.example.com --file ./inventory.json
 
-# Use Unix socket proxy
-curl --unix-socket /tmp/openapi-cli.sock http://localhost/pet/find-id?petId=1
+# List configured inventories
+openapi-cli inventory list
 
-# Stop daemon
-openapi-cli daemon stop
+# Remove an inventory
+openapi-cli inventory remove --host https://api.example.com
 </code></pre>
 <h2 id="next-steps">Next Steps</h2>
 <ul>
@@ -280,28 +242,28 @@ openapi-cli daemon stop
 </ul>
 <h2 id="common-questions">Common Questions</h2>
 <p><strong>Q: Can I use multiple specs at once?</strong></p>
-<p>A: Yes! Use the <code>--spec</code> flag or load from a working directory:</p>
-<pre><code class="language-bash">openapi-cli pet add --spec ./specs/petstore.json --name Fluffy
-openapi-cli user get --spec ./specs/users.json --username testuser
+<p>A: Yes! Generate commands from each spec, or use <code>request</code> directly:</p>
+<pre><code class="language-bash">openapi-cli generate ./specs/petstore.json
+openapi-cli generate ./specs/users.json
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1
+openapi-cli request GET https://users.example.com/api/user/testuser
 </code></pre>
 <p><strong>Q: How do I handle authentication?</strong></p>
-<p>A: Configure auth settings:</p>
+<p>A: Store credentials in the OS keychain:</p>
 <pre><code class="language-bash"># API Key
-openapi-cli config set auth.apikey.header X-API-Key
-openapi-cli config set auth.apikey.value my-secret-key
+openapi-cli auth add --name myapi --type api-key --value my-secret-key
 
-# OAuth2
-openapi-cli auth login --provider google --client-id YOUR_CLIENT_ID
+# Bearer token
+openapi-cli auth add --name myapi --type bearer --value &quot;token123&quot;
 
 # mTLS
-openapi-cli auth mtls setup --cert client.crt --key client.key
+openapi-cli auth mtls generate
+openapi-cli auth mtls configure
 </code></pre>
 <p><strong>Q: Can I save common commands as aliases?</strong></p>
-<p>A: Yes, create aliases in your config:</p>
-<pre><code class="language-yaml">aliases:
-  get-pet: pet find-id --petId 1
-  all-pets: pet find-status --status available
-  create-order: store order
+<p>A: Use your shell's alias mechanism:</p>
+<pre><code class="language-bash">alias get-pet='openapi-cli request GET https://petstore.swagger.io/v2/pet/1'
+alias all-pets='openapi-cli request GET https://petstore.swagger.io/v2/pet/findByStatus --param status=available'
 </code></pre>
 <h2 id="need-help">Need Help?</h2>
 <ul>

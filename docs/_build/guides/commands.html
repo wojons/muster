@@ -125,363 +125,394 @@
 <td>Show version</td>
 <td>-</td>
 </tr>
+</tbody>
+</table>
+<h2 id="discovery-commands">Discovery Commands</h2>
+<h3 id="discover"><code>discover</code></h3>
+<p>Fetch an OpenAPI 3.x specification from a URL and display all operations
+grouped by tag, with method, path, and operationId. No commands are persisted.</p>
+<pre><code class="language-bash">openapi-cli discover &lt;url&gt;
+</code></pre>
+<p><strong>Examples</strong>:</p>
+<pre><code class="language-bash">openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+openapi-cli discover http://localhost:9800/openapi.json
+</code></pre>
+<h2 id="cli-generation-commands">CLI Generation Commands</h2>
+<h3 id="generate"><code>generate</code></h3>
+<p>Generate CLI commands dynamically from an OpenAPI 3.0 or 3.1 specification.
+The generator parses the spec and creates Cobra commands for each API operation.
+Accepts either a local file path or a remote URL (http/https).</p>
+<p>Commands are persisted to storage and loaded on subsequent CLI invocations.</p>
+<pre><code class="language-bash">openapi-cli generate [&lt;spec-path-or-url&gt;] [flags]
+</code></pre>
+<p><strong>Options</strong>:
+- <code>-u, --base-url &lt;url&gt;</code> - Base URL for the API (e.g., <code>https://api.example.com</code>)
+- <code>--list</code> - List the current persisted command store (spec path, hash, generated at, command count)
+- <code>--clear</code> - Remove the persisted command store</p>
+<p><strong>Examples</strong>:</p>
+<pre><code class="language-bash">openapi-cli generate petstore.json
+openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
+openapi-cli generate openapi.yaml --base-url https://api.example.com/v1
+openapi-cli generate --list
+openapi-cli generate --clear
+</code></pre>
+<p><strong>Overwrite warning</strong>: If you run <code>generate</code> with a different spec than the one
+currently persisted, the CLI prints a warning to stderr before overwriting the
+store. Running <code>generate</code> with the same spec (same hash) does not warn.</p>
+<h3 id="init-help-topic"><code>init</code> (help topic)</h3>
+<p><code>init</code> exists as a help topic only — it is <strong>not yet implemented</strong> as a runnable
+command. Use <code>generate</code> to create CLI commands from a spec.</p>
+<pre><code class="language-bash">openapi-cli init   # prints help text only; does nothing
+</code></pre>
+<h2 id="inventory-commands">Inventory Commands</h2>
+<h3 id="inventory"><code>inventory</code></h3>
+<p>Manage OpenAPI spec inventories. Each inventory maps a remote host URL to a
+local inventory file.</p>
+<pre><code class="language-bash">openapi-cli inventory [command]
+</code></pre>
+<p><strong>Subcommands</strong>:</p>
+<table>
+<thead>
 <tr>
-<td><code>-c, --config &lt;path&gt;</code></td>
-<td>Configuration file</td>
-<td><code>openapi-cli.yaml</code></td>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>add</code></td>
+<td>Add an inventory (<code>--host &lt;url&gt; --file &lt;path&gt;</code>)</td>
 </tr>
 <tr>
-<td><code>-d, --debug</code></td>
-<td>Enable debug mode</td>
-<td><code>false</code></td>
+<td><code>list</code></td>
+<td>List configured inventories</td>
 </tr>
 <tr>
-<td><code>-q, --quiet</code></td>
-<td>Suppress output</td>
-<td><code>false</code></td>
-</tr>
-<tr>
-<td><code>--profile &lt;name&gt;</code></td>
-<td>Use configuration profile</td>
-<td>default</td>
+<td><code>remove</code></td>
+<td>Remove an inventory (<code>--host &lt;url&gt;</code>)</td>
 </tr>
 </tbody>
 </table>
-<h2 id="specification-commands">Specification Commands</h2>
-<h3 id="spec-validate"><code>spec validate</code></h3>
-<p>Validate an OpenAPI specification.</p>
-<pre><code class="language-bash">openapi-cli spec validate &lt;spec-path&gt;
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--strict</code> - Enable strict validation (default: false)
-- <code>--format &lt;format&gt;</code> - Output format (text, json) (default: text)</p>
 <p><strong>Examples</strong>:</p>
-<pre><code class="language-bash"># Validate spec
-openapi-cli spec validate openapi.yaml
-
-# Strict validation
-openapi-cli spec validate openapi.yaml --strict
-
-# JSON output
-openapi-cli spec validate openapi.json --format json
-</code></pre>
-<h3 id="spec-info"><code>spec info</code></h3>
-<p>Display information about an OpenAPI specification.</p>
-<pre><code class="language-bash">openapi-cli spec info &lt;spec-path&gt;
-</code></pre>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli spec info openapi.yaml
-# Output:
-# Title: PetStore API
-# Version: 1.0.0
-# Description: Sample PetStore API
-# Endpoints: 20
-</code></pre>
-<h3 id="spec-convert"><code>spec convert</code></h3>
-<p>Convert between different specification formats.</p>
-<pre><code class="language-bash">openapi-cli spec convert &lt;input&gt; &lt;output&gt; [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--from &lt;format&gt;</code> - Input format (yaml, json) (default: auto-detect)
-- <code>--to &lt;format&gt;</code> - Output format (yaml, json) (default: yaml)</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli spec convert openapi.json openapi.yaml
-openapi-cli spec convert openapi.yaml openapi.json --to json
-</code></pre>
-<h2 id="cli-generation-commands">CLI Generation Commands</h2>
-<h3 id="init"><code>init</code></h3>
-<p>Initialize CLI from OpenAPI specification.</p>
-<pre><code class="language-bash">openapi-cli init &lt;spec-path&gt; [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--output &lt;dir&gt;</code> - Output directory (default: <code>./</code>)
-- <code>--config &lt;file&gt;</code> - Config file name (default: <code>openapi-cli.yaml</code>)</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli init petstore.json
-openapi-cli init api.yaml --config my-config.yaml
-</code></pre>
-<h3 id="inventory"><code>inventory</code></h3>
-<p>List API resources from specification.</p>
-<pre><code class="language-bash">openapi-cli inventory list &lt;spec-path&gt; [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--tag &lt;tag&gt;</code> - Filter by tag
-- <code>--method &lt;method&gt;</code> - Filter by HTTP method
-- <code>--format &lt;format&gt;</code> - Output format (table, json) (default: table)</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli inventory list petstore.json
-openapi-cli inventory list api.yaml --tag pets
-openapi-cli inventory list api.yaml --method GET --format json
+<pre><code class="language-bash">openapi-cli inventory add --host https://api.example.com --file ./inventory.json
+openapi-cli inventory list
+openapi-cli inventory remove --host https://api.example.com
 </code></pre>
 <h2 id="api-interaction-commands">API Interaction Commands</h2>
-<h3 id="api-request"><code>api request</code></h3>
-<p>Make an API request to an endpoint.</p>
-<pre><code class="language-bash">openapi-cli api request [method] &lt;path&gt; [options]
+<h3 id="request"><code>request</code></h3>
+<p>Send HTTP requests with support for various methods, headers, and output formats.</p>
+<pre><code class="language-bash">openapi-cli request &lt;method&gt; &lt;url&gt; [flags]
 </code></pre>
 <p><strong>Options</strong>:
-- <code>--spec &lt;path&gt;</code> - OpenAPI spec file (default: from config)
-- <code>--body &lt;data&gt;</code> - Request body (JSON string)
-- <code>--header &lt;name=value&gt;</code> - Add request header
-- <code>--query &lt;name=value&gt;</code> - Add query parameter
-- <code>--output &lt;format&gt;</code> - Response format (json, pretty)</p>
+- <code>-b, --body &lt;string&gt;</code> - Request body for POST/PUT requests
+- <code>-H, --header &lt;strings&gt;</code> - Add HTTP header (format: <code>'Key: Value'</code>; repeatable)
+- <code>-o, --output &lt;format&gt;</code> - Output format (<code>json</code>, <code>yaml</code>, <code>table</code>; default: <code>table</code>)
+- <code>-p, --param &lt;strings&gt;</code> - Add query parameter (format: <code>'key=value'</code>; repeatable)
+- <code>--timeout &lt;duration&gt;</code> - Request timeout (default: <code>30s</code>)
+- <code>-v, --verbose</code> - Verbose output
+- <code>--wasm-plugin &lt;path&gt;</code> - Path to WASM plugin for response transformation</p>
 <p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli api request GET /pet/1 --spec petstore.json
-openapi-cli api request POST /pet --body '{&quot;name&quot;:&quot;Fluffy&quot;}'
-openapi-cli api request GET /pet/findByStatus?status=available
-</code></pre>
-<h3 id="api-batch"><code>api batch</code></h3>
-<p>Make multiple API requests in parallel.</p>
-<pre><code class="language-bash">openapi-cli api batch &lt;batch-file&gt;
-</code></pre>
-<p><strong>Batch file format</strong>:</p>
-<pre><code class="language-json">{
-  &quot;requests&quot;: [
-    {
-      &quot;method&quot;: &quot;GET&quot;,
-      &quot;path&quot;: &quot;/pet/1&quot;
-    },
-    {
-      &quot;method&quot;: &quot;GET&quot;,
-      &quot;path&quot;: &quot;/pet/2&quot;
-    }
-  ]
-}
-</code></pre>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli api batch requests.json
-</code></pre>
-<h2 id="documentation-commands">Documentation Commands</h2>
-<h3 id="docs-generate"><code>docs generate</code></h3>
-<p>Generate API documentation from OpenAPI spec.</p>
-<pre><code class="language-bash">openapi-cli docs generate &lt;spec-path&gt; [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--output &lt;dir&gt;</code> - Output directory (default: <code>./docs</code>)
-- <code>--format &lt;format&gt;</code> - Output format (markdown, html) (default: markdown)
-- <code>--theme &lt;theme&gt;</code> - Documentation theme</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli docs generate openapi.yaml
-openapi-cli docs generate openapi.yaml --output ./site --format html
-</code></pre>
-<h3 id="docs-serve"><code>docs serve</code></h3>
-<p>Serve documentation locally.</p>
-<pre><code class="language-bash">openapi-cli docs serve [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--port &lt;port&gt;</code> - Port number (default: 8080)
-- <code>--dir &lt;dir&gt;</code> - Documentation directory (default: <code>./docs</code>)</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli docs serve
-openapi-cli docs serve --port 3000
-</code></pre>
-<h2 id="mcp-server-commands">MCP Server Commands</h2>
-<h3 id="mcp-server"><code>mcp-server</code></h3>
-<p>Run Model Context Protocol server.</p>
-<pre><code class="language-bash">openapi-cli mcp-server [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--spec &lt;path&gt;</code> - OpenAPI spec file
-- <code>--port &lt;port&gt;</code> - Port for HTTP transport
-- <code>--stdio</code> - Use stdio transport (default)</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli mcp-server --spec openapi.json
-openapi-cli mcp-server --spec openapi.json --stdio
-</code></pre>
-<h2 id="wasm-commands">WASM Commands</h2>
-<h3 id="wasm-run"><code>wasm run</code></h3>
-<p>Run a WASM module.</p>
-<pre><code class="language-bash">openapi-cli wasm run &lt;module.wasm&gt; [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--function &lt;name&gt;</code> - Function to call
-- <code>--arg &lt;value&gt;</code> - Function argument
-- <code>--memory &lt;size&gt;</code> - Memory limit (default: 128MB)
-- <code>--timeout &lt;duration&gt;</code> - Execution timeout (default: 30s)</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli wasm run add.wasm --function add --arg 5 --arg 10
-openapi-cli wasm run process.wasm --function process --arg '{&quot;input&quot;:&quot;value&quot;}'
-</code></pre>
-<h3 id="wasm-compile"><code>wasm compile</code></h3>
-<p>Compile code to WASM.</p>
-<pre><code class="language-bash">openapi-cli wasm compile &lt;input&gt; &lt;output&gt; [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--language &lt;lang&gt;</code> - Input language (go, rust, c++)
-- <code>--optimize</code> - Enable optimization</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli wasm compile add.go add.wasm --optimize
+<pre><code class="language-bash">openapi-cli request GET https://petstore.swagger.io/v2/pet/1
+openapi-cli request POST https://api.example.com/pet --body '{&quot;name&quot;:&quot;Fluffy&quot;}'
+openapi-cli request GET https://api.example.com/pet/findByStatus --param status=available
+openapi-cli request GET https://api.example.com/pet/1 --output json
 </code></pre>
 <h2 id="dsl-commands">DSL Commands</h2>
 <h3 id="dsl-run"><code>dsl run</code></h3>
-<p>Run a Starlark DSL script.</p>
-<pre><code class="language-bash">openapi-cli dsl run &lt;script.star&gt; [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--spec &lt;path&gt;</code> - OpenAPI spec file
-- <code>--var &lt;name=value&gt;</code> - Define variable
-- <code>--timeout &lt;duration&gt;</code> - Execution timeout</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli dsl run script.star --spec openapi.yaml
-openapi-cli dsl run script.star --var API_KEY=secret
-</code></pre>
-<h3 id="dsl-test"><code>dsl test</code></h3>
-<p>Test a DSL script.</p>
-<pre><code class="language-bash">openapi-cli dsl test &lt;script.star&gt;
+<p>Execute a <code>.star</code> Starlark script with built-in HTTP functions:
+<code>http_get(url)</code>, <code>http_post(url, body)</code>, <code>http_put(url, body)</code>, <code>http_delete(url)</code>.</p>
+<pre><code class="language-bash">openapi-cli dsl run &lt;file.star&gt; [flags]
 </code></pre>
 <p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli dsl test automation.star
+<pre><code class="language-bash">openapi-cli dsl run automation.star
 </code></pre>
 <h2 id="daemon-commands">Daemon Commands</h2>
-<h3 id="daemon-start"><code>daemon start</code></h3>
-<p>Start daemon in background.</p>
-<pre><code class="language-bash">openapi-cli daemon start [options]
+<h3 id="daemon"><code>daemon</code></h3>
+<p>Manage the daemon process for background API proxying and persistent connections.</p>
+<pre><code class="language-bash">openapi-cli daemon [command]
 </code></pre>
-<p><strong>Options</strong>:
-- <code>--socket &lt;path&gt;</code> - Unix socket path (default: <code>/tmp/openapi-cli.sock</code>)
-- <code>--pid-file &lt;path&gt;</code> - PID file path (default: <code>/var/run/openapi-cli.pid</code>)</p>
+<p><strong>Subcommands</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>start</code></td>
+<td>Start the daemon (<code>--socket &lt;path&gt;</code>, <code>--backend-url &lt;url&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>Show daemon status (<code>--socket &lt;path&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>stop</code></td>
+<td>Stop the daemon and clean up resources (<code>--socket &lt;path&gt;</code>)</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Examples</strong>:</p>
 <pre><code class="language-bash">openapi-cli daemon start
 openapi-cli daemon start --socket /tmp/my-daemon.sock
-</code></pre>
-<h3 id="daemon-stop"><code>daemon stop</code></h3>
-<p>Stop daemon.</p>
-<pre><code class="language-bash">openapi-cli daemon stop [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--force</code> - Force kill</p>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli daemon stop
-openapi-cli daemon stop --force
-</code></pre>
-<h3 id="daemon-status"><code>daemon status</code></h3>
-<p>Check daemon status.</p>
-<pre><code class="language-bash">openapi-cli daemon status
-</code></pre>
-<h3 id="daemon-restart"><code>daemon restart</code></h3>
-<p>Restart daemon.</p>
-<pre><code class="language-bash">openapi-cli daemon restart
+openapi-cli daemon start --backend-url https://api.example.com
+openapi-cli daemon status
+openapi-cli daemon stop
 </code></pre>
 <h2 id="configuration-commands">Configuration Commands</h2>
-<h3 id="config-show"><code>config show</code></h3>
-<p>Show configuration.</p>
-<pre><code class="language-bash">openapi-cli config show [section]
+<h3 id="config"><code>config</code></h3>
+<p>View and modify OpenAPI CLI configuration.</p>
+<pre><code class="language-bash">openapi-cli config [command]
 </code></pre>
+<p><strong>Subcommands</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>profile</code></td>
+<td>Manage configuration profiles (<code>list</code>, <code>show</code>, <code>switch</code>, <code>delete</code>)</td>
+</tr>
+<tr>
+<td><code>show</code></td>
+<td>Show current configuration</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Examples</strong>:</p>
 <pre><code class="language-bash">openapi-cli config show
-openapi-cli config show http
-openapi-cli config show --resolved
-</code></pre>
-<h3 id="config-set"><code>config set</code></h3>
-<p>Set configuration value.</p>
-<pre><code class="language-bash">openapi-cli config set &lt;key&gt; &lt;value&gt;
-</code></pre>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli config set http.timeout 60s
-openapi-cli config set spec.base_url https://api.example.com/v1
-</code></pre>
-<h3 id="config-unset"><code>config unset</code></h3>
-<p>Unset configuration value.</p>
-<pre><code class="language-bash">openapi-cli config unset &lt;key&gt;
-</code></pre>
-<p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli config unset http.timeout
-</code></pre>
-<h3 id="config-validate"><code>config validate</code></h3>
-<p>Validate configuration.</p>
-<pre><code class="language-bash">openapi-cli config validate
+openapi-cli config profile list
+openapi-cli config profile switch production
 </code></pre>
 <h2 id="authentication-commands">Authentication Commands</h2>
-<h3 id="auth-login"><code>auth login</code></h3>
-<p>Login to OAuth2 provider.</p>
-<pre><code class="language-bash">openapi-cli auth login &lt;provider&gt; [options]
+<h3 id="auth"><code>auth</code></h3>
+<p>Manage authentication credentials stored in the system keychain.
+Credentials are keyed by name and stored with a type (<code>api-key</code>, <code>bearer</code>, <code>basic</code>).
+Secrets live in the OS keychain; metadata is kept in config.</p>
+<pre><code class="language-bash">openapi-cli auth [command]
 </code></pre>
-<p><strong>Options</strong>:
-- <code>--client-id &lt;id&gt;</code> - OAuth2 client ID
-- <code>--client-secret &lt;secret&gt;</code> - OAuth2 client secret
-- <code>--scopes &lt;scopes&gt;</code> - OAuth2 scopes</p>
+<p><strong>Subcommands</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>add</code></td>
+<td>Store a credential (<code>--name &lt;name&gt; --type &lt;type&gt; --value &lt;value&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>List stored credentials</td>
+</tr>
+<tr>
+<td><code>remove</code></td>
+<td>Remove a credential (<code>&lt;name&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>mtls</code></td>
+<td>Manage mutual TLS credentials (<code>generate</code>, <code>configure</code>, <code>info</code>)</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli auth login google --client-id YOUR_CLIENT_ID
+<pre><code class="language-bash">openapi-cli auth add --name myapi --type api-key --value sk-abc123
+openapi-cli auth list
+openapi-cli auth remove myapi
+openapi-cli auth mtls generate
 </code></pre>
-<h3 id="auth-logout"><code>auth logout</code></h3>
-<p>Logout and remove credentials.</p>
-<pre><code class="language-bash">openapi-cli auth logout [provider]
+<h2 id="audit-commands">Audit Commands</h2>
+<h3 id="audit"><code>audit</code></h3>
+<p>View audit log events recorded by the CLI, daemon, and MCP server.
+Events are persisted as JSON lines in the audit log file.</p>
+<pre><code class="language-bash">openapi-cli audit [command]
 </code></pre>
+<p><strong>Subcommands</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>log</code></td>
+<td>Show recent audit events (<code>--filter &lt;text&gt;</code>, <code>--limit &lt;n&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>info</code></td>
+<td>Show audit configuration and statistics</td>
+</tr>
+<tr>
+<td><code>show</code></td>
+<td>Show recent audit events (<code>--limit &lt;n&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>Show audit logging status</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli auth logout
-openapi-cli auth logout google
+<pre><code class="language-bash">openapi-cli audit log --limit 20
+openapi-cli audit log --filter &quot;error&quot;
+openapi-cli audit status
 </code></pre>
-<h3 id="auth-status"><code>auth status</code></h3>
-<p>Show authentication status.</p>
-<pre><code class="language-bash">openapi-cli auth status
+<h2 id="tenant-commands">Tenant Commands</h2>
+<h3 id="tenant"><code>tenant</code></h3>
+<p>Manage the multi-tenant context for this CLI. Each tenant maps to a named
+config profile with isolated settings, quotas, and audit records. The active
+tenant persists to disk.</p>
+<pre><code class="language-bash">openapi-cli tenant [command]
 </code></pre>
-<h3 id="credentials-store"><code>credentials store</code></h3>
-<p>Store credentials securely.</p>
-<pre><code class="language-bash">openapi-cli credentials store &lt;name&gt; [options]
-</code></pre>
-<p><strong>Options</strong>:
-- <code>--header &lt;name&gt;</code> - HTTP header name
-- <code>--value &lt;value&gt;</code> - Credential value</p>
+<p><strong>Subcommands</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>current</code></td>
+<td>Show the active tenant with name, tier, and timestamp</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>List known tenants</td>
+</tr>
+<tr>
+<td><code>set</code></td>
+<td>Set the active tenant (<code>&lt;tenant-id&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>show</code></td>
+<td>Show current tenant</td>
+</tr>
+<tr>
+<td><code>switch</code></td>
+<td>Switch current tenant (<code>&lt;tenant-id&gt;</code>)</td>
+</tr>
+</tbody>
+</table>
 <p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli credentials store myapi --header X-API-Key --value secret
+<pre><code class="language-bash">openapi-cli tenant list
+openapi-cli tenant set production
+openapi-cli tenant current
 </code></pre>
-<h3 id="credentials-list"><code>credentials list</code></h3>
-<p>List stored credentials.</p>
-<pre><code class="language-bash">openapi-cli credentials list
+<h2 id="webhook-commands">Webhook Commands</h2>
+<h3 id="webhook"><code>webhook</code></h3>
+<p>Manage webhook subscriptions for API events. Subscriptions are stored in the
+local config directory and used by the daemon to deliver event notifications.</p>
+<pre><code class="language-bash">openapi-cli webhook [command]
 </code></pre>
-<h3 id="credentials-remove"><code>credentials remove</code></h3>
-<p>Remove stored credentials.</p>
-<pre><code class="language-bash">openapi-cli credentials remove &lt;name&gt;
+<p><strong>Subcommands</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>create</code></td>
+<td>Create a webhook subscription (<code>--name &lt;n&gt; --url &lt;u&gt; --events &lt;list&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>delete</code></td>
+<td>Remove a webhook subscription (<code>&lt;id&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>List webhook subscriptions</td>
+</tr>
+<tr>
+<td><code>subscribe</code></td>
+<td>Subscribe to an API event (<code>&lt;url&gt; &lt;event-type&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>test</code></td>
+<td>Test connectivity to a webhook URL (<code>&lt;id&gt;</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples</strong>:</p>
+<pre><code class="language-bash">openapi-cli webhook create --name &quot;my-hook&quot; --url https://example.com/cb --events &quot;api.request,api.error&quot;
+openapi-cli webhook list
+openapi-cli webhook test wh_abc123
 </code></pre>
-<h2 id="cache-commands">Cache Commands</h2>
-<h3 id="cache-clear"><code>cache clear</code></h3>
-<p>Clear cache.</p>
-<pre><code class="language-bash">openapi-cli cache clear
+<h2 id="wasm-module-commands">WASM Module Commands</h2>
+<h3 id="modules"><code>modules</code></h3>
+<p>Manage and execute WebAssembly modules. Modules run in the wazero sandbox
+(pure Go, no CGO) with resource limits enforced by the execution sandbox.</p>
+<pre><code class="language-bash">openapi-cli modules [command]
 </code></pre>
-<h3 id="cache-stats"><code>cache stats</code></h3>
-<p>Show cache statistics.</p>
-<pre><code class="language-bash">openapi-cli cache stats
+<p><strong>Subcommands</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run</code></td>
+<td>Load and execute a WASM module (<code>&lt;file.wasm&gt; [args...] --fn &lt;name&gt;</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Examples</strong>:</p>
+<pre><code class="language-bash">openapi-cli modules run add.wasm 5 10 --fn add
 </code></pre>
 <h2 id="utility-commands">Utility Commands</h2>
-<h3 id="doctor"><code>doctor</code></h3>
-<p>Run system diagnostics.</p>
-<pre><code class="language-bash">openapi-cli doctor
-</code></pre>
-<p><strong>Checks</strong>:
-- Configuration validity
-- File system permissions
-- Network connectivity
-- Dependency versions</p>
 <h3 id="version"><code>version</code></h3>
-<p>Show version information.</p>
-<pre><code class="language-bash">openapi-cli version
+<p>Print detailed version information about the OpenAPI CLI.</p>
+<pre><code class="language-bash">openapi-cli version [flags]
 </code></pre>
-<h3 id="help"><code>help</code></h3>
-<p>Show help for commands.</p>
-<pre><code class="language-bash">openapi-cli help
-openapi-cli help &lt;command&gt;
+<p><strong>Options</strong>:
+- <code>--output</code> - Output in JSON format</p>
+<p><strong>Examples</strong>:</p>
+<pre><code class="language-bash">openapi-cli version
+openapi-cli version --output
+</code></pre>
+<h3 id="completion"><code>completion</code></h3>
+<p>Generate shell completion scripts for bash, zsh, fish, or PowerShell.</p>
+<pre><code class="language-bash">openapi-cli completion [bash|zsh|fish|powershell]
 </code></pre>
 <p><strong>Examples</strong>:</p>
-<pre><code class="language-bash">openapi-cli help
-openapi-cli help init
-openapi-cli help &quot;api request&quot;
+<pre><code class="language-bash">openapi-cli completion bash &gt; /etc/bash_completion.d/openapi-cli
+openapi-cli completion zsh &gt; &quot;${fpath[1]}/_openapi-cli&quot;
+openapi-cli completion fish &gt; ~/.config/fish/completions/openapi-cli.fish
 </code></pre>
-<h2 id="output-format-options">Output Format Options</h2>
-<h3 id="json-output">JSON Output</h3>
-<pre><code class="language-bash">openapi-cli api request GET /pet/1 --output json
+<h3 id="help"><code>help</code></h3>
+<p>Show help for any command.</p>
+<pre><code class="language-bash">openapi-cli help [command]
 </code></pre>
-<h3 id="pretty-output">Pretty Output</h3>
-<pre><code class="language-bash">openapi-cli api request GET /pet/1 --output pretty
+<h2 id="mcp-server">MCP Server</h2>
+<p>The MCP server is a separate binary (<code>openapi-mcp</code>), not a subcommand of
+<code>openapi-cli</code>. Build it with <code>make build</code> and run it directly:</p>
+<pre><code class="language-bash">./bin/openapi-mcp --help
 </code></pre>
-<h3 id="table-output">Table Output</h3>
-<pre><code class="language-bash">openapi-cli inventory list api.yaml --format table
-</code></pre>
-<h3 id="quiet-mode">Quiet Mode</h3>
-<pre><code class="language-bash">openapi-cli api request GET /pet/1 --quiet
-</code></pre>
-<h2 id="debug-mode">Debug Mode</h2>
-<p>Enable debug output:</p>
-<pre><code class="language-bash">openapi-cli --debug api request GET /pet/1
-</code></pre>
+<h2 id="output-formats">Output Formats</h2>
+<p>The <code>request</code> command supports these output formats via <code>-o, --output</code>:</p>
+<ul>
+<li><code>table</code> - Table format (default)</li>
+<li><code>json</code> - JSON output</li>
+<li><code>yaml</code> - YAML output</li>
+</ul>
 <h2 id="exit-codes">Exit Codes</h2>
 <table>
 <thead>
@@ -501,19 +532,19 @@ openapi-cli help &quot;api request&quot;
 </tr>
 <tr>
 <td>2</td>
-<td>Invalid command-line arguments</td>
+<td>Invalid arguments</td>
 </tr>
 <tr>
 <td>3</td>
-<td>Command or file not found</td>
+<td>Not found</td>
 </tr>
 <tr>
 <td>4</td>
-<td>API request error</td>
+<td>API error</td>
 </tr>
 <tr>
 <td>5</td>
-<td>Authentication error</td>
+<td>Auth error</td>
 </tr>
 <tr>
 <td>6</td>
@@ -529,22 +560,107 @@ openapi-cli help &quot;api request&quot;
 </tr>
 <tr>
 <td>127</td>
-<td>Interrupted by user</td>
+<td>Interrupted</td>
 </tr>
 </tbody>
 </table>
-<h2 id="command-aliases">Command Aliases</h2>
-<p>Create custom aliases in configuration:</p>
-<pre><code class="language-yaml">aliases:
-  list-pets: inventory list
-  get-pet: api request GET
-  create-pet: api request POST
-</code></pre>
-<h2 id="next-steps">Next Steps</h2>
+<h2 id="config-file-locations">Config File Locations</h2>
 <ul>
-<li><a href="installation.md">Installation Guide</a> - Get started</li>
-<li><a href="configuration.md">Configuration Guide</a> - Customize setup</li>
-<li><a href="../api/README.md">API Documentation</a> - API reference</li>
+<li><strong>Global</strong>: <code>~/.config/openapi-cli/config.yaml</code></li>
+<li><strong>Project</strong>: <code>./openapi-cli.yaml</code></li>
+</ul>
+<h2 id="common-workflows">Common Workflows</h2>
+<h3 id="discover-and-generate-from-a-spec">Discover and generate from a spec</h3>
+<pre><code class="language-bash">openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
+</code></pre>
+<h3 id="quick-api-test">Quick API test</h3>
+<pre><code class="language-bash">openapi-cli request GET https://petstore.swagger.io/v2/pet/1
+</code></pre>
+<h3 id="run-as-daemon">Run as daemon</h3>
+<pre><code class="language-bash">openapi-cli daemon start --socket /tmp/openapi-cli.sock
+curl --unix-socket /tmp/openapi-cli.sock http://localhost/pet/1
+openapi-cli daemon stop
+</code></pre>
+<h3 id="with-environment-variables">With environment variables</h3>
+<pre><code class="language-bash">export API_KEY=secret
+openapi-cli request GET https://api.example.com/pet/1 -H &quot;X-API-Key: $API_KEY&quot;
+</code></pre>
+<h2 id="quick-config-examples">Quick Config Examples</h2>
+<h3 id="minimal-config">Minimal config</h3>
+<pre><code class="language-yaml">openapi-cli:
+  spec:
+    path: openapi.yaml
+</code></pre>
+<h3 id="with-auth">With auth</h3>
+<pre><code class="language-yaml">openapi-cli:
+  spec:
+    base_url: https://api.example.com/v1
+  auth:
+    type: apikey
+    apikey:
+      value: ${API_KEY}
+</code></pre>
+<h3 id="full-config">Full config</h3>
+<pre><code class="language-yaml">openapi-cli:
+  spec:
+    path: ./api/openapi.yaml
+    base_url: https://api.example.com/v1
+  http:
+    timeout: 30s
+  output:
+    format: table
+    colors: true
+  mcp:
+    enabled: true
+  log:
+    level: info
+    format: json
+  cache:
+    enabled: true
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Command not found</td>
+<td><code>export PATH=$HOME/.local/bin:$PATH</code></td>
+</tr>
+<tr>
+<td>Permission denied</td>
+<td><code>chmod +x /usr/local/bin/openapi-cli</code></td>
+</tr>
+<tr>
+<td>Unknown command</td>
+<td>Run <code>openapi-cli --help</code> for the real command list</td>
+</tr>
+<tr>
+<td>401 errors</td>
+<td><code>openapi-cli auth add --name myapi --type api-key --value &lt;key&gt;</code></td>
+</tr>
+<tr>
+<td>Timeout</td>
+<td><code>openapi-cli request ... --timeout 60s</code></td>
+</tr>
+<tr>
+<td>Debug info</td>
+<td>Check <code>openapi-cli audit log</code> for recent events</td>
+</tr>
+</tbody>
+</table>
+<h2 id="links">Links</h2>
+<ul>
+<li><a href="../guides/">Full Documentation</a> - All guides</li>
+<li><a href="../guides/installation.md">Installation</a> - Install guide</li>
+<li><a href="../guides/quickstart.md">Quickstart</a> - Get started</li>
+<li><a href="../guides/configuration.md">Configuration</a> - Config options</li>
+<li><a href="../api/">API Reference</a> - API docs</li>
 </ul>
     </main>
 </body>

@@ -109,19 +109,18 @@
 <h2 id="getting-started">Getting Started</h2>
 <h3 id="running-the-mcp-server">Running the MCP Server</h3>
 <pre><code class="language-bash"># Start MCP server with stdio transport (default)
-openapi-cli mcp-server --spec openapi.yaml
+./bin/openapi-mcp --spec openapi.yaml
 
 # Start with HTTP transport for debugging
-openapi-cli mcp-server --spec openapi.yaml --port 8080
+./bin/openapi-mcp --spec openapi.yaml --port 8080
 </code></pre>
 <h3 id="claude-desktop-configuration">Claude Desktop Configuration</h3>
 <p>Configure in Claude Desktop settings:</p>
 <pre><code class="language-json">{
   &quot;mcpServers&quot;: {
     &quot;openapi-cli&quot;: {
-      &quot;command&quot;: &quot;openapi-cli&quot;,
+      &quot;command&quot;: &quot;/path/to/bin/openapi-mcp&quot;,
       &quot;args&quot;: [
-        &quot;mcp-server&quot;,
         &quot;--spec&quot;, &quot;/path/to/openapi.yaml&quot;,
         &quot;--base-url&quot;, &quot;https://api.example.com/v1&quot;
       ]
@@ -147,7 +146,7 @@ openapi-cli mcp-server --spec openapi.yaml --port 8080
     }
   },
   &quot;id&quot;: 1
-} | openapi-cli mcp-server --spec openapi.yaml
+} | ./bin/openapi-mcp --spec openapi.yaml
 </code></pre>
 <h2 id="server-capabilities">Server Capabilities</h2>
 <p>The MCP server advertises these capabilities:</p>
@@ -366,7 +365,7 @@ openapi-cli mcp-server --spec openapi.yaml --port 8080
 <h2 id="authentication">Authentication</h2>
 <h3 id="mcp-auth-flow">MCP Auth Flow</h3>
 <p>The MCP server supports authentication via configuration:</p>
-<pre><code class="language-bash">openapi-cli mcp-server --spec openapi.yaml \
+<pre><code class="language-bash">./bin/openapi-mcp --spec openapi.yaml \
   --auth.type oauth2 \
   --auth.token your-access-token
 </code></pre>
@@ -495,7 +494,7 @@ openapi-cli mcp-server --spec openapi.yaml --port 8080
 <h2 id="examples">Examples</h2>
 <h3 id="example-1-complete-workflow">Example 1: Complete Workflow</h3>
 <pre><code class="language-bash"># Start MCP server
-openapi-cli mcp-server --spec openapi.yaml
+./bin/openapi-mcp --spec openapi.yaml
 
 # Client workflow:
 # 1. Initialize
@@ -593,7 +592,7 @@ openapi-cli mcp-server --spec openapi.yaml
 </code></pre>
 <h3 id="integration-testing">Integration Testing</h3>
 <pre><code class="language-bash"># Full MCP integration test
-openapi-cli mcp-server --spec test-openapi.yaml --port 8080
+./bin/openapi-mcp --spec test-openapi.yaml --port 8080
 
 # Send requests via HTTP or stdio
 curl -X POST http://localhost:8080 \
@@ -604,15 +603,15 @@ curl -X POST http://localhost:8080 \
 <h3 id="common-issues">Common Issues</h3>
 <p><strong>Issue</strong>: "Specification not found"</p>
 <p><strong>Solution</strong>: Check spec path and file permissions:</p>
-<pre><code class="language-bash">openapi-cli mcp-server --spec /full/path/to/openapi.yaml
+<pre><code class="language-bash">./bin/openapi-mcp --spec /full/path/to/openapi.yaml
 </code></pre>
 <p><strong>Issue</strong>: "Tool 'xxx' not found"</p>
 <p><strong>Solution</strong>: Verify the tool name matches the operation or path:</p>
-<pre><code class="language-bash">openapi-cli inventory list openapi.yaml  # See available tools
+<pre><code class="language-bash">openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json  # See available operations
 </code></pre>
 <h3 id="debug-mode">Debug Mode</h3>
 <p>Enable debug logging:</p>
-<pre><code class="language-bash">openapi-cli --debug mcp-server --spec openapi.yaml
+<pre><code class="language-bash">./bin/openapi-mcp --spec openapi.yaml
 </code></pre>
 <h2 id="related-documentation">Related Documentation</h2>
 <ul>

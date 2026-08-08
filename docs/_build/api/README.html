@@ -164,9 +164,9 @@
 <pre><code class="language-json">{
   &quot;commands&quot;: [
     {
-      &quot;name&quot;: &quot;init&quot;,
-      &quot;description&quot;: &quot;Initialize CLI from spec&quot;,
-      &quot;usage&quot;: &quot;openapi-cli init &lt;spec-path&gt;&quot;
+      &quot;name&quot;: &quot;generate&quot;,
+      &quot;description&quot;: &quot;Generate CLI commands from spec&quot;,
+      &quot;usage&quot;: &quot;openapi-cli generate &lt;spec-path-or-url&gt;&quot;
     }
   ]
 }
@@ -234,36 +234,34 @@
 }
 </code></pre>
 <h3 id="running-mcp-server">Running MCP Server</h3>
-<pre><code class="language-bash">openapi-cli mcp-server --spec openapi.yaml
+<pre><code class="language-bash">./bin/openapi-mcp --spec openapi.yaml
 </code></pre>
 <p>For integration with Claude Desktop:</p>
 <pre><code class="language-json">{
   &quot;mcpServers&quot;: {
     &quot;openapi-cli&quot;: {
-      &quot;command&quot;: &quot;openapi-cli&quot;,
-      &quot;args&quot;: [&quot;mcp-server&quot;, &quot;--spec&quot;, &quot;/path/to/openapi.json&quot;]
+      &quot;command&quot;: &quot;/path/to/bin/openapi-mcp&quot;,
+      &quot;args&quot;: [&quot;--spec&quot;, &quot;/path/to/openapi.json&quot;]
     }
   }
 }
 </code></pre>
 <h2 id="command-line-interface">Command-Line Interface</h2>
 <h3 id="interactive-mode">Interactive Mode</h3>
-<pre><code class="language-bash">openapi-cli interactive
+<pre><code class="language-bash"># OpenAPI CLI does not have a built-in interactive mode.
+# Use shell aliases or scripts for repeated operations:
 
-# Interactive shell
-&gt; pet find-id --petId 1
-&gt; store order --total 100
-&gt; exit
+alias get-pet='openapi-cli request GET https://petstore.swagger.io/v2/pet/1'
 </code></pre>
 <h3 id="command-output-formats">Command Output Formats</h3>
 <p><strong>JSON</strong>:</p>
-<pre><code class="language-bash">openapi-cli api request GET /pet/1 --output json
+<pre><code class="language-bash">openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --output json
 </code></pre>
 <p><strong>Table</strong>:</p>
-<pre><code class="language-bash">openapi-cli inventory list --format table
+<pre><code class="language-bash">openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --output table
 </code></pre>
 <p><strong>YAML</strong>:</p>
-<pre><code class="language-bash">openapi-cli config show --format yaml
+<pre><code class="language-bash">openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --output yaml
 </code></pre>
 <h3 id="error-handling">Error Handling</h3>
 <p>Exit codes:</p>
@@ -319,7 +317,7 @@
 </table>
 <h2 id="wasm-integration">WASM Integration</h2>
 <h3 id="running-wasm-modules">Running WASM Modules</h3>
-<pre><code class="language-bash">openapi-cli wasm run module.wasm --function add --arg 5 --arg 10
+<pre><code class="language-bash">openapi-cli modules run module.wasm 5 10 --fn add
 </code></pre>
 <h3 id="wasm-capabilities">WASM Capabilities</h3>
 <p>Configurable sandbox options:</p>
@@ -356,14 +354,14 @@ api.pet.update(id=1, body=pet)
 <li><strong>Device Code</strong>: Headless devices</li>
 </ul>
 <h3 id="token-management">Token Management</h3>
-<pre><code class="language-bash"># Login
-openapi-cli auth login --provider google --client-id YOUR_CLIENT_ID
+<pre><code class="language-bash"># Store credentials
+openapi-cli auth add --name myapi --type api-key --value YOUR_KEY
 
 # Check status
-openapi-cli auth status
+openapi-cli auth list
 
-# Logout
-openapi-cli auth logout
+# Remove credentials
+openapi-cli auth remove myapi
 </code></pre>
 <h3 id="credential-storage">Credential Storage</h3>
 <p>Credentials are stored securely:
@@ -371,17 +369,16 @@ openapi-cli auth logout
 - Linux: Secret Service (libsecret)
 - Windows: Credential Manager
 - Fallback: Encrypted file</p>
-<pre><code class="language-bash">openapi-cli credentials store myapi --header X-API-Key --value secret
-openapi-cli credentials list
+<pre><code class="language-bash">openapi-cli auth add --name myapi --type api-key --value secret
+openapi-cli auth list
 </code></pre>
 <h2 id="configuration-api">Configuration API</h2>
 <h3 id="get-configuration">Get Configuration</h3>
 <pre><code class="language-bash">openapi-cli config show
-openapi-cli config show --resolved
 </code></pre>
 <h3 id="set-values">Set Values</h3>
-<pre><code class="language-bash">openapi-cli config set http.timeout 60s
-openapi-cli config set spec.base_url https://api.example.com/v1
+<p>Configuration is managed through the config file directly or via profiles:</p>
+<pre><code class="language-bash">openapi-cli config profile switch production
 </code></pre>
 <h3 id="environment-variables">Environment Variables</h3>
 <p>All config values can be overridden:</p>
@@ -455,8 +452,11 @@ export MUSTER_LOG_LEVEL=debug
   max_size: 1GB
 </code></pre>
 <h3 id="cache-management">Cache Management</h3>
-<pre><code class="language-bash">openapi-cli cache clear
-openapi-cli cache stats
+<pre><code class="language-bash"># Clear cache
+rm -rf ~/.cache/openapi-cli/
+
+# Check cache
+ls -la ~/.cache/openapi-cli/
 </code></pre>
 <h2 id="logging">Logging</h2>
 <h3 id="log-configuration">Log Configuration</h3>

@@ -196,7 +196,9 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <li>
 <p><strong>Validate the specification</strong>:
    <code>bash
-   openapi-cli spec validate --strict your-spec.yaml</code></p>
+   openapi-cli generate your-spec.yaml
+   # If the spec parses successfully, commands are generated.
+   # If it fails, the error message will indicate the problem.</code></p>
 </li>
 <li>
 <p><strong>Check common issues</strong>:</p>
@@ -268,13 +270,12 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 </li>
 <li>
 <p><strong>Split specification</strong>:
-   <code>bash
-   openapi-cli spec split openapi.yaml --output-dir ./specs</code></p>
+   (Not yet implemented — use <code>generate</code> to work with the full spec.)</p>
 </li>
 <li>
 <p><strong>Generate CLI commands</strong>:
    <code>bash
-   openapi-cli init openapi.yaml  # Pre-generates commands</code></p>
+   openapi-cli generate openapi.yaml  # Pre-generates commands</code></p>
 </li>
 </ol>
 <h2 id="configuration-issues">Configuration Issues</h2>
@@ -291,14 +292,14 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
    openapi-cli config show --help</code></p>
 </li>
 <li>
-<p><strong>Specify config explicitly</strong>:
+<p><strong>Switch to a named profile</strong>:
    <code>bash
-   openapi-cli --config my-config.yaml</code></p>
+   openapi-cli config profile switch &lt;profile-name&gt;</code></p>
 </li>
 <li>
 <p><strong>Validate configuration</strong>:
    <code>bash
-   openapi-cli config validate</code></p>
+   openapi-cli config show</code></p>
 </li>
 </ol>
 <h3 id="environment-variables-not-working">Environment Variables Not Working</h3>
@@ -410,18 +411,18 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <li>
 <p><strong>Check authentication status</strong>:
    <code>bash
-   openapi-cli auth status</code></p>
+   openapi-cli auth list</code></p>
 </li>
 <li>
-<p><strong>Login</strong>:
+<p><strong>Store credentials</strong>:
    <code>bash
-   openapi-cli auth login --provider google --client-id YOUR_ID</code></p>
+   openapi-cli auth add --name myapi --type api-key --value YOUR_KEY</code></p>
 </li>
 <li>
 <p><strong>Set API key</strong>:
    <code>bash
    export API_KEY=your-secret-key
-   openapi-cli credentials store myapi --header X-API-Key</code></p>
+   openapi-cli auth add --name myapi --type api-key --value $API_KEY</code></p>
 </li>
 <li>
 <p><strong>Test authentication</strong>:
@@ -465,7 +466,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <li>
 <p><strong>Check API status</strong>:
    <code>bash
-   openapi-cli health --endpoint https://api.example.com</code></p>
+   openapi-cli request GET https://api.example.com/health</code></p>
 </li>
 <li>
 <p><strong>Check API logs</strong> if available</p>
@@ -481,7 +482,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <li>
 <p><strong>Check spec file</strong>:
    <code>bash
-   openapi-cli spec validate openapi.yaml</code></p>
+   openapi-cli generate openapi.yaml</code></p>
 </li>
 <li>
 <p><strong>Check port availability</strong>:
@@ -491,7 +492,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <li>
 <p><strong>Run with debug</strong>:
    <code>bash
-   openapi-cli --debug mcp-server</code></p>
+   ./bin/openapi-mcp --help</code></p>
 </li>
 </ol>
 <h3 id="mcp-server-not-responding">MCP Server Not Responding</h3>
@@ -500,14 +501,14 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <pre><code class="language-json">{
   &quot;mcpServers&quot;: {
     &quot;openapi-cli&quot;: {
-      &quot;command&quot;: &quot;openapi-cli&quot;,
-      &quot;args&quot;: [&quot;mcp-server&quot;, &quot;--spec&quot;, &quot;/full/path/to/openapi.yaml&quot;]
+      &quot;command&quot;: &quot;/path/to/bin/openapi-mcp&quot;,
+      &quot;args&quot;: [&quot;--spec&quot;, &quot;/full/path/to/openapi.yaml&quot;]
     }
   }
 }
 </code></pre>
 <p>Verify with:</p>
-<pre><code class="language-bash">echo '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;initialize&quot;,&quot;params&quot;:{},&quot;id&quot;:1}' | openapi-cli mcp-server
+<pre><code class="language-bash">echo '{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;initialize&quot;,&quot;params&quot;:{},&quot;id&quot;:1}' | ./bin/openapi-mcp
 </code></pre>
 <h2 id="wasm-issues">WASM Issues</h2>
 <h3 id="wasm-module-not-loading">WASM Module Not Loading</h3>
@@ -535,7 +536,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <ol>
 <li><strong>Check WASM compatibility</strong>:
    <code>bash
-   openapi-cli wasm validate module.wasm</code></li>
+   openapi-cli modules run module.wasm</code></li>
 </ol>
 <h3 id="out-of-memory">Out of Memory</h3>
 <p><strong>Error</strong>:</p>
@@ -543,7 +544,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 </code></pre>
 <p><strong>Solution</strong>:</p>
 <p>Increase memory limit:</p>
-<pre><code class="language-bash">openapi-cli wasm run module.wasm --memory 512MB
+<pre><code class="language-bash">openapi-cli modules run module.wasm
 </code></pre>
 <p>Or set in config:</p>
 <pre><code class="language-yaml">wasm:
@@ -553,7 +554,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <h3 id="wasm-timeout">WASM Timeout</h3>
 <p><strong>Solution</strong>:</p>
 <p>Increase timeout:</p>
-<pre><code class="language-bash">openapi-cli wasm run module.wasm --timeout 120s
+<pre><code class="language-bash">openapi-cli modules run module.wasm
 </code></pre>
 <h2 id="daemon-issues">Daemon Issues</h2>
 <h3 id="daemon-not-starting">Daemon Not Starting</h3>
@@ -595,7 +596,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <li>
 <p><strong>Force stop</strong>:
    <code>bash
-   openapi-cli daemon stop --force</code></p>
+   openapi-cli daemon stop</code></p>
 </li>
 <li>
 <p><strong>Kill manually</strong>:
@@ -619,7 +620,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <li>
 <p><strong>Restart daemon</strong>:
    <code>bash
-   openapi-cli daemon restart</code></p>
+   openapi-cli daemon stop &amp;&amp; openapi-cli daemon start</code></p>
 </li>
 </ol>
 <h2 id="cache-issues">Cache Issues</h2>
@@ -629,12 +630,12 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <li>
 <p><strong>Check cache status</strong>:
    <code>bash
-   openapi-cli cache stats</code></p>
+   ls -la ~/.cache/openapi-cli/</code></p>
 </li>
 <li>
 <p><strong>Clear cache</strong>:
    <code>bash
-   openapi-cli cache clear</code></p>
+   rm -rf ~/.cache/openapi-cli/</code></p>
 </li>
 <li>
 <p><strong>Check cache directory</strong>:
@@ -646,7 +647,7 @@ sudo xattr -d -r com.apple.quarantine /usr/local/bin/
 <h3 id="no-debug-output">No Debug Output</h3>
 <p><strong>Solution</strong>:</p>
 <p>Enable debug mode:</p>
-<pre><code class="language-bash">openapi-cli --debug api request GET /pet/1
+<pre><code class="language-bash">openapi-cli request GET https://petstore.swagger.io/v2/pet/1
 </code></pre>
 <p>Or set log level:</p>
 <pre><code class="language-bash">export MUSTER_LOG_LEVEL=debug
@@ -665,19 +666,20 @@ sudo mkdir -p /var/log/
 sudo chmod 1777 /var/log/
 </code></pre>
 <h2 id="system-checkdiagnostics">System Check/Diagnostics</h2>
-<p>Run full system diagnostics:</p>
-<pre><code class="language-bash">openapi-cli doctor
+<p>Run system diagnostics:</p>
+<pre><code class="language-bash">openapi-cli version
+openapi-cli config show
+openapi-cli audit status
 </code></pre>
 <p>This will check:
 - Installation and version
-- Configuration validity
+- Configuration
+- Audit logging status
 - File system permissions
-- Network connectivity
-- Dependency versions
-- TLS/SSL configuration</p>
+- Network connectivity</p>
 <h2 id="getting-more-help">Getting More Help</h2>
 <h3 id="verbose-debug-output">Verbose Debug Output</h3>
-<pre><code class="language-bash">openapi-cli --debug --trace api request GET /pet/1
+<pre><code class="language-bash">openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --verbose
 </code></pre>
 <h3 id="contact-support">Contact Support</h3>
 <ol>
@@ -686,7 +688,7 @@ sudo chmod 1777 /var/log/
 <li>Collect diagnostic info:</li>
 </ol>
 <p><code>bash
-   openapi-cli doctor &gt; diagnostics.txt
+   openapi-cli version &gt; diagnostics.txt
    openapi-cli config show &gt; config.txt
    cat diagnostics.txt config.txt &gt; support-request.txt</code></p>
 <h3 id="bug-reporting">Bug Reporting</h3>

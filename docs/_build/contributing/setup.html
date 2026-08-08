@@ -165,7 +165,8 @@ go run ./cmd/openapi-cli --help
 go run ./cmd/openapi-cli mcp-server --spec openapi.yaml
 
 # Test with example spec
-openapi-cli init github.com/swagger-api/swagger-petstore
+openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
 </code></pre>
 <h2 id="ide-setup">IDE Setup</h2>
 <h3 id="vs-code">VS Code</h3>

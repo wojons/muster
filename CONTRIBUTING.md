@@ -28,6 +28,18 @@ go build ./...
 - `go build ./...` passes
 - `./demo/run-all.sh` passes (23/23)
 
+## Documentation changes
+
+- Markdown sources live in `docs/` (guides/, api/, architecture/, contributing/).
+- After editing any `docs/**/*.md`, regenerate the HTML build so `docs/_build/`
+  stays in sync with the sources:
+  ```bash
+  python3 docs/scripts/generate-docs.py --source docs --output docs/_build
+  ```
+  then commit the regenerated `docs/_build/` files in the same change.
+- Sanity check before committing: `grep -r 'TODO\|doctor\|spec validate' docs/_build/`
+  should return nothing (dead/aspirational commands leak into HTML builds).
+
 ## What to work on
 
 Check `.coding-hermes/tasks.md` for pending work. Good first issues are tagged in GitHub.
