@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -19,15 +20,16 @@ import (
 // grouped by tag with operationId shown inline. Does not persist commands.
 func newDiscoverCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "discover <url>",
-		Short: "Discover API operations from a remote OpenAPI spec",
-		Long: `Fetch an OpenAPI 3.x specification from a URL and display all operations
+		Use:   "discover <path-or-url>",
+		Short: "Discover API operations from an OpenAPI spec",
+		Long: `Read an OpenAPI 3.x specification and display all operations
 grouped by tag, with method, path, and operationId.
 
-Reads the spec from the given URL (via HTTP GET), parses it, and prints every
-path+method combination with its operationId. No commands are persisted.
+Accepts either a local file path or a remote URL (http/https).
+No commands are persisted.
 
 Examples:
+  openapi-cli discover demo/openapi-specs/petstore.yaml
   openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
   openapi-cli discover http://localhost:9800/openapi.json`,
 		Args: cobra.ExactArgs(1),
@@ -39,41 +41,51 @@ Examples:
 
 // runDiscover is the RunE function for the discover command.
 func runDiscover(cmd *cobra.Command, args []string) error {
-	url := args[0]
+	input := args[0]
 
-	// Validate URL scheme
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		return fmt.Errorf("invalid URL %q: must start with http:// or https://", url)
+	// Determine whether to load from file or URL (mirrors generate.go)
+	var data []byte
+	var err error
+	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
+		// Fetch the spec from the URL using pkg/client
+		ctx := cmd.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		httpClient := client.NewClient()
+		resp, err := httpClient.Get(ctx, input)
+		if err != nil {
+			return fmt.Errorf("fetch spec from %q: %w", input, err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("unexpected status %d from %q: %s", resp.StatusCode, input, resp.Status)
+		}
+
+		data, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("read response body from %q: %w", input, err)
+		}
+	} else {
+		// Local file path
+		data, err = os.ReadFile(input)
+		if err != nil {
+			return fmt.Errorf("read spec file %q: %w", input, err)
+		}
 	}
 
-	// Fetch the spec from the URL using pkg/client
+	// Parse the spec using pkg/openapi
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	httpClient := client.NewClient()
-	resp, err := httpClient.Get(ctx, url)
-	if err != nil {
-		return fmt.Errorf("fetch spec from %q: %w", url, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status %d from %q: %s", resp.StatusCode, url, resp.Status)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read response body from %q: %w", url, err)
-	}
-
-	// Parse the spec using pkg/openapi
 	opts := openapi.DefaultParseOptions()
 
 	parser := openapi.NewParser()
 	result, err := parser.Parse(ctx, data, opts)
 	if err != nil {
-		return fmt.Errorf("parse spec from %q (not valid OpenAPI?): %w", url, err)
+		return fmt.Errorf("parse spec from %q (not valid OpenAPI?): %w", input, err)
 	}
 
 	title := result.Document.Info.Title
@@ -85,13 +97,13 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 	// Extract all operations
 	operations, err := parser.ExtractOperations(result.Document)
 	if err != nil {
-		return fmt.Errorf("extract operations from %q: %w", url, err)
+		return fmt.Errorf("extract operations from %q: %w", input, err)
 	}
 
 	// Print header
 	w := cmd.OutOrStdout()
 	_, _ = fmt.Fprintf(w, "API: %s (v%s)\n", title, version)
-	_, _ = fmt.Fprintf(w, "Base URL: %s\n", getBaseURL(url))
+	_, _ = fmt.Fprintf(w, "Base URL: %s\n", getBaseURL(input))
 
 	if len(operations) == 0 {
 		_, _ = fmt.Fprintln(w, "\nNo operations found in the spec.")

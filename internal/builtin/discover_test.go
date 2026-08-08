@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestNewDiscoverCommand(t *testing.T) {
 
 		assert.NotNil(t, cmd)
 		assert.Equal(t, "discover", cmd.Name())
-		assert.Equal(t, "Discover API operations from a remote OpenAPI spec", cmd.Short)
+		assert.Equal(t, "Discover API operations from an OpenAPI spec", cmd.Short)
 	})
 
 	t.Run("requires exactly one argument", func(t *testing.T) {
@@ -30,14 +31,57 @@ func TestNewDiscoverCommand(t *testing.T) {
 		assert.Contains(t, err.Error(), "accepts 1 arg(s), received 0")
 	})
 
-	t.Run("requires valid http url", func(t *testing.T) {
+	t.Run("rejects nonexistent local file", func(t *testing.T) {
 		cmd := newDiscoverCommand()
 
-		// bare string without http:// prefix should fail
-		err := cmd.RunE(cmd, []string{"not-a-url"})
+		// bare string without http:// prefix is now treated as a local file path
+		err := cmd.RunE(cmd, []string{"/nonexistent/path/spec.yaml"})
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "must start with http:// or https://")
+		assert.Contains(t, err.Error(), "read spec file")
+	})
+
+	t.Run("discovers operations from local file", func(t *testing.T) {
+		// Write a temp OpenAPI spec and run discover against it
+		specContent := `{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Local Test API",
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/items": {
+      "get": {
+        "operationId": "listItems",
+        "summary": "List items",
+        "tags": ["items"],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createItem",
+        "summary": "Create item",
+        "tags": ["items"],
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        }
+      }
+    }
+  }
+}`
+		tmpDir := t.TempDir()
+		specPath := tmpDir + "/spec.json"
+		require.NoError(t, os.WriteFile(specPath, []byte(specContent), 0644))
+
+		cmd := newDiscoverCommand()
+		err := cmd.RunE(cmd, []string{specPath})
+
+		require.NoError(t, err)
 	})
 
 	t.Run("handles unreachable/error URL", func(t *testing.T) {
