@@ -142,6 +142,11 @@ func handleStart(controller *daemon.Controller) error {
 		return fmt.Errorf("start daemon: %w", err)
 	}
 
+	// Write PID file so status/stop can find and control this process.
+	if err := writePIDFile(pidFile, os.Getpid()); err != nil {
+		return fmt.Errorf("write PID file: %w", err)
+	}
+
 	fmt.Println("Daemon started successfully")
 	fmt.Printf("PID file: %s\n", pidFile)
 	fmt.Printf("Socket: %s\n", socketPath)
@@ -157,6 +162,10 @@ func handleStart(controller *daemon.Controller) error {
 	// Wait for shutdown signal
 	<-sigCh
 	fmt.Println("Shutting down daemon...")
+
+	// Remove PID file before shutdown
+	_ = os.Remove(pidFile)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return controller.Shutdown(ctx)
@@ -207,6 +216,11 @@ func handleProxyStart(controller *daemon.Controller, handler http.Handler) error
 		return fmt.Errorf("start proxy: %w", err)
 	}
 
+	// Write PID file so status/stop can find and control this process.
+	if err := writePIDFile(pidFile, os.Getpid()); err != nil {
+		return fmt.Errorf("write PID file: %w", err)
+	}
+
 	fmt.Println("Proxy daemon started successfully")
 	fmt.Printf("Socket: %s\n", socketPath)
 	fmt.Printf("Token file: %s\n", controller.GetTokenPath())
@@ -223,6 +237,10 @@ func handleProxyStart(controller *daemon.Controller, handler http.Handler) error
 	// Wait for shutdown signal
 	<-sigCh
 	fmt.Println("Shutting down proxy...")
+
+	// Remove PID file before shutdown
+	_ = os.Remove(pidFile)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return controller.Shutdown(ctx)
@@ -232,6 +250,41 @@ func handleStop(controller *daemon.Controller) error {
 	if controller == nil {
 		return fmt.Errorf("controller is required")
 	}
+
+	// Prefer PID-file based stop when available.
+	if _, err := os.Stat(pidFile); err == nil {
+		pid, err := readPIDFile(pidFile)
+		if err != nil || !isProcessRunning(pid) {
+			// Stale PID file / not running.
+			_ = os.Remove(pidFile)
+			_ = os.Remove(socketPath)
+			fmt.Println("Daemon is not running")
+			return nil
+		}
+
+		if err := terminateProcess(pid); err != nil {
+			return fmt.Errorf("send SIGTERM to PID %d: %w", pid, err)
+		}
+
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if !isProcessRunning(pid) {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+
+		if isProcessRunning(pid) {
+			return fmt.Errorf("daemon (PID %d) did not exit after SIGTERM", pid)
+		}
+
+		_ = os.Remove(pidFile)
+		_ = os.Remove(socketPath)
+		fmt.Println("Daemon stopped successfully")
+		return nil
+	}
+
+	// Fall back to in-process Controller when no PID file exists.
 	status, err := controller.Status()
 	if err != nil {
 		return fmt.Errorf("get status: %w", err)
@@ -254,6 +307,30 @@ func handleRestart(controller *daemon.Controller) error {
 	if controller == nil {
 		return fmt.Errorf("controller is required")
 	}
+
+	// If a PID file exists and the process is running, stop it first.
+	if _, err := os.Stat(pidFile); err == nil {
+		pid, err := readPIDFile(pidFile)
+		if err == nil && isProcessRunning(pid) {
+			if err := terminateProcess(pid); err != nil {
+				return fmt.Errorf("send SIGTERM to PID %d: %w", pid, err)
+			}
+			deadline := time.Now().Add(5 * time.Second)
+			for time.Now().Before(deadline) {
+				if !isProcessRunning(pid) {
+					break
+				}
+				time.Sleep(50 * time.Millisecond)
+			}
+			_ = os.Remove(pidFile)
+			_ = os.Remove(socketPath)
+			fmt.Println("Daemon stopped; restart must be initiated externally (this process cannot re-spawn itself)")
+			return nil
+		}
+		// Stale PID file — clean up
+		_ = os.Remove(pidFile)
+	}
+
 	fmt.Println("Restarting daemon...")
 	return controller.Restart()
 }
@@ -262,6 +339,32 @@ func handleStatus(controller *daemon.Controller) error {
 	if controller == nil {
 		return fmt.Errorf("controller is required")
 	}
+
+	// Prefer PID-file based status when available.
+	if _, err := os.Stat(pidFile); err == nil {
+		pid, err := readPIDFile(pidFile)
+		if err != nil {
+			fmt.Println("Daemon Status:")
+			fmt.Println("  Running:     false")
+			fmt.Printf("  Socket:      %s\n", socketPath)
+			return nil
+		}
+		if isProcessRunning(pid) {
+			fmt.Println("Daemon Status:")
+			fmt.Printf("  Running:     true\n")
+			fmt.Printf("  PID:         %d\n", pid)
+			fmt.Printf("  Start time:  %s\n", processStartTime(pid))
+			fmt.Printf("  Socket:      %s\n", socketPath)
+			fmt.Printf("  Version:     %s\n", Version)
+			return nil
+		}
+		fmt.Println("Daemon Status:")
+		fmt.Println("  Running:     false")
+		fmt.Printf("  Socket:      %s\n", socketPath)
+		return nil
+	}
+
+	// Fall back to in-process Controller when no PID file exists.
 	status, err := controller.Status()
 	if err != nil {
 		return fmt.Errorf("get status: %w", err)

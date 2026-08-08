@@ -360,3 +360,133 @@ func TestNewController_Valid(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 }
+
+func TestWriteReadPIDFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	pidPath := filepath.Join(tmpDir, "test.pid")
+
+	// Write a PID
+	err := writePIDFile(pidPath, 12345)
+	require.NoError(t, err)
+
+	// Read it back
+	pid, err := readPIDFile(pidPath)
+	require.NoError(t, err)
+	require.Equal(t, 12345, pid)
+
+	// File should exist
+	_, err = os.Stat(pidPath)
+	require.NoError(t, err)
+}
+
+func TestReadPIDFile_Invalid(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Non-existent file
+	_, err := readPIDFile(filepath.Join(tmpDir, "nonexistent.pid"))
+	require.Error(t, err)
+
+	// Invalid content
+	badPath := filepath.Join(tmpDir, "bad.pid")
+	require.NoError(t, os.WriteFile(badPath, []byte("not-a-number"), 0644))
+	_, err = readPIDFile(badPath)
+	require.Error(t, err)
+
+	// Zero PID
+	zeroPath := filepath.Join(tmpDir, "zero.pid")
+	require.NoError(t, os.WriteFile(zeroPath, []byte("0"), 0644))
+	_, err = readPIDFile(zeroPath)
+	require.Error(t, err)
+}
+
+func TestIsProcessRunning_InvalidPID(t *testing.T) {
+	require.False(t, isProcessRunning(0))
+	require.False(t, isProcessRunning(-1))
+}
+
+func TestHandleStatus_WithPIDFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	socketPath = filepath.Join(tmpDir, "test-status.sock")
+	pidFile = filepath.Join(tmpDir, "test-status.pid")
+	defer func() {
+		socketPath = "/tmp/openapi-cli.sock"
+		pidFile = ""
+	}()
+
+	// Write a PID file pointing to our own process (which is running)
+	require.NoError(t, writePIDFile(pidFile, os.Getpid()))
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath: socketPath,
+	})
+	require.NoError(t, err)
+
+	// handleStatus should detect the PID file and report Running: true
+	err = handleStatus(controller)
+	require.NoError(t, err, "handleStatus should succeed with PID file")
+}
+
+func TestHandleStop_WithPIDFile_NotRunning(t *testing.T) {
+	tmpDir := t.TempDir()
+	socketPath = filepath.Join(tmpDir, "test-stop.sock")
+	pidFile = filepath.Join(tmpDir, "test-stop.pid")
+	defer func() {
+		socketPath = "/tmp/openapi-cli.sock"
+		pidFile = ""
+	}()
+
+	// Write a PID file with a PID that doesn't exist
+	require.NoError(t, writePIDFile(pidFile, 99999))
+
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath: socketPath,
+	})
+	require.NoError(t, err)
+
+	// handleStop should clean up stale PID file and report not running
+	err = handleStop(controller)
+	require.NoError(t, err, "handleStop should succeed with stale PID file")
+
+	// PID file should be removed
+	_, err = os.Stat(pidFile)
+	require.True(t, os.IsNotExist(err), "stale PID file should be removed")
+}
+
+func TestHandleStop_NoPIDFile_Fallback(t *testing.T) {
+	tmpDir := t.TempDir()
+	socketPath = filepath.Join(tmpDir, "test-stop-fallback.sock")
+	pidFile = filepath.Join(tmpDir, "test-stop-fallback.pid")
+	defer func() {
+		socketPath = "/tmp/openapi-cli.sock"
+		pidFile = ""
+	}()
+
+	// No PID file — should fall back to in-process controller
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		PidFilePath: pidFile,
+		SocketPath:  socketPath,
+	})
+	require.NoError(t, err)
+
+	err = handleStop(controller)
+	require.NoError(t, err, "handleStop should succeed with fallback")
+}
+
+func TestHandleStatus_NoPIDFile_Fallback(t *testing.T) {
+	tmpDir := t.TempDir()
+	socketPath = filepath.Join(tmpDir, "test-status-fallback.sock")
+	pidFile = filepath.Join(tmpDir, "test-status-fallback.pid")
+	defer func() {
+		socketPath = "/tmp/openapi-cli.sock"
+		pidFile = ""
+	}()
+
+	// No PID file — should fall back to in-process controller
+	controller, err := daemon.NewController(daemon.ControllerConfig{
+		SocketPath: socketPath,
+	})
+	require.NoError(t, err)
+
+	err = handleStatus(controller)
+	require.NoError(t, err, "handleStatus should succeed with fallback")
+}
