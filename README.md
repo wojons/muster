@@ -22,6 +22,12 @@ Three deployment modes, one codebase. CLI for humans, MCP for AI agents, daemon 
 
 ## Quick start
 
+> **Note:** This repository is **PRIVATE**. Internal consumers need GitHub credentials and GOPRIVATE configured:
+> ```bash
+> go env -w GOPRIVATE=github.com/wojons/*
+> ```
+> Once authenticated, `go get github.com/wojons/muster@v0.1.0` works directly.
+
 ```bash
 # Build
 git clone https://github.com/wojons/muster.git
@@ -125,6 +131,12 @@ c := client.NewClient(client.WithBaseURL("https://api.example.com"), client.With
 26 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
 
 ## Build from source
+
+> **Note:** The repo is **PRIVATE** — clone requires GitHub credentials (see [Quick start](#quick-start) for GOPRIVATE setup).
+> For local development without credentials, use a `replace` directive in your `go.mod`:
+> ```go
+> replace github.com/wojons/muster => /path/to/local/checkout
+> ```
 
 ```bash
 git clone https://github.com/wojons/muster.git
