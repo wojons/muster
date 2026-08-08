@@ -116,7 +116,9 @@ Error: Invalid OpenAPI specification
 
 1. **Validate the specification**:
    ```bash
-   openapi-cli spec validate --strict your-spec.yaml
+   openapi-cli generate your-spec.yaml
+   # If the spec parses successfully, commands are generated.
+   # If it fails, the error message will indicate the problem.
    ```
 
 2. **Check common issues**:
@@ -185,13 +187,11 @@ Error: Specification not found: openapi.yaml
    ```
 
 2. **Split specification**:
-   ```bash
-   openapi-cli spec split openapi.yaml --output-dir ./specs
-   ```
+   (Not yet implemented — use `generate` to work with the full spec.)
 
 3. **Generate CLI commands**:
    ```bash
-   openapi-cli init openapi.yaml  # Pre-generates commands
+   openapi-cli generate openapi.yaml  # Pre-generates commands
    ```
 
 ## Configuration Issues
@@ -211,14 +211,14 @@ Error: Configuration file not found
    openapi-cli config show --help
    ```
 
-2. **Specify config explicitly**:
+2. **Switch to a named profile**:
    ```bash
-   openapi-cli --config my-config.yaml
+   openapi-cli config profile switch <profile-name>
    ```
 
 3. **Validate configuration**:
    ```bash
-   openapi-cli config validate
+   openapi-cli config show
    ```
 
 ### Environment Variables Not Working
@@ -338,18 +338,18 @@ Error: x509: certificate signed by unknown authority
 
 1. **Check authentication status**:
    ```bash
-   openapi-cli auth status
+   openapi-cli auth list
    ```
 
-2. **Login**:
+2. **Store credentials**:
    ```bash
-   openapi-cli auth login --provider google --client-id YOUR_ID
+   openapi-cli auth add --name myapi --type api-key --value YOUR_KEY
    ```
 
 3. **Set API key**:
    ```bash
    export API_KEY=your-secret-key
-   openapi-cli credentials store myapi --header X-API-Key
+   openapi-cli auth add --name myapi --type api-key --value $API_KEY
    ```
 
 4. **Test authentication**:
@@ -394,7 +394,7 @@ Error: x509: certificate signed by unknown authority
 
 2. **Check API status**:
    ```bash
-   openapi-cli health --endpoint https://api.example.com
+   openapi-cli request GET https://api.example.com/health
    ```
 
 3. **Check API logs** if available
@@ -412,7 +412,7 @@ Error: Failed to start MCP server
 
 1. **Check spec file**:
    ```bash
-   openapi-cli spec validate openapi.yaml
+   openapi-cli generate openapi.yaml
    ```
 
 2. **Check port availability**:
@@ -422,7 +422,7 @@ Error: Failed to start MCP server
 
 3. **Run with debug**:
    ```bash
-   openapi-cli --debug mcp-server
+   ./bin/openapi-mcp --help
    ```
 
 ### MCP Server Not Responding
@@ -435,8 +435,8 @@ Check in Claude Desktop or other MCP client configuration:
 {
   "mcpServers": {
     "openapi-cli": {
-      "command": "openapi-cli",
-      "args": ["mcp-server", "--spec", "/full/path/to/openapi.yaml"]
+      "command": "/path/to/bin/openapi-mcp",
+      "args": ["--spec", "/full/path/to/openapi.yaml"]
     }
   }
 }
@@ -445,7 +445,7 @@ Check in Claude Desktop or other MCP client configuration:
 Verify with:
 
 ```bash
-echo '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}' | openapi-cli mcp-server
+echo '{"jsonrpc":"2.0","method":"initialize","params":{},"id":1}' | ./bin/openapi-mcp
 ```
 
 ## WASM Issues
@@ -476,7 +476,7 @@ Error: Failed to load WASM module
 
 3. **Check WASM compatibility**:
    ```bash
-   openapi-cli wasm validate module.wasm
+   openapi-cli modules run module.wasm
    ```
 
 ### Out of Memory
@@ -491,7 +491,7 @@ Error: WASM module out of memory
 Increase memory limit:
 
 ```bash
-openapi-cli wasm run module.wasm --memory 512MB
+openapi-cli modules run module.wasm
 ```
 
 Or set in config:
@@ -509,7 +509,7 @@ wasm:
 Increase timeout:
 
 ```bash
-openapi-cli wasm run module.wasm --timeout 120s
+openapi-cli modules run module.wasm
 ```
 
 ## Daemon Issues
@@ -557,7 +557,7 @@ Error: Daemon already running (PID: 12345)
 
 2. **Force stop**:
    ```bash
-   openapi-cli daemon stop --force
+   openapi-cli daemon stop
    ```
 
 3. **Kill manually**:
@@ -581,7 +581,7 @@ Error: Daemon already running (PID: 12345)
 
 3. **Restart daemon**:
    ```bash
-   openapi-cli daemon restart
+   openapi-cli daemon stop && openapi-cli daemon start
    ```
 
 ## Cache Issues
@@ -592,12 +592,12 @@ Error: Daemon already running (PID: 12345)
 
 1. **Check cache status**:
    ```bash
-   openapi-cli cache stats
+   ls -la ~/.cache/openapi-cli/
    ```
 
 2. **Clear cache**:
    ```bash
-   openapi-cli cache clear
+   rm -rf ~/.cache/openapi-cli/
    ```
 
 3. **Check cache directory**:
@@ -614,7 +614,7 @@ Error: Daemon already running (PID: 12345)
 Enable debug mode:
 
 ```bash
-openapi-cli --debug api request GET /pet/1
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1
 ```
 
 Or set log level:
@@ -646,26 +646,27 @@ sudo chmod 1777 /var/log/
 
 ## System Check/Diagnostics
 
-Run full system diagnostics:
+Run system diagnostics:
 
 ```bash
-openapi-cli doctor
+openapi-cli version
+openapi-cli config show
+openapi-cli audit status
 ```
 
 This will check:
 - Installation and version
-- Configuration validity
+- Configuration
+- Audit logging status
 - File system permissions
 - Network connectivity
-- Dependency versions
-- TLS/SSL configuration
 
 ## Getting More Help
 
 ### Verbose Debug Output
 
 ```bash
-openapi-cli --debug --trace api request GET /pet/1
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --verbose
 ```
 
 ### Contact Support
@@ -675,7 +676,7 @@ openapi-cli --debug --trace api request GET /pet/1
 3. Collect diagnostic info:
 
    ```bash
-   openapi-cli doctor > diagnostics.txt
+   openapi-cli version > diagnostics.txt
    openapi-cli config show > config.txt
    cat diagnostics.txt config.txt > support-request.txt
    ```

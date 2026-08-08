@@ -176,15 +176,14 @@ GET /commands
 {
   "commands": [
     {
-      "name": "init",
-      "description": "Initialize CLI from spec",
-      "usage": "openapi-cli init <spec-path>",
-      "aliases": ["init"]
+      "name": "generate",
+      "description": "Generate CLI commands from spec",
+      "usage": "openapi-cli generate <spec-path-or-url>"
     },
     {
       "name": "inventory list",
-      "description": "List API resources",
-      "usage": "openapi-cli inventory list <spec-path>"
+      "description": "List configured inventories",
+      "usage": "openapi-cli inventory list"
     }
   ]
 }
@@ -201,10 +200,10 @@ POST /commands/execute
 **Request Body**:
 ```json
 {
-  "command": "init",
+  "command": "generate",
   "args": ["petstore.json"],
   "options": {
-    "output": "./config",
+    "baseUrl": "https://api.example.com",
     "verbose": true
   }
 }
@@ -215,7 +214,7 @@ POST /commands/execute
 {
   "success": true,
   "exitCode": 0,
-  "stdout": "Configuration initialized",
+  "stdout": "Commands generated from petstore.json",
   "stderr": ""
 }
 ```
@@ -226,7 +225,7 @@ curl -X POST http://localhost:8080/commands/execute \
   -H "Content-Type: application/json" \
   -d '{
     "command": "inventory list",
-    "args": ["petstore.json"],
+    "args": [],
     "options": {"format": "json"}
   }'
 ```
@@ -714,7 +713,7 @@ curl -X POST http://localhost:8080/commands/execute \
   -H "X-API-Key: your-secret" \
   -d '{
     "command": "inventory list",
-    "args": ["petstore.json"],
+    "args": [],
     "options": {"format": "json"}
   }'
 ```
@@ -843,7 +842,7 @@ curl -X POST http://localhost:8080/spec/validate -d @spec.json
 
 # Make request
 curl -X POST http://localhost:8080/commands/execute \
-  -d '{"command": "inventory list", "args": ["petstore.json"]}'
+  -d '{"command": "inventory list", "args": []}'
 ```
 
 ### Automated Testing with curl
@@ -878,9 +877,9 @@ echo "All tests passed!"
 **Solution**: Ensure the REST API is enabled and running:
 
 ```bash
-openapi-cli config set mcp.enabled true
-openapi-cli config set mcp.port 8080
-openapi-cli mcp-server
+# Ensure the MCP server is built and running:
+make build
+./bin/openapi-mcp --port 8080
 ```
 
 ### Authentication Failed

@@ -86,9 +86,9 @@ List available commands
 {
   "commands": [
     {
-      "name": "init",
-      "description": "Initialize CLI from spec",
-      "usage": "openapi-cli init <spec-path>"
+      "name": "generate",
+      "description": "Generate CLI commands from spec",
+      "usage": "openapi-cli generate <spec-path-or-url>"
     }
   ]
 }
@@ -179,7 +179,7 @@ Resources represent OpenAPI endpoints with metadata for structured data access:
 ### Running MCP Server
 
 ```bash
-openapi-cli mcp-server --spec openapi.yaml
+./bin/openapi-mcp --spec openapi.yaml
 ```
 
 For integration with Claude Desktop:
@@ -188,8 +188,8 @@ For integration with Claude Desktop:
 {
   "mcpServers": {
     "openapi-cli": {
-      "command": "openapi-cli",
-      "args": ["mcp-server", "--spec", "/path/to/openapi.json"]
+      "command": "/path/to/bin/openapi-mcp",
+      "args": ["--spec", "/path/to/openapi.json"]
     }
   }
 }
@@ -200,29 +200,27 @@ For integration with Claude Desktop:
 ### Interactive Mode
 
 ```bash
-openapi-cli interactive
+# OpenAPI CLI does not have a built-in interactive mode.
+# Use shell aliases or scripts for repeated operations:
 
-# Interactive shell
-> pet find-id --petId 1
-> store order --total 100
-> exit
+alias get-pet='openapi-cli request GET https://petstore.swagger.io/v2/pet/1'
 ```
 
 ### Command Output Formats
 
 **JSON**:
 ```bash
-openapi-cli api request GET /pet/1 --output json
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --output json
 ```
 
 **Table**:
 ```bash
-openapi-cli inventory list --format table
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --output table
 ```
 
 **YAML**:
 ```bash
-openapi-cli config show --format yaml
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --output yaml
 ```
 
 ### Error Handling
@@ -247,7 +245,7 @@ Exit codes:
 ### Running WASM Modules
 
 ```bash
-openapi-cli wasm run module.wasm --function add --arg 5 --arg 10
+openapi-cli modules run module.wasm 5 10 --fn add
 ```
 
 ### WASM Capabilities
@@ -299,14 +297,14 @@ api.pet.update(id=1, body=pet)
 ### Token Management
 
 ```bash
-# Login
-openapi-cli auth login --provider google --client-id YOUR_CLIENT_ID
+# Store credentials
+openapi-cli auth add --name myapi --type api-key --value YOUR_KEY
 
 # Check status
-openapi-cli auth status
+openapi-cli auth list
 
-# Logout
-openapi-cli auth logout
+# Remove credentials
+openapi-cli auth remove myapi
 ```
 
 ### Credential Storage
@@ -318,8 +316,8 @@ Credentials are stored securely:
 - Fallback: Encrypted file
 
 ```bash
-openapi-cli credentials store myapi --header X-API-Key --value secret
-openapi-cli credentials list
+openapi-cli auth add --name myapi --type api-key --value secret
+openapi-cli auth list
 ```
 
 ## Configuration API
@@ -328,14 +326,14 @@ openapi-cli credentials list
 
 ```bash
 openapi-cli config show
-openapi-cli config show --resolved
 ```
 
 ### Set Values
 
+Configuration is managed through the config file directly or via profiles:
+
 ```bash
-openapi-cli config set http.timeout 60s
-openapi-cli config set spec.base_url https://api.example.com/v1
+openapi-cli config profile switch production
 ```
 
 ### Environment Variables
@@ -404,8 +402,11 @@ cache:
 ### Cache Management
 
 ```bash
-openapi-cli cache clear
-openapi-cli cache stats
+# Clear cache
+rm -rf ~/.cache/openapi-cli/
+
+# Check cache
+ls -la ~/.cache/openapi-cli/
 ```
 
 ## Logging

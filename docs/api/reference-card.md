@@ -8,198 +8,119 @@ Quick reference for OpenAPI CLI commands and options.
 |------|-------------|
 | `-h, --help` | Show help |
 | `-v, --version` | Show version |
-| `-c, --config <path>` | Config file path |
-| `-d, --debug` | Enable debug |
-| `-q, --quiet` | Suppress output |
-| `--profile <name>` | Configuration profile |
 
-## Specification Commands
+## Discovery
 
-### `spec validate`
+### `discover`
 ```bash
-openapi-cli spec validate <spec-path> [options]
+openapi-cli discover <url>
 ```
-Options: `--strict`, `--format <text|json>`
-
-### `spec info`
-```bash
-openapi-cli spec info <spec-path>
-```
-
-### `spec convert`
-```bash
-openapi-cli spec convert <input> <output>
-```
-Options: `--from <yaml|json>`, `--to <yaml|json>`
+Fetch a remote OpenAPI 3.x spec and display operations grouped by tag.
 
 ## CLI Generation
 
-### `init`
+### `generate`
 ```bash
-openapi-cli init <spec-path> [options]
+openapi-cli generate <spec-path-or-url> [flags]
 ```
-Options: `--output <dir>`, `--config <file>`
+Options: `-u, --base-url <url>`
 
-### `inventory list`
+### `init` (help topic only — not yet implemented)
 ```bash
-openapi-cli inventory list <spec-path> [options]
+openapi-cli init   # prints help text; does nothing
 ```
-Options: `--tag <tag>`, `--method <method>`, `--format <table|json>`
+
+## Inventory
+
+### `inventory`
+```bash
+openapi-cli inventory [command]
+```
+Subcommands: `add` (`--host <url> --file <path>`), `list`, `remove` (`--host <url>`)
 
 ## API Interaction
 
-### `api request`
+### `request`
 ```bash
-openapi-cli api request [METHOD] <path> [options]
+openapi-cli request <method> <url> [flags]
 ```
-Options: `--spec <path>`, `--body <json>`, `--header <k=v>`, `--query <k=v>`
-
-### `api batch`
-```bash
-openapi-cli api batch <batch-file>
-```
-
-## Documentation
-
-### `docs generate`
-```bash
-openapi-cli docs generate <spec-path> [options]
-```
-Options: `--output <dir>`, `--format <markdown|html>`
-
-### `docs serve`
-```bash
-openapi-cli docs serve [options]
-```
-Options: `--port <port>`, `--dir <dir>`
-
-## MCP Server
-
-### `mcp-server`
-```bash
-openapi-cli mcp-server [options]
-```
-Options: `--spec <path>`, `--port <port>`, `--stdio`
-
-## WASM
-
-### `wasm run`
-```bash
-openapi-cli wasm run <module.wasm> [options]
-```
-Options: `--function <name>`, `--arg <value>`, `--memory <size>`, `--timeout <duration>`
-
-### `wasm compile`
-```bash
-openapi-cli wasm compile <input> <output> [options]
-```
-Options: `--language <go|rust>`, `--optimize`
+Options: `-b, --body <json>`, `-H, --header <k=v>` (repeatable), `-o, --output <json|yaml|table>`, `-p, --param <k=v>` (repeatable), `--timeout <duration>`, `-v, --verbose`, `--wasm-plugin <path>`
 
 ## DSL
 
 ### `dsl run`
 ```bash
-openapi-cli dsl run <script.star> [options]
+openapi-cli dsl run <file.star>
 ```
-Options: `--spec <path>`, `--var <name=value>`, `--timeout <duration>`
+Execute a Starlark script with `http_get`, `http_post`, `http_put`, `http_delete` builtins.
 
 ## Daemon
 
-### `daemon start`
+### `daemon`
 ```bash
-openapi-cli daemon start [options]
+openapi-cli daemon [command]
 ```
-Options: `--socket <path>`, `--pid-file <path>`
-
-### `daemon stop`
-```bash
-openapi-cli daemon stop [options]
-```
-Options: `--force`
-
-### `daemon status`
-```bash
-openapi-cli daemon status
-```
+Subcommands: `start` (`--socket <path>`, `--backend-url <url>`), `status` (`--socket <path>`), `stop` (`--socket <path>`)
 
 ## Configuration
 
-### `config show`
+### `config`
 ```bash
-openapi-cli config show [section]
+openapi-cli config [command]
 ```
-
-### `config set`
-```bash
-openapi-cli config set <key> <value>
-```
-
-### `config unset`
-```bash
-openapi-cli config unset <key>
-```
-
-### `config validate`
-```bash
-openapi-cli config validate
-```
+Subcommands: `profile` (`list`, `show`, `switch`, `delete`), `show`
 
 ## Authentication
 
-### `auth login`
+### `auth`
 ```bash
-openapi-cli auth login <provider> [options]
+openapi-cli auth [command]
 ```
-Options: `--client-id <id>`, `--client-secret <secret>`, `--scopes <list>`
+Subcommands: `add` (`--name <n> --type <api-key|bearer|basic> --value <v>`), `list`, `remove <name>`, `mtls` (`generate`, `configure`, `info`)
 
-### `auth logout`
+## Audit
+
+### `audit`
 ```bash
-openapi-cli auth logout [provider]
+openapi-cli audit [command]
 ```
+Subcommands: `log` (`--filter <text>`, `--limit <n>`), `info`, `show` (`--limit <n>`), `status`
 
-### `auth status`
+## Tenant
+
+### `tenant`
 ```bash
-openapi-cli auth status
+openapi-cli tenant [command]
 ```
+Subcommands: `current`, `list`, `set <id>`, `show`, `switch <id>`
 
-### `credentials store`
+## Webhook
+
+### `webhook`
 ```bash
-openapi-cli credentials store <name> [options]
+openapi-cli webhook [command]
 ```
-Options: `--header <name>`, `--value <value>`
+Subcommands: `create` (`--name <n> --url <u> --events <list>`), `delete <id>`, `list`, `subscribe <url> <event>`, `test <id>`
 
-### `credentials list`
+## WASM Modules
+
+### `modules run`
 ```bash
-openapi-cli credentials list
+openapi-cli modules run <file.wasm> [args...] [flags]
 ```
-
-### `credentials remove`
-```bash
-openapi-cli credentials remove <name>
-```
-
-## Cache
-
-### `cache clear`
-```bash
-openapi-cli cache clear
-```
-
-### `cache stats`
-```bash
-openapi-cli cache stats
-```
+Options: `--fn <name>` (default: `_start`)
 
 ## Utilities
 
-### `doctor`
-```bash
-openapi-cli doctor
-```
-
 ### `version`
 ```bash
-openapi-cli version
+openapi-cli version [flags]
+```
+Options: `--output` (JSON format)
+
+### `completion`
+```bash
+openapi-cli completion [bash|zsh|fish|powershell]
 ```
 
 ### `help`
@@ -207,13 +128,18 @@ openapi-cli version
 openapi-cli help [command]
 ```
 
+## MCP Server
+
+The MCP server is a separate binary (`openapi-mcp`), built with `make build`:
+```bash
+./bin/openapi-mcp --help
+```
+
 ## Output Formats
 
-- `--output json` - JSON output
-- `--output pretty` - Pretty-printed JSON
-- `--output table` - Table format
-- `--output text` - Plain text
-- `--format <format>` - Alias
+- `-o table` - Table format (default)
+- `-o json` - JSON output
+- `-o yaml` - YAML output
 
 ## Environment Variables
 
@@ -249,35 +175,30 @@ openapi-cli help [command]
 
 ## Common Workflows
 
-### Initialize from spec
+### Discover and generate from a spec
 ```bash
-openapi-cli init openapi.json && openapi-cli --help
+openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
 ### Quick API test
 ```bash
-openapi-cli api request GET /pet/1 --spec openapi.json
+openapi-cli request GET https://petstore.swagger.io/v2/pet/1
 ```
 
 ### MCP server
 ```bash
-openapi-cli mcp-server --spec openapi.json
+./bin/openapi-mcp --spec openapi.json
 ```
 
 ### With environment variables
 ```bash
-export API_KEY=secret && openapi-cli api request POST /pet --body '{"name":"Fluffy"}'
-```
-
-### Interactive mode
-```bash
-openapi-cli interactive
+export API_KEY=secret
+openapi-cli request GET https://api.example.com/pet/1 -H "X-API-Key: $API_KEY"
 ```
 
 ### Generate docs
-```bash
-openapi-cli docs generate openapi.yaml --output ./docs
-```
+(Not yet implemented — use `discover` to explore specs and `generate` to create CLI commands.)
 
 ## Quick Config Examples
 
@@ -325,11 +246,10 @@ openapi-cli:
 |-------|----------|
 | Command not found | `export PATH=$HOME/.local/bin:$PATH` |
 | Permission denied | `chmod +x /usr/local/bin/openapi-cli` |
-| Invalid spec | `openapi-cli spec validate --strict spec.yaml` |
-| 401 errors | `openapi-cli auth login --provider your-provider` |
-| Timeout | `openapi-cli config set http.timeout 60s` |
-| Debug info | `openapi-cli --debug <command>` |
-| Full check | `openapi-cli doctor` |
+| Unknown command | Run `openapi-cli --help` for the real command list |
+| 401 errors | `openapi-cli auth add --name myapi --type api-key --value <key>` |
+| Timeout | `openapi-cli request ... --timeout 60s` |
+| Debug info | `openapi-cli audit log` for recent events |
 
 ## Links
 

@@ -145,10 +145,10 @@ After installation, verify everything works:
 openapi-cli --version
 
 # System check
-openapi-cli doctor
+openapi-cli version
 
 # Test command
-openapi-cli docs --help
+openapi-cli --help
 ```
 
 ## Troubleshooting

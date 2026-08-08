@@ -179,7 +179,7 @@ After=network.target openapi-cli-daemon.service
 Type=oneshot
 RemainAfterExit=yes
 User=root
-ExecStart=/usr/bin/openapi-cli init --config /etc/openapi-cli/config.yaml
+ExecStart=/usr/bin/openapi-cli daemon start
 TimeoutStopSec=5
 
 [Install]
@@ -187,9 +187,9 @@ WantedBy=multi-user.target
 ```
 
 **Key Settings**:
-- `Type=oneshot`: One-shot service for initialization
+- `Type=oneshot`: One-shot service for daemon startup
 - `RemainAfterExit=yes`: Service considered active after exit
-- `ExecStart`: Run initialization command at boot
+- `ExecStart`: Start the daemon at boot (replaces the aspirational `init` command which is not yet implemented)
 
 ---
 

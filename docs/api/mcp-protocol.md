@@ -12,10 +12,10 @@ OpenAPI CLI implements MCP (Model Context Protocol) to enable seamless integrati
 
 ```bash
 # Start MCP server with stdio transport (default)
-openapi-cli mcp-server --spec openapi.yaml
+./bin/openapi-mcp --spec openapi.yaml
 
 # Start with HTTP transport for debugging
-openapi-cli mcp-server --spec openapi.yaml --port 8080
+./bin/openapi-mcp --spec openapi.yaml --port 8080
 ```
 
 ### Claude Desktop Configuration
@@ -26,9 +26,8 @@ Configure in Claude Desktop settings:
 {
   "mcpServers": {
     "openapi-cli": {
-      "command": "openapi-cli",
+      "command": "/path/to/bin/openapi-mcp",
       "args": [
-        "mcp-server",
         "--spec", "/path/to/openapi.yaml",
         "--base-url", "https://api.example.com/v1"
       ]
@@ -58,7 +57,7 @@ Test MCP server manually:
     }
   },
   "id": 1
-} | openapi-cli mcp-server --spec openapi.yaml
+} | ./bin/openapi-mcp --spec openapi.yaml
 ```
 
 ## Server Capabilities
@@ -332,7 +331,7 @@ Check for specification changes since last request.
 The MCP server supports authentication via configuration:
 
 ```bash
-openapi-cli mcp-server --spec openapi.yaml \
+./bin/openapi-mcp --spec openapi.yaml \
   --auth.type oauth2 \
   --auth.token your-access-token
 ```
@@ -474,7 +473,7 @@ mcp:
 
 ```bash
 # Start MCP server
-openapi-cli mcp-server --spec openapi.yaml
+./bin/openapi-mcp --spec openapi.yaml
 
 # Client workflow:
 # 1. Initialize
@@ -585,7 +584,7 @@ openapi-cli mcp-server --spec openapi.yaml
 
 ```bash
 # Full MCP integration test
-openapi-cli mcp-server --spec test-openapi.yaml --port 8080
+./bin/openapi-mcp --spec test-openapi.yaml --port 8080
 
 # Send requests via HTTP or stdio
 curl -X POST http://localhost:8080 \
@@ -602,7 +601,7 @@ curl -X POST http://localhost:8080 \
 **Solution**: Check spec path and file permissions:
 
 ```bash
-openapi-cli mcp-server --spec /full/path/to/openapi.yaml
+./bin/openapi-mcp --spec /full/path/to/openapi.yaml
 ```
 
 **Issue**: "Tool 'xxx' not found"
@@ -610,7 +609,7 @@ openapi-cli mcp-server --spec /full/path/to/openapi.yaml
 **Solution**: Verify the tool name matches the operation or path:
 
 ```bash
-openapi-cli inventory list openapi.yaml  # See available tools
+openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json  # See available operations
 ```
 
 ### Debug Mode
@@ -618,7 +617,7 @@ openapi-cli inventory list openapi.yaml  # See available tools
 Enable debug logging:
 
 ```bash
-openapi-cli --debug mcp-server --spec openapi.yaml
+./bin/openapi-mcp --spec openapi.yaml
 ```
 
 ## Related Documentation
