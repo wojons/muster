@@ -43,7 +43,12 @@ and serves them via MCP protocol.`,
 			// the skip in cmd/cli/main.go persistentPreRun so
 			// stored commands are not advertised in the same
 			// contexts where we skip config initialization.
-			if isMetaCommandName(cmd.Name()) {
+			//
+			// Also hide when --help is used on the root command
+			// (e.g. "openapi-cli --help") — the root name is
+			// "openapi-cli", not "help", so isMetaCommandName
+			// alone doesn't catch it.
+			if isMetaCommandName(cmd.Name()) || (cmd == cmd.Root() && helpRequested(cmd)) {
 				hidePersistedCommands(cmd.Root(), true)
 			}
 			if auditHook != nil {
@@ -97,6 +102,15 @@ func isMetaCommandName(name string) bool {
 		return true
 	}
 	return false
+}
+
+// helpRequested returns true if the --help flag was set on the given command.
+func helpRequested(cmd *cobra.Command) bool {
+	helpFlag := cmd.Flags().Lookup("help")
+	if helpFlag == nil {
+		return false
+	}
+	return helpFlag.Changed
 }
 
 // hidePersistedCommands toggles the Hidden flag on every command added

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
@@ -19,18 +20,38 @@ import (
 
 func newGenerateCommand(cfg *config.Config) *cobra.Command {
 	var baseURL string
+	var listStore bool
+	var clearStore bool
 
 	cmd := &cobra.Command{
-		Use:   "generate <spec-path-or-url>",
+		Use:   "generate [<spec-path-or-url>]",
 		Short: "Generate commands from OpenAPI specification",
 		Long: `Generate CLI commands dynamically from an OpenAPI 3.0 or 3.1 specification.
 
 The generator parses the spec and creates Cobra commands for each API operation.
 Accepts either a local file path or a remote URL (http/https).
 
-Commands are persisted to storage and loaded on subsequent CLI invocations.`,
-		Args: cobra.ExactArgs(1),
+Commands are persisted to storage and loaded on subsequent CLI invocations.
+
+Use --list to inspect the current persisted store, or --clear to remove it.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --list and --clear don't require a spec argument
+			if listStore || clearStore {
+				return cobra.NoArgs(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --list: show current persisted store info
+			if listStore {
+				return listPersistedStore(cfg)
+			}
+
+			// --clear: remove the persisted store
+			if clearStore {
+				return clearPersistedStore(cfg)
+			}
+
 			specPath := args[0]
 			fmt.Printf("Loading spec from: %s\n", specPath)
 
@@ -90,6 +111,11 @@ Commands are persisted to storage and loaded on subsequent CLI invocations.`,
 				return fmt.Errorf("convert commands to metadata: %w", err)
 			}
 
+			// Warn if overwriting a store with a different spec_hash
+			if err := warnOnOverwrite(metadata, cfg); err != nil {
+				return err
+			}
+
 			if err := persistCommands(metadata, cfg); err != nil {
 				return fmt.Errorf("persist commands: %w", err)
 			}
@@ -112,6 +138,8 @@ Commands are persisted to storage and loaded on subsequent CLI invocations.`,
 	}
 
 	cmd.Flags().StringVarP(&baseURL, "base-url", "u", "", "Base URL for the API (e.g., https://api.example.com)")
+	cmd.Flags().BoolVar(&listStore, "list", false, "List the current persisted command store")
+	cmd.Flags().BoolVar(&clearStore, "clear", false, "Remove the persisted command store")
 
 	return cmd
 }
@@ -520,6 +548,50 @@ func persistCommands(metadata *cmdstore.StoredData, cfg *config.Config) error {
 	dataPath := resolvePersistedCommandsPath(cfg)
 	store := cmdstore.NewCommandStore(dataPath)
 	return store.Save(metadata)
+}
+
+// warnOnOverwrite checks the existing persisted store and prints a warning
+// if it contains commands from a different spec (different spec_hash).
+func warnOnOverwrite(metadata *cmdstore.StoredData, cfg *config.Config) error {
+	dataPath := resolvePersistedCommandsPath(cfg)
+	store := cmdstore.NewCommandStore(dataPath)
+	existing := store.List()
+	if existing == nil || existing.SpecHash == "" {
+		return nil
+	}
+	if existing.SpecHash != metadata.SpecHash {
+		fmt.Fprintf(os.Stderr, "Warning: overwriting persisted commands from a different spec (existing hash: %s, new hash: %s)\n",
+			existing.SpecHash, metadata.SpecHash)
+	}
+	return nil
+}
+
+// listPersistedStore prints the current persisted store info.
+func listPersistedStore(cfg *config.Config) error {
+	dataPath := resolvePersistedCommandsPath(cfg)
+	store := cmdstore.NewCommandStore(dataPath)
+	sd := store.List()
+	if sd == nil || len(sd.Commands) == 0 {
+		fmt.Println("No persisted commands found.")
+		return nil
+	}
+	fmt.Printf("Store path:    %s\n", dataPath)
+	fmt.Printf("Spec path:     %s\n", sd.SpecPath)
+	fmt.Printf("Spec hash:     %s\n", sd.SpecHash)
+	fmt.Printf("Generated at:  %s\n", sd.GeneratedAt.Format(time.RFC3339))
+	fmt.Printf("Command count: %d\n", len(sd.Commands))
+	return nil
+}
+
+// clearPersistedStore removes the persisted store file.
+func clearPersistedStore(cfg *config.Config) error {
+	dataPath := resolvePersistedCommandsPath(cfg)
+	store := cmdstore.NewCommandStore(dataPath)
+	if err := store.Clear(); err != nil {
+		return fmt.Errorf("clear store: %w", err)
+	}
+	fmt.Println("Persisted command store cleared.")
+	return nil
 }
 
 // resolvePersistedCommandsPath returns the on-disk path used to store

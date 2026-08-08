@@ -290,12 +290,13 @@ func TestCommandStore_Save_PersistToDisk(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, raw)
 
-	// Verify JSON content — persistToDisk creates its own StoredData:
-	// Version is hardcoded to "1.0", only Commands/BaseURL/GeneratedAt are set.
+	// Verify JSON content — persistToDisk now carries SpecPath+SpecHash from cs.data
 	var stored cmdstore.StoredData
 	err = json.Unmarshal(raw, &stored)
 	require.NoError(t, err)
-	assert.Equal(t, "1.0", stored.Version)
+	assert.Equal(t, "1.0", stored.Version) // persistToDisk always writes "1.0"
+	assert.Equal(t, "spec.yaml", stored.SpecPath)
+	assert.Equal(t, "abc123", stored.SpecHash)
 	assert.Equal(t, "https://api.example.com", stored.BaseURL)
 	assert.Len(t, stored.Commands, 1)
 	assert.Equal(t, "persisted", stored.Commands[0].Name)
@@ -583,4 +584,165 @@ func TestCommandStore_Commands_LoadsOnce(t *testing.T) {
 	cmds, err = store2.Commands()
 	require.NoError(t, err)
 	assert.Len(t, cmds, 1)
+}
+
+// ── List ──────────────────────────────────────────────────────────
+
+func TestCommandStore_List_FromMemory(t *testing.T) {
+	store := cmdstore.NewCommandStore()
+	data := &cmdstore.StoredData{
+		SpecPath: "specA.yaml",
+		SpecHash: "hashA",
+		BaseURL:  "https://api.example.com",
+		Commands: []cmdstore.CommandMetadata{
+			{Name: "cmd-a", Method: "GET", Path: "/a"},
+		},
+	}
+	err := store.Save(data)
+	require.NoError(t, err)
+
+	sd := store.List()
+	require.NotNil(t, sd)
+	assert.Equal(t, "specA.yaml", sd.SpecPath)
+	assert.Equal(t, "hashA", sd.SpecHash)
+	assert.Equal(t, "https://api.example.com", sd.BaseURL)
+	assert.Len(t, sd.Commands, 1)
+}
+
+func TestCommandStore_List_FromDisk(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "commands.json")
+
+	store1 := cmdstore.NewCommandStore(dbPath)
+	err := store1.Save(&cmdstore.StoredData{
+		SpecPath: "specB.yaml",
+		SpecHash: "hashB",
+		BaseURL:  "https://api.example.com",
+		Commands: []cmdstore.CommandMetadata{
+			{Name: "cmd-b", Method: "POST", Path: "/b"},
+		},
+	})
+	require.NoError(t, err)
+
+	store2 := cmdstore.NewCommandStore(dbPath)
+	sd := store2.List()
+	require.NotNil(t, sd)
+	assert.Equal(t, "specB.yaml", sd.SpecPath)
+	assert.Equal(t, "hashB", sd.SpecHash)
+	assert.Len(t, sd.Commands, 1)
+}
+
+func TestCommandStore_List_Empty(t *testing.T) {
+	store := cmdstore.NewCommandStore()
+	sd := store.List()
+	assert.Nil(t, sd)
+}
+
+// ── Clear ─────────────────────────────────────────────────────────
+
+func TestCommandStore_Clear_RemovesFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "commands.json")
+
+	store := cmdstore.NewCommandStore(dbPath)
+	err := store.Save(&cmdstore.StoredData{
+		SpecPath: "spec.yaml",
+		SpecHash: "hash",
+		Commands: []cmdstore.CommandMetadata{
+			{Name: "cmd", Method: "GET", Path: "/c"},
+		},
+	})
+	require.NoError(t, err)
+
+	// Verify file exists
+	_, err = os.Stat(dbPath)
+	require.NoError(t, err)
+
+	err = store.Clear()
+	require.NoError(t, err)
+
+	// File should be gone
+	_, err = os.Stat(dbPath)
+	assert.True(t, os.IsNotExist(err))
+
+	// In-memory state should be empty
+	assert.False(t, store.HasData())
+	cmds, err := store.Commands()
+	require.NoError(t, err)
+	assert.Empty(t, cmds)
+}
+
+func TestCommandStore_Clear_NoPath(t *testing.T) {
+	store := cmdstore.NewCommandStore()
+	err := store.Save(&cmdstore.StoredData{
+		Commands: []cmdstore.CommandMetadata{
+			{Name: "cmd", Method: "GET", Path: "/c"},
+		},
+	})
+	require.NoError(t, err)
+
+	err = store.Clear()
+	require.NoError(t, err)
+
+	assert.False(t, store.HasData())
+}
+
+func TestCommandStore_Clear_Idempotent(t *testing.T) {
+	store := cmdstore.NewCommandStore()
+	err := store.Clear()
+	require.NoError(t, err)
+	err = store.Clear()
+	require.NoError(t, err)
+}
+
+// ── StoredData method ─────────────────────────────────────────────
+
+func TestCommandStore_StoredData_AfterSave(t *testing.T) {
+	store := cmdstore.NewCommandStore()
+	data := &cmdstore.StoredData{
+		SpecPath: "spec.yaml",
+		SpecHash: "abc123",
+		BaseURL:  "https://api.example.com",
+		Commands: []cmdstore.CommandMetadata{
+			{Name: "cmd", Method: "GET", Path: "/c"},
+		},
+	}
+	err := store.Save(data)
+	require.NoError(t, err)
+
+	sd := store.StoredData()
+	require.NotNil(t, sd)
+	assert.Equal(t, "spec.yaml", sd.SpecPath)
+	assert.Equal(t, "abc123", sd.SpecHash)
+}
+
+func TestCommandStore_StoredData_AfterLoadFromDisk(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "commands.json")
+
+	store1 := cmdstore.NewCommandStore(dbPath)
+	err := store1.Save(&cmdstore.StoredData{
+		SpecPath: "disk-spec.yaml",
+		SpecHash: "disk-hash",
+		Commands: []cmdstore.CommandMetadata{
+			{Name: "disk-cmd", Method: "GET", Path: "/d"},
+		},
+	})
+	require.NoError(t, err)
+
+	store2 := cmdstore.NewCommandStore(dbPath)
+	// Trigger load
+	_, err = store2.Commands()
+	require.NoError(t, err)
+
+	sd := store2.StoredData()
+	require.NotNil(t, sd)
+	assert.Equal(t, "disk-spec.yaml", sd.SpecPath)
+	assert.Equal(t, "disk-hash", sd.SpecHash)
+}
+
+func TestCommandStore_StoredData_Empty(t *testing.T) {
+	store := cmdstore.NewCommandStore()
+	sd := store.StoredData()
+	assert.Nil(t, sd)
 }

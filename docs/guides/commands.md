@@ -39,18 +39,26 @@ Accepts either a local file path or a remote URL (http/https).
 Commands are persisted to storage and loaded on subsequent CLI invocations.
 
 ```bash
-openapi-cli generate <spec-path-or-url> [flags]
+openapi-cli generate [<spec-path-or-url>] [flags]
 ```
 
 **Options**:
 - `-u, --base-url <url>` - Base URL for the API (e.g., `https://api.example.com`)
+- `--list` - List the current persisted command store (spec path, hash, generated at, command count)
+- `--clear` - Remove the persisted command store
 
 **Examples**:
 ```bash
 openapi-cli generate petstore.json
 openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
 openapi-cli generate openapi.yaml --base-url https://api.example.com/v1
+openapi-cli generate --list
+openapi-cli generate --clear
 ```
+
+**Overwrite warning**: If you run `generate` with a different spec than the one
+currently persisted, the CLI prints a warning to stderr before overwriting the
+store. Running `generate` with the same spec (same hash) does not warn.
 
 ### `init` (help topic)
 

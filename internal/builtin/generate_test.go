@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/pkg/cmdstore"
 	"github.com/wojons/muster/pkg/config"
 )
 
@@ -26,7 +28,7 @@ func TestNewGenerateCommand(t *testing.T) {
 		assert.Contains(t, cmd.Long, "Generate CLI commands dynamically from an OpenAPI")
 	})
 
-	t.Run("requires exactly one argument", func(t *testing.T) {
+	t.Run("requires exactly one argument when not --list/--clear", func(t *testing.T) {
 		cfg := &config.Config{}
 		cmd := newGenerateCommand(cfg)
 
@@ -858,5 +860,306 @@ func TestExtractBodyPropertyNames(t *testing.T) {
 		doc.Paths.Set("/tasks", pi)
 		result := extractBodyPropertyNames(doc, "/tasks", http.MethodPost)
 		assert.Nil(t, result)
+	})
+}
+
+// ── generate --list / --clear / overwrite warning ────────────────
+
+func TestGenerate_ListFlag(t *testing.T) {
+	t.Run("--list with no store prints no commands", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+		cmd := newGenerateCommand(cfg)
+		_ = cmd.Flags().Set("list", "true")
+
+		err := cmd.RunE(cmd, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("--list after generate shows store info", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+		specPath := filepath.Join(tmpDir, "spec.yaml")
+		specContent := []byte(`
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      operationId: getWidgets
+      responses:
+        '200':
+          description: OK
+`)
+		err := os.WriteFile(specPath, specContent, 0644)
+		require.NoError(t, err)
+
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+		cmd := newGenerateCommand(cfg)
+		err = cmd.RunE(cmd, []string{specPath})
+		require.NoError(t, err)
+
+		// Now --list
+		cmd2 := newGenerateCommand(cfg)
+		_ = cmd2.Flags().Set("list", "true")
+		err = cmd2.RunE(cmd2, nil)
+		require.NoError(t, err)
+	})
+}
+
+func TestGenerate_ClearFlag(t *testing.T) {
+	t.Run("--clear removes store", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+		specPath := filepath.Join(tmpDir, "spec.yaml")
+		specContent := []byte(`
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      operationId: getWidgets
+      responses:
+        '200':
+          description: OK
+`)
+		err := os.WriteFile(specPath, specContent, 0644)
+		require.NoError(t, err)
+
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+		cmd := newGenerateCommand(cfg)
+		err = cmd.RunE(cmd, []string{specPath})
+		require.NoError(t, err)
+
+		// Verify file exists
+		_, err = os.Stat(storePath)
+		require.NoError(t, err)
+
+		// --clear
+		cmd2 := newGenerateCommand(cfg)
+		_ = cmd2.Flags().Set("clear", "true")
+		err = cmd2.RunE(cmd2, nil)
+		require.NoError(t, err)
+
+		// File should be gone
+		_, err = os.Stat(storePath)
+		assert.True(t, os.IsNotExist(err))
+	})
+
+	t.Run("--clear with no store is a no-op", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+		cmd := newGenerateCommand(cfg)
+		_ = cmd.Flags().Set("clear", "true")
+
+		err := cmd.RunE(cmd, nil)
+		require.NoError(t, err)
+	})
+}
+
+func TestGenerate_OverwriteWarning(t *testing.T) {
+	t.Run("second generate with different spec prints warning", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+
+		// Spec A
+		specAPath := filepath.Join(tmpDir, "specA.yaml")
+		specAContent := []byte(`
+openapi: 3.0.0
+info:
+  title: Spec A
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      operationId: getWidgets
+      responses:
+        '200':
+          description: OK
+`)
+		err := os.WriteFile(specAPath, specAContent, 0644)
+		require.NoError(t, err)
+
+		// Spec B (different content → different hash)
+		specBPath := filepath.Join(tmpDir, "specB.yaml")
+		specBContent := []byte(`
+openapi: 3.0.0
+info:
+  title: Spec B
+  version: 1.0.0
+paths:
+  /gadgets:
+    get:
+      operationId: getGadgets
+      responses:
+        '200':
+          description: OK
+`)
+		err = os.WriteFile(specBPath, specBContent, 0644)
+		require.NoError(t, err)
+
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+
+		// First generate: spec A
+		cmdA := newGenerateCommand(cfg)
+		err = cmdA.RunE(cmdA, []string{specAPath})
+		require.NoError(t, err)
+
+		// Second generate: spec B — should warn
+		cmdB := newGenerateCommand(cfg)
+		// Capture stderr
+		origStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+		err = cmdB.RunE(cmdB, []string{specBPath})
+		w.Close()
+		os.Stderr = origStderr
+		require.NoError(t, err)
+
+		// Read captured stderr
+		stderrBytes, _ := io.ReadAll(r)
+		stderrOutput := string(stderrBytes)
+		assert.Contains(t, stderrOutput, "Warning: overwriting persisted commands from a different spec")
+	})
+
+	t.Run("second generate with same spec does not warn", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+
+		specPath := filepath.Join(tmpDir, "spec.yaml")
+		specContent := []byte(`
+openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      operationId: getWidgets
+      responses:
+        '200':
+          description: OK
+`)
+		err := os.WriteFile(specPath, specContent, 0644)
+		require.NoError(t, err)
+
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+
+		// First generate
+		cmd1 := newGenerateCommand(cfg)
+		err = cmd1.RunE(cmd1, []string{specPath})
+		require.NoError(t, err)
+
+		// Second generate with same spec — no warning
+		cmd2 := newGenerateCommand(cfg)
+		origStderr := os.Stderr
+		r, w, _ := os.Pipe()
+		os.Stderr = w
+		err = cmd2.RunE(cmd2, []string{specPath})
+		w.Close()
+		os.Stderr = origStderr
+		require.NoError(t, err)
+
+		stderrBytes, _ := io.ReadAll(r)
+		stderrOutput := string(stderrBytes)
+		assert.NotContains(t, stderrOutput, "Warning: overwriting")
+	})
+}
+
+func TestGenerate_ListClearArgValidation(t *testing.T) {
+	t.Run("--list accepts no args", func(t *testing.T) {
+		cfg := &config.Config{}
+		cmd := newGenerateCommand(cfg)
+		_ = cmd.Flags().Set("list", "true")
+
+		err := cmd.Args(cmd, []string{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("--list rejects extra args", func(t *testing.T) {
+		cfg := &config.Config{}
+		cmd := newGenerateCommand(cfg)
+		_ = cmd.Flags().Set("list", "true")
+
+		err := cmd.Args(cmd, []string{"extra"})
+		assert.Error(t, err)
+	})
+
+	t.Run("--clear accepts no args", func(t *testing.T) {
+		cfg := &config.Config{}
+		cmd := newGenerateCommand(cfg)
+		_ = cmd.Flags().Set("clear", "true")
+
+		err := cmd.Args(cmd, []string{})
+		assert.NoError(t, err)
+	})
+}
+
+func TestWarnOnOverwrite(t *testing.T) {
+	t.Run("no existing store returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "nonexistent.json")
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+		metadata := &cmdstore.StoredData{SpecHash: "newhash"}
+
+		err := warnOnOverwrite(metadata, cfg)
+		assert.NoError(t, err)
+	})
+
+	t.Run("same hash returns nil", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+
+		// Save with hash "abc"
+		store := cmdstore.NewCommandStore(storePath)
+		_ = store.Save(&cmdstore.StoredData{
+			SpecHash: "abc",
+			Commands: []cmdstore.CommandMetadata{{Name: "test", Method: "GET", Path: "/t"}},
+		})
+
+		metadata := &cmdstore.StoredData{SpecHash: "abc"}
+		err := warnOnOverwrite(metadata, cfg)
+		assert.NoError(t, err)
+	})
+}
+
+func TestListPersistedStore(t *testing.T) {
+	t.Run("empty store prints no commands", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+
+		err := listPersistedStore(cfg)
+		assert.NoError(t, err)
+	})
+}
+
+func TestClearPersistedStore(t *testing.T) {
+	t.Run("clear removes file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		storePath := filepath.Join(tmpDir, "commands.json")
+		cfg := &config.Config{PersistedCommandsPath: storePath}
+
+		// Create store
+		store := cmdstore.NewCommandStore(storePath)
+		_ = store.Save(&cmdstore.StoredData{
+			Commands: []cmdstore.CommandMetadata{{Name: "test", Method: "GET", Path: "/t"}},
+		})
+
+		_, err := os.Stat(storePath)
+		require.NoError(t, err)
+
+		err = clearPersistedStore(cfg)
+		assert.NoError(t, err)
+
+		_, err = os.Stat(storePath)
+		assert.True(t, os.IsNotExist(err))
 	})
 }

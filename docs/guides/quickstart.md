@@ -59,6 +59,11 @@ After generation, the spec's operations become available as CLI commands
 **What's happening**: The generator parses the OpenAPI spec and creates Cobra
 commands for each API operation. These are persisted so they survive restarts.
 
+**Managing the store**: Use `openapi-cli generate --list` to inspect the current
+store (spec path, hash, generated at, command count) and `openapi-cli generate --clear`
+to remove it. If you generate from a different spec, the CLI warns before
+overwriting the existing store.
+
 ## Step 4: Make Your First API Request
 
 ```bash

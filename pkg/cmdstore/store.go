@@ -14,6 +14,7 @@ import (
 type CommandStore struct {
 	commands []CommandMetadata
 	meta     *CommandMetadata
+	data     *StoredData // full stored data for persistence (carries SpecPath, SpecHash)
 	path     string
 	loaded   bool
 }
@@ -117,10 +118,13 @@ func (cs *CommandStore) Load() (*CommandMetadata, error) {
 // Save stores command metadata from StoredData and persists to disk.
 // axiom:trace work_item=rebuild-foundation-03 spec=specs/02-Workflows.md plan=phase-97-2/task-97-2-1/step-97-2-1-1 impl=pkg/cmdstore/store.go
 func (cs *CommandStore) Save(data *StoredData) error {
-	if data != nil && len(data.Commands) > 0 {
-		cs.commands = data.Commands
-		cs.meta = &data.Commands[0]
-		cs.loaded = true
+	if data != nil {
+		cs.data = data
+		if len(data.Commands) > 0 {
+			cs.commands = data.Commands
+			cs.meta = &data.Commands[0]
+			cs.loaded = true
+		}
 	}
 	// Persist to disk if path is configured
 	if cs.path != "" {
@@ -145,7 +149,11 @@ func (cs *CommandStore) persistToDisk() error {
 		Commands:    cs.commands,
 		GeneratedAt: time.Now(),
 	}
-	if cs.meta != nil {
+	if cs.data != nil {
+		stored.SpecPath = cs.data.SpecPath
+		stored.SpecHash = cs.data.SpecHash
+		stored.BaseURL = cs.data.BaseURL
+	} else if cs.meta != nil {
 		stored.BaseURL = cs.meta.BaseURL
 	}
 
@@ -177,6 +185,7 @@ func (cs *CommandStore) loadFromDisk() error {
 	if len(stored.Commands) > 0 {
 		cs.meta = &stored.Commands[0]
 	}
+	cs.data = &stored
 	cs.loaded = true
 	return nil
 }
@@ -190,6 +199,49 @@ type StoredData struct {
 	BaseURL     string            `json:"base_url"`
 	GeneratedAt time.Time         `json:"generated_at"`
 	Commands    []CommandMetadata `json:"commands"`
+}
+
+// StoredData returns the full stored data (spec path, hash, commands, etc.)
+// or nil if no data has been saved.
+func (cs *CommandStore) StoredData() *StoredData {
+	if cs.data != nil {
+		return cs.data
+	}
+	// Reconstruct from loaded state if available
+	if cs.loaded || len(cs.commands) > 0 {
+		sd := &StoredData{
+			Version:  "1.0",
+			Commands: cs.commands,
+		}
+		if cs.meta != nil {
+			sd.BaseURL = cs.meta.BaseURL
+		}
+		return sd
+	}
+	return nil
+}
+
+// List returns a human-readable summary of the current persisted store.
+// Returns nil if no store data exists.
+func (cs *CommandStore) List() *StoredData {
+	if cs.path != "" && !cs.loaded {
+		_ = cs.loadFromDisk()
+	}
+	return cs.StoredData()
+}
+
+// Clear removes the persisted store file from disk and resets in-memory state.
+func (cs *CommandStore) Clear() error {
+	cs.commands = nil
+	cs.meta = nil
+	cs.data = nil
+	cs.loaded = false
+	if cs.path != "" {
+		if err := os.Remove(cs.path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove store file: %w", err)
+		}
+	}
+	return nil
 }
 
 // LoadCommands loads commands from storage (compatibility shim).
