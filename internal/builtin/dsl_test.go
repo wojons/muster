@@ -345,7 +345,7 @@ func TestRunDsl_SimpleScript(t *testing.T) {
 	}
 
 	// runDsl expects args[1] to be the script path (args[0] is the command name)
-	err := runDsl(nil, []string{"dsl", scriptPath})
+	err := runDsl(nil, []string{"dsl", scriptPath}, false)
 	if err != nil {
 		t.Fatalf("runDsl failed: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestRunDsl_SimpleScript(t *testing.T) {
 // TestRunDsl_FileNotFound verifies that runDsl returns an error for a
 // non-existent file.
 func TestRunDsl_FileNotFound(t *testing.T) {
-	err := runDsl(nil, []string{"dsl", "/nonexistent/path/script.star"})
+	err := runDsl(nil, []string{"dsl", "/nonexistent/path/script.star"}, false)
 	if err == nil {
 		t.Fatal("expected error for non-existent file")
 	}
@@ -372,7 +372,7 @@ func TestRunDsl_ParseError(t *testing.T) {
 		t.Fatalf("failed to write script: %v", err)
 	}
 
-	err := runDsl(nil, []string{"dsl", scriptPath})
+	err := runDsl(nil, []string{"dsl", scriptPath}, false)
 	if err == nil {
 		t.Fatal("expected parse error for invalid syntax")
 	}
@@ -390,7 +390,7 @@ func TestRunDsl_ExecError(t *testing.T) {
 		t.Fatalf("failed to write script: %v", err)
 	}
 
-	err := runDsl(nil, []string{"dsl", scriptPath})
+	err := runDsl(nil, []string{"dsl", scriptPath}, false)
 	if err == nil {
 		t.Fatal("expected error for undefined variable")
 	}
@@ -416,7 +416,7 @@ func TestRunDsl_HttpBuiltinIntegration(t *testing.T) {
 		t.Fatalf("failed to write script: %v", err)
 	}
 
-	err := runDsl(nil, []string{"dsl", scriptPath})
+	err := runDsl(nil, []string{"dsl", scriptPath}, false)
 	if err != nil {
 		t.Fatalf("runDsl with http_get failed: %v", err)
 	}
@@ -441,7 +441,7 @@ func TestRunDsl_HttpPostIntegration(t *testing.T) {
 		t.Fatalf("failed to write script: %v", err)
 	}
 
-	err := runDsl(nil, []string{"dsl", scriptPath})
+	err := runDsl(nil, []string{"dsl", scriptPath}, false)
 	if err != nil {
 		t.Fatalf("runDsl with http_post failed: %v", err)
 	}
@@ -465,7 +465,7 @@ func TestRunDsl_HttpPutIntegration(t *testing.T) {
 		t.Fatalf("failed to write script: %v", err)
 	}
 
-	err := runDsl(nil, []string{"dsl", scriptPath})
+	err := runDsl(nil, []string{"dsl", scriptPath}, false)
 	if err != nil {
 		t.Fatalf("runDsl with http_put failed: %v", err)
 	}
@@ -489,7 +489,7 @@ func TestRunDsl_HttpDeleteIntegration(t *testing.T) {
 		t.Fatalf("failed to write script: %v", err)
 	}
 
-	err := runDsl(nil, []string{"dsl", scriptPath})
+	err := runDsl(nil, []string{"dsl", scriptPath}, false)
 	if err != nil {
 		t.Fatalf("runDsl with http_delete failed: %v", err)
 	}
@@ -558,15 +558,87 @@ func TestDslCommand_NoArgs(t *testing.T) {
 			t.Error("expected panic with 0 args")
 		}
 	}()
-	runDsl(nil, []string{})
+	runDsl(nil, []string{}, false)
 }
 
 // TestDslCommand_ExtraArgs verifies that runDsl ignores extra args beyond
 // args[1] (the script path). Extra args are a cobra validation concern.
 func TestDslCommand_ExtraArgs(t *testing.T) {
 	// runDsl only reads args[1]; extra args are ignored
-	err := runDsl(nil, []string{"dsl", "/nonexistent", "extra"})
+	err := runDsl(nil, []string{"dsl", "/nonexistent", "extra"}, false)
 	if err == nil {
 		t.Error("expected error for non-existent file")
+	}
+}
+
+// =============================================================================
+// Quiet/script mode tests (AC2)
+// =============================================================================
+
+// TestRunDsl_QuietMode_PrintOnly verifies that dsl run in default (quiet) mode
+// shows only the print() output — no global binding dump, no structured
+// log (INF/INFO) lines.
+func TestRunDsl_QuietMode_PrintOnly(t *testing.T) {
+	scriptDir := t.TempDir()
+	scriptPath := filepath.Join(scriptDir, "print_test.star")
+	scriptContent := `x = 42
+y = "hello"
+print("Hello, World!")
+`
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0644); err != nil {
+		t.Fatalf("failed to write script: %v", err)
+	}
+
+	output := captureStdoutRequest(func() {
+		err := runDsl(nil, []string{"dsl", scriptPath}, false)
+		if err != nil {
+			t.Fatalf("runDsl failed: %v", err)
+		}
+	})
+
+	// The print() output should appear.
+	assertContains(t, output, "Hello, World!")
+	// No global binding dump (x = 42, y = hello).
+	if strings.Contains(output, "x = 42") {
+		t.Errorf("expected no binding dump for 'x', got: %s", output)
+	}
+	if strings.Contains(output, "y = hello") {
+		t.Errorf("expected no binding dump for 'y', got: %s", output)
+	}
+	// No structured log lines.
+	if strings.Contains(output, "INF") || strings.Contains(output, "INFO") {
+		t.Errorf("expected no structured log lines, got: %s", output)
+	}
+}
+
+// TestRunDsl_VerboseMode_PrintsBindings verifies that --verbose mode dumps
+// global variable bindings after script execution.
+func TestRunDsl_VerboseMode_PrintsBindings(t *testing.T) {
+	scriptDir := t.TempDir()
+	scriptPath := filepath.Join(scriptDir, "verbose_test.star")
+	scriptContent := `x = 42
+print("done")
+`
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0644); err != nil {
+		t.Fatalf("failed to write script: %v", err)
+	}
+
+	output := captureStdoutRequest(func() {
+		err := runDsl(nil, []string{"dsl", scriptPath}, true)
+		if err != nil {
+			t.Fatalf("runDsl failed: %v", err)
+		}
+	})
+
+	// The print() output should appear.
+	assertContains(t, output, "done")
+	// The binding dump should appear in verbose mode.
+	assertContains(t, output, "x = 42")
+}
+
+func assertContains(t *testing.T, s, substr string) {
+	t.Helper()
+	if !strings.Contains(s, substr) {
+		t.Errorf("expected output to contain %q, got: %s", substr, s)
 	}
 }

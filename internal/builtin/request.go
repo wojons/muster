@@ -34,12 +34,33 @@ func newRequestCommand(cfg *config.Config) *cobra.Command {
 		Short: "Make HTTP requests",
 		Long:  `Send HTTP requests with support for various methods, headers, and output formats.`,
 		Args:  cobra.ExactArgs(2),
+		// SilenceUsage prevents the full usage block from being dumped when a
+		// runtime error occurs (e.g. a 4xx/5xx HTTP response). Flag/arg misuse
+		// still surfaces usage via the custom FlagErrorFunc + Args validator
+		// below, which temporarily re-enable usage for those error classes.
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			method := strings.ToUpper(args[0])
 			targetURL := args[1]
 
 			return handleRequest(cfg, method, targetURL, headers, params, output, verbose, timeout, httpBody, wasmPlugin)
 		},
+	}
+
+	// Flag parsing errors (unknown flag, bad value) should still show usage.
+	cmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+		c.SilenceUsage = false
+		return err
+	})
+
+	// Arg validation errors (wrong arg count) should still show usage. We wrap
+	// the standard ExactArgs(2) validator and un-silence usage on failure.
+	cmd.Args = func(c *cobra.Command, args []string) error {
+		if err := cobra.ExactArgs(2)(c, args); err != nil {
+			c.SilenceUsage = false
+			return err
+		}
+		return nil
 	}
 
 	cmd.Flags().StringSliceVarP(&headers, "header", "H", []string{}, "Add HTTP header (format: 'Key: Value')")

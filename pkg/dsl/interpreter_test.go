@@ -381,3 +381,55 @@ func TestInterpreter_NewInterpreter_NilMap(t *testing.T) {
 	require.NotNil(t, i.predeclared)
 	require.Empty(t, i.predeclared)
 }
+
+// TestNewInterpreterWithPrint_CustomSink verifies that a custom print sink
+// receives print() output instead of the structured logger.
+func TestNewInterpreterWithPrint_CustomSink(t *testing.T) {
+	var captured []string
+	printFn := func(_ *starlark.Thread, msg string) {
+		captured = append(captured, msg)
+	}
+	i := NewInterpreterWithPrint(nil, printFn)
+	require.NotNil(t, i)
+
+	path := writeTempStarlark(t, `print("hello from custom sink")
+print("second line")
+`)
+
+	ast, err := i.Parse("", path)
+	require.NoError(t, err)
+
+	prog, err := i.Compile(ast)
+	require.NoError(t, err)
+
+	_, err = i.Exec(prog)
+	require.NoError(t, err)
+
+	require.Len(t, captured, 2)
+	require.Equal(t, "hello from custom sink", captured[0])
+	require.Equal(t, "second line", captured[1])
+}
+
+// TestSetPrintFunc verifies that SetPrintFunc changes the print sink at runtime.
+func TestSetPrintFunc(t *testing.T) {
+	var captured []string
+	i := NewInterpreter(nil)
+	i.SetPrintFunc(func(_ *starlark.Thread, msg string) {
+		captured = append(captured, msg)
+	})
+
+	path := writeTempStarlark(t, `print("after set")
+`)
+
+	ast, err := i.Parse("", path)
+	require.NoError(t, err)
+
+	prog, err := i.Compile(ast)
+	require.NoError(t, err)
+
+	_, err = i.Exec(prog)
+	require.NoError(t, err)
+
+	require.Len(t, captured, 1)
+	require.Equal(t, "after set", captured[0])
+}

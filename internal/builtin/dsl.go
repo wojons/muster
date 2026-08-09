@@ -13,7 +13,8 @@ import (
 )
 
 func newDslCommand() *cobra.Command {
-	return &cobra.Command{
+	var verbose bool
+	cmd := &cobra.Command{
 		Use:   "dsl run <file.star>",
 		Short: "Run a Starlark DSL script with HTTP builtins",
 		Long: `Execute a .star Starlark script with built-in HTTP functions:
@@ -21,12 +22,17 @@ func newDslCommand() *cobra.Command {
   http_post(url, body) -> response body string
   http_put(url, body) -> response body string
   http_delete(url) -> response body string`,
-		Args: cobra.ExactArgs(2),
-		RunE: runDsl,
+		Args:         cobra.ExactArgs(2),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDsl(cmd, args, verbose)
+		},
 	}
+	cmd.Flags().BoolVarP(&verbose, "verbose", "V", false, "Print all global variable bindings after script execution")
+	return cmd
 }
 
-func runDsl(cmd *cobra.Command, args []string) error {
+func runDsl(cmd *cobra.Command, args []string, verbose bool) error {
 	filePath := args[1]
 
 	src, err := os.ReadFile(filePath)
@@ -41,7 +47,11 @@ func runDsl(cmd *cobra.Command, args []string) error {
 		"http_delete": httpDeleteBuiltin,
 	}
 
-	interp := dsl.NewInterpreter(builtins)
+	// Route print() output to stdout (script mode) instead of the structured
+	// log sink, so script output appears as plain text on stdout.
+	interp := dsl.NewInterpreterWithPrint(builtins, func(_ *starlark.Thread, msg string) {
+		fmt.Println(msg)
+	})
 
 	ast, err := interp.Parse(string(src), filePath)
 	if err != nil {
@@ -58,8 +68,12 @@ func runDsl(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("execution error: %w", err)
 	}
 
-	for name, val := range globals {
-		fmt.Printf("%s = %s\n", name, val.String())
+	// Only dump global bindings when --verbose is set; the default (script
+	// mode) shows only intended print() output.
+	if verbose {
+		for name, val := range globals {
+			fmt.Printf("%s = %s\n", name, val.String())
+		}
 	}
 
 	return nil

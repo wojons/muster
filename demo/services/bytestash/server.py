@@ -11,6 +11,16 @@ from flask import Flask, jsonify, request, send_file, Response
 
 app = Flask(__name__)
 
+
+def _require(data, *fields):
+    """Return a (response, status) tuple if any required field is missing or
+    empty, else return None."""
+    for f in fields:
+        if f not in data or not data[f]:
+            return jsonify({"error": f"{f} is required"}), 400
+    return None
+
+
 # ── Storage directory ─────────────────────────────────────────
 STORAGE_DIR = os.path.join(os.path.dirname(__file__), "_storage")
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -65,6 +75,9 @@ def folders_handler():
         return jsonify(result)
     else:
         data = request.get_json(force=True)
+        err = _require(data, "name")
+        if err:
+            return err
         fid = str(next_ids["folders"]); next_ids["folders"] += 1
         parent_id = data.get("parent_id")
         if parent_id and parent_id not in folders:
@@ -183,6 +196,9 @@ def file_download(file_id):
 @app.route("/uploads", methods=["POST"])
 def initiate_upload():
     data = request.get_json(force=True)
+    err = _require(data, "filename")
+    if err:
+        return err
     folder_id = data.get("folder_id")
     if folder_id and folder_id not in folders:
         return jsonify({"error": "folder not found"}), 404

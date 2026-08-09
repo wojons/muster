@@ -10,6 +10,19 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
+# ── Validation helper ───────────────────────────────────────
+
+
+def _require(data, *fields):
+    """Return a (response, status) tuple if any required field is missing or
+    empty, else return None. Use as: ``err = _require(data, "name"); if err:
+    return err``."""
+    for f in fields:
+        if f not in data or not data[f]:
+            return jsonify({"error": f"{f} is required"}), 400
+    return None
+
+
 # ── In-memory store ──────────────────────────────────────────
 projects = {}
 tasks = {}
@@ -44,6 +57,9 @@ def projects_handler():
         return jsonify(result[start:start + limit])
     else:
         data = request.get_json(force=True)
+        err = _require(data, "name")
+        if err:
+            return err
         pid = str(next_ids["projects"]); next_ids["projects"] += 1
         project = {
             "id": pid, "name": data["name"], "description": data.get("description", ""),
@@ -83,6 +99,9 @@ def project_tasks(project_id):
         return jsonify(result)
     else:
         data = request.get_json(force=True)
+        err = _require(data, "title")
+        if err:
+            return err
         tid = str(next_ids["tasks"]); next_ids["tasks"] += 1
         task = {
             "id": tid, "project_id": project_id,
@@ -133,6 +152,9 @@ def task_comments(task_id):
         return jsonify([c for c in comments.values() if c["task_id"] == task_id])
     else:
         data = request.get_json(force=True)
+        err = _require(data, "body")
+        if err:
+            return err
         cid = str(next_ids["comments"]); next_ids["comments"] += 1
         comment = {
             "id": cid, "task_id": task_id,
@@ -159,6 +181,9 @@ def project_milestones(project_id):
         return jsonify([m for m in milestones.values() if m["project_id"] == project_id])
     else:
         data = request.get_json(force=True)
+        err = _require(data, "name")
+        if err:
+            return err
         mid = str(next_ids["milestones"]); next_ids["milestones"] += 1
         milestone = {
             "id": mid, "project_id": project_id,
@@ -186,6 +211,9 @@ def tags_handler():
         return jsonify(list(tags.values()))
     else:
         data = request.get_json(force=True)
+        err = _require(data, "name")
+        if err:
+            return err
         tid = str(next_ids["tags"]); next_ids["tags"] += 1
         tag = {"id": tid, "name": data["name"], "color": data.get("color", "#666666")}
         tags[tid] = tag

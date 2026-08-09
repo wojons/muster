@@ -12,6 +12,17 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
+
+def _require(data, *fields):
+    """Return a (response, status) tuple if any required field is missing or
+    empty, else return None. Use as: ``err = _require(data, "name"); if err:
+    return err``."""
+    for f in fields:
+        if f not in data or not data[f]:
+            return jsonify({"error": f"{f} is required"}), 400
+    return None
+
+
 # ── In-memory store ──────────────────────────────────────────
 workflows = {}
 steps = {}
@@ -51,6 +62,9 @@ def workflows_handler():
         return jsonify(result[start:start + limit])
     else:
         data = request.get_json(force=True)
+        err = _require(data, "name")
+        if err:
+            return err
         wid = str(next_ids["workflows"]); next_ids["workflows"] += 1
         workflow = {
             "id": wid, "name": data["name"], "description": data.get("description", ""),
@@ -102,6 +116,9 @@ def workflow_steps(workflow_id):
         return jsonify(result)
     else:
         data = request.get_json(force=True)
+        err = _require(data, "name")
+        if err:
+            return err
         sid = str(next_ids["steps"]); next_ids["steps"] += 1
         step = {
             "id": sid, "workflow_id": workflow_id,
@@ -308,6 +325,9 @@ def webhooks_handler():
         return jsonify(list(webhooks.values()))
     else:
         data = request.get_json(force=True)
+        err = _require(data, "name", "url")
+        if err:
+            return err
         wid = str(next_ids["webhooks"]); next_ids["webhooks"] += 1
         webhook = {
             "id": wid,
