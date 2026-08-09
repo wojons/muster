@@ -16,6 +16,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/wojons/muster/internal/audit"
+	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/mcp"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 )
@@ -42,6 +43,7 @@ var (
 	logOutputFlag  = flag.String("log-output", "stderr", "Log output destination")
 	auditFlag      = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
 	wasmPluginFlag = flag.String("wasm-plugin", "", "Path to WASM plugin for response transformation")
+	versionFlag    = flag.Bool("version", false, "Print version information and exit")
 )
 
 func loadConfig() *MCPServerConfig {
@@ -104,6 +106,11 @@ func runMCPServer(config *MCPServerConfig, server *mcp.Server) error {
 
 func main() {
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Println(version.Get().Short())
+		return
+	}
 
 	ctx, cancel := setupSignalHandling()
 	defer cancel()

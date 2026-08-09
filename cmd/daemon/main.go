@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/daemon"
 )
 
@@ -23,10 +24,11 @@ var (
 
 // Command-line flags
 var (
-	backendURL string
-	socketPath string
-	pidFile    string
-	wasmPlugin string
+	backendURL  string
+	socketPath  string
+	pidFile     string
+	wasmPlugin  string
+	versionFlag bool
 )
 
 func main() {
@@ -68,9 +70,15 @@ func run() error {
 	flagSet.StringVar(&socketPath, "socket-path", "/tmp/openapi-cli.sock", "Path for Unix domain socket")
 	flagSet.StringVar(&pidFile, "pid-file", "", "Path for PID file (default: <socket-path>.pid")
 	flagSet.StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
+	flagSet.BoolVar(&versionFlag, "version", false, "Print version information and exit")
 	err := flagSet.Parse(flagArgs)
 	if err != nil {
 		return err
+	}
+
+	if versionFlag {
+		fmt.Println(version.Get().Short())
+		return nil
 	}
 
 	// Default PID file to socket path + ".pid" if not specified
