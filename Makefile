@@ -583,17 +583,16 @@ demo-setup: ## Prepare demo environment
 	@echo "✓ Demo environment ready"
 
 .PHONY: demo
-demo: build demo-setup ## Run integration test demo (current status: 2/10 real, 5/10 mock, remediation in progress)
+demo: build demo-setup ## Run integration demo (STATUS: 5/10 mocked — remediation in progress; NOT a green gate. Use ./demo/run-all.sh for the real end-to-end gate.)
 	@echo "=== Muster - Integration Test Demo ==="
 	@echo ""
 	@echo "✓ Binaries already built"
 	@echo "✓ Demo environment ready"
 	@echo ""
-	@echo "⚠️  INTEGRATION TEST STATUS (as of 2026-03-03):"
-	@echo "   - 2/10 tests: Semi-real (build binaries, make HTTP requests)"
-	@echo "   - 5/10 tests: Mock/fake (require remediation)"
-	@echo "   - 1/10 tests: Unit tests (no execution)"
-	@echo "   - 2/10 tests: Being fixed"
+	@echo "⚠️  INTEGRATION DEMO STATUS (remediation in progress — NOT production-ready):"
+	@echo "   - 3/10 scenarios: Real (build binaries, make HTTP requests)"
+	@echo "   - 2/10 scenarios: Semi-real (partial execution)"
+	@echo "   - 5/10 scenarios: Mock/fake — remediation in progress"
 	@echo ""
 	@echo "➤ Running Current Integration Tests..."
 	@echo ""
@@ -617,16 +616,16 @@ demo: build demo-setup ## Run integration test demo (current status: 2/10 real, 
 	@go test -v ./demo/test-suites -run "TestWASM_RuntimeIntegration" 2>&1 | grep -E "PASS|FAIL|✓" | tail -5 || { echo "✗ WASM Integration FAILED"; exit 1; }
 	@echo "  ⚠️  WASM Integration - Config only (needs Execute() with .wasm files)"
 	@echo ""
-	@echo "=== ALL INTEGRATION TESTS PASSED ==="
+	@echo "=== INTEGRATION DEMO — STATUS: 5/10 SCENARIOS MOCKED (remediation in progress) ==="
 	@echo ""
-	@echo "✓ System works end-to-end with proven functionality:"
-	@echo "  • CLI generates and executes commands from OpenAPI specs"
-	@echo "  • MCP server handles JSON-RPC and executes tool calls"
-	@echo "  • Authentication flows work with full OAuth2 support"
-	@echo "  • Daemon proxies requests through Unix sockets"
-	@echo "  • WASM modules execute with capability-based sandbox"
+	@echo "⚠️  This demo is NOT a green pre-commit gate — 5/10 scenarios are mocked."
+	@echo "    4 of 5 sections above are flagged MOCK (MCP, OAuth, Daemon, WASM)."
 	@echo ""
-	@echo "Demo complete. System is production-ready."
+	@echo "✓ For a real end-to-end gate, run: ./demo/run-all.sh"
+	@echo "    (builds binaries, starts services on ports 9801-9805, seeds data,"
+	@echo "     runs 10 demo scripts — 23+ checks, exits non-zero on failure.)"
+	@echo ""
+	@echo "Demo complete. See ./demo/run-all.sh for the production gate."
 
 .PHONY: validate
 validate: test-integration test-security-audit ## Run full system validation

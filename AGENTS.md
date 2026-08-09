@@ -9,7 +9,7 @@ Guidelines for AI agents working on the Muster codebase (dynamic API client & MC
 Every component must:
 1. ✅ Work in isolation (unit tests)
 2. ✅ **Connect to other components** (integration tests)
-3. ✅ **Prove end-to-end functionality** (demo application)
+3. ✅ **Prove end-to-end functionality** (run `./demo/run-all.sh` — the real gate; `make demo` is a partial demo, NOT a green gate)
 
 ## Quick Commands
 
@@ -29,7 +29,8 @@ make test-race                # Race condition tests
 
 # Validation
 make validate                 # ⭐ FULL SYSTEM VALIDATION
-make demo                     # ⭐ RUN DEMO APPLICATION
+make demo                     # Integration demo (STATUS: 5/10 mocked — remediation in progress; NOT a green gate)
+./demo/run-all.sh             # ⭐ REAL end-to-end gate (build+services+demo scripts, 23+ checks)
 check                         # Run all checks (test + lint + validate)
 
 # Lint/Format
@@ -315,9 +316,10 @@ make test-e2e
 
 ### 4. Demo Validation
 ```bash
-make demo
+./demo/run-all.sh   # ⭐ REAL end-to-end gate (23+ checks; make demo is partial, NOT green)
+make demo            # Integration demo (STATUS: 5/10 mocked — informational only)
 ```
-- [ ] Demo runs successfully
+- [ ] `./demo/run-all.sh` passes (23+ checks)
 - [ ] Feature is demonstrable
 
 ### 5. Full Validation
@@ -431,7 +433,7 @@ demo/test-suites/
 
 ### The Demo Must:
 1. **Exercise ALL major features**
-2. **Run with `make demo`**
+2. **Run with `./demo/run-all.sh`** (real gate; `make demo` is a partial demo)
 3. **Complete in < 5 minutes**
 4. **Show clear success/failure**
 5. **Be documented in README**
