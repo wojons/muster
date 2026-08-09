@@ -64,6 +64,22 @@ integers and passed as parameters to the target function in order.`,
 				fnName = "_start"
 			}
 
+			// Auto-select the sole export when the user did not pass --fn
+			// explicitly. A single-export module (common for simple .wat
+			// examples like hello.wasm) should just work without requiring
+			// the user to know the export name. When --fn was passed
+			// explicitly, strict behavior wins (their name, error if missing).
+			fnExplicit := cmd.Flags().Changed("fn")
+			if !fnExplicit {
+				exports, err := runtime.ExportNames(ctx, data)
+				if err != nil {
+					return fmt.Errorf("execute wasm module: %w", err)
+				}
+				if len(exports) == 1 {
+					fnName = exports[0]
+				}
+			}
+
 			// Load + compile via the module manager so capability gating
 			// and limits apply, then execute the requested function.
 			result, err := runtime.ExecuteWithContext(ctx, data, fnName, fnArgs...)

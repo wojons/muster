@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -297,7 +298,7 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, wasmBytes []byte, fnNa
 	// Look up the exported function
 	fn := mod.ExportedFunction(fnName)
 	if fn == nil {
-		return nil, fmt.Errorf("wasm: function %q not found in module exports", fnName)
+		return nil, fmt.Errorf("wasm: function %q not found in module exports (available: %s — use --fn <name> to select)", fnName, formatExportedFunctionNames(mod))
 	}
 
 	// Convert args to uint64
@@ -330,6 +331,57 @@ func (r *Runtime) ExecuteWithContext(ctx context.Context, wasmBytes []byte, fnNa
 		MemoryUsed: 0,
 		Output:     results,
 	}, nil
+}
+
+// formatExportedFunctionNames returns a sorted, bracketed list of the
+// module's exported function names for use in error messages. It uses
+// ExportedFunctionDefinitions (wazero api.Module) which is available in
+// the pinned wazero v1.12.0.
+func formatExportedFunctionNames(mod api.Module) string {
+	names := ExportedFunctionNames(mod)
+	if len(names) == 0 {
+		return "[]"
+	}
+	return "[" + strings.Join(names, " ") + "]"
+}
+
+// ExportedFunctionNames returns the sorted names of a module's exported
+// functions. It is exported so callers (e.g. the CLI auto-select path)
+// can enumerate exports without instantiating a module themselves.
+func ExportedFunctionNames(mod api.Module) []string {
+	defs := mod.ExportedFunctionDefinitions()
+	names := make([]string, 0, len(defs))
+	for name := range defs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// ExportNames compiles and instantiates the given WASM bytes (applying
+// capability gating and limits via the existing path), then returns the
+// sorted names of the module's exported functions. Callers use this to
+// decide whether to auto-select a sole export. The instantiated module
+// is closed before returning.
+func (r *Runtime) ExportNames(ctx context.Context, wasmBytes []byte) ([]string, error) {
+	if r.limits.MaxExecutionTime > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.limits.MaxExecutionTime)
+		defer cancel() //nolint:govet
+	}
+
+	compiled, err := r.CompileModule(ctx, wasmBytes)
+	if err != nil {
+		return nil, fmt.Errorf("wasm: compile module: %w", err)
+	}
+
+	mod, err := r.InstantiateModule(ctx, compiled)
+	if err != nil {
+		return nil, fmt.Errorf("wasm: instantiate module: %w", err)
+	}
+	defer func() { _ = mod.Close(ctx) }()
+
+	return ExportedFunctionNames(mod), nil
 }
 
 // Close releases resources held by the runtime.

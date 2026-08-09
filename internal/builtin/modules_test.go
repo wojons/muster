@@ -102,3 +102,54 @@ func TestWasmRuntime_ExecuteHelloModule(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.Success)
 }
+
+// TestModulesCommand_RunDemoHelloWasmNoFn verifies GAP-014: running the
+// demo hello.wasm (which exports only "hello", NOT "_start") without
+// --fn auto-selects the sole export instead of failing.
+func TestModulesCommand_RunDemoHelloWasmNoFn(t *testing.T) {
+	wasmPath := filepath.Join("..", "..", "demo", "wasm-modules", "hello.wasm")
+	if _, err := os.Stat(wasmPath); err != nil {
+		t.Skip("demo/wasm-modules/hello.wasm not present")
+	}
+
+	var buf bytes.Buffer
+	cmd := newModulesCommand()
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"run", wasmPath}) // no --fn → auto-select sole export "hello"
+	require.NoError(t, cmd.Execute(), "single-export module should auto-select without --fn")
+	assert.Contains(t, buf.String(), "function: hello", "should report the auto-selected function")
+	assert.Contains(t, buf.String(), "Output:", "should print function output")
+}
+
+// TestModulesCommand_RunDemoHelloWasmExplicitFn verifies GAP-014: an
+// explicit --fn hello on the demo module still works (strict behavior).
+func TestModulesCommand_RunDemoHelloWasmExplicitFn(t *testing.T) {
+	wasmPath := filepath.Join("..", "..", "demo", "wasm-modules", "hello.wasm")
+	if _, err := os.Stat(wasmPath); err != nil {
+		t.Skip("demo/wasm-modules/hello.wasm not present")
+	}
+
+	var buf bytes.Buffer
+	cmd := newModulesCommand()
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"run", "--fn", "hello", wasmPath})
+	require.NoError(t, cmd.Execute(), "explicit --fn hello should succeed")
+	assert.Contains(t, buf.String(), "function: hello")
+}
+
+// TestModulesCommand_RunDemoHelloWasmMissingFnHint verifies GAP-014: when
+// --fn is explicit but names a non-existent export, the error lists the
+// available exports and hints at --fn.
+func TestModulesCommand_RunDemoHelloWasmMissingFnHint(t *testing.T) {
+	wasmPath := filepath.Join("..", "..", "demo", "wasm-modules", "hello.wasm")
+	if _, err := os.Stat(wasmPath); err != nil {
+		t.Skip("demo/wasm-modules/hello.wasm not present")
+	}
+
+	cmd := newModulesCommand()
+	cmd.SetArgs([]string{"run", "--fn", "nonexistent", wasmPath})
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "available", "error should list available exports")
+	assert.Contains(t, err.Error(), "--fn", "error should hint at the --fn flag")
+}

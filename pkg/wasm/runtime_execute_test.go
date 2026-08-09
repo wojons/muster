@@ -40,6 +40,47 @@ func TestExecute_FunctionNotFound(t *testing.T) {
 	assert.Error(t, err, "non-existent function should return error")
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "nonexistent_fn")
+	// GAP-014: the error must list available exports and hint at --fn.
+	assert.Contains(t, err.Error(), "available", "error should list available exports")
+	assert.Contains(t, err.Error(), "--fn", "error should hint at the --fn flag")
+	assert.Contains(t, err.Error(), "hello", "error should include the real export name 'hello'")
+}
+
+// TestExportNames_SingleExport verifies ExportNames returns the sole export
+// of a single-export module (used by the CLI auto-select path).
+func TestExportNames_SingleExport(t *testing.T) {
+	rt := NewRuntime(DefaultRuntimeConfig(), DefaultLimits())
+	defer rt.Close()
+
+	wasmBytes, err := os.ReadFile(filepath.Join("..", "..", "demo", "wasm-modules", "hello.wasm"))
+	require.NoError(t, err)
+
+	names, err := rt.ExportNames(context.Background(), wasmBytes)
+	require.NoError(t, err)
+	require.Len(t, names, 1, "hello.wasm should export exactly one function")
+	assert.Equal(t, "hello", names[0])
+}
+
+// TestExportedFunctionNames_Sorted verifies the helper returns sorted names.
+func TestExportedFunctionNames_Sorted(t *testing.T) {
+	// Build a tiny module via the real runtime so we exercise the real
+	// wazero api.Module. hello.wasm has one export; just confirm the
+	// helper returns a non-empty sorted slice without panicking.
+	rt := NewRuntime(DefaultRuntimeConfig(), DefaultLimits())
+	defer rt.Close()
+
+	wasmBytes, err := os.ReadFile(filepath.Join("..", "..", "demo", "wasm-modules", "hello.wasm"))
+	require.NoError(t, err)
+
+	compiled, err := rt.CompileModule(context.Background(), wasmBytes)
+	require.NoError(t, err)
+	mod, err := rt.InstantiateModule(context.Background(), compiled)
+	require.NoError(t, err)
+	defer func() { _ = mod.Close(context.Background()) }()
+
+	names := ExportedFunctionNames(mod)
+	require.Len(t, names, 1)
+	assert.Equal(t, "hello", names[0])
 }
 
 func TestExecute_InvalidWASM(t *testing.T) {
