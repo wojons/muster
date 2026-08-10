@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wojons/muster/pkg/openapi"
@@ -392,6 +393,45 @@ func TestGetBaseURL(t *testing.T) {
 	assert.Equal(t, "https://petstore3.swagger.io", getBaseURL("https://petstore3.swagger.io/api/v3/openapi.json"))
 	assert.Equal(t, "http://localhost:9800", getBaseURL("http://localhost:9800"))
 	assert.Equal(t, "http://host:80", getBaseURL("http://host:80/path/to/spec"))
+}
+
+func TestDisplayBaseURL(t *testing.T) {
+	t.Run("prefers spec servers list over input", func(t *testing.T) {
+		doc := &openapi3.T{Servers: openapi3.Servers{{URL: "http://localhost:19800"}}}
+		assert.Equal(t, "http://localhost:19800", displayBaseURL(doc, "/tmp/petstore.yaml"))
+	})
+
+	t.Run("falls back to input-derived base URL when no servers declared", func(t *testing.T) {
+		doc := &openapi3.T{}
+		assert.Equal(t, "http://localhost:9800", displayBaseURL(doc, "http://localhost:9800/openapi.json"))
+	})
+
+	t.Run("nil document falls back to input", func(t *testing.T) {
+		assert.Equal(t, "/tmp/petstore.yaml", displayBaseURL(nil, "/tmp/petstore.yaml"))
+	})
+}
+
+func TestDiscoverCommand_PrintsServerURL(t *testing.T) {
+	specContent := `{
+  "openapi": "3.0.0",
+  "info": {"title": "Server URL API", "version": "1.0.0"},
+  "servers": [{"url": "http://localhost:19800"}],
+  "paths": {
+    "/pets": {"get": {"operationId": "listPets", "responses": {"200": {"description": "OK"}}}}
+  }
+}`
+	tmpDir := t.TempDir()
+	specPath := tmpDir + "/spec.json"
+	require.NoError(t, os.WriteFile(specPath, []byte(specContent), 0644))
+
+	cmd := newDiscoverCommand()
+	var buf strings.Builder
+	cmd.SetOut(&buf)
+	err := cmd.RunE(cmd, []string{specPath})
+	require.NoError(t, err)
+
+	assert.Contains(t, buf.String(), "Base URL: http://localhost:19800")
+	assert.NotContains(t, buf.String(), "Base URL: "+specPath)
 }
 
 func TestDiscoverCommand_HelpFlag(t *testing.T) {

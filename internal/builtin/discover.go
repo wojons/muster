@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/openapi"
@@ -103,7 +104,7 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 	// Print header
 	w := cmd.OutOrStdout()
 	_, _ = fmt.Fprintf(w, "API: %s (v%s)\n", title, version)
-	_, _ = fmt.Fprintf(w, "Base URL: %s\n", getBaseURL(input))
+	_, _ = fmt.Fprintf(w, "Base URL: %s\n", displayBaseURL(result.Document, input))
 
 	if len(operations) == 0 {
 		_, _ = fmt.Fprintln(w, "\nNo operations found in the spec.")
@@ -133,6 +134,17 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// displayBaseURL returns the spec's root server URL when the spec declares a
+// servers list, falling back to the scheme+host derived from the spec source
+// (URL or local file path). GAP-016: a local spec previously printed its FILE
+// PATH as the Base URL instead of the actual server URL.
+func displayBaseURL(doc *openapi3.T, input string) string {
+	if doc != nil && len(doc.Servers) > 0 && doc.Servers[0] != nil && doc.Servers[0].URL != "" {
+		return doc.Servers[0].URL
+	}
+	return getBaseURL(input)
 }
 
 // getBaseURL extracts the scheme+host from a full URL for display.

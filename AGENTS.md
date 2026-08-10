@@ -18,7 +18,7 @@ Every component must:
 make build                    # Build main binary
 make build-cli                # Build CLI only
 make build-mcp                # Build MCP server only
-make build-daemon             # Build daemon (implement!)
+make build-daemon             # Build daemon
 
 # Testing (CRITICAL - run ALL before committing)
 go test -v ./...              # Run all unit tests
@@ -145,7 +145,7 @@ import (
     "github.com/getkin/kin-openapi/openapi3"
     "github.com/stretchr/testify/require"
     
-    "github.com/anomalyco/muster/pkg/errors"
+    "github.com/wojons/muster/pkg/errors"
 )
 ```
 
