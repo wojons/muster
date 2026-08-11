@@ -1722,6 +1722,17 @@ func TestAddFlags_EmptyBodyDescription(t *testing.T) {
 // executeAndPrint tests (AC-366)
 // =============================================================================
 
+// newExecuteAndPrintCmd creates a cobra command with the --output and --raw
+// flags that executeAndPrint expects, wired to the given buffer.
+func newExecuteAndPrintCmd(buf *bytes.Buffer) *cobra.Command {
+	cmd := &cobra.Command{Use: "test"}
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	cmd.Flags().StringP("output", "o", "table", "Output format (table, json, yaml)")
+	cmd.Flags().BoolP("raw", "r", false, "Output raw API response")
+	return cmd
+}
+
 func TestExecuteAndPrint_Success(t *testing.T) {
 	// httptest server that returns JSON
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1732,16 +1743,18 @@ func TestExecuteAndPrint_Success(t *testing.T) {
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
 	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
 	var buf bytes.Buffer
-	cmd := &cobra.Command{Use: "test"}
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "json")
 
-	err := executeAndPrint(builder, cmd, context.Background())
+	err = executeAndPrint(gen, builder, cmd, context.Background())
 	require.NoError(t, err)
 	output := buf.String()
-	require.Contains(t, output, `"status":"ok"`)
+	require.Contains(t, output, `"status": "ok"`)
 }
 
 func TestExecuteAndPrint_HTTPError(t *testing.T) {
@@ -1752,13 +1765,15 @@ func TestExecuteAndPrint_HTTPError(t *testing.T) {
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
 	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
 	var buf bytes.Buffer
-	cmd := &cobra.Command{Use: "test"}
-	cmd.SetOut(&buf)
-	cmd.SetErr(&buf)
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "json")
 
-	err := executeAndPrint(builder, cmd, context.Background())
+	err = executeAndPrint(gen, builder, cmd, context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "HTTP error")
 }
@@ -1770,12 +1785,14 @@ func TestExecuteAndPrint_EmptyResponse(t *testing.T) {
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
 	builder := request.NewBuilder(ts.URL, "/api/test", "DELETE")
 	var buf bytes.Buffer
-	cmd := &cobra.Command{Use: "test"}
-	cmd.SetOut(&buf)
+	cmd := newExecuteAndPrintCmd(&buf)
 
-	err := executeAndPrint(builder, cmd, context.Background())
+	err = executeAndPrint(gen, builder, cmd, context.Background())
 	require.NoError(t, err)
 }
 
@@ -1786,15 +1803,17 @@ func TestExecuteAndPrint_ContextCancelled(t *testing.T) {
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
 	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
 	var buf bytes.Buffer
-	cmd := &cobra.Command{Use: "test"}
-	cmd.SetOut(&buf)
+	cmd := newExecuteAndPrintCmd(&buf)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before execute
 
-	err := executeAndPrint(builder, cmd, ctx)
+	err = executeAndPrint(gen, builder, cmd, ctx)
 	require.Error(t, err)
 }
 
@@ -1806,14 +1825,215 @@ func TestExecuteAndPrint_404Response(t *testing.T) {
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
 	builder := request.NewBuilder(ts.URL, "/api/missing", "GET")
 	var buf bytes.Buffer
-	cmd := &cobra.Command{Use: "test"}
-	cmd.SetOut(&buf)
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "json")
 
-	err := executeAndPrint(builder, cmd, context.Background())
+	err = executeAndPrint(gen, builder, cmd, context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "HTTP error")
+}
+
+// =============================================================================
+// executeAndPrint format rendering tests (DF-005)
+// =============================================================================
+
+func TestExecuteAndPrint_TableFormat(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[{"id":1,"name":"alpha"},{"id":2,"name":"beta"}]`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/items", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+	// Table should have header row with keys and data rows
+	require.Contains(t, output, "id")
+	require.Contains(t, output, "name")
+	require.Contains(t, output, "alpha")
+	require.Contains(t, output, "beta")
+	// Should NOT be raw JSON (no brackets)
+	require.NotContains(t, output, "[{")
+}
+
+func TestExecuteAndPrint_TableFormat_SingleObject(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok","count":42}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/status", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+	require.Contains(t, output, "status")
+	require.Contains(t, output, "ok")
+	require.Contains(t, output, "count")
+	require.Contains(t, output, "42")
+}
+
+func TestExecuteAndPrint_JSONFormat(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "json")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+	// Indented JSON
+	require.Contains(t, output, `"status": "ok"`)
+}
+
+func TestExecuteAndPrint_DefaultFormatIsTable(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"key":"value"}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	// Don't set --output — default is "table" from flag default
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+	// Table format: key/value rows
+	require.Contains(t, output, "key")
+	require.Contains(t, output, "value")
+	// Should NOT be raw JSON
+	require.NotContains(t, output, `{"key":"value"}`)
+}
+
+func TestExecuteAndPrint_RawFlag(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"raw":"data","nested":{"a":1}}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("raw", "true")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+	// Raw output = exact body
+	require.Contains(t, output, `{"raw":"data","nested":{"a":1}}`)
+}
+
+func TestExecuteAndPrint_YAMLFormat(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok","count":42}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "yaml")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+	// YAML output should contain key: value pairs (no JSON braces)
+	require.Contains(t, output, "status: ok")
+	require.Contains(t, output, "count: 42")
+	require.NotContains(t, output, `{`)
+}
+
+func TestExecuteAndPrint_UnknownFormatError(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "bogus")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported output format")
+	require.Contains(t, err.Error(), "bogus")
+}
+
+func TestExecuteAndPrint_NonJSONBodyDumpsRaw(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`plain text response`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/api/test", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+	// Non-JSON body is dumped raw regardless of format
+	require.Contains(t, output, "plain text response")
 }
 
 // =============================================================================

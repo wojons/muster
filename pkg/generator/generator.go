@@ -123,6 +123,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"text/tabwriter"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -130,6 +131,7 @@ import (
 	"github.com/wojons/muster/pkg/log"
 	"github.com/wojons/muster/pkg/openapi"
 	"github.com/wojons/muster/pkg/request"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -749,7 +751,7 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 						builder.WithMultipartField(field.Name, val)
 					}
 				}
-				return executeAndPrint(builder, cmd, ctx)
+				return executeAndPrint(g, builder, cmd, ctx)
 			}
 			// No file provided — fall through to JSON body path below
 		}
@@ -830,7 +832,7 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 			}
 		}
 
-		return executeAndPrint(builder, cmd, ctx)
+		return executeAndPrint(g, builder, cmd, ctx)
 	}
 }
 
@@ -871,22 +873,77 @@ func parseArrayBodyValue(flagName, raw string) (interface{}, error) {
 	return parts, nil
 }
 
-// executeAndPrint sends the request and prints the response body.
+// executeAndPrint sends the request and prints the response body, honoring the
+// leaf command's --output format flag (table/json/yaml) and --raw flag.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/generator/generator.go
-func executeAndPrint(builder *request.Builder, cmd *cobra.Command, ctx context.Context) error {
+func executeAndPrint(g *Generator, builder *request.Builder, cmd *cobra.Command, ctx context.Context) error {
 	resp, err := builder.Execute(ctx)
 	if err != nil {
 		return fmt.Errorf("execute request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Read and print response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read response body: %w", err)
 	}
-	if len(body) > 0 {
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(body))
+
+	out := cmd.OutOrStdout()
+
+	// --raw flag: dump the body untouched regardless of format.
+	raw, _ := cmd.Flags().GetBool("raw")
+	if raw || len(body) == 0 {
+		if len(body) > 0 {
+			_, _ = fmt.Fprintln(out, string(body))
+		}
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("HTTP error: %s", resp.Status)
+		}
+		return nil
+	}
+
+	// --output flag: format (default: g.config.DefaultFormat → "table").
+	format, _ := cmd.Flags().GetString("output")
+	if format == "" {
+		format = g.config.DefaultFormat
+	}
+	if format == "" {
+		format = "table"
+	}
+
+	// Try to parse the body as JSON. If it's not valid JSON, dump raw
+	// regardless of the requested format (same behavior as musterflow
+	// ExecuteAndFormat).
+	var data interface{}
+	if err := json.Unmarshal(body, &data); err != nil {
+		_, _ = fmt.Fprintln(out, string(body))
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("HTTP error: %s", resp.Status)
+		}
+		return nil
+	}
+
+	// Render the output in the requested format.
+	switch format {
+	case "table":
+		printTableOutput(out, data)
+	case "json":
+		pretty, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return fmt.Errorf("format JSON: %w", err)
+		}
+		_, _ = fmt.Fprintln(out, string(pretty))
+	case "yaml":
+		yamlBytes, err := yaml.Marshal(data)
+		if err != nil {
+			// Fall back to indented JSON if YAML marshalling fails.
+			pretty, _ := json.MarshalIndent(data, "", "  ")
+			_, _ = fmt.Fprintln(out, string(pretty))
+		} else {
+			_, _ = fmt.Fprint(out, string(yamlBytes))
+		}
+	default:
+		return fmt.Errorf("unsupported output format %q: supported formats are table, json, yaml", format)
 	}
 
 	if resp.StatusCode >= 400 {
@@ -901,6 +958,69 @@ func executeAndPrint(builder *request.Builder, cmd *cobra.Command, ctx context.C
 		Msg("HTTP response received")
 
 	return nil
+}
+
+// printTableOutput renders JSON data as an aligned table using tabwriter.
+// Arrays of objects become rows with key headers; single objects become
+// key/value rows; other types are printed as-is.
+func printTableOutput(out io.Writer, data interface{}) {
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+
+	switch v := data.(type) {
+	case map[string]interface{}:
+		for key, val := range v {
+			_, _ = fmt.Fprintf(w, "%s	%v	\n", key, tableFormatValue(val))
+		}
+	case []interface{}:
+		if len(v) == 0 {
+			_, _ = fmt.Fprintln(out, "(empty)")
+			return
+		}
+		keys := tableCollectKeys(v)
+		_, _ = fmt.Fprintf(w, "%s	\n", strings.Join(keys, "	"))
+		for _, item := range v {
+			if m, ok := item.(map[string]interface{}); ok {
+				var row []string
+				for _, k := range keys {
+					row = append(row, tableFormatValue(m[k]))
+				}
+				_, _ = fmt.Fprintf(w, "%s	\n", strings.Join(row, "	"))
+			}
+		}
+	default:
+		_, _ = fmt.Fprintf(w, "%v	\n", v)
+	}
+	_ = w.Flush()
+}
+
+// tableCollectKeys returns the ordered list of unique keys across all objects
+// in the array.
+func tableCollectKeys(items []interface{}) []string {
+	seen := make(map[string]bool)
+	var keys []string
+	for _, item := range items {
+		if m, ok := item.(map[string]interface{}); ok {
+			for k := range m {
+				if !seen[k] {
+					seen[k] = true
+					keys = append(keys, k)
+				}
+			}
+		}
+	}
+	return keys
+}
+
+// tableFormatValue converts a value to a display string for table rendering.
+func tableFormatValue(v interface{}) string {
+	if v == nil {
+		return "-"
+	}
+	s := fmt.Sprintf("%v", v)
+	if len(s) > 80 {
+		return s[:77] + "..."
+	}
+	return s
 }
 
 func (g *Generator) getFlagValue(cmd *cobra.Command, name, paramType string) (interface{}, error) {
