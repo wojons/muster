@@ -437,7 +437,11 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 			}
 			cmd.Flags().BoolP(flagName, shorthand, defaultVal, description)
 		case "array":
-			cmd.Flags().StringSliceP(flagName, shorthand, nil, description)
+			description = fmt.Sprintf("%s — JSON array or comma-separated", description)
+			cmd.Flags().StringP(flagName, shorthand, "", description)
+		case "object":
+			description = fmt.Sprintf("%s — JSON object", description)
+			cmd.Flags().StringP(flagName, shorthand, "", description)
 		default:
 			cmd.Flags().StringP(flagName, shorthand, "", description)
 		}
@@ -788,9 +792,23 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 						hasBodyFlag = true
 					}
 				case "array":
-					val, _ := cmd.Flags().GetStringSlice(flagName)
+					val, _ := cmd.Flags().GetString(flagName)
 					if cmd.Flag(flagName).Changed {
-						bodyMap[bodyProp.Name] = val
+						parsed, err := parseArrayBodyValue(flagName, val)
+						if err != nil {
+							return err
+						}
+						bodyMap[bodyProp.Name] = parsed
+						hasBodyFlag = true
+					}
+				case "object":
+					val, _ := cmd.Flags().GetString(flagName)
+					if cmd.Flag(flagName).Changed {
+						parsed, err := parseObjectBodyValue(flagName, val)
+						if err != nil {
+							return err
+						}
+						bodyMap[bodyProp.Name] = parsed
 						hasBodyFlag = true
 					}
 				default:
@@ -814,6 +832,43 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 
 		return executeAndPrint(builder, cmd, ctx)
 	}
+}
+
+// parseObjectBodyValue parses a JSON object string flag value into an
+// interface{} so that json.Marshal produces a real JSON object in the request
+// body instead of a string. Returns an error if the value is not valid JSON.
+func parseObjectBodyValue(flagName, raw string) (interface{}, error) {
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return nil, fmt.Errorf("invalid JSON for --%s: %w (value: %q)", flagName, err, raw)
+	}
+	return parsed, nil
+}
+
+// parseArrayBodyValue parses a string flag value into a slice suitable for
+// the JSON request body. It accepts two forms:
+//   - JSON array:   --labels '["a","b"]'
+//   - CSV:           --labels a,b
+//
+// If the trimmed value starts with '[' it is parsed as JSON. Otherwise it is
+// split on commas for backward compatibility with the previous pflag
+// StringSlice behaviour.
+func parseArrayBodyValue(flagName, raw string) (interface{}, error) {
+	trimmed := strings.TrimSpace(raw)
+	if strings.HasPrefix(trimmed, "[") {
+		var parsed interface{}
+		if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+			return nil, fmt.Errorf("invalid JSON array for --%s: %w (value: %q)", flagName, err, raw)
+		}
+		return parsed, nil
+	}
+	// CSV fallback — split on commas and trim spaces, matching pflag
+	// StringSlice semantics which trim each element.
+	parts := strings.Split(raw, ",")
+	for i, p := range parts {
+		parts[i] = strings.TrimSpace(p)
+	}
+	return parts, nil
 }
 
 // executeAndPrint sends the request and prints the response body.

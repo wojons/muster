@@ -3,6 +3,8 @@ package generator
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1871,4 +1873,350 @@ func TestInitializeDynamicCommands_InvalidSpec(t *testing.T) {
 
 	err = InitializeDynamicCommands(rootCmd, specPath)
 	require.Error(t, err)
+}
+
+// =============================================================================
+// DF-002: nested object body props marshaled as JSON objects, array props
+// accepting JSON array syntax alongside CSV.
+// =============================================================================
+
+// TestParseObjectBodyValue_ValidObject proves an object-typed body prop value
+// is parsed into a real JSON object (not a string) in the assembled body.
+func TestParseObjectBodyValue_ValidObject(t *testing.T) {
+	raw := `{"color":"red","size":1.5}`
+	parsed, err := parseObjectBodyValue("meta", raw)
+	require.NoError(t, err)
+
+	// Marshal the parsed value — it should be a JSON object, not a string
+	out, err := json.Marshal(parsed)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"color":"red","size":1.5}`, string(out))
+
+	// Verify it's a map (object), not a string
+	_, isMap := parsed.(map[string]interface{})
+	require.True(t, isMap, "parsed object should be a map[string]interface{}")
+}
+
+// TestParseObjectBodyValue_InvalidJSON proves invalid JSON object input
+// returns a clear error with the flag name and value.
+func TestParseObjectBodyValue_InvalidJSON(t *testing.T) {
+	raw := `{bad json}`
+	_, err := parseObjectBodyValue("meta", raw)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--meta")
+	require.Contains(t, err.Error(), "invalid JSON")
+}
+
+// TestParseArrayBodyValue_JSONArray proves a JSON array string is accepted
+// for an array-typed body prop.
+func TestParseArrayBodyValue_JSONArray(t *testing.T) {
+	raw := `["a","b"]`
+	parsed, err := parseArrayBodyValue("labels", raw)
+	require.NoError(t, err)
+
+	out, err := json.Marshal(parsed)
+	require.NoError(t, err)
+	require.JSONEq(t, `["a","b"]`, string(out))
+}
+
+// TestParseArrayBodyValue_CSV proves CSV still works for backward compat.
+func TestParseArrayBodyValue_CSV(t *testing.T) {
+	raw := `a,b`
+	parsed, err := parseArrayBodyValue("labels", raw)
+	require.NoError(t, err)
+
+	out, err := json.Marshal(parsed)
+	require.NoError(t, err)
+	// CSV split produces ["a","b"] which marshals to a JSON array
+	require.JSONEq(t, `["a","b"]`, string(out))
+}
+
+// TestParseArrayBodyValue_CSVWithSpaces proves CSV items have spaces trimmed,
+// matching pflag StringSlice semantics.
+func TestParseArrayBodyValue_CSVWithSpaces(t *testing.T) {
+	raw := `a, b , c`
+	parsed, err := parseArrayBodyValue("labels", raw)
+	require.NoError(t, err)
+
+	out, err := json.Marshal(parsed)
+	require.NoError(t, err)
+	require.JSONEq(t, `["a","b","c"]`, string(out))
+}
+
+// TestParseArrayBodyValue_InvalidJSON proves invalid JSON array returns error.
+func TestParseArrayBodyValue_InvalidJSON(t *testing.T) {
+	raw := `["a",bad]`
+	_, err := parseArrayBodyValue("labels", raw)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--labels")
+	require.Contains(t, err.Error(), "invalid JSON array")
+}
+
+// TestBodyAssembly_ObjectInRequestBody is an integration test that proves the
+// full createRunHandler path assembles an object body prop as a real JSON
+// object. It sets up a test HTTP server that echoes the request body, then
+// invokes the cobra command with --meta '{"color":"red","size":1.5}'.
+func TestBodyAssembly_ObjectInRequestBody(t *testing.T) {
+	// Test server echoes the request body
+	var receivedBody string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		receivedBody = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{
+		AppName: "test",
+		BaseURL: ts.URL,
+	})
+	require.NoError(t, err)
+
+	op := &openapi.Operation{
+		ID:     "createWidget",
+		Path:   "/widgets",
+		Method: "POST",
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "name", Type: "string"},
+			{Name: "meta", Type: "object"},
+		},
+	}
+
+	cmd := &cobra.Command{
+		Use:  "create-widget",
+		RunE: gen.createRunHandler(op),
+	}
+	gen.addFlags(cmd, op)
+
+	cmd.SetArgs([]string{"--name", "gadget", "--meta", `{"color":"red","size":1.5}`})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	execErr := cmd.Execute()
+	require.NoError(t, execErr)
+
+	// The received body should have meta as a JSON OBJECT, not a string
+	require.NotEmpty(t, receivedBody)
+	var bodyMap map[string]interface{}
+	err = json.Unmarshal([]byte(receivedBody), &bodyMap)
+	require.NoError(t, err)
+
+	metaVal, ok := bodyMap["meta"]
+	require.True(t, ok, "meta should be in the body")
+
+	// meta should be a map (object), not a string
+	metaMap, isMap := metaVal.(map[string]interface{})
+	require.True(t, isMap, "meta should be a JSON object, not a string; got %T", metaVal)
+	require.Equal(t, "red", metaMap["color"])
+	require.Equal(t, 1.5, metaMap["size"])
+}
+
+// TestBodyAssembly_ArrayJSONInRequestBody proves the full createRunHandler
+// path accepts JSON array syntax for array-typed body props.
+func TestBodyAssembly_ArrayJSONInRequestBody(t *testing.T) {
+	var receivedBody string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		receivedBody = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{
+		AppName: "test",
+		BaseURL: ts.URL,
+	})
+	require.NoError(t, err)
+
+	op := &openapi.Operation{
+		ID:     "createWidget",
+		Path:   "/widgets",
+		Method: "POST",
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "name", Type: "string"},
+			{Name: "labels", Type: "array"},
+		},
+	}
+
+	cmd := &cobra.Command{
+		Use:  "create-widget",
+		RunE: gen.createRunHandler(op),
+	}
+	gen.addFlags(cmd, op)
+
+	cmd.SetArgs([]string{"--name", "gadget", "--labels", `["a","b"]`})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	execErr := cmd.Execute()
+	require.NoError(t, execErr)
+
+	require.NotEmpty(t, receivedBody)
+	var bodyMap map[string]interface{}
+	err = json.Unmarshal([]byte(receivedBody), &bodyMap)
+	require.NoError(t, err)
+
+	labelsVal, ok := bodyMap["labels"]
+	require.True(t, ok, "labels should be in the body")
+
+	labelsArr, isSlice := labelsVal.([]interface{})
+	require.True(t, isSlice, "labels should be a JSON array, not a string; got %T", labelsVal)
+	require.Len(t, labelsArr, 2)
+	require.Equal(t, "a", labelsArr[0])
+	require.Equal(t, "b", labelsArr[1])
+}
+
+// TestBodyAssembly_ArrayCSVInRequestBody proves CSV still works for array
+// body props (backward compatibility).
+func TestBodyAssembly_ArrayCSVInRequestBody(t *testing.T) {
+	var receivedBody string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		receivedBody = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{
+		AppName: "test",
+		BaseURL: ts.URL,
+	})
+	require.NoError(t, err)
+
+	op := &openapi.Operation{
+		ID:     "createWidget",
+		Path:   "/widgets",
+		Method: "POST",
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "name", Type: "string"},
+			{Name: "labels", Type: "array"},
+		},
+	}
+
+	cmd := &cobra.Command{
+		Use:  "create-widget",
+		RunE: gen.createRunHandler(op),
+	}
+	gen.addFlags(cmd, op)
+
+	cmd.SetArgs([]string{"--name", "gadget", "--labels", "a,b"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	execErr := cmd.Execute()
+	require.NoError(t, execErr)
+
+	require.NotEmpty(t, receivedBody)
+	var bodyMap map[string]interface{}
+	err = json.Unmarshal([]byte(receivedBody), &bodyMap)
+	require.NoError(t, err)
+
+	labelsVal, ok := bodyMap["labels"]
+	require.True(t, ok)
+
+	labelsArr, isSlice := labelsVal.([]interface{})
+	require.True(t, isSlice, "labels should be a JSON array; got %T", labelsVal)
+	require.Len(t, labelsArr, 2)
+	require.Equal(t, "a", labelsArr[0])
+	require.Equal(t, "b", labelsArr[1])
+}
+
+// TestBodyAssembly_InvalidJSONObject proves invalid JSON in an object flag
+// produces a clear error and non-zero exit.
+func TestBodyAssembly_InvalidJSONObject(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{
+		AppName: "test",
+		BaseURL: ts.URL,
+	})
+	require.NoError(t, err)
+
+	op := &openapi.Operation{
+		ID:     "createWidget",
+		Path:   "/widgets",
+		Method: "POST",
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "name", Type: "string"},
+			{Name: "meta", Type: "object"},
+		},
+	}
+
+	cmd := &cobra.Command{
+		Use:  "create-widget",
+		RunE: gen.createRunHandler(op),
+	}
+	gen.addFlags(cmd, op)
+
+	cmd.SetArgs([]string{"--name", "gadget", "--meta", `{bad json}`})
+	var errBuf bytes.Buffer
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&errBuf)
+
+	execErr := cmd.Execute()
+	require.Error(t, execErr)
+	require.Contains(t, execErr.Error(), "--meta")
+	require.Contains(t, execErr.Error(), "invalid JSON")
+}
+
+// TestAddFlags_RequestBodyObjectFlagHelp verifies the flag help text for
+// object-typed body props documents JSON input syntax.
+func TestAddFlags_RequestBodyObjectFlagHelp(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "meta", Type: "object", Description: "Widget metadata"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("meta")
+	require.NotNil(t, flag)
+	require.Contains(t, flag.Usage, "JSON object")
+}
+
+// TestAddFlags_RequestBodyArrayFlagHelp verifies the flag help text for
+// array-typed body props documents both JSON array and CSV syntax.
+func TestAddFlags_RequestBodyArrayFlagHelp(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "labels", Type: "array", Description: "Widget labels"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("labels")
+	require.NotNil(t, flag)
+	require.Contains(t, flag.Usage, "JSON array or comma-separated")
+}
+
+// TestAddFlags_RequestBodyObjectFlagHelp_EmptyDesc verifies the flag help
+// text for object-typed body props with no description from the spec.
+func TestAddFlags_RequestBodyObjectFlagHelp_EmptyDesc(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "test"}
+	op := &openapi.Operation{
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "meta", Type: "object"},
+		},
+	}
+	gen.addFlags(cmd, op)
+	flag := cmd.Flags().Lookup("meta")
+	require.NotNil(t, flag)
+	require.Contains(t, flag.Usage, "JSON object")
+	require.Contains(t, flag.Usage, "request body")
 }
