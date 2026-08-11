@@ -781,9 +781,8 @@ func TestBuildLongDescription(t *testing.T) {
 }
 
 func TestBuildExample(t *testing.T) {
-	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
-
 	t.Run("with query params", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
 		op := &openapi.Operation{
 			Path:   "/pets",
 			Method: "GET",
@@ -795,12 +794,14 @@ func TestBuildExample(t *testing.T) {
 		require.Contains(t, result, "# Basic usage")
 		require.Contains(t, result, "muster pets list-pets")
 		require.Contains(t, result, "# With filters")
-		require.Contains(t, result, "--namespace production")
+		require.Contains(t, result, "--limit")
+		require.NotContains(t, result, "--namespace production")
 		require.Contains(t, result, "# JSON output")
 		require.Contains(t, result, "--output json")
 	})
 
 	t.Run("without query params", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
 		op := &openapi.Operation{
 			Path:   "/pets/{id}",
 			Method: "GET",
@@ -817,6 +818,7 @@ func TestBuildExample(t *testing.T) {
 	})
 
 	t.Run("no parameters at all", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
 		op := &openapi.Operation{
 			Path:   "/pets",
 			Method: "POST",
@@ -826,6 +828,56 @@ func TestBuildExample(t *testing.T) {
 		require.Contains(t, result, "muster pets create-pet")
 		require.Contains(t, result, "# JSON output")
 		require.NotContains(t, result, "With filters")
+	})
+
+	t.Run("AppName honored in examples", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "petstore-cli", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/pets",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "limit", In: "query"},
+			},
+		}
+		result := gen.buildExample("list-pets", op)
+		require.Contains(t, result, "petstore-cli pets list-pets")
+		require.NotContains(t, result, "muster pets list-pets")
+	})
+
+	t.Run("enum values used in filter example", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/pet/findByStatus",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{
+					Name: "status",
+					In:   "query",
+					Enum: []interface{}{"available", "pending", "sold"},
+				},
+			},
+		}
+		result := gen.buildExample("find-pets-by-status", op)
+		require.Contains(t, result, "--status available")
+		require.NotContains(t, result, "--namespace production")
+	})
+
+	t.Run("example value preferred over enum", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/pets",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{
+					Name:    "limit",
+					In:      "query",
+					Example: 10,
+					Enum:    []interface{}{5, 20, 50},
+				},
+			},
+		}
+		result := gen.buildExample("list-pets", op)
+		require.Contains(t, result, "--limit 10")
 	})
 }
 

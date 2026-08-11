@@ -94,6 +94,7 @@ type Parameter struct {
 	Required    bool
 	Enum        []interface{}
 	Default     interface{}
+	Example     interface{}
 	Description string
 }
 
@@ -208,6 +209,11 @@ func extractParameters(params openapi3.Parameters) []Parameter {
 		// Extract default value
 		if param.Schema != nil && param.Schema.Value != nil {
 			p.Default = param.Schema.Value.Default
+		}
+
+		// Extract example value
+		if param.Schema != nil && param.Schema.Value != nil {
+			p.Example = param.Schema.Value.Example
 		}
 
 		result = append(result, p)

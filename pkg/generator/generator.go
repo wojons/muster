@@ -531,7 +531,7 @@ func (g *Generator) buildExample(name string, op *openapi.Operation) string {
 	var examples []string
 
 	resourceName := g.inferResourceName(op)
-	base := fmt.Sprintf("muster %s %s", resourceName, name)
+	base := fmt.Sprintf("%s %s %s", g.config.AppName, resourceName, name)
 
 	for _, param := range op.Parameters {
 		if param.In == "path" && param.Required {
@@ -542,12 +542,32 @@ func (g *Generator) buildExample(name string, op *openapi.Operation) string {
 	examples = append(examples, fmt.Sprintf("  # Basic usage\n  %s", base))
 
 	if g.hasQueryParams(op) {
-		examples = append(examples, fmt.Sprintf("\n  # With filters\n  %s --namespace production", base))
+		filterCmd := base
+		for _, param := range op.Parameters {
+			if param.In != "query" {
+				continue
+			}
+			filterCmd += fmt.Sprintf(" --%s %s", param.Name, g.queryParamExampleValue(param))
+		}
+		examples = append(examples, fmt.Sprintf("\n  # With filters\n  %s", filterCmd))
 	}
 
 	examples = append(examples, fmt.Sprintf("\n  # JSON output\n  %s --output json", base))
 
 	return strings.Join(examples, "\n")
+}
+
+// queryParamExampleValue returns the best example value for a query parameter,
+// in order of preference: the schema Example, the first enum value, or the
+// literal placeholder "<value>".
+func (g *Generator) queryParamExampleValue(param openapi.Parameter) string {
+	if param.Example != nil {
+		return fmt.Sprintf("%v", param.Example)
+	}
+	if len(param.Enum) > 0 {
+		return fmt.Sprintf("%v", param.Enum[0])
+	}
+	return "<value>"
 }
 
 func (g *Generator) inferResourceName(op *openapi.Operation) string {
