@@ -398,7 +398,6 @@ func (r *OpenAPIRegistry) ListTools() []handlers.Tool {
 		for _, param := range op.Parameters {
 			propMap := map[string]interface{}{
 				"type": paramTypeToJSONSchema(param.Type),
-				"in":   param.In,
 			}
 			if param.Description != "" {
 				propMap["description"] = param.Description

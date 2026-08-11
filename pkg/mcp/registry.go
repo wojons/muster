@@ -423,7 +423,6 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 		for _, param := range op.Parameters {
 			propMap := map[string]interface{}{
 				"type": paramTypeToJSONSchema(param.Type),
-				"in":   param.In,
 			}
 			if param.Description != "" {
 				propMap["description"] = param.Description

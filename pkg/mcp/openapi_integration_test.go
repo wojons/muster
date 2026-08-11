@@ -236,6 +236,18 @@ func TestOpenAPIRegistry_ListTools(t *testing.T) {
 	err = json.Unmarshal(tools[0].InputSchema, &schema)
 	require.NoError(t, err)
 	assert.Equal(t, "object", schema["type"])
+
+	// DF-009: inputSchema properties must contain ONLY standard JSON Schema keys.
+	// The OpenAPI parameter location ("in": "query"/"path") is NOT a valid JSON
+	// Schema property and must not leak into MCP tool arguments.
+	if props, ok := schema["properties"].(map[string]interface{}); ok {
+		for propName, propVal := range props {
+			propMap, ok := propVal.(map[string]interface{})
+			require.True(t, ok, "property %s is not a map", propName)
+			_, hasIn := propMap["in"]
+			assert.False(t, hasIn, "property %s must not contain non-standard 'in' key", propName)
+		}
+	}
 }
 
 // =============================================================================
