@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -73,6 +74,11 @@ func run() error {
 	flagSet.BoolVar(&versionFlag, "version", false, "Print version information and exit")
 	err := flagSet.Parse(flagArgs)
 	if err != nil {
+		// -h/--help is a legitimate request: the flag package has already
+		// printed usage. Treat it as success (exit 0), not an error.
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
 
