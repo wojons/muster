@@ -125,6 +125,11 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 	// Always add header flag support to every loaded command for auth
 	cmd.Flags().StringSliceP("header", "H", nil, "Add HTTP header (format: 'Key: Value')")
 
+	// Runtime base-URL override: --base-url flag or MUSTER_BASE_URL env var
+	// takes precedence over the stored/generate-time URL, so a generated CLI
+	// can be pointed at staging/prod without regenerating.
+	cmd.Flags().StringP("base-url", "", "", "Override the API base URL at runtime (env: MUSTER_BASE_URL)")
+
 	// Add output flag
 	cmd.Flags().StringP("output", "o", "table", "Output format (json, yaml, table)")
 
@@ -141,6 +146,14 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
+
+		// Runtime override: explicit --base-url flag wins, then the
+		// MUSTER_BASE_URL env var, then the stored/generate-time URL.
+		if v, _ := cmd.Flags().GetString("base-url"); v != "" {
+			baseURL = v
+		} else if env := os.Getenv("MUSTER_BASE_URL"); env != "" {
+			baseURL = env
+		}
 
 		// Build HTTP request
 		builder := request.NewBuilder(baseURL, meta.Path, meta.Method)

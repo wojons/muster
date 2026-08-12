@@ -490,3 +490,29 @@ func TestHandleStatus_NoPIDFile_Fallback(t *testing.T) {
 	err = handleStatus(controller)
 	require.NoError(t, err, "handleStatus should succeed with fallback")
 }
+
+func TestWaitForDaemonReady_Success(t *testing.T) {
+	tmpDir := t.TempDir()
+	sockPath := filepath.Join(tmpDir, "ready.sock")
+	pidPath := filepath.Join(tmpDir, "ready.pid")
+
+	// The test process itself is a live process: a PID file naming us
+	// counts as a running daemon.
+	require.NoError(t, writePIDFile(pidPath, os.Getpid()))
+	require.NoError(t, os.WriteFile(sockPath, []byte(""), 0o644))
+
+	err := waitForDaemonReady(sockPath, pidPath, 2*time.Second)
+	require.NoError(t, err)
+}
+
+func TestWaitForDaemonReady_Timeout(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	err := waitForDaemonReady(
+		filepath.Join(tmpDir, "missing.sock"),
+		filepath.Join(tmpDir, "missing.pid"),
+		300*time.Millisecond,
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "did not become ready")
+}

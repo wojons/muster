@@ -624,3 +624,62 @@ func (w *testWriter) Write(p []byte) (n int, err error) {
 func (w *testWriter) String() string {
 	return string(w.data)
 }
+
+func TestLoader_CreateRunHandler_BaseURLFlagOverride(t *testing.T) {
+	var gotHost string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHost = r.Host
+		require.Equal(t, "/pets", r.URL.Path)
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`[{"id":1}]`))
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{Name: "list-pets", Use: "list-pets", Method: "GET", Path: "/pets"},
+	}
+	// Stored/generate-time URL points at an unreachable address; the
+	// explicit --base-url flag must win without regenerating.
+	l := NewLoader(cs, "http://127.0.0.1:1")
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	require.NoError(t, cmds[0].Flags().Set("base-url", srv.URL))
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+	cmds[0].SetErr(buf)
+
+	require.NoError(t, cmds[0].RunE(cmds[0], []string{}))
+	require.Equal(t, srv.Listener.Addr().String(), gotHost)
+	require.Contains(t, buf.String(), `[{"id":1}]`)
+}
+
+func TestLoader_CreateRunHandler_BaseURLEnvOverride(t *testing.T) {
+	var gotHost string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHost = r.Host
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`ok`))
+	}))
+	defer srv.Close()
+	t.Setenv("MUSTER_BASE_URL", srv.URL)
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{Name: "list-pets", Use: "list-pets", Method: "GET", Path: "/pets"},
+	}
+	l := NewLoader(cs, "http://127.0.0.1:1")
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+	cmds[0].SetErr(buf)
+
+	require.NoError(t, cmds[0].RunE(cmds[0], []string{}))
+	require.Equal(t, srv.Listener.Addr().String(), gotHost)
+}

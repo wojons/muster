@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -23,6 +24,7 @@ var (
 	pidFile     string
 	wasmPlugin  string
 	versionFlag bool
+	foreground  bool
 )
 
 func main() {
@@ -65,6 +67,7 @@ func run() error {
 	flagSet.StringVar(&pidFile, "pid-file", "", "Path for PID file (default: <socket-path>.pid")
 	flagSet.StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 	flagSet.BoolVar(&versionFlag, "version", false, "Print version information and exit")
+	flagSet.BoolVar(&foreground, "foreground", false, "Run `start` in the foreground instead of daemonizing (default: daemonize)")
 	// The raw flag package's default Usage only lists global flags, hiding
 	// the subcommand surface. Install a custom usage func that documents
 	// the six supported subcommands (start/stop/status/restart/reload/proxy).
@@ -155,6 +158,17 @@ func handleStart(controller *daemon.Controller) error {
 		return fmt.Errorf("controller is required")
 	}
 
+	// Daemonize by default: `start` from a terminal spawns a detached child
+	// (new session, stdio to /dev/null) that runs the same start path with
+	// MUSTER_DAEMON_CHILD=1, waits until the daemon socket + PID file are
+	// live, then returns to the shell. Previously this command blocked in
+	// the foreground forever, making the documented start->status/stop
+	// control workflow unreachable from scripts. Pass --foreground (or set
+	// MUSTER_DAEMON_CHILD=1) to run in the foreground instead.
+	if os.Getenv("MUSTER_DAEMON_CHILD") != "1" && !foreground {
+		return spawnDaemonChild(controller)
+	}
+
 	// Start the controller with the default socket handler so the Unix
 	// socket is actually created and /health endpoints are served.
 	// (Controller.Start() alone only flips the running flag — it does not
@@ -191,6 +205,64 @@ func handleStart(controller *daemon.Controller) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return controller.Shutdown(ctx)
+}
+
+// spawnDaemonChild re-executes the current binary as a detached child
+// (new session, stdio to /dev/null) with MUSTER_DAEMON_CHILD=1 set, then
+// waits until the daemon's socket and PID file are live before returning.
+// The child runs the same `start` code path but skips this function thanks
+// to the env marker, so it stays alive serving the socket while the parent
+// returns to the shell.
+func spawnDaemonChild(controller *daemon.Controller) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locate executable: %w", err)
+	}
+
+	devnull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", os.DevNull, err)
+	}
+	defer devnull.Close()
+
+	cmd := exec.Command(exe, os.Args[1:]...)
+	cmd.Env = append(os.Environ(), "MUSTER_DAEMON_CHILD=1")
+	cmd.Stdin = devnull
+	cmd.Stdout = devnull
+	cmd.Stderr = devnull
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("spawn daemon child: %w", err)
+	}
+	// Detach: the child is no longer our job; it reports readiness by
+	// creating the socket and PID file.
+	_ = cmd.Process.Release()
+
+	if err := waitForDaemonReady(socketPath, pidFile, 5*time.Second); err != nil {
+		return err
+	}
+
+	fmt.Println("Daemon started successfully")
+	fmt.Printf("PID file: %s\n", pidFile)
+	fmt.Printf("Socket: %s\n", socketPath)
+	fmt.Printf("Token file: %s\n", controller.GetTokenPath())
+	return nil
+}
+
+// waitForDaemonReady polls until the daemon socket file exists AND the PID
+// file names a live process, or the timeout elapses.
+func waitForDaemonReady(sockPath, pidPath string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(sockPath); err == nil {
+			if pid, err := readPIDFile(pidPath); err == nil && isProcessRunning(pid) {
+				return nil
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return fmt.Errorf("daemon did not become ready within %s (socket %s / PID file %s missing)", timeout, sockPath, pidPath)
 }
 
 // createDaemonHandler returns the default HTTP handler for the daemon,

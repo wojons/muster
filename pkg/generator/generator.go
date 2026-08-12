@@ -289,6 +289,12 @@ func (g *Generator) buildResourceCommand(resource string, operations []*openapi.
 		Long:  fmt.Sprintf("Commands for managing %s resources", resource),
 	}
 
+	// Runtime base-URL override: an explicit --base-url flag (or the
+	// MUSTER_BASE_URL env var) takes precedence over the spec's
+	// servers[].url / generate-time --base-url, so generated CLIs can be
+	// pointed at staging/prod without regenerating.
+	cmd.PersistentFlags().String("base-url", "", "Override the API base URL at runtime (env: MUSTER_BASE_URL)")
+
 	for _, op := range operations {
 		subCmd := g.buildOperationCommand(op)
 		cmd.AddCommand(subCmd)
@@ -716,6 +722,27 @@ func (g *Generator) normalizeOperationID(id string) string {
 	return strings.ToLower(string(result))
 }
 
+// runtimeBaseURL resolves the runtime base-URL override for generated
+// commands: an explicit --base-url persistent flag (registered on the
+// resource command) wins, then the MUSTER_BASE_URL env var, then "" (no
+// override — caller keeps the spec/generate-time URL). The flag walk stops
+// at the command that owns the persistent flag, so a leaf operation's local
+// flag with the same name (a spec query param literally named base-url)
+// cannot be mistaken for the override.
+func runtimeBaseURL(cmd *cobra.Command) string {
+	for c := cmd; c != nil; c = c.Parent() {
+		if pf := c.PersistentFlags().Lookup("base-url"); pf != nil {
+			if pf.Changed {
+				if v, _ := c.PersistentFlags().GetString("base-url"); v != "" {
+					return v
+				}
+			}
+			break
+		}
+	}
+	return os.Getenv("MUSTER_BASE_URL")
+}
+
 func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -724,6 +751,12 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 		baseURL := op.ServerURL
 		if baseURL == "" {
 			baseURL = g.config.BaseURL
+		}
+
+		// Runtime override: --base-url flag wins, then MUSTER_BASE_URL env
+		// var, then the spec/generate-time URL above.
+		if override := runtimeBaseURL(cmd); override != "" {
+			baseURL = override
 		}
 		builder := request.NewBuilder(baseURL, op.Path, op.Method)
 

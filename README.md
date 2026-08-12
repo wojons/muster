@@ -37,8 +37,18 @@ make build-cli
 # Point at any OpenAPI spec
 ./bin/openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
 
-# Execute operations
+# Turn the spec into typed subcommands (the core "spec → CLI" step)
+./bin/openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
+
+# Typed commands are now available on the next invocation, e.g.:
+./bin/openapi-cli list-pets
+
+# Or execute ad-hoc operations with the generic request command
 ./bin/openapi-cli request GET https://petstore3.swagger.io/api/v3/pet/findByStatus -p status=available
+
+# Point generated commands at another environment without regenerating:
+# ./bin/openapi-cli list-pets --base-url https://staging.example.com
+# (or export MUSTER_BASE_URL=https://staging.example.com)
 
 # Run the full demo (5 mock services, 10 scripts, all 7 surfaces)
 ./demo/run-all.sh
@@ -104,8 +114,16 @@ Every OpenAPI operation becomes an MCP tool. `tools/list` shows them all. `tools
 ## Daemon
 
 ```bash
-# Start daemon
+# Start daemon (daemonizes by default: returns to the shell once the socket is up)
+openapi-daemon start --socket-path /tmp/muster.sock
+
+# Check status / stop it
+openapi-daemon status --socket-path /tmp/muster.sock
+openapi-daemon stop --socket-path /tmp/muster.sock
+
+# Or run as a foreground proxy (useful for debugging)
 openapi-daemon proxy --backend-url https://api.example.com --socket-path /tmp/muster.sock
+openapi-daemon start --foreground --socket-path /tmp/muster.sock
 
 # Talk to it via curl
 curl --unix-socket /tmp/muster.sock http://localhost/users

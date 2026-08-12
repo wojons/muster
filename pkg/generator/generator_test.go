@@ -2492,3 +2492,71 @@ func TestAddFlags_RequestBodyObjectFlagHelp_EmptyDesc(t *testing.T) {
 	require.Contains(t, flag.Usage, "JSON object")
 	require.Contains(t, flag.Usage, "request body")
 }
+
+func TestGenerateCommands_BaseURLRuntimeFlag(t *testing.T) {
+	var gotHost string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHost = r.Host
+		require.Equal(t, "/pets", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[{"id":1}]`))
+	}))
+	defer srv.Close()
+
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+
+	doc := loadPetstoreSpec(t)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	petsCmd := commands[0]
+	listCmd, _, err := petsCmd.Find([]string{"list-pets"})
+	require.NoError(t, err)
+	require.NotNil(t, listCmd)
+
+	// The persistent --base-url flag on the resource command overrides the
+	// generate-time URL without regenerating.
+	require.NoError(t, petsCmd.PersistentFlags().Set("base-url", srv.URL))
+	require.NoError(t, listCmd.Flags().Set("output", "json"))
+
+	buf := new(bytes.Buffer)
+	listCmd.SetOut(buf)
+	listCmd.SetErr(buf)
+
+	require.NoError(t, listCmd.RunE(listCmd, []string{}))
+	require.NotEmpty(t, gotHost)
+	require.Equal(t, srv.Listener.Addr().String(), gotHost)
+	require.Contains(t, buf.String(), `"id": 1`)
+}
+
+func TestGenerateCommands_BaseURLEnvOverride(t *testing.T) {
+	var gotHost string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHost = r.Host
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`ok`))
+	}))
+	defer srv.Close()
+	t.Setenv("MUSTER_BASE_URL", srv.URL)
+
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+
+	doc := loadPetstoreSpec(t)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	listCmd, _, err := commands[0].Find([]string{"list-pets"})
+	require.NoError(t, err)
+	require.NotNil(t, listCmd)
+
+	buf := new(bytes.Buffer)
+	listCmd.SetOut(buf)
+	listCmd.SetErr(buf)
+
+	require.NoError(t, listCmd.RunE(listCmd, []string{}))
+	require.Equal(t, srv.Listener.Addr().String(), gotHost)
+}
