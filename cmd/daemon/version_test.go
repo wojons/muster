@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -91,4 +92,58 @@ func TestVersionFlag_PrintsInternalVersion(t *testing.T) {
 	require.NotEmpty(t, expected, "internal version must not be empty")
 	require.Contains(t, expected, "(", "internal version must have commit in parens")
 	require.Contains(t, expected, ")", "internal version must close parens")
+}
+
+// TestRun_StatusVersionMatchesInternal verifies the status command reports
+// the same version string as --version (version.Get().Short()), not the
+// stale local "dev" build var (GAP-020).
+func TestRun_StatusVersionMatchesInternal(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Point the PID file at a temp path so the fallback controller-status
+	// path (which prints the version) is taken deterministically.
+	os.Args = []string{"openapi-daemon", "--pid-file", filepath.Join(t.TempDir(), "test.pid"), "status"}
+	err := run()
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	buf := make([]byte, 8192)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	require.NoError(t, err, "status command should succeed")
+	require.Contains(t, output, "Version:     "+version.Get().Short(),
+		"status must report the internal version string, not the stale dev var")
+}
+
+// TestRun_NoActionBannerUsesInternalVersion verifies the no-command banner
+// prints the real version string instead of the stale "dev" build var
+// (GAP-020).
+func TestRun_NoActionBannerUsesInternalVersion(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	os.Args = []string{"openapi-daemon"}
+	err := run()
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	buf := make([]byte, 8192)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	require.NoError(t, err, "no-action banner should succeed")
+	require.Contains(t, output, version.Get().Short(),
+		"no-command banner must print the internal version string")
 }

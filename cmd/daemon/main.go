@@ -16,13 +16,6 @@ import (
 	"github.com/wojons/muster/pkg/daemon"
 )
 
-// Build-time variables
-var (
-	Version   = "dev"
-	Commit    = "unknown"
-	BuildDate = "unknown"
-)
-
 // Command-line flags
 var (
 	backendURL  string
@@ -72,6 +65,20 @@ func run() error {
 	flagSet.StringVar(&pidFile, "pid-file", "", "Path for PID file (default: <socket-path>.pid")
 	flagSet.StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 	flagSet.BoolVar(&versionFlag, "version", false, "Print version information and exit")
+	// The raw flag package's default Usage only lists global flags, hiding
+	// the subcommand surface. Install a custom usage func that documents
+	// the six supported subcommands (start/stop/status/restart/reload/proxy).
+	flagSet.Usage = func() {
+		out := flagSet.Output()
+		fmt.Fprintf(out, "Usage: %s [start|stop|status|restart|reload|proxy] [flags]\n\n", os.Args[0])
+		fmt.Fprintln(out, "Commands:")
+		for _, cmd := range []string{"start", "stop", "status", "restart", "reload", "proxy"} {
+			fmt.Fprintf(out, "  %s\n", cmd)
+		}
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "Flags:")
+		flagSet.PrintDefaults()
+	}
 	err := flagSet.Parse(flagArgs)
 	if err != nil {
 		// -h/--help is a legitimate request: the flag package has already
@@ -103,7 +110,7 @@ func run() error {
 	controller, err := daemon.NewController(daemon.ControllerConfig{
 		PidFilePath: pidFile,
 		SocketPath:  socketPath,
-		Version:     Version,
+		Version:     version.Get().Short(),
 		Logger:      &daemonLogger{},
 		Handler:     handler,
 	})
@@ -124,15 +131,16 @@ func run() error {
 	case "status":
 		return handleStatus(controller)
 	default:
-		fmt.Printf("Muster Daemon v%s\n\n", Version)
-		fmt.Println("Usage: muster-daemon <command>")
+		fmt.Printf("Muster Daemon v%s\n\n", version.Get().Short())
+		fmt.Println("Usage: openapi-daemon [start|stop|status|restart|reload|proxy] [flags]")
 		fmt.Println("")
 		fmt.Println("Commands:")
 		fmt.Println("  start    Start the daemon process")
-		fmt.Println("  proxy    Start as HTTP proxy on Unix socket")
 		fmt.Println("  stop     Stop the daemon process")
-		fmt.Println("  restart  Restart the daemon process")
 		fmt.Println("  status   Show daemon status")
+		fmt.Println("  restart  Restart the daemon process")
+		fmt.Println("  reload   Reload the daemon process")
+		fmt.Println("  proxy    Start as HTTP proxy on Unix socket")
 		fmt.Println("")
 		fmt.Println("Options:")
 		fmt.Println("  --backend-url <url>     Backend URL for proxy")
@@ -369,7 +377,7 @@ func handleStatus(controller *daemon.Controller) error {
 			fmt.Printf("  PID:         %d\n", pid)
 			fmt.Printf("  Start time:  %s\n", processStartTime(pid))
 			fmt.Printf("  Socket:      %s\n", socketPath)
-			fmt.Printf("  Version:     %s\n", Version)
+			fmt.Printf("  Version:     %s\n", version.Get().Short())
 			return nil
 		}
 		fmt.Println("Daemon Status:")

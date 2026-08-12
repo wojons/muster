@@ -29,6 +29,17 @@ jobs:
       - name: Build
         run: go build ./...
 
+      - name: Version guard (no binary may report dev)
+        run: |
+          make build-all
+          for b in ./bin/openapi-cli ./bin/openapi-mcp ./bin/openapi-daemon; do
+            out="$("$b" --version)"
+            case "$out" in
+              *"dev (unknown)"*|"") echo "FAIL: $b reports '$out'"; exit 1;;
+            esac
+            echo "OK: $b -> $out"
+          done
+
       - name: Test
         run: go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security)
 

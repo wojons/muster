@@ -321,7 +321,6 @@ func TestRun_HelpWithNoArgs(t *testing.T) {
 
 func TestRun_WithVersionVar(t *testing.T) {
 	testVersion := "test-1.0.0"
-	Version = testVersion
 
 	tmpDir := socketTestDir(t)
 	socketPath := filepath.Join(tmpDir, "test.sock")
@@ -335,8 +334,6 @@ func TestRun_WithVersionVar(t *testing.T) {
 	// Version is stored in the controller, not in status
 	// Just verify controller was created successfully
 	require.NotNil(t, controller)
-
-	Version = "dev"
 }
 
 func TestRun_BackendURLParsing(t *testing.T) {

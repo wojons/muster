@@ -46,3 +46,30 @@ func TestRun_UnknownFlagStillFails(t *testing.T) {
 	os.Args = []string{"muster-daemon", "--definitely-not-a-flag"}
 	require.Error(t, run(), "unknown flag should still return an error")
 }
+
+// TestRun_HelpListsSubcommands verifies that --help output documents the
+// subcommand surface (start/stop/status/restart/reload/proxy) instead of
+// only the global flags (GAP-021). The flag package prints usage to stderr.
+func TestRun_HelpListsSubcommands(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	os.Args = []string{"openapi-daemon", "--help"}
+	err := run()
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	buf := make([]byte, 8192)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	require.NoError(t, err, "--help should return nil (exit 0)")
+	require.Contains(t, output, "start", "--help must list the start subcommand")
+	require.Contains(t, output, "stop", "--help must list the stop subcommand")
+	require.Contains(t, output, "status", "--help must list the status subcommand")
+}
