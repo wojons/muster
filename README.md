@@ -172,7 +172,7 @@ go test ./...
 ./demo/run-all.sh
 ```
 
-Requires Go 1.23+, Python 3 (for demo services), Flask (`pip install flask`).
+Requires Go 1.26.1+, Python 3 (for demo services), Flask (`pip install flask`).
 
 ## Project structure
 

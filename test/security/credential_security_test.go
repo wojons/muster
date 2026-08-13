@@ -204,6 +204,9 @@ func TestCredential_KeychainOperations(t *testing.T) {
 
 // TestCredential_ConcurrentAccess tests thread-safe keychain operations
 func TestCredential_ConcurrentAccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping long-running concurrency stress test in -short mode")
+	}
 	kc := auth.NewFileKeychain()
 
 	const numGoroutines = 50

@@ -19,6 +19,16 @@ import (
 	"github.com/wojons/muster/pkg/openapi"
 )
 
+// skipLong skips long-running integration tests when -short is set,
+// keeping `go test -short ./...` fast. Package e2e_test cannot use the
+// internal e2e package's helper, so it is mirrored here.
+func skipLong(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping long-running e2e test in -short mode")
+	}
+}
+
 // TestRealMCPIntegration is a REAL integration test that proves:
 // 1. OpenAPI operations are registered as MCP tools
 // 2. tools/list returns available tools
@@ -27,6 +37,7 @@ import (
 //
 // This is NOT a toy test - it traces actual MCP protocol flow.
 func TestRealMCPIntegration(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -134,6 +145,7 @@ func TestRealMCPIntegration(t *testing.T) {
 
 // TestMCPJSONRPCProtocol tests MCP JSON-RPC protocol handling
 func TestMCPJSONRPCProtocol(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -187,6 +199,7 @@ func TestMCPJSONRPCProtocol(t *testing.T) {
 // 4. Execute tool via tools/call
 // 5. Get HTTP response
 func TestMCPEndToEndFlow(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -271,6 +284,7 @@ func TestMCPEndToEndFlow(t *testing.T) {
 // 6. Complex nested parameter schemas
 // 7. Parameter validation against JSON Schema
 func TestMCPToolParameterValidation(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -567,6 +581,7 @@ func TestMCPToolParameterValidation(t *testing.T) {
 
 // TestMCPToolSchemaEnforcement tests that tool parameter schemas are enforced
 func TestMCPToolSchemaEnforcement(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

@@ -16,6 +16,7 @@ import (
 )
 
 func TestDaemon_StartStop(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 
@@ -47,6 +48,7 @@ func TestDaemon_StartStop(t *testing.T) {
 }
 
 func TestDaemon_Status(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 
@@ -73,6 +75,7 @@ func TestDaemon_Status(t *testing.T) {
 }
 
 func TestDaemon_SocketProxy(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 
@@ -115,6 +118,7 @@ func TestDaemon_SocketProxy(t *testing.T) {
 }
 
 func TestDaemon_PIDFile(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	pidFile := filepath.Join(tmpDir, "daemon.pid")
 
@@ -136,6 +140,7 @@ func TestDaemon_PIDFile(t *testing.T) {
 }
 
 func TestDaemon_RequestProxy(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 	logFile := filepath.Join(tmpDir, "daemon.log")
@@ -177,6 +182,7 @@ func TestDaemon_RequestProxy(t *testing.T) {
 }
 
 func TestDaemon_MultipleConnections(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 
@@ -215,6 +221,7 @@ func TestDaemon_MultipleConnections(t *testing.T) {
 }
 
 func TestDaemon_SignalHandling(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 
@@ -242,6 +249,7 @@ func TestDaemon_SignalHandling(t *testing.T) {
 }
 
 func TestDaemon_Configuration(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "daemon-config.yaml")
 
@@ -268,6 +276,7 @@ daemon:
 }
 
 func TestDaemon_HealthCheck(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 
@@ -294,6 +303,7 @@ func TestDaemon_HealthCheck(t *testing.T) {
 }
 
 func TestDaemon_Metrics(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 
@@ -320,6 +330,7 @@ func TestDaemon_Metrics(t *testing.T) {
 }
 
 func TestDaemon_Restart(t *testing.T) {
+	skipLong(t)
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
 

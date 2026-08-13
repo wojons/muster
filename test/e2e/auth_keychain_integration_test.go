@@ -16,6 +16,7 @@ import (
 // TestKeychainIntegration tests real OS keychain integrations
 // This test uses the actual OS keychain APIs, not mocks
 func TestKeychainIntegration(t *testing.T) {
+	skipLong(t)
 	testService := fmt.Sprintf("muster-test-%d", time.Now().Unix())
 	testAccount := "test-user"
 	testPassword := "test-password-12345"
@@ -291,6 +292,7 @@ func TestLinuxKeychainReal(t *testing.T) {
 
 // TestKeychainWithTokenManager tests keychain integration with TokenManager
 func TestKeychainWithTokenManager(t *testing.T) {
+	skipLong(t)
 	skipOnUnsupportedPlatform(t)
 
 	testService := fmt.Sprintf("muster-token-test-%d", time.Now().Unix())

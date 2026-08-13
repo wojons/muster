@@ -454,7 +454,7 @@ demo/
 - **Memory Bank**: `.memory-bank/` (project context and decisions)
 - **Contributing**: `CONTRIBUTING.md`
 - **Makefile**: `make help` for all targets
-- **Go version**: 1.25.0 (see go.mod)
+- **Go version**: 1.26.1 (see go.mod)
 - **Specs**: `specs/` (276 specification files)
 - **Demo**: `demo/` (prove system works)
 - **Skills**: `.agents/skills/` (63 available skills)

@@ -398,6 +398,7 @@ func TestCLI_ProgressIndicator(t *testing.T) {
 }
 
 func TestCLI_OutputFormatting(t *testing.T) {
+	skipLong(t)
 	testCases := []struct {
 		name     string
 		args     []string
@@ -502,6 +503,7 @@ func TestCLI_ErrorHandling(t *testing.T) {
 }
 
 func TestCLI_Timeout(t *testing.T) {
+	skipLong(t)
 	var delayReceived int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)

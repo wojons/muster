@@ -15,6 +15,16 @@ var (
 	daemonBinaryPath string
 )
 
+// skipLong skips long-running integration tests (subprocess spawning, real
+// network/keychain access) when -short is set, keeping `go test -short ./...`
+// fast. The full suite still runs via `go test ./test/e2e/` / `make test-e2e`.
+func skipLong(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping long-running e2e test in -short mode")
+	}
+}
+
 func TestMain(m *testing.M) {
 	var err error
 	binaryPath, err = buildBinary()

@@ -16,6 +16,7 @@ import (
 )
 
 func TestMCP_Initialize(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -74,6 +75,7 @@ func TestMCP_Initialize(t *testing.T) {
 }
 
 func TestMCP_ListTools(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -161,6 +163,7 @@ func readMCPResponse(ctx context.Context, r *bufio.Reader) (string, error) {
 }
 
 func TestMCP_CallTool(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -223,6 +226,7 @@ func TestMCP_CallTool(t *testing.T) {
 }
 
 func TestMCP_ListResources(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -280,6 +284,7 @@ func TestMCP_ListResources(t *testing.T) {
 }
 
 func TestMCP_ReadResource(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -366,6 +371,7 @@ func TestMCP_ReadResource(t *testing.T) {
 }
 
 func TestMCP_MultipleRequests(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -423,6 +429,7 @@ func TestMCP_MultipleRequests(t *testing.T) {
 }
 
 func TestMCP_ErrorHandling(t *testing.T) {
+	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
