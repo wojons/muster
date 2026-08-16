@@ -82,6 +82,7 @@ _storage/
 .gitreins/config.yaml.bak
 .gitreins/config.yaml.v*-bak
 .gitreins/history/
+.gitreins/usage.jsonl
 
 # Demo Python virtualenv
 demo/.venv/
