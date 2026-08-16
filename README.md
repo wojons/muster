@@ -44,7 +44,9 @@ make build-cli
 ./bin/openapi-cli list-pets
 
 # Or execute ad-hoc operations with the generic request command
-./bin/openapi-cli request GET https://petstore3.swagger.io/api/v3/pet/findByStatus -p status=available
+# (note: the public petstore server returns HTTP 500 on findByStatus — server-side,
+# not a Muster bug; GET /pet/1 is stable)
+./bin/openapi-cli request GET https://petstore3.swagger.io/api/v3/pet/1 -o json
 
 # Point generated commands at another environment without regenerating:
 # ./bin/openapi-cli list-pets --base-url https://staging.example.com

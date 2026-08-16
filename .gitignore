@@ -3,6 +3,8 @@
 /daemon
 /mcp-server
 /openapi-cli
+/cli
+/wasm
 *.exe
 *.dll
 *.so
