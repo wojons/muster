@@ -154,3 +154,72 @@ two binaries have no `--version` flag at all (`flag provided but not defined:
    command store; re-generate after switching specs or the help mixes surfaces.
 4. **To test the docs:** every command in the integration guide runs verbatim
    (that guide is trustworthy); the reference guides need the DF-002 audit.
+
+---
+
+## 2026-08-17 deep run — addendum (post DF-001..006, GAP-001..031 fixes)
+
+Status of the 08-07 findings: **DF-001 (daemon control) FIXED** (start detaches
+in ~0.05s via setsid re-exec, status shows Running/PID, stop cleans files —
+GAP-022), **DF-002 docs fiction mostly FIXED** (`init` implemented GAP-029;
+`spec`/`doctor` still absent), **DF-003 command-store clobber FIXED-ish**
+(generate now persists per-spec to `~/.local/share/openapi-cli/commands.json`
+and the runtime loads it; the store is still global/single, but no silent
+re-overwrite observed), **DF-005 version FIXED** on all three binaries
+(GAP-020). `openapi-daemon restart` = stop-only (new DF-011).
+
+### How the generate fallback path works (root cause of DF-007/DF-008)
+
+`pkg/generator.GenerateCommands` groups spec operations by resource and builds
+one cobra command per operation via `getCommandName` (uses `operationId` when
+present) and `buildUsage`/`createRunHandler`. **When `operationId` is absent**
+(the demo's own task-forge spec has zero), the fallback derives names from
+path segments + summaries — and that fallback has three defects, all observed
+in the generated `commands.json`:
+
+1. **List-path builder appends "s" to an already-plural path**: `GET /projects`
+   → `/projectss`, `/tasks` → `/taskss`, `/tags` → `/tagss`, `/health` →
+   `/healths`. (Ops whose paths came from the operationId path are unaffected.)
+2. **Resource names > 8 chars are truncated**: `milestones` → `milestons`,
+   `delete-milestone` → `delete-mileston`, param `milestone_id` →
+   `milestonId`.
+3. **Fallback commands default to `https://api.example.com`** instead of the
+   spec's `servers[].url` (13 of 22 task-forge commands got
+   `http://localhost:9801`; the 9 fallback ones got api.example.com; top-level
+   `base_url` = api.example.com). The operationId path uses the spec URL
+   correctly.
+
+Name collisions (DF-008): `create-project` ×3 / `get-project` ×2 / `get-task`
+×2 — cobra allows duplicate names, the first registered wins, the rest are
+shadowed and unreachable. `create-task` is worse: the store records
+`POST /tasks` but the runtime command executes add-comment — the loader and
+the persisted store disagree on the same name.
+
+### How the daemon works (root cause of DF-009)
+
+`cmd/daemon` has two modes: `start` (daemonizes via `MUSTER_DAEMON_CHILD=1`
+re-exec; the child runs `StartWithSocket` and then serves an internal
+management handler that answers every path with `{"status":"ok","message":
+"Muster daemon is running"}`) and `proxy` (foreground; runs the real
+`httputil.ReverseProxy` to `--backend-url`). `start --backend-url` accepts the
+flag, prints "Proxying requests to…", but never wires the reverse proxy —
+hence canned responses. **Right way: use `proxy` for traffic, `start` only for
+lifecycle.** (GAP-022's acceptance criteria only checked start→status→stop
+timing, which is why this slipped through.)
+
+### Right way (updated 2026-08-17)
+
+1. **Use:** `make build` → scratch `HOME` → `generate` only for specs WITH
+   operationIds; generic `request` or the MCP server for operationId-less
+   specs; `openapi-mcp -spec <f> -base-url <b>` for agents; library pattern in
+   `/tmp/dogfood-muster/consumer` (replace directive; `NewGenerator` +
+   `GenerateCommands` + `pkg/client`).
+2. **Daemon:** `proxy` for proxying, `start`/`status`/`stop` for lifecycle,
+   `restart` = stop (re-`start` after).
+3. **Typed command args:** path params are positional (`get-project 1`), body
+   fields are flags, `--base-url`/`MUSTER_BASE_URL` override everywhere.
+4. **Tests:** `go test -short ./...` = 0.36s warm (GAP-026); full suite still
+   the e2e gate.
+5. **MCP is the most complete typed surface** — 22/22 tools incl. nested
+   resources, no collisions, no truncation. Prefer it for full-coverage
+   workflows until DF-007/DF-008 land.
