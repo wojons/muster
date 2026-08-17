@@ -60,7 +60,7 @@ cmd/                        # Entry points
   mcp-server/               # MCP server  
   daemon/                   # Background daemon
 
-pkg/                        # Public APIs (26+ packages)
+pkg/                        # Public APIs (22 packages)
   auth/                     # Authentication (OAuth2, mTLS, keychain)
   cache/                    # Multi-tier caching (memory, Redis)
   cli/                      # CLI framework integration

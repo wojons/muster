@@ -148,7 +148,7 @@ doc, _ := parser.Parse(ctx, specBytes, openapi.DefaultParseOptions())
 c := client.NewClient(client.WithBaseURL("https://api.example.com"), client.WithTimeout(30*time.Second))
 ```
 
-26 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
+22 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
 
 ## Build from source
 
@@ -182,7 +182,7 @@ Requires Go 1.26.1+, Python 3 (for demo services), Flask (`pip install flask`).
 cmd/openapi-cli/     # CLI entry point
 cmd/mcp-server/      # MCP server entry point
 cmd/daemon/          # Daemon entry point
-pkg/                 # 26 public packages (importable)
+pkg/                 # 22 public packages (importable)
   openapi/           # OpenAPI spec parsing
   mcp/               # MCP protocol implementation
   client/            # HTTP client with auth, rate limiting, retry
@@ -193,7 +193,7 @@ pkg/                 # 26 public packages (importable)
   cache/             # Multi-tier caching
   rate/              # Token bucket rate limiter
   auth/              # OAuth2, mTLS, bearer tokens
-  ...                # 16 more packages
+  ...                # 12 more packages
 internal/            # Private utilities
 demo/                # Self-contained demo (5 services, 10 scripts)
 specs/               # 270+ specification files

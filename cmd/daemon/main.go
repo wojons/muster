@@ -17,6 +17,12 @@ import (
 	"github.com/wojons/muster/pkg/daemon"
 )
 
+// defaultSocketPath is the default Unix domain socket path used when
+// --socket-path is not given. It is also the base for the default PID
+// file path (socket path + ".pid"), which is resolved at help time so
+// --help never shows a literal "<socket-path>" template.
+const defaultSocketPath = "/tmp/openapi-cli.sock"
+
 // Command-line flags
 var (
 	backendURL  string
@@ -63,8 +69,8 @@ func run() error {
 
 	flagSet := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flagSet.StringVar(&backendURL, "backend-url", "", "Backend URL for proxy mode")
-	flagSet.StringVar(&socketPath, "socket-path", "/tmp/openapi-cli.sock", "Path for Unix domain socket")
-	flagSet.StringVar(&pidFile, "pid-file", "", "Path for PID file (default: <socket-path>.pid")
+	flagSet.StringVar(&socketPath, "socket-path", defaultSocketPath, "Path for Unix domain socket")
+	flagSet.StringVar(&pidFile, "pid-file", "", fmt.Sprintf("Path for PID file (default: %s.pid)", defaultSocketPath))
 	flagSet.StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 	flagSet.BoolVar(&versionFlag, "version", false, "Print version information and exit")
 	flagSet.BoolVar(&foreground, "foreground", false, "Run `start` in the foreground instead of daemonizing (default: daemonize)")

@@ -239,7 +239,7 @@ Operational notes:
 
 ## 4. Go library (`github.com/wojons/muster/pkg/...`)
 
-26 public packages under `pkg/` — the same packages the CLI is built on.
+22 public packages under `pkg/` — the same packages the CLI is built on.
 The two you will use most are `pkg/openapi` (spec parsing) and `pkg/client`
 (traced HTTP client with retry, headers, base URL).
 

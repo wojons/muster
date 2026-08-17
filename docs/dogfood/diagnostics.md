@@ -8,7 +8,7 @@
 ## Architecture in one screen
 
 Muster is a Go module (`github.com/wojons/muster`, go 1.26) with three entry
-points sharing ~26 public packages under `pkg/`:
+points sharing ~22 public packages under `pkg/`:
 
 ```
 cmd/openapi-cli/    → bin/openapi-cli     (discover/request/generate/dsl/modules/daemon/config/auth...)
