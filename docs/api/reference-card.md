@@ -30,6 +30,43 @@ Options: `-u, --base-url <url>`
 openapi-cli init   # prints help text; does nothing
 ```
 
+### Go library: `pkg/generator` (operation extraction)
+
+Use the generator as a library to build typed command trees from an OpenAPI 3.x
+spec without the CLI:
+
+```go
+import (
+    "github.com/getkin/kin-openapi/openapi3"
+    "github.com/wojons/muster/pkg/generator"
+)
+
+gen, err := generator.NewGenerator(generator.Config{
+    AppName:        "my-cli",
+    BaseURL:        "https://api.example.com", // override spec servers[].url
+    DefaultFormat:  "json",
+    OperationStyle: generator.StyleFlat,
+})
+if err != nil { /* invalid config */ }
+
+commands, err := gen.GenerateCommands(spec) // *openapi3.T → []*cobra.Command
+```
+
+`Config` fields: `AppName`, `AppDescription`, `Version`, `BaseURL`,
+`NamingStrategy`, `OperationStyle`, `DefaultFormat`, `SupportedFormats`,
+`CommandPrefix`, `ExcludeTags`, `IncludeOnlyTags`, `CustomMappings`
+(`map[string]string` of operationId → command name).
+
+Notes:
+- Signatures: `NewGenerator(config generator.Config) (*generator.Generator, error)` and
+  `(*generator.Generator).GenerateCommands(spec *openapi3.T) ([]*cobra.Command, error)`.
+- Operations without an `operationId` use a fallback name derived from
+  method + path; the fallback routes through the same path/BaseURL builder as
+  operationId ops.
+- Generated commands carry a `--base-url` flag (persistent on the resource
+  command in the live tree, per-command in the persisted store) that overrides
+  `MUSTER_BASE_URL` and the spec's `servers[].url`.
+
 ## Inventory
 
 ### `inventory`
