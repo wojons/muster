@@ -12,6 +12,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestMain isolates the package's tests from the ambient user's real config.
+// The loader reads the default config dir under $HOME (setDefaultPaths), so a
+// developer who has run `openapi-cli init` (creating ~/.config/muster/config.yaml)
+// would otherwise have that file silently override test expectations
+// (proven: TestLoader_ApplyEnvOverrides/empty_env_vars_do_not_override failed
+// with "Should be empty, but was localhost" whenever the real config existed).
+func TestMain(m *testing.M) {
+	isolated := filepath.Join(os.TempDir(), "muster-config-test")
+	// Redirect all platform config/cache/data roots to an empty scratch dir.
+	os.Setenv("HOME", isolated)
+	os.Setenv("APPDATA", isolated)
+	os.Setenv("LOCALAPPDATA", isolated)
+	os.Exit(m.Run())
+}
+
 func TestLoader_BindPFlags(t *testing.T) {
 	t.Run("Bind Persistent Flags", func(t *testing.T) {
 		loader := NewLoader()
