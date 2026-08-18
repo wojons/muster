@@ -83,7 +83,7 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 
 			baseURLPath := baseURL
 			if baseURLPath == "" {
-				baseURLPath = "https://api.example.com"
+				baseURLPath = defaultBaseURLFromSpec(result.Document)
 			}
 
 			genCfg := generator.Config{
@@ -142,6 +142,19 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 	cmd.Flags().BoolVar(&clearStore, "clear", false, "Remove the persisted command store")
 
 	return cmd
+}
+
+// defaultBaseURLFromSpec returns the spec's first server URL when it is an
+// absolute URL, otherwise the legacy placeholder. Relative server URLs
+// (e.g. "/api" or "") cannot be used as an HTTP request base URL and would
+// fail at request time ("unsupported protocol scheme").
+func defaultBaseURLFromSpec(doc *openapi3.T) string {
+	if doc != nil && len(doc.Servers) > 0 && doc.Servers[0] != nil {
+		if u := doc.Servers[0].URL; strings.Contains(u, "://") {
+			return u
+		}
+	}
+	return "https://api.example.com"
 }
 
 // commandsToMetadata converts generated cobra.Commands to persistent metadata
@@ -326,9 +339,19 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 		return
 	}
 
-	// This is a leaf command (operation), create metadata
-	// Try to find matching operation from OpenAPI spec based on command name
-	path, method, args := extractOperationFromCommandAndSpec(cmd, doc)
+	// This is a leaf command (operation), create metadata.
+	// Prefer the exact operation metadata stamped by the generator
+	// (pkg/generator annotation keys) — reverse-inferring path/method from
+	// command names mangles operationId-less specs (doubled-s paths like
+	// /projectss, truncated names like delete-mileston, and wrong base URLs;
+	// see DF-007). Name-based inference remains only as a fallback for
+	// commands that were not produced by the generator.
+	path, method, args := cmd.Annotations[generator.AnnotationOperationPath], cmd.Annotations[generator.AnnotationOperationMethod], []string(nil)
+	if path == "" || method == "" {
+		path, method, args = extractOperationFromCommandAndSpec(cmd, doc)
+	} else {
+		args = extractPathParamsFromPath(path)
+	}
 
 	// Determine which flags represent request body properties (vs query/header params).
 	bodyFlagToJSON := extractBodyPropertyNames(doc, path, method)

@@ -149,6 +149,18 @@ type Config struct {
 	CustomMappings   map[string]string
 }
 
+// Annotation keys stamped onto generated leaf commands so downstream
+// consumers (CLI metadata extraction, persistence, docs) can recover the
+// exact operation path/method/server URL instead of reverse-inferring them
+// from command names. Name-based inference mangles operationId-less specs
+// (doubled-s paths, truncated names, wrong base URLs — see DF-007), so the
+// generator always carries the ground truth on the command itself.
+const (
+	AnnotationOperationPath   = "muster/openapi-path"
+	AnnotationOperationMethod = "muster/openapi-method"
+	AnnotationOperationServer = "muster/openapi-server"
+)
+
 type NamingStrategy int
 
 const (
@@ -316,6 +328,17 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation) *cobra.Command 
 		Long:    longDesc,
 		Example: example,
 		RunE:    g.createRunHandler(op),
+	}
+
+	// Stamp the exact operation metadata so downstream consumers
+	// (persistence, docs) never have to re-infer path/method/server from
+	// the command name (DF-007).
+	cmd.Annotations = map[string]string{
+		AnnotationOperationPath:   op.Path,
+		AnnotationOperationMethod: op.Method,
+	}
+	if op.ServerURL != "" {
+		cmd.Annotations[AnnotationOperationServer] = op.ServerURL
 	}
 
 	g.addFlags(cmd, op)

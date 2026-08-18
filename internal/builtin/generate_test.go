@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wojons/muster/pkg/cmdstore"
 	"github.com/wojons/muster/pkg/config"
+	"github.com/wojons/muster/pkg/generator"
 )
 
 func TestNewGenerateCommand(t *testing.T) {
@@ -1161,5 +1162,141 @@ func TestClearPersistedStore(t *testing.T) {
 
 		_, err = os.Stat(storePath)
 		assert.True(t, os.IsNotExist(err))
+	})
+}
+
+// ---------------------------------------------------------------------------
+// DF-007: metadata extraction must use the exact operation metadata stamped
+// by the generator, not name-based inference (which produced doubled-s
+// paths, truncated names, and wrong base URLs on operationId-less specs).
+// ---------------------------------------------------------------------------
+
+// taskForgeNoIDSpecJSON is a compact stand-in for
+// demo/services/task-forge/openapi.json: zero operationIds, nested
+// resources, and a spec server URL.
+const taskForgeNoIDSpecJSON = `{
+  "openapi": "3.0.3",
+  "info": {"title": "Task Forge API", "version": "1.0.0"},
+  "servers": [{"url": "http://localhost:9801"}],
+  "paths": {
+    "/health": {"get": {"summary": "Health check", "responses": {"200": {"description": "Healthy"}}}},
+    "/projects": {
+      "get": {"summary": "List all projects", "responses": {"200": {"description": "Project list"}}},
+      "post": {"summary": "Create project", "responses": {"201": {"description": "Created"}}}
+    },
+    "/projects/{project_id}": {
+      "get": {"summary": "Get project", "responses": {"200": {"description": "Project"}}},
+      "patch": {"summary": "Update project (partial)", "responses": {"200": {"description": "Updated"}}},
+      "delete": {"summary": "Delete project", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/projects/{project_id}/tasks": {
+      "get": {"summary": "List tasks in project", "responses": {"200": {"description": "Task list"}}},
+      "post": {"summary": "Create task in project", "responses": {"201": {"description": "Created"}}}
+    },
+    "/projects/{project_id}/milestones": {
+      "get": {"summary": "List milestones", "responses": {"200": {"description": "Milestone list"}}},
+      "post": {"summary": "Create milestone", "responses": {"201": {"description": "Created"}}}
+    },
+    "/tasks": {"get": {"summary": "List all tasks", "responses": {"200": {"description": "Task list"}}}},
+    "/tasks/{task_id}": {
+      "get": {"summary": "Get task", "responses": {"200": {"description": "Task"}}},
+      "patch": {"summary": "Update task (partial)", "responses": {"200": {"description": "Updated"}}},
+      "put": {"summary": "Update task (full)", "responses": {"200": {"description": "Updated"}}},
+      "delete": {"summary": "Delete task", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/tasks/{task_id}/comments": {
+      "get": {"summary": "List comments on task", "responses": {"200": {"description": "Comment list"}}},
+      "post": {"summary": "Add comment to task", "responses": {"201": {"description": "Created"}}}
+    },
+    "/comments/{comment_id}": {"delete": {"summary": "Delete comment", "responses": {"200": {"description": "Deleted"}}}},
+    "/milestones/{milestone_id}": {
+      "get": {"summary": "Get milestone", "responses": {"200": {"description": "Milestone"}}},
+      "delete": {"summary": "Delete milestone", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/tags": {
+      "get": {"summary": "List all tags", "responses": {"200": {"description": "Tag list"}}},
+      "post": {"summary": "Create tag", "responses": {"201": {"description": "Created"}}}
+    }
+  }
+}`
+
+func TestCommandsToMetadata_AnnotationExactPaths(t *testing.T) {
+	specJSON := []byte(taskForgeNoIDSpecJSON)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData(specJSON)
+	require.NoError(t, err)
+
+	gen, err := generator.NewGenerator(generator.Config{
+		AppName: "openapi-cli",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	// generate passes its --base-url default; use the legacy placeholder to
+	// prove per-command BaseURLs come from the spec, not the fallback.
+	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON)
+	require.NoError(t, err)
+	require.Len(t, metadata.Commands, 22)
+
+	// Every operation in the spec is present with its EXACT path+method.
+	expected := make(map[string]bool)
+	for p, pathItem := range doc.Paths.Map() {
+		for _, method := range []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"} {
+			if pathItem.GetOperation(method) != nil {
+				expected[method+" "+p] = true
+			}
+		}
+	}
+	require.Len(t, expected, 22)
+
+	for _, cmd := range metadata.Commands {
+		key := cmd.Method + " " + cmd.Path
+		require.True(t, expected[key],
+			"stored command %q has inferred path %s (not an exact spec operation)", cmd.Name, key)
+		// BaseURL must come from the spec's servers[].url, never the
+		// api.example.com placeholder.
+		require.Equal(t, "http://localhost:9801", cmd.BaseURL,
+			"command %q has wrong base URL", cmd.Name)
+	}
+
+	// Path parameters must be the spec's exact names (previously inferred
+	// as {projectId}/{milestonId} etc.).
+	var getProject *cmdstore.CommandMetadata
+	for i := range metadata.Commands {
+		if metadata.Commands[i].Name == "get-project" && metadata.Commands[i].Method == "GET" {
+			getProject = &metadata.Commands[i]
+		}
+	}
+	require.NotNil(t, getProject)
+	require.Equal(t, []string{"project_id"}, getProject.Args)
+
+	// No mangled paths anywhere in the persisted store (DF-007): the exact
+	// doubled-s (/projectss) and truncated (/milestons/{milestonId}) forms
+	// must never appear.
+	for _, cmd := range metadata.Commands {
+		require.NotContains(t, cmd.Path, "ss", "doubled-s path on %q", cmd.Name)
+		require.NotContains(t, cmd.Path, "/milestons", "truncated path on %q", cmd.Name)
+		require.NotContains(t, cmd.Path, "milestonId", "truncated param on %q", cmd.Name)
+	}
+}
+
+func TestDefaultBaseURLFromSpec(t *testing.T) {
+	t.Run("absolute server URL wins", func(t *testing.T) {
+		doc := &openapi3.T{Servers: openapi3.Servers{{URL: "http://localhost:9801"}}}
+		require.Equal(t, "http://localhost:9801", defaultBaseURLFromSpec(doc))
+	})
+
+	t.Run("relative server URL falls back to placeholder", func(t *testing.T) {
+		doc := &openapi3.T{Servers: openapi3.Servers{{URL: "/api"}}}
+		require.Equal(t, "https://api.example.com", defaultBaseURLFromSpec(doc))
+	})
+
+	t.Run("no servers falls back to placeholder", func(t *testing.T) {
+		require.Equal(t, "https://api.example.com", defaultBaseURLFromSpec(&openapi3.T{}))
+		require.Equal(t, "https://api.example.com", defaultBaseURLFromSpec(nil))
 	})
 }
