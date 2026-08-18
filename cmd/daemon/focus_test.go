@@ -22,7 +22,7 @@ func socketTestDir(t *testing.T) string {
 }
 
 func TestHandleStart_NilController(t *testing.T) {
-	err := handleStart(nil)
+	err := handleStart(nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "controller is required")
 }

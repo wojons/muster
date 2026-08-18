@@ -131,7 +131,7 @@ func TestRun_WithBackendURL(t *testing.T) {
 }
 
 func TestAllHandlers_NilArguments(t *testing.T) {
-	err := handleStart(nil)
+	err := handleStart(nil, nil)
 	require.Error(t, err, "handleStart should error with nil controller")
 
 	err = handleStop(nil)

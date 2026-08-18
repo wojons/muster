@@ -130,7 +130,7 @@ func run() error {
 	// Handle commands
 	switch action {
 	case "start":
-		return handleStart(controller)
+		return handleStart(controller, handler)
 	case "stop":
 		return handleStop(controller)
 	case "restart", "reload":
@@ -159,7 +159,7 @@ func run() error {
 	}
 }
 
-func handleStart(controller *daemon.Controller) error {
+func handleStart(controller *daemon.Controller, handler http.Handler) error {
 	if controller == nil {
 		return fmt.Errorf("controller is required")
 	}
@@ -175,11 +175,14 @@ func handleStart(controller *daemon.Controller) error {
 		return spawnDaemonChild(controller)
 	}
 
-	// Start the controller with the default socket handler so the Unix
-	// socket is actually created and /health endpoints are served.
+	// Start the controller with the socket handler so the Unix socket is
+	// actually created and endpoints are served. With --backend-url the
+	// proxy handler is served (the same one `proxy` mode uses), composed
+	// with the local /health endpoints; without it, the canned daemon
+	// handler (root info + /health) is served as before.
 	// (Controller.Start() alone only flips the running flag — it does not
 	// listen on the socket.)
-	err := controller.StartWithSocket(createDaemonHandler())
+	err := controller.StartWithSocket(startModeHandler(handler))
 	if err != nil {
 		return fmt.Errorf("start daemon: %w", err)
 	}
@@ -295,6 +298,26 @@ func createDaemonHandler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = fmt.Fprintf(w, `{"status":"ready","timestamp":"%s"}`, time.Now().UTC().Format(time.RFC3339))
 	})
+	return mux
+}
+
+// startModeHandler returns the handler `start` mode serves on its Unix
+// socket. When --backend-url was given, run() builds the proxy handler and
+// passes it here — the same handler `proxy` mode uses — so the daemonized
+// socket serves real backend data instead of the canned status message.
+// The proxy handler is composed with the daemon's local /health endpoints
+// (the pkg/daemon proxy handler proxies every path, /health included), so
+// health checks keep working even when the backend is down. Without a
+// backend URL, the canned daemon handler (root info + /health) is served.
+func startModeHandler(proxy http.Handler) http.Handler {
+	if proxy == nil {
+		return createDaemonHandler()
+	}
+	health := createDaemonHandler()
+	mux := http.NewServeMux()
+	mux.Handle("/health", health)
+	mux.Handle("/health/", health)
+	mux.Handle("/", proxy)
 	return mux
 }
 
