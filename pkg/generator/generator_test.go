@@ -163,6 +163,14 @@ func TestSingularize(t *testing.T) {
 		{"data", "data"},
 		{"", ""},
 		{"test", "test"},
+		// Plain s-plurals must lose only the final "s" — a blanket "es"
+		// rule truncated these to "mileston"/"comment"/"task" (DF-007).
+		{"milestones", "milestone"},
+		{"comments", "comment"},
+		{"tasks", "task"},
+		{"projects", "project"},
+		{"tags", "tag"},
+		{"health", "health"},
 	}
 
 	for _, tc := range tests {
@@ -2559,4 +2567,231 @@ func TestGenerateCommands_BaseURLEnvOverride(t *testing.T) {
 
 	require.NoError(t, listCmd.RunE(listCmd, []string{}))
 	require.Equal(t, srv.Listener.Addr().String(), gotHost)
+}
+
+// ---------------------------------------------------------------------------
+// DF-007/DF-008: fallback naming for operationId-less specs must include
+// every path segment (verb-resource-{subresource}), never truncate or double
+// segments, and generated commands must carry exact operation metadata.
+// ---------------------------------------------------------------------------
+
+// taskForgeLikeSpecJSON mirrors demo/services/task-forge/openapi.json: zero
+// operationIds, nested resources, PATCH+PUT on the same path, and a spec
+// server URL. It triggers every fallback-naming bug from DF-007/DF-008.
+const taskForgeLikeSpecJSON = `{
+  "openapi": "3.0.3",
+  "info": {"title": "Task Forge API", "version": "1.0.0"},
+  "servers": [{"url": "http://localhost:9801"}],
+  "paths": {
+    "/health": {"get": {"summary": "Health check", "responses": {"200": {"description": "Healthy"}}}},
+    "/projects": {
+      "get": {"summary": "List all projects", "responses": {"200": {"description": "Project list"}}},
+      "post": {"summary": "Create project", "responses": {"201": {"description": "Created"}}}
+    },
+    "/projects/{project_id}": {
+      "get": {"summary": "Get project", "responses": {"200": {"description": "Project"}}},
+      "patch": {"summary": "Update project (partial)", "responses": {"200": {"description": "Updated"}}},
+      "delete": {"summary": "Delete project", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/projects/{project_id}/tasks": {
+      "get": {"summary": "List tasks in project", "responses": {"200": {"description": "Task list"}}},
+      "post": {"summary": "Create task in project", "responses": {"201": {"description": "Created"}}}
+    },
+    "/projects/{project_id}/milestones": {
+      "get": {"summary": "List milestones", "responses": {"200": {"description": "Milestone list"}}},
+      "post": {"summary": "Create milestone", "responses": {"201": {"description": "Created"}}}
+    },
+    "/tasks": {"get": {"summary": "List all tasks", "responses": {"200": {"description": "Task list"}}}},
+    "/tasks/{task_id}": {
+      "get": {"summary": "Get task", "responses": {"200": {"description": "Task"}}},
+      "patch": {"summary": "Update task (partial)", "responses": {"200": {"description": "Updated"}}},
+      "put": {"summary": "Update task (full)", "responses": {"200": {"description": "Updated"}}},
+      "delete": {"summary": "Delete task", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/tasks/{task_id}/comments": {
+      "get": {"summary": "List comments on task", "responses": {"200": {"description": "Comment list"}}},
+      "post": {"summary": "Add comment to task", "responses": {"201": {"description": "Created"}}}
+    },
+    "/comments/{comment_id}": {"delete": {"summary": "Delete comment", "responses": {"200": {"description": "Deleted"}}}},
+    "/milestones/{milestone_id}": {
+      "get": {"summary": "Get milestone", "responses": {"200": {"description": "Milestone"}}},
+      "delete": {"summary": "Delete milestone", "responses": {"200": {"description": "Deleted"}}}
+    },
+    "/tags": {
+      "get": {"summary": "List all tags", "responses": {"200": {"description": "Tag list"}}},
+      "post": {"summary": "Create tag", "responses": {"201": {"description": "Created"}}}
+    }
+  }
+}`
+
+func loadTaskForgeLikeSpec(t *testing.T) *openapi3.T {
+	t.Helper()
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(taskForgeLikeSpecJSON))
+	require.NoError(t, err)
+	return doc
+}
+
+func TestCrudName_NestedPaths(t *testing.T) {
+	gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+
+	tests := []struct {
+		name     string
+		method   string
+		path     string
+		expected string
+	}{
+		// Single-segment paths keep their historical names.
+		{"GET collection", "GET", "/users", "list-users"},
+		{"GET item", "GET", "/users/{id}", "get-user"},
+		{"POST collection", "POST", "/users", "create-user"},
+		{"PUT item", "PUT", "/users/{id}", "update-user"},
+		{"DELETE item", "DELETE", "/users/{id}", "delete-user"},
+		// Nested paths include every non-parameter segment (DF-008).
+		{"GET nested collection", "GET", "/projects/{project_id}/tasks", "list-project-tasks"},
+		{"POST nested collection", "POST", "/projects/{project_id}/tasks", "create-project-task"},
+		{"GET nested comments", "GET", "/tasks/{task_id}/comments", "list-task-comments"},
+		{"POST nested comments", "POST", "/tasks/{task_id}/comments", "create-task-comment"},
+		{"GET nested milestones", "GET", "/projects/{project_id}/milestones", "list-project-milestones"},
+		{"POST nested milestones", "POST", "/projects/{project_id}/milestones", "create-project-milestone"},
+		{"DELETE deep nested", "DELETE", "/projects/{project_id}/milestones/{milestone_id}", "delete-project-milestone"},
+		{"DELETE deep nested comments", "DELETE", "/tasks/{task_id}/comments/{comment_id}", "delete-task-comment"},
+		// No truncated segments: milestones → milestone, not mileston (DF-007).
+		{"GET milestones item", "GET", "/milestones/{milestone_id}", "get-milestone"},
+		{"DELETE milestones item", "DELETE", "/milestones/{milestone_id}", "delete-milestone"},
+		{"GET health", "GET", "/health", "list-health"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, gen.crudName(tt.method, tt.path))
+		})
+	}
+}
+
+func TestUniqueCommandName(t *testing.T) {
+	used := make(map[string]bool)
+
+	// First occurrence keeps the base name.
+	require.Equal(t, "update-task", uniqueCommandName("update-task", "PATCH", used))
+	// Collision resolves with the method suffix (PATCH and PUT on the same
+	// path both map to update-task; PUT is sorted second and disambiguated).
+	require.Equal(t, "update-task-put", uniqueCommandName("update-task", "PUT", used))
+	// Same method colliding twice falls back to an ordinal suffix.
+	require.Equal(t, "update-task-put-2", uniqueCommandName("update-task", "PUT", used))
+	// Unrelated names are untouched.
+	require.Equal(t, "get-task", uniqueCommandName("get-task", "GET", used))
+}
+
+func TestGenerateCommands_NoOperationId_UniqueNames(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(loadTaskForgeLikeSpec(t))
+	require.NoError(t, err)
+
+	// Collect every leaf command name across all resource groups.
+	var leaves []string
+	var walk func(cmd *cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		if !cmd.HasSubCommands() {
+			leaves = append(leaves, cmd.Name())
+			return
+		}
+		for _, sub := range cmd.Commands() {
+			walk(sub)
+		}
+	}
+	for _, group := range commands {
+		walk(group)
+	}
+
+	// All 22 operations present.
+	require.Len(t, leaves, 22)
+
+	// Every operation reachable by exactly one typed command (DF-008).
+	seen := make(map[string]bool)
+	for _, name := range leaves {
+		require.False(t, seen[name], "duplicate command name %q", name)
+		seen[name] = true
+	}
+
+	// The previously-shadowed operations now have their own names.
+	for _, want := range []string{
+		"list-projects", "create-project", "get-project", "update-project", "delete-project",
+		"list-project-tasks", "create-project-task",
+		"list-project-milestones", "create-project-milestone",
+		"list-tasks", "get-task", "delete-task",
+		"update-task", "update-task-put", // PATCH + PUT disambiguated
+		"list-task-comments", "create-task-comment",
+		"get-milestone", "delete-milestone", // not get-mileston / delete-mileston
+		"delete-comment", "list-tags", "create-tag", "list-health",
+	} {
+		require.True(t, seen[want], "missing command %q", want)
+	}
+
+	// No truncated or doubled-s names anywhere (DF-007).
+	for _, name := range leaves {
+		require.NotEqual(t, "get-mileston", name)
+		require.NotEqual(t, "delete-mileston", name)
+		require.False(t, strings.Contains(name, "ss"),
+			"command %q contains a doubled-s segment", name)
+	}
+}
+
+func TestBuildOperationCommand_Annotations(t *testing.T) {
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(loadTaskForgeLikeSpec(t))
+	require.NoError(t, err)
+
+	// Every generated leaf carries its exact operation metadata (DF-007).
+	var walk func(cmd *cobra.Command) bool
+	walk = func(cmd *cobra.Command) bool {
+		if !cmd.HasSubCommands() {
+			path := cmd.Annotations[AnnotationOperationPath]
+			method := cmd.Annotations[AnnotationOperationMethod]
+			if path == "" || method == "" {
+				return false
+			}
+			return true
+		}
+		for _, sub := range cmd.Commands() {
+			if !walk(sub) {
+				return false
+			}
+		}
+		return true
+	}
+	for _, group := range commands {
+		require.True(t, walk(group), "leaf command missing operation annotations")
+	}
+
+	// Spot-check the exact values for the previously-shadowed ops.
+	projects := findGroup(t, commands, "projects")
+	createTask, _, err := projects.Find([]string{"create-project-task"})
+	require.NoError(t, err)
+	require.Equal(t, "/projects/{project_id}/tasks", createTask.Annotations[AnnotationOperationPath])
+	require.Equal(t, "POST", createTask.Annotations[AnnotationOperationMethod])
+
+	tasks := findGroup(t, commands, "tasks")
+	createComment, _, err := tasks.Find([]string{"create-task-comment"})
+	require.NoError(t, err)
+	require.Equal(t, "/tasks/{task_id}/comments", createComment.Annotations[AnnotationOperationPath])
+	require.Equal(t, "POST", createComment.Annotations[AnnotationOperationMethod])
+}
+
+func findGroup(t *testing.T, commands []*cobra.Command, name string) *cobra.Command {
+	t.Helper()
+	for _, cmd := range commands {
+		if cmd.Name() == name {
+			return cmd
+		}
+	}
+	t.Fatalf("resource group %q not found", name)
+	return nil
 }

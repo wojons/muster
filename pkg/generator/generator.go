@@ -121,6 +121,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"text/tabwriter"
@@ -307,16 +308,37 @@ func (g *Generator) buildResourceCommand(resource string, operations []*openapi.
 	// pointed at staging/prod without regenerating.
 	cmd.PersistentFlags().String("base-url", "", "Override the API base URL at runtime (env: MUSTER_BASE_URL)")
 
-	for _, op := range operations {
-		subCmd := g.buildOperationCommand(op)
+	// Sort operations deterministically before building leaves. The spec
+	// walk (spec.Paths.Map()) has no stable order; a fixed (path, method)
+	// order makes the collision-resolution below deterministic instead of
+	// depending on Go map iteration.
+	sorted := make([]*openapi.Operation, len(operations))
+	copy(sorted, operations)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].Path != sorted[j].Path {
+			return sorted[i].Path < sorted[j].Path
+		}
+		return sorted[i].Method < sorted[j].Method
+	})
+
+	// Track names within the group so no operation is shadowed by a
+	// collision (DF-008): e.g. PATCH and PUT on the same path both map to
+	// "update-<resource>", and nested resources used to collapse onto the
+	// parent's name (create-project ×3 on the task-forge spec).
+	usedNames := make(map[string]bool)
+	for _, op := range sorted {
+		subCmd := g.buildOperationCommand(op, usedNames)
 		cmd.AddCommand(subCmd)
 	}
 
 	return cmd
 }
 
-func (g *Generator) buildOperationCommand(op *openapi.Operation) *cobra.Command {
+func (g *Generator) buildOperationCommand(op *openapi.Operation, usedNames map[string]bool) *cobra.Command {
 	name := g.getCommandName(op)
+	if usedNames != nil {
+		name = uniqueCommandName(name, op.Method, usedNames)
+	}
 
 	usage := g.buildUsage(name, op)
 	longDesc := g.buildLongDescription(op)
@@ -344,6 +366,23 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation) *cobra.Command 
 	g.addFlags(cmd, op)
 
 	return cmd
+}
+
+// uniqueCommandName returns base, or a method/ordinal-suffixed variant when
+// base is already taken within the same resource group. Guarantees every
+// operation in a spec maps to exactly one reachable typed command even when
+// two operations produce the same fallback/operationId name (DF-008).
+func uniqueCommandName(base, method string, used map[string]bool) string {
+	if !used[base] {
+		used[base] = true
+		return base
+	}
+	candidate := fmt.Sprintf("%s-%s", base, strings.ToLower(method))
+	for i := 2; used[candidate]; i++ {
+		candidate = fmt.Sprintf("%s-%s-%d", base, strings.ToLower(method), i)
+	}
+	used[candidate] = true
+	return candidate
 }
 
 // addFlags adds CLI flags for the operation's parameters and request body properties.
@@ -665,37 +704,84 @@ func (g *Generator) getCommandName(op *openapi.Operation) string {
 }
 
 func (g *Generator) operationName(method, path string) string {
+	segments := fallbackPathSegments(path)
+	if len(segments) == 0 {
+		segments = []string{"resource"}
+	}
+	resource := strings.Join(segments, "-")
+
 	switch g.config.OperationStyle {
 	case StyleHTTP:
-		resource := g.extractResourceFromPath(path)
 		return fmt.Sprintf("%s-%s", strings.ToLower(method), resource)
 	case StyleFlat:
-		resource := g.extractResourceFromPath(path)
 		return fmt.Sprintf("%s-%s", g.httpAction(method), resource)
 	default:
 		return g.crudName(method, path)
 	}
 }
 
-func (g *Generator) crudName(method, path string) string {
-	resource := g.extractResourceFromPath(path)
-	singular := singularize(resource)
+// fallbackPathSegments returns the non-parameter segments of an operation
+// path, e.g. /projects/{project_id}/tasks → [projects tasks]. Used to build
+// collision-free fallback command names that include every path segment
+// (verb-resource-{subresource}) instead of only the first one.
+func fallbackPathSegments(path string) []string {
+	var segments []string
+	for _, part := range strings.Split(strings.Trim(path, "/"), "/") {
+		if part == "" || (strings.HasPrefix(part, "{") && strings.HasSuffix(part, "}")) {
+			continue
+		}
+		segments = append(segments, part)
+	}
+	return segments
+}
 
+func (g *Generator) crudName(method, path string) string {
+	segments := fallbackPathSegments(path)
+	if len(segments) == 0 {
+		segments = []string{"resource"}
+	}
+
+	// A trailing path parameter marks an item operation; everything else
+	// targets a collection. GET /projects/{id}/tasks is a *list* of the
+	// nested "tasks" resource, not a get of "projects".
+	trimmed := strings.TrimSuffix(path, "/")
+	item := strings.HasPrefix(trimmed, "{") || (strings.Contains(trimmed, "/{") && strings.HasSuffix(trimmed, "}"))
+
+	verb := ""
 	switch strings.ToUpper(method) {
 	case http.MethodGet:
-		if strings.Contains(path, "{") {
-			return fmt.Sprintf("get-%s", singular)
+		if item {
+			verb = "get"
+		} else {
+			verb = "list"
 		}
-		return fmt.Sprintf("list-%s", resource)
 	case http.MethodPost:
-		return fmt.Sprintf("create-%s", singular)
+		verb = "create"
 	case http.MethodPut, http.MethodPatch:
-		return fmt.Sprintf("update-%s", singular)
+		verb = "update"
 	case http.MethodDelete:
-		return fmt.Sprintf("delete-%s", singular)
+		verb = "delete"
 	default:
 		return strings.ToLower(method)
 	}
+
+	parts := make([]string, 0, len(segments)+1)
+	parts = append(parts, verb)
+	for i, segment := range segments {
+		if i == len(segments)-1 {
+			// Target resource: keep the authored collection form for
+			// list-*, singularize it for item operations.
+			if verb == "list" {
+				parts = append(parts, segment)
+			} else {
+				parts = append(parts, singularize(segment))
+			}
+			continue
+		}
+		// Parent qualifiers are singularized (create-project-task).
+		parts = append(parts, singularize(segment))
+	}
+	return strings.Join(parts, "-")
 }
 
 func (g *Generator) extractResourceFromPath(path string) string {
@@ -1133,8 +1219,17 @@ func singularize(s string) string {
 	if strings.HasSuffix(s, "ies") {
 		return strings.TrimSuffix(s, "ies") + "y"
 	}
-	if strings.HasSuffix(s, "es") {
-		return strings.TrimSuffix(s, "es")
+	// Strip "es" only for words whose stem ends in a sibilant
+	// (box→boxes, class→classes, watch→watches). Plain s-plurals like
+	// "milestones" must lose only the final "s" — the previous blanket
+	// "es" rule truncated them to "mileston" (DF-007).
+	if strings.HasSuffix(s, "es") && len(s) > 3 {
+		stem := strings.TrimSuffix(s, "es")
+		last := stem[len(stem)-1]
+		if last == 's' || last == 'x' || last == 'z' ||
+			strings.HasSuffix(stem, "ch") || strings.HasSuffix(stem, "sh") {
+			return stem
+		}
 	}
 	if strings.HasSuffix(s, "s") && !strings.HasSuffix(s, "ss") {
 		return strings.TrimSuffix(s, "s")
