@@ -1,15 +1,18 @@
 package builtin
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1282,6 +1285,161 @@ func TestCommandsToMetadata_AnnotationExactPaths(t *testing.T) {
 		require.NotContains(t, cmd.Path, "/milestons", "truncated path on %q", cmd.Name)
 		require.NotContains(t, cmd.Path, "milestonId", "truncated param on %q", cmd.Name)
 	}
+}
+
+// TestCommandsToMetadata_FlatRunnableExamples proves DF-010: the persisted
+// store's help examples are FLAT (no resource groups — the store reloads
+// every operation command at the root), so they are verbatim-runnable, and
+// path parameters are documented as positional args in the persisted help
+// text (Args section).
+func TestCommandsToMetadata_FlatRunnableExamples(t *testing.T) {
+	specJSON := []byte(taskForgeNoIDSpecJSON)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData(specJSON)
+	require.NoError(t, err)
+
+	gen, err := generator.NewGenerator(generator.Config{
+		AppName: "openapi-cli",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON)
+	require.NoError(t, err)
+	require.Len(t, metadata.Commands, 22)
+
+	// The board scenario: the grouped example "openapi-cli projects
+	// get-project <project_id>" references a group that does not exist on
+	// the persisted tree ("unknown command \"projects\""). The persisted
+	// example must be flat and therefore runnable.
+	var getProject, createProject *cmdstore.CommandMetadata
+	for i := range metadata.Commands {
+		cmd := &metadata.Commands[i]
+		switch cmd.Name {
+		case "get-project":
+			getProject = cmd
+		case "create-project":
+			createProject = cmd
+		}
+	}
+	require.NotNil(t, getProject)
+	require.NotNil(t, createProject)
+
+	// GET /health has no path params; its command is list-health.
+	var listHealth *cmdstore.CommandMetadata
+	for i := range metadata.Commands {
+		if metadata.Commands[i].Name == "list-health" {
+			listHealth = &metadata.Commands[i]
+		}
+	}
+	require.NotNil(t, listHealth)
+
+	require.Contains(t, getProject.Example, "openapi-cli get-project <project_id>")
+	require.NotContains(t, getProject.Example, "openapi-cli projects get-project")
+	require.Contains(t, createProject.Example, "openapi-cli create-project")
+	require.NotContains(t, createProject.Example, "openapi-cli projects create-project")
+
+	// Path params are documented as positional args in the persisted Long.
+	require.Contains(t, getProject.Long, "Args:")
+	require.Contains(t, getProject.Long, "project_id (required)")
+	// Operations without path params have no Args section.
+	require.NotContains(t, createProject.Long, "Args:")
+	require.NotContains(t, listHealth.Long, "Args:")
+}
+
+// TestPersistedHelp_FlatRunnableExamples rebuilds the flat tree exactly like
+// a fresh CLI start (cmdstore load) and proves every example line shown in
+// --help resolves to a real command — no "unknown command <group>" — and
+// that rendered help documents positional path args (DF-010).
+func TestPersistedHelp_FlatRunnableExamples(t *testing.T) {
+	specJSON := []byte(taskForgeNoIDSpecJSON)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData(specJSON)
+	require.NoError(t, err)
+
+	gen, err := generator.NewGenerator(generator.Config{
+		AppName: "openapi-cli",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON)
+	require.NoError(t, err)
+
+	store := cmdstore.NewCommandStore()
+	require.NoError(t, store.Save(&cmdstore.StoredData{
+		Commands: metadata.Commands,
+		BaseURL:  "http://localhost:9801",
+	}))
+
+	l := cmdstore.NewLoader(store, "http://localhost:9801")
+	loaded, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, loaded, len(metadata.Commands))
+
+	root := &cobra.Command{Use: "openapi-cli"}
+	for _, cmd := range loaded {
+		root.AddCommand(cmd)
+	}
+
+	// Every example line (across every persisted command) must resolve to
+	// a real command on the flat tree.
+	for _, cmd := range loaded {
+		for _, line := range strings.Split(cmd.Example, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			fields := strings.Fields(line)
+			require.GreaterOrEqual(t, len(fields), 2,
+				"example line %q on %s has no command", line, cmd.Name())
+			require.Equal(t, "openapi-cli", fields[0],
+				"example line %q on %s does not start with the app name", line, cmd.Name())
+
+			// Walk the command path until the first flag/arg token.
+			var path []string
+			for _, tok := range fields[1:] {
+				if strings.HasPrefix(tok, "-") || strings.HasPrefix(tok, "<") || strings.HasPrefix(tok, "[") {
+					break
+				}
+				path = append(path, tok)
+			}
+			found, _, err := root.Find(path)
+			require.NoError(t, err)
+			require.NotNil(t, found,
+				"example %q on %s does not resolve to a command on the flat tree", line, cmd.Name())
+			require.Equal(t, cmd.Name(), found.Name(),
+				"example %q on %s resolves to the wrong command", line, cmd.Name())
+		}
+	}
+
+	// Rendered help (what a user reads) mentions the positional arg and
+	// shows flat examples.
+	var getProject *cobra.Command
+	for _, cmd := range loaded {
+		if cmd.Name() == "get-project" {
+			getProject = cmd
+		}
+	}
+	require.NotNil(t, getProject)
+
+	var buf bytes.Buffer
+	getProject.SetOut(&buf)
+	getProject.SetErr(&buf)
+	require.NoError(t, getProject.Help())
+	helpText := buf.String()
+	require.Contains(t, helpText, "Args:")
+	require.Contains(t, helpText, "project_id (required)")
+	require.Contains(t, helpText, "openapi-cli get-project <project_id>")
+	require.NotContains(t, helpText, "openapi-cli projects get-project")
 }
 
 func TestDefaultBaseURLFromSpec(t *testing.T) {

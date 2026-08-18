@@ -365,12 +365,22 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 		operationBaseURL = baseURL
 	}
 
+	// The persisted store reloads every operation command FLAT at the root
+	// (no resource groups), so the grouped example on the cobra command
+	// ("openapi-cli projects create-project …") would reference a
+	// non-existent group. The generator stamps a flat, verbatim-runnable
+	// example; prefer it when present (DF-010).
+	example := cmd.Example
+	if flat, ok := cmd.Annotations[generator.AnnotationOperationExample]; ok && flat != "" {
+		example = flat
+	}
+
 	cmdMeta := cmdstore.CommandMetadata{
 		Name:    cmd.Name(),
 		Use:     cmd.Use,
 		Short:   cmd.Short,
 		Long:    cmd.Long,
-		Example: cmd.Example,
+		Example: example,
 		BaseURL: operationBaseURL,
 		Path:    path,
 		Method:  method,

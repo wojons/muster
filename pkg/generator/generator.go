@@ -167,6 +167,15 @@ const (
 	AnnotationOperationPath   = "muster/openapi-path"
 	AnnotationOperationMethod = "muster/openapi-method"
 	AnnotationOperationServer = "muster/openapi-server"
+
+	// AnnotationOperationExample carries the FLAT (group-less) example
+	// string for the operation. The persisted command store reloads every
+	// operation command flat at the root (no resource groups exist there),
+	// so the grouped form in the cobra Example field — "AppName resource
+	// name …" — references a non-existent group command and cannot be run
+	// verbatim. Persistence consumers must prefer this annotation so the
+	// help users actually see contains examples that run (DF-010).
+	AnnotationOperationExample = "muster/openapi-example"
 )
 
 type NamingStrategy int
@@ -361,10 +370,13 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation, usedNames map[s
 
 	// Stamp the exact operation metadata so downstream consumers
 	// (persistence, docs) never have to re-infer path/method/server from
-	// the command name (DF-007).
+	// the command name (DF-007). Also stamp the FLAT example: the persisted
+	// store loads every operation flat at the root, where the grouped
+	// cobra Example would reference a non-existent group (DF-010).
 	cmd.Annotations = map[string]string{
-		AnnotationOperationPath:   op.Path,
-		AnnotationOperationMethod: op.Method,
+		AnnotationOperationPath:    op.Path,
+		AnnotationOperationMethod:  op.Method,
+		AnnotationOperationExample: g.buildFlatExample(name, op),
 	}
 	if op.ServerURL != "" {
 		cmd.Annotations[AnnotationOperationServer] = op.ServerURL
@@ -558,17 +570,42 @@ func (g *Generator) addStringFlag(cmd *cobra.Command, name, shorthand string, pa
 	cmd.Flags().StringP(name, shorthand, defaultVal, description)
 }
 
+// pathParams returns the operation's path parameters as positional-arg
+// metadata: declared path parameters first (with spec descriptions),
+// followed by any path-template parameters the spec never declared (e.g.
+// /projects/{project_id} with no parameters block). The runtime treats
+// both forms as positional (see extractPathParams and the loader's
+// extractPathParamsFromPath), so help must document both; undeclared
+// template parameters are required by definition — they are baked into
+// the URL template (DF-010).
+func (g *Generator) pathParams(op *openapi.Operation) []openapi.Parameter {
+	var params []openapi.Parameter
+	seen := make(map[string]bool)
+	for _, param := range op.Parameters {
+		if param.In != "path" {
+			continue
+		}
+		params = append(params, param)
+		seen[param.Name] = true
+	}
+	for _, name := range g.extractPathParams(op.Path) {
+		if seen[name] {
+			continue
+		}
+		params = append(params, openapi.Parameter{Name: name, In: "path", Required: true})
+	}
+	return params
+}
+
 func (g *Generator) buildUsage(name string, op *openapi.Operation) string {
 	var args []string
 
-	for _, param := range op.Parameters {
-		if param.In == "path" {
-			placeholder := fmt.Sprintf("<%s>", param.Name)
-			if !param.Required {
-				placeholder = fmt.Sprintf("[%s]", placeholder)
-			}
-			args = append(args, placeholder)
+	for _, param := range g.pathParams(op) {
+		placeholder := fmt.Sprintf("<%s>", param.Name)
+		if !param.Required {
+			placeholder = fmt.Sprintf("[%s]", placeholder)
 		}
+		args = append(args, placeholder)
 	}
 
 	if len(args) > 0 {
@@ -588,6 +625,32 @@ func (g *Generator) buildLongDescription(op *openapi.Operation) string {
 	b.WriteString("API Endpoint:\n")
 	fmt.Fprintf(&b, "  %s %s\n\n", op.Method, op.Path)
 
+	// Path parameters are consumed as POSITIONAL ARGS, not flags (the
+	// addFlags pass skips them, and the loader matches them against
+	// positional args at runtime). Document them in their own "Args:"
+	// section so help shows how to invoke the command — a user otherwise
+	// only discovers the positional via the runtime "expected N arguments"
+	// error after trying a --flag that does not exist (DF-010). Template
+	// parameters the spec never declared (e.g. /projects/{project_id} with
+	// no parameters block) are included too: the runtime still requires
+	// them positionally.
+	pathArgs := g.pathParams(op)
+	if len(pathArgs) > 0 {
+		b.WriteString("Args:\n")
+		for _, param := range pathArgs {
+			required := ""
+			if param.Required {
+				required = " (required)"
+			}
+			if param.Description != "" {
+				fmt.Fprintf(&b, "  %s%s: %s\n", param.Name, required, param.Description)
+			} else {
+				fmt.Fprintf(&b, "  %s%s\n", param.Name, required)
+			}
+		}
+		b.WriteString("\n")
+	}
+
 	if len(op.Parameters) > 0 {
 		b.WriteString("Parameters:\n")
 		for _, param := range op.Parameters {
@@ -602,17 +665,41 @@ func (g *Generator) buildLongDescription(op *openapi.Operation) string {
 	return b.String()
 }
 
+// buildExample emits the examples shown in the in-session (grouped) command
+// tree: "AppName [APIName] resource name …". The resource group exists on
+// that tree, so the examples run there.
 func (g *Generator) buildExample(name string, op *openapi.Operation) string {
+	return g.renderExample(name, op, true)
+}
+
+// buildFlatExample emits examples WITHOUT the resource group (and without
+// APIName): the persisted command store reloads every operation command flat
+// at the root, where "AppName resource name …" would reference a non-existent
+// group command. The flat form is what persistence consumers must show in
+// help so users can run examples verbatim (DF-010).
+func (g *Generator) buildFlatExample(name string, op *openapi.Operation) string {
+	return g.renderExample(name, op, false)
+}
+
+// renderExample builds the Examples text for an operation command. When
+// grouped is true the resource (and APIName, when configured) prefix is
+// included; when false the example is "AppName name …" — runnable against
+// the flattened/persisted tree.
+func (g *Generator) renderExample(name string, op *openapi.Operation, grouped bool) string {
 	var examples []string
 
-	resourceName := g.inferResourceName(op)
-	base := fmt.Sprintf("%s %s %s", g.config.AppName, resourceName, name)
-	if g.config.APIName != "" {
-		base = fmt.Sprintf("%s %s %s %s", g.config.AppName, g.config.APIName, resourceName, name)
+	base := fmt.Sprintf("%s %s", g.config.AppName, name)
+	if grouped {
+		resourceName := g.inferResourceName(op)
+		if g.config.APIName != "" {
+			base = fmt.Sprintf("%s %s %s %s", g.config.AppName, g.config.APIName, resourceName, name)
+		} else {
+			base = fmt.Sprintf("%s %s %s", g.config.AppName, resourceName, name)
+		}
 	}
 
-	for _, param := range op.Parameters {
-		if param.In == "path" && param.Required {
+	for _, param := range g.pathParams(op) {
+		if param.Required {
 			base += fmt.Sprintf(" <%s>", param.Name)
 		}
 	}

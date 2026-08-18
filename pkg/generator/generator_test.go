@@ -363,6 +363,34 @@ func TestBuildUsage(t *testing.T) {
 		result := gen.buildUsage("get", op)
 		require.Equal(t, "get <id> [flags]", result)
 	})
+
+	t.Run("template path params without declared parameters", func(t *testing.T) {
+		// Some specs (e.g. task-forge) never declare parameters blocks —
+		// the path template is the only source of truth. The runtime still
+		// demands the positional, so Usage must show it (DF-010).
+		op := &openapi.Operation{
+			Method: "GET",
+			Path:   "/projects/{project_id}",
+		}
+		result := gen.buildUsage("get-project", op)
+		require.Equal(t, "get-project <project_id> [flags]", result)
+	})
+
+	t.Run("declared and template params dedupe", func(t *testing.T) {
+		op := &openapi.Operation{
+			Method: "GET",
+			Path:   "/pets/{id}",
+			Parameters: openapi.Parameters{
+				openapi.Parameter{
+					Name:     "id",
+					In:       "path",
+					Required: true,
+				},
+			},
+		}
+		result := gen.buildUsage("get-pet", op)
+		require.Equal(t, "get-pet <id> [flags]", result)
+	})
 }
 
 func TestExtractPathParams(t *testing.T) {
@@ -757,6 +785,8 @@ func TestBuildLongDescription(t *testing.T) {
 		require.Contains(t, result, "GET /pets")
 		require.Contains(t, result, "Parameters:")
 		require.Contains(t, result, "limit: Maximum number of results")
+		// Query params are flags, not positional args — no Args section.
+		require.NotContains(t, result, "Args:")
 	})
 
 	t.Run("summary only, no description", func(t *testing.T) {
@@ -772,6 +802,8 @@ func TestBuildLongDescription(t *testing.T) {
 		require.Contains(t, result, "POST /pets")
 		// No parameters section when there are no params
 		require.NotContains(t, result, "Parameters:")
+		// No positional args either
+		require.NotContains(t, result, "Args:")
 	})
 
 	t.Run("with required path param", func(t *testing.T) {
@@ -785,6 +817,25 @@ func TestBuildLongDescription(t *testing.T) {
 		result := gen.buildLongDescription(op)
 		require.Contains(t, result, "GET /pets/{petId}")
 		require.Contains(t, result, "petId (required): The pet ID")
+		// Path params are positional args — documented in their own
+		// Args section (DF-010).
+		require.Contains(t, result, "Args:")
+		require.Contains(t, result, "Args:\n  petId (required): The pet ID")
+	})
+
+	t.Run("template path param without declared parameter", func(t *testing.T) {
+		// The spec never declares the parameter — the runtime still
+		// demands it positionally, so help must mention it (DF-010).
+		op := &openapi.Operation{
+			Method: "GET",
+			Path:   "/projects/{project_id}",
+		}
+		result := gen.buildLongDescription(op)
+		require.Contains(t, result, "GET /projects/{project_id}")
+		require.Contains(t, result, "Args:")
+		require.Contains(t, result, "Args:\n  project_id (required)")
+		// No Parameters section — nothing was declared.
+		require.NotContains(t, result, "Parameters:")
 	})
 }
 
@@ -935,10 +986,134 @@ func TestBuildExample(t *testing.T) {
 	})
 }
 
+// TestBuildFlatExample proves the DF-010 flat example form: the persisted
+// command store reloads every operation command at the root (no resource
+// groups), so the examples users see in --help must be "AppName name …"
+// with no group segment — otherwise they reference a non-existent command
+// and cannot be run verbatim.
+func TestBuildFlatExample(t *testing.T) {
+	t.Run("no resource group in flat form", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/pets",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "limit", In: "query"},
+			},
+		}
+		result := gen.buildFlatExample("list-pets", op)
+		require.Contains(t, result, "muster list-pets")
+		require.Contains(t, result, "muster list-pets --output json")
+		require.NotContains(t, result, "pets list-pets")
+	})
+
+	t.Run("path params appended as positional args", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/pets/{id}",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "id", In: "path", Required: true},
+			},
+		}
+		result := gen.buildFlatExample("get-pet-by-id", op)
+		require.Contains(t, result, "muster get-pet-by-id <id>")
+		require.Contains(t, result, "muster get-pet-by-id <id> --output json")
+		require.NotContains(t, result, "pets get-pet-by-id")
+	})
+
+	t.Run("APIName not included in flat form", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "musterflow", APIName: "tiny-test-api", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/hello/{name}",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "name", In: "path", Required: true},
+			},
+		}
+		// The grouped form (in-session tree) keeps the APIName prefix;
+		// the flat form (persisted tree) must not.
+		grouped := gen.buildExample("say-hello", op)
+		require.Contains(t, grouped, "musterflow tiny-test-api hello say-hello <name>")
+		flat := gen.buildFlatExample("say-hello", op)
+		require.Contains(t, flat, "musterflow say-hello <name>")
+		require.NotContains(t, flat, "tiny-test-api")
+		require.NotContains(t, flat, "hello say-hello")
+	})
+
+	t.Run("query filters in flat form", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/pets",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "status", In: "query", Enum: []interface{}{"available", "pending"}},
+			},
+		}
+		result := gen.buildFlatExample("find-pets-by-status", op)
+		require.Contains(t, result, "muster find-pets-by-status --status available")
+	})
+
+	t.Run("template path params without declared parameters", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/projects/{project_id}",
+			Method: "GET",
+		}
+		result := gen.buildFlatExample("get-project", op)
+		require.Contains(t, result, "muster get-project <project_id>")
+		require.Contains(t, result, "muster get-project <project_id> --output json")
+		require.NotContains(t, result, "projects get-project")
+	})
+}
+
+// TestGenerateCommands_FlatExampleAnnotation proves every generated leaf
+// carries the flat example in an annotation: the cobra Example field keeps
+// the grouped form (correct for the in-session tree), while persistence
+// consumers read the annotation to show verbatim-runnable help on the
+// flattened tree (DF-010).
+func TestGenerateCommands_FlatExampleAnnotation(t *testing.T) {
+	gen, err := NewGenerator(Config{
+		AppName: "muster",
+		BaseURL: "https://api.example.com",
+	})
+	require.NoError(t, err)
+
+	doc := loadPetstoreSpec(t)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	petsCmd := commands[0]
+	require.Len(t, petsCmd.Commands(), 3)
+
+	for _, sub := range petsCmd.Commands() {
+		name := sub.Name()
+		require.Contains(t, sub.Example, "muster pets "+name,
+			"grouped example missing resource group on %s", name)
+
+		flat, ok := sub.Annotations[AnnotationOperationExample]
+		require.True(t, ok, "%s missing flat example annotation", name)
+		require.NotEmpty(t, flat)
+		require.Contains(t, flat, "muster "+name)
+		require.NotContains(t, flat, "muster pets "+name)
+	}
+
+	// Path params stay positional in the flat form.
+	var getCmd *cobra.Command
+	for _, sub := range petsCmd.Commands() {
+		if sub.Name() == "get-pet-by-id" {
+			getCmd = sub
+		}
+	}
+	require.NotNil(t, getCmd)
+	require.Contains(t, getCmd.Annotations[AnnotationOperationExample], "muster get-pet-by-id <petId>")
+	require.NotContains(t, getCmd.Annotations[AnnotationOperationExample], "pets")
+}
+
 // ---------------------------------------------------------------------------
 // PHASE 5: Naming helpers
 // ---------------------------------------------------------------------------
-
 func TestInferResourceName(t *testing.T) {
 	gen, _ := NewGenerator(Config{AppName: "test", BaseURL: "test"})
 
