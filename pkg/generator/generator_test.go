@@ -852,6 +852,52 @@ func TestBuildExample(t *testing.T) {
 		require.NotContains(t, result, "muster pets list-pets")
 	})
 
+	t.Run("APIName group prefix included when set", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "musterflow", APIName: "tiny-test-api", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/hello/{name}",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "name", In: "path", Required: true},
+			},
+		}
+		result := gen.buildExample("say-hello", op)
+		require.Contains(t, result, "musterflow tiny-test-api hello say-hello <name>")
+		require.Contains(t, result, "musterflow tiny-test-api hello say-hello <name> --output json")
+		// Must NOT contain the un-prefixed form
+		require.NotContains(t, result, "musterflow hello say-hello")
+	})
+
+	t.Run("APIName empty preserves legacy format", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "musterflow", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/hello/{name}",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "name", In: "path", Required: true},
+			},
+		}
+		result := gen.buildExample("say-hello", op)
+		require.Contains(t, result, "musterflow hello say-hello <name>")
+		require.NotContains(t, result, "tiny-test-api")
+	})
+
+	t.Run("APIName group prefix with query params", func(t *testing.T) {
+		gen, _ := NewGenerator(Config{AppName: "musterflow", APIName: "my-api", BaseURL: "https://api.example.com"})
+		op := &openapi.Operation{
+			Path:   "/pets",
+			Method: "GET",
+			Parameters: openapi.Parameters{
+				{Name: "limit", In: "query"},
+			},
+		}
+		result := gen.buildExample("list-pets", op)
+		require.Contains(t, result, "musterflow my-api pets list-pets")
+		require.Contains(t, result, "musterflow my-api pets list-pets --limit")
+		require.Contains(t, result, "musterflow my-api pets list-pets --output json")
+		require.NotContains(t, result, "musterflow pets list-pets")
+	})
+
 	t.Run("enum values used in filter example", func(t *testing.T) {
 		gen, _ := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
 		op := &openapi.Operation{

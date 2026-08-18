@@ -148,6 +148,13 @@ type Config struct {
 	ExcludeTags      []string
 	IncludeOnlyTags  []string
 	CustomMappings   map[string]string
+
+	// APIName is the group-command name that generated commands are
+	// nested under by the consumer (e.g. "tiny-test-api"). When non-empty,
+	// buildExample emits the full "AppName APIName resource op …" path so
+	// the help Examples are directly runnable. When empty, the legacy
+	// "AppName resource op …" format is preserved (backward compat).
+	APIName string
 }
 
 // Annotation keys stamped onto generated leaf commands so downstream
@@ -600,6 +607,9 @@ func (g *Generator) buildExample(name string, op *openapi.Operation) string {
 
 	resourceName := g.inferResourceName(op)
 	base := fmt.Sprintf("%s %s %s", g.config.AppName, resourceName, name)
+	if g.config.APIName != "" {
+		base = fmt.Sprintf("%s %s %s %s", g.config.AppName, g.config.APIName, resourceName, name)
+	}
 
 	for _, param := range op.Parameters {
 		if param.In == "path" && param.Required {
