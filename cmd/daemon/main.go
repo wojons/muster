@@ -23,6 +23,14 @@ import (
 // --help never shows a literal "<socket-path>" template.
 const defaultSocketPath = "/tmp/openapi-cli.sock"
 
+// knownCommands are the subcommands recognized anywhere in the argument
+// list (before or after flags). Package-level so both the action scanner
+// in run() and the restart child-args rewrite use the same set.
+var knownCommands = map[string]bool{
+	"start": true, "stop": true, "restart": true, "reload": true,
+	"proxy": true, "status": true,
+}
+
 // Command-line flags
 var (
 	backendURL  string
@@ -47,11 +55,6 @@ func run() error {
 	allArgs := os.Args[1:]
 	action := ""
 	var flagArgs []string
-
-	knownCommands := map[string]bool{
-		"start": true, "stop": true, "restart": true, "reload": true,
-		"proxy": true, "status": true,
-	}
 
 	// Find the first known subcommand; everything else is treated as flags
 	for i, arg := range allArgs {
@@ -223,6 +226,13 @@ func handleStart(controller *daemon.Controller, handler http.Handler) error {
 // to the env marker, so it stays alive serving the socket while the parent
 // returns to the shell.
 func spawnDaemonChild(controller *daemon.Controller) error {
+	return spawnDaemonChildWithArgs(controller, os.Args[1:])
+}
+
+// spawnDaemonChildWithArgs is spawnDaemonChild with an explicit child
+// command line, used by `restart` to bring a fresh daemon up with the
+// subcommand rewritten to "start" (see startChildArgs).
+func spawnDaemonChildWithArgs(controller *daemon.Controller, args []string) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("locate executable: %w", err)
@@ -234,7 +244,7 @@ func spawnDaemonChild(controller *daemon.Controller) error {
 	}
 	defer devnull.Close()
 
-	cmd := exec.Command(exe, os.Args[1:]...)
+	cmd := exec.Command(exe, args...)
 	cmd.Env = append(os.Environ(), "MUSTER_DAEMON_CHILD=1")
 	cmd.Stdin = devnull
 	cmd.Stdout = devnull
@@ -257,6 +267,26 @@ func spawnDaemonChild(controller *daemon.Controller) error {
 	fmt.Printf("Socket: %s\n", socketPath)
 	fmt.Printf("Token file: %s\n", controller.GetTokenPath())
 	return nil
+}
+
+// startChildArgs returns the child command-line args for a daemon spawned
+// by `restart`: the invoking command line with the subcommand token
+// rewritten to "start". The re-exec'd child then runs the `start` path —
+// serving the socket in the foreground because MUSTER_DAEMON_CHILD=1 skips
+// the daemonize branch — instead of recursing into restart's
+// stop-then-spawn logic. If no subcommand token is present (defensive),
+// "start" is prepended.
+func startChildArgs() []string {
+	args := os.Args[1:]
+	for i, arg := range args {
+		if knownCommands[arg] {
+			rewritten := make([]string, len(args))
+			copy(rewritten, args)
+			rewritten[i] = "start"
+			return rewritten
+		}
+	}
+	return append([]string{"start"}, args...)
 }
 
 // waitForDaemonReady polls until the daemon socket file exists AND the PID
@@ -426,15 +456,32 @@ func handleStop(controller *daemon.Controller) error {
 	return nil
 }
 
+// spawnRestartChild is the spawn entry point `restart` uses to bring a
+// fresh daemon up after stopping the old one. It is a package-level
+// variable so unit tests can stub the re-exec side without spawning the
+// test binary as a daemon child.
+var spawnRestartChild = spawnDaemonChildWithArgs
+
+// handleRestart stops the running daemon (if any) and spawns a fresh one
+// via the same re-exec pattern as `start`. Restart runs in the invoking
+// process, which CAN re-spawn the daemon — the previous behavior left the
+// advertised first-class command stopping the daemon without bringing it
+// back, so a subsequent `status` showed Running: false (DF-011).
 func handleRestart(controller *daemon.Controller) error {
 	if controller == nil {
 		return fmt.Errorf("controller is required")
 	}
 
-	// If a PID file exists and the process is running, stop it first.
+	// Stop the running daemon first (PID-file based, same as `stop`) so the
+	// socket is released before the fresh daemon binds it.
 	if _, err := os.Stat(pidFile); err == nil {
 		pid, err := readPIDFile(pidFile)
-		if err == nil && isProcessRunning(pid) {
+		if err != nil || !isProcessRunning(pid) {
+			// Stale PID file — clean up and start fresh below.
+			_ = os.Remove(pidFile)
+			_ = os.Remove(socketPath)
+			fmt.Println("Daemon is not running; starting fresh")
+		} else {
 			if err := terminateProcess(pid); err != nil {
 				return fmt.Errorf("send SIGTERM to PID %d: %w", pid, err)
 			}
@@ -445,17 +492,21 @@ func handleRestart(controller *daemon.Controller) error {
 				}
 				time.Sleep(50 * time.Millisecond)
 			}
+			if isProcessRunning(pid) {
+				return fmt.Errorf("daemon (PID %d) did not exit after SIGTERM", pid)
+			}
 			_ = os.Remove(pidFile)
 			_ = os.Remove(socketPath)
-			fmt.Println("Daemon stopped; restart must be initiated externally (this process cannot re-spawn itself)")
-			return nil
+			fmt.Println("Daemon stopped successfully")
 		}
-		// Stale PID file — clean up
-		_ = os.Remove(pidFile)
+	} else {
+		fmt.Println("Daemon is not running; starting fresh")
 	}
 
-	fmt.Println("Restarting daemon...")
-	return controller.Restart()
+	// Spawn a fresh daemon child with the subcommand rewritten to "start"
+	// (startChildArgs), so the child serves the socket in the foreground
+	// (MUSTER_DAEMON_CHILD=1) instead of recursing into this function.
+	return spawnRestartChild(controller, startChildArgs())
 }
 
 func handleStatus(controller *daemon.Controller) error {

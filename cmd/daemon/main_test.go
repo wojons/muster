@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -247,9 +249,24 @@ func TestHandleStart_Success(t *testing.T) {
 }
 
 func TestHandleRestart_Success(t *testing.T) {
+	// Stub the spawn side so the test binary is never re-exec'd as a
+	// daemon child (the test process has no socket-serving main()).
+	oldSpawn := spawnRestartChild
+	defer func() { spawnRestartChild = oldSpawn }()
+
+	var gotArgs []string
+	spawnRestartChild = func(c *daemon.Controller, args []string) error {
+		gotArgs = args
+		return nil
+	}
+
 	tmpDir := t.TempDir()
-	pidFile := filepath.Join(tmpDir, "test-restart.pid")
-	socketPath := filepath.Join(tmpDir, "test-restart.sock")
+	pidFile = filepath.Join(tmpDir, "test-restart.pid")
+	socketPath = filepath.Join(tmpDir, "test-restart.sock")
+	defer func() {
+		pidFile = ""
+		socketPath = defaultSocketPath
+	}()
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
 		PidFilePath: pidFile,
@@ -258,8 +275,9 @@ func TestHandleRestart_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	err = handleRestart(controller)
-	// Restart might fail if daemon is not running, but shouldn't crash
-	t.Logf("Restart result: %v", err)
+	require.NoError(t, err, "restart should succeed when daemon is not running")
+	require.NotNil(t, gotArgs, "restart must spawn a fresh daemon even when none was running")
+	require.Equal(t, "start", gotArgs[0], "spawned child must run the start path")
 }
 
 func TestHandleProxyStart_Success(t *testing.T) {
@@ -308,26 +326,140 @@ func TestRun_StartAction(t *testing.T) {
 }
 
 func TestRun_RestartAction(t *testing.T) {
+	// Stub the spawn side so the test binary is never re-exec'd as a
+	// daemon child.
+	oldSpawn := spawnRestartChild
+	defer func() { spawnRestartChild = oldSpawn }()
+
+	spawnRestartChild = func(c *daemon.Controller, args []string) error { return nil }
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	// Point the globals at a scratch dir so the test never touches (or
+	// worse, SIGTERMs) a real daemon registered under the default paths.
 	tmpDir := t.TempDir()
-	socketPath := filepath.Join(tmpDir, "test-restart.sock")
-	pidFile := filepath.Join(tmpDir, "test-restart.pid")
+	socketPath = filepath.Join(tmpDir, "test-restart.sock")
+	pidFile = filepath.Join(tmpDir, "test-restart.pid")
+	defer func() {
+		socketPath = defaultSocketPath
+		pidFile = ""
+	}()
+
+	os.Args = []string{"muster-daemon", "restart"}
+
+	err := run()
+	require.NoError(t, err, "restart should succeed")
+}
+
+// TestStartChildArgs_RewritesActionToken verifies that a restart-spawned
+// daemon child gets the subcommand rewritten to "start" regardless of
+// where the action token sits in the command line (DF-011).
+func TestStartChildArgs_RewritesActionToken(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+
+	cases := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{
+			name: "action first",
+			args: []string{"openapi-daemon", "restart", "--socket-path", "/tmp/x.sock"},
+			want: []string{"start", "--socket-path", "/tmp/x.sock"},
+		},
+		{
+			name: "action after flags",
+			args: []string{"openapi-daemon", "--socket-path", "/tmp/x.sock", "restart"},
+			want: []string{"--socket-path", "/tmp/x.sock", "start"},
+		},
+		{
+			name: "reload shares restart path",
+			args: []string{"openapi-daemon", "reload", "--socket-path", "/tmp/x.sock"},
+			want: []string{"start", "--socket-path", "/tmp/x.sock"},
+		},
+		{
+			name: "no action token",
+			args: []string{"openapi-daemon", "--socket-path", "/tmp/x.sock"},
+			want: []string{"start", "--socket-path", "/tmp/x.sock"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Args = tc.args
+			require.Equal(t, tc.want, startChildArgs())
+		})
+	}
+}
+
+// TestHandleRestart_StopsOldDaemonThenSpawns verifies that restart with a
+// live daemon SIGTERMs the old process, removes the stale socket/PID files,
+// and then spawns a fresh daemon via the start path (DF-011).
+func TestHandleRestart_StopsOldDaemonThenSpawns(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX process signals")
+	}
+
+	// Stub the spawn side so the test binary is never re-exec'd as a
+	// daemon child.
+	oldSpawn := spawnRestartChild
+	defer func() { spawnRestartChild = oldSpawn }()
+
+	var gotArgs []string
+	spawnRestartChild = func(c *daemon.Controller, args []string) error {
+		gotArgs = args
+		return nil
+	}
+
+	tmpDir := t.TempDir()
+	pidFile = filepath.Join(tmpDir, "test-restart.pid")
+	socketPath = filepath.Join(tmpDir, "test-restart.sock")
+	defer func() {
+		pidFile = ""
+		socketPath = defaultSocketPath
+	}()
+
+	// A stand-in "daemon": a long-lived child process we can SIGTERM.
+	// The test process is its parent, so a goroutine reaps it the moment
+	// it dies — otherwise it lingers as a zombie and signal-0 probes keep
+	// reporting it "running" (production daemons are reparented to init
+	// and reaped there, so the wait loop sees them exit normally).
+	sleeper := exec.Command("sleep", "30")
+	require.NoError(t, sleeper.Start())
+	waitErrCh := make(chan error, 1)
+	go func() { waitErrCh <- sleeper.Wait() }()
+	// Ensure no stray process survives an early failure; the buffered
+	// channel lets the reaper goroutine finish on its own.
+	defer func() { _ = sleeper.Process.Kill() }()
+	require.NoError(t, writePIDFile(pidFile, sleeper.Process.Pid))
+	require.NoError(t, os.WriteFile(socketPath, []byte(""), 0o644))
 
 	controller, err := daemon.NewController(daemon.ControllerConfig{
 		PidFilePath: pidFile,
 		SocketPath:  socketPath,
-		Logger:      &daemonLogger{},
 	})
-	require.NoError(t, err, "should create controller")
+	require.NoError(t, err)
 
 	err = handleRestart(controller)
-	require.NoError(t, err, "restart should succeed")
+	require.NoError(t, err)
 
-	status, err := controller.Status()
-	require.NoError(t, err, "should get status after restart")
-	require.True(t, status.Running, "controller should be running after restart")
+	// The old daemon must have been SIGTERMed to death.
+	select {
+	case waitErr := <-waitErrCh:
+		require.Error(t, waitErr, "old daemon process should have been terminated")
+		require.Contains(t, waitErr.Error(), "signal", "old daemon should die by signal")
+	case <-time.After(5 * time.Second):
+		t.Fatal("old daemon process was not terminated by restart")
+	}
 
-	_ = os.Remove(pidFile)
-	_ = os.Remove(socketPath)
+	// Stale artifacts removed, fresh daemon spawned via the start path.
+	_, err = os.Stat(pidFile)
+	require.True(t, os.IsNotExist(err), "PID file should be removed before respawn")
+	_, err = os.Stat(socketPath)
+	require.True(t, os.IsNotExist(err), "socket should be removed before respawn")
+	require.NotNil(t, gotArgs, "restart must spawn a fresh daemon after stopping the old one")
+	require.Equal(t, "start", gotArgs[0], "spawned child must run the start path")
 }
 
 func TestDaemonLogger_ErrorMessage(t *testing.T) {

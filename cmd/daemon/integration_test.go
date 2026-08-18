@@ -183,7 +183,10 @@ func TestBinaryExecution_SocketPathFlag(t *testing.T) {
 	t.Logf("Binary with custom socket: %v, output: %s", err, stdout.String())
 }
 
-// TestBinaryExecution_RestartCommand tests restart workflow
+// TestBinaryExecution_RestartCommand verifies the full restart workflow
+// (DF-011): start a daemon, restart it — the old process exits and a fresh
+// one serves the same socket — then confirm status reports Running: true
+// under a new PID, and stop the restarted daemon for cleanup.
 func TestBinaryExecution_RestartCommand(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err)
@@ -191,20 +194,49 @@ func TestBinaryExecution_RestartCommand(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test-restart.sock")
+	pidPath := socketPath + ".pid"
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	runDaemonCmd := func(args ...string) string {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, binaryPath, args...)
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "command %v failed: %s", args, out)
+		return string(out)
+	}
 
-	cmd := exec.CommandContext(ctx, binaryPath, "restart", "--socket-path", socketPath)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	// Start the daemon (spawns a detached child).
+	runDaemonCmd("start", "--socket-path", socketPath)
 
-	_ = cmd.Run() // Ignore error - just testing that binary was built
+	oldPID, err := readPIDFile(pidPath)
+	require.NoError(t, err, "start should write a PID file")
+	require.True(t, isProcessRunning(oldPID), "daemon should be running after start")
 
-	t.Logf("Restart command stdout: %s", stdout.String())
-	t.Logf("Restart command stderr: %s", stderr.String())
+	// Restart: stops the old daemon and spawns a fresh one on the same socket.
+	out := runDaemonCmd("restart", "--socket-path", socketPath)
+	require.Contains(t, out, "Daemon started successfully", "restart must bring the daemon back up")
+
+	// The old daemon must be gone.
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && isProcessRunning(oldPID) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	require.False(t, isProcessRunning(oldPID), "old daemon PID %d should have exited after restart", oldPID)
+
+	// Status must report the daemon running again, under a NEW PID.
+	statusOut := runDaemonCmd("status", "--socket-path", socketPath)
+	require.Contains(t, statusOut, "Running:     true", "status must report Running: true after restart")
+
+	newPID, err := readPIDFile(pidPath)
+	require.NoError(t, err, "restart should write a fresh PID file")
+	require.NotEqual(t, oldPID, newPID, "restart must spawn a new daemon process")
+	require.True(t, isProcessRunning(newPID), "restarted daemon should be running")
+
+	// Cleanup: stop the restarted daemon.
+	stopOut := runDaemonCmd("stop", "--socket-path", socketPath)
+	require.Contains(t, stopOut, "Daemon stopped successfully")
+	require.False(t, isProcessRunning(newPID), "daemon should be stopped after cleanup")
 }
 
 // TestBinaryExecution_BuildingBinary verifies build process
