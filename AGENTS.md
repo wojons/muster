@@ -28,7 +28,7 @@ make test-e2e                 # ⭐ END-TO-END TESTS
 make test-race                # Race condition tests
 
 # Validation
-make validate                 # ⭐ FULL SYSTEM VALIDATION
+make validate                 # Full validation gate: unit + integration + security + lint + vet (./demo/run-all.sh is the real e2e gate)
 make demo                     # Integration demo (STATUS: 5/10 mocked — remediation in progress; NOT a green gate)
 ./demo/run-all.sh             # ⭐ REAL end-to-end gate (build+services+demo scripts, 23+ checks)
 check                         # Run all checks (test + lint + validate)
@@ -454,7 +454,7 @@ demo/
 - **Memory Bank**: `.memory-bank/` (project context and decisions)
 - **Contributing**: `CONTRIBUTING.md`
 - **Makefile**: `make help` for all targets
-- **Go version**: 1.26.1 (see go.mod)
+- **Go version**: 1.26.6 (see go.mod)
 - **Specs**: `specs/` (276 specification files)
 - **Demo**: `demo/` (prove system works)
 - **Skills**: `.agents/skills/` (63 available skills)

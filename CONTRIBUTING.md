@@ -7,7 +7,7 @@ Thanks for contributing. Here's how.
 ```bash
 git clone https://github.com/wojons/muster.git
 cd muster
-go build ./...
+make build-cli        # -> bin/openapi-cli
 ```
 
 ## Making changes
@@ -15,7 +15,7 @@ go build ./...
 1. Fork the repo
 2. Create a branch: `git checkout -b feature/your-thing`
 3. Make your changes
-4. Build: `go build ./...`
+4. Build: `make build-cli` (produces `bin/openapi-cli` — plain `go build ./...` in this multi-main layout compiles but writes no binaries)
 5. Run the demo: `./demo/run-all.sh`
 6. Commit: `git commit -m "feat: your thing"`
 7. Push: `git push origin feature/your-thing`

@@ -628,7 +628,7 @@ demo: build demo-setup ## Run integration demo (STATUS: 5/10 mocked — remediat
 	@echo "Demo complete. See ./demo/run-all.sh for the production gate."
 
 .PHONY: validate
-validate: test-integration test-security-audit ## Run full system validation
+validate: test-unit lint vet test-integration test-security-audit ## Run full system validation
 	@echo "=== Full System Validation ==="
 	@echo ""
 	@echo "Running integration tests..."
