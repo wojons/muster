@@ -3016,3 +3016,65 @@ func findGroup(t *testing.T, commands []*cobra.Command, name string) *cobra.Comm
 	t.Fatalf("resource group %q not found", name)
 	return nil
 }
+
+// DF-017: array query params must serialize as repeated keys (?tags=a&tags=b),
+// not Go's %v "[a b]" formatting.
+func TestGenerateCommands_ArrayQueryParam(t *testing.T) {
+	var receivedQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{"id":1}]`))
+	}))
+	defer srv.Close()
+
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: srv.URL})
+	require.NoError(t, err)
+
+	// Spec with an array query param on listWidgets
+	specJSON := `{
+  "openapi": "3.0.0",
+  "info": {"title": "Widget API", "version": "1.0.0"},
+  "paths": {
+    "/widgets": {
+      "get": {
+        "operationId": "listWidgets",
+        "summary": "List widgets",
+        "parameters": [
+          {"name": "tags", "in": "query", "schema": {"type": "array", "items": {"type": "string"}}}
+        ],
+        "responses": {"200": {"description": "OK"}}
+      }
+    }
+  }
+}`
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(specJSON))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	widgetsCmd := commands[0]
+	listCmd, _, err := widgetsCmd.Find([]string{"list-widgets"})
+	require.NoError(t, err)
+	require.NotNil(t, listCmd)
+
+	// Set the tags flag (StringSlice) and run
+	require.NoError(t, listCmd.Flags().Set("tags", "a,b"))
+	require.NoError(t, listCmd.Flags().Set("output", "json"))
+
+	buf := new(bytes.Buffer)
+	listCmd.SetOut(buf)
+	listCmd.SetErr(buf)
+
+	require.NoError(t, listCmd.RunE(listCmd, []string{}))
+
+	// The server must receive repeated keys, not "[a b]"
+	require.Contains(t, receivedQuery, "tags=a")
+	require.Contains(t, receivedQuery, "tags=b")
+	require.NotContains(t, receivedQuery, "[a b]")
+}

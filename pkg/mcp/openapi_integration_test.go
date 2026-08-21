@@ -476,6 +476,26 @@ func TestExecuteHTTP(t *testing.T) {
 		_, ok := decoded.([]interface{})
 		assert.True(t, ok, "decoded result should be a JSON array")
 	})
+
+	// DF-017: slice query params must serialize as repeated keys, not "[a b]".
+	t.Run("GET with slice query param serializes as repeated keys", func(t *testing.T) {
+		var receivedQuery string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			receivedQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"ok":true}`))
+		}))
+		defer srv.Close()
+
+		_, err := ExecuteHTTP(srv.URL, "GET", "/widgets", map[string]interface{}{
+			"tags": []string{"a", "b"},
+		})
+		require.NoError(t, err)
+		// Must be repeated keys, not "[a b]"
+		assert.Contains(t, receivedQuery, "tags=a")
+		assert.Contains(t, receivedQuery, "tags=b")
+		assert.NotContains(t, receivedQuery, "[a b]")
+	})
 }
 
 // =============================================================================

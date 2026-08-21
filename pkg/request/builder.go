@@ -23,6 +23,7 @@ type Builder struct {
 	Headers        map[string]string
 	PathParams     map[string]string
 	QueryParams    map[string]string
+	QueryParamList [][]string // repeated query keys, e.g. {"tags","a"},{"tags","b"} (DF-017)
 	Body           io.Reader
 	contentType    string
 	multipartParts map[string]string // fieldName → filePath
@@ -125,6 +126,16 @@ func (b *Builder) WithQueryParam(name, value string) *Builder {
 		b.QueryParams = make(map[string]string)
 	}
 	b.QueryParams[name] = value
+	return b
+}
+
+// WithQueryParamSlice sets a query parameter from a slice of strings,
+// emitting each element as a repeated key (e.g. ?tags=a&tags=b).
+// This avoids Go's %v formatting which produces "[a b]" (DF-017).
+func (b *Builder) WithQueryParamSlice(name string, values []string) *Builder {
+	for _, v := range values {
+		b.QueryParamList = append(b.QueryParamList, []string{name, v})
+	}
 	return b
 }
 
@@ -316,11 +327,17 @@ func (b *Builder) buildURLFor(path string) string {
 	}
 
 	// Add query parameters
-	if len(b.QueryParams) > 0 {
-		parts := make([]string, 0, len(b.QueryParams))
-		for name, value := range b.QueryParams {
-			parts = append(parts, name+"="+value)
+	parts := make([]string, 0, len(b.QueryParams)+len(b.QueryParamList))
+	for name, value := range b.QueryParams {
+		parts = append(parts, name+"="+value)
+	}
+	// Repeated query keys (DF-017): emit ?tags=a&tags=b
+	for _, kv := range b.QueryParamList {
+		if len(kv) == 2 {
+			parts = append(parts, kv[0]+"="+kv[1])
 		}
+	}
+	if len(parts) > 0 {
 		url += "?" + strings.Join(parts, "&")
 	}
 

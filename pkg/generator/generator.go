@@ -983,7 +983,13 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 				}
 				flagName := g.normalizeFlagName(param.Name)
 				if cmd.Flag(flagName) != nil && cmd.Flag(flagName).Changed {
-					builder.WithQueryParam(param.Name, fmt.Sprintf("%v", value))
+					// DF-017: serialize slice query params as repeated keys
+					// (?tags=a&tags=b), not Go's %v "[a b]".
+					if slice, ok := value.([]string); ok && len(slice) > 0 {
+						builder.WithQueryParamSlice(param.Name, slice)
+					} else {
+						builder.WithQueryParam(param.Name, fmt.Sprintf("%v", value))
+					}
 				}
 			}
 		}

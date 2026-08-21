@@ -153,6 +153,16 @@ func (e *OpenAPIExecutor) Execute(ctx context.Context, name string, args map[str
 		for key, value := range args {
 			if strValue, ok := value.(string); ok {
 				builder.WithQueryParam(key, strValue)
+			} else if slice, ok := value.([]string); ok && len(slice) > 0 {
+				// DF-017: serialize slice query params as repeated keys
+				builder.WithQueryParamSlice(key, slice)
+			} else if slice, ok := value.([]interface{}); ok && len(slice) > 0 {
+				// DF-017: serialize []interface{} query params as repeated keys
+				strs := make([]string, len(slice))
+				for i, s := range slice {
+					strs[i] = fmt.Sprintf("%v", s)
+				}
+				builder.WithQueryParamSlice(key, strs)
 			} else {
 				builder.WithQueryParam(key, fmt.Sprintf("%v", value))
 			}
@@ -275,6 +285,16 @@ func ExecuteHTTP(baseURL, method, path string, args map[string]interface{}) ([]b
 			if !pathParamSet[key] {
 				if strValue, ok := value.(string); ok {
 					builder.WithQueryParam(key, strValue)
+				} else if slice, ok := value.([]string); ok && len(slice) > 0 {
+					// DF-017: serialize slice query params as repeated keys
+					builder.WithQueryParamSlice(key, slice)
+				} else if slice, ok := value.([]interface{}); ok && len(slice) > 0 {
+					// DF-017: serialize []interface{} query params as repeated keys
+					strs := make([]string, len(slice))
+					for i, s := range slice {
+						strs[i] = fmt.Sprintf("%v", s)
+					}
+					builder.WithQueryParamSlice(key, strs)
 				} else {
 					builder.WithQueryParam(key, fmt.Sprintf("%v", value))
 				}

@@ -245,6 +245,52 @@ func TestWithQueryParam_MultipleParamsInURL(t *testing.T) {
 	}
 }
 
+// DF-017: slice query params must emit repeated keys (?tags=a&tags=b),
+// never Go's %v "[a b]" formatting.
+func TestWithQueryParamSlice_RepeatedKeys(t *testing.T) {
+	b := NewBuilder("https://api.example.com", "/widgets", "GET")
+	b.WithQueryParamSlice("tags", []string{"a", "b"})
+	req, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+	qs := req.URL.RawQuery
+	// Must contain repeated keys, not "[a b]"
+	if !strings.Contains(qs, "tags=a") || !strings.Contains(qs, "tags=b") {
+		t.Errorf("RawQuery = %q, want repeated keys tags=a&tags=b", qs)
+	}
+	if strings.Contains(qs, "[a b]") {
+		t.Errorf("RawQuery = %q, must NOT contain Go %%v formatting [a b]", qs)
+	}
+	// Verify the server-side query parsing yields a proper array
+	values := req.URL.Query()
+	tags := values["tags"]
+	if len(tags) != 2 || tags[0] != "a" || tags[1] != "b" {
+		t.Errorf("tags = %v, want [a b]", tags)
+	}
+}
+
+// DF-017: mixing scalar and slice query params should work together.
+func TestWithQueryParam_MixedScalarAndSlice(t *testing.T) {
+	b := NewBuilder("https://api.example.com", "/widgets", "GET")
+	b.WithQueryParam("limit", "10")
+	b.WithQueryParamSlice("tags", []string{"a", "b"})
+	req, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build() error: %v", err)
+	}
+	qs := req.URL.RawQuery
+	if !strings.Contains(qs, "limit=10") {
+		t.Errorf("RawQuery = %q, want limit=10", qs)
+	}
+	if !strings.Contains(qs, "tags=a") || !strings.Contains(qs, "tags=b") {
+		t.Errorf("RawQuery = %q, want repeated tags keys", qs)
+	}
+	if strings.Contains(qs, "[a b]") {
+		t.Errorf("RawQuery = %q, must NOT contain [a b]", qs)
+	}
+}
+
 // =============================================================================
 // PHASE 3: Body & Content Type
 // =============================================================================
