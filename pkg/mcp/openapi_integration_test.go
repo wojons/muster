@@ -451,6 +451,31 @@ func TestExecuteHTTP(t *testing.T) {
 		_, err := ExecuteHTTP("http://127.0.0.1:1", "GET", "/test", nil)
 		assert.Error(t, err)
 	})
+
+	// DF-016: a top-level JSON array response must decode without error.
+	t.Run("GET returns JSON array", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]map[string]interface{}{
+				{"id": 1, "name": "Rex"},
+				{"id": 2, "name": "Whiskers"},
+			})
+		}))
+		defer srv.Close()
+
+		result, err := ExecuteHTTP(srv.URL, "GET", "/pets", nil)
+		require.NoError(t, err)
+		// result must be a JSON array, not an isError map
+		assert.Contains(t, string(result), "Rex")
+		assert.Contains(t, string(result), "Whiskers")
+		assert.NotContains(t, string(result), "cannot unmarshal array")
+
+		// Verify the decoded structure is an array
+		var decoded interface{}
+		require.NoError(t, json.Unmarshal(result, &decoded))
+		_, ok := decoded.([]interface{})
+		assert.True(t, ok, "decoded result should be a JSON array")
+	})
 }
 
 // =============================================================================
@@ -589,5 +614,14 @@ func TestOpenAPIExecutor_Execute_WithOperations(t *testing.T) {
 	e := NewExecutor(srv.URL, registry.Operations())
 	result, err := e.Execute(context.Background(), "listPets", nil)
 	require.NoError(t, err)
-	assert.NotNil(t, result)
+
+	// DF-016: the response is a JSON array; the executor must return it
+	// as a []interface{}, not a soft-fallback error map.
+	arr, ok := result.([]interface{})
+	require.True(t, ok, "expected []interface{} for array response, got %T", result)
+	require.Len(t, arr, 1)
+
+	first, ok := arr[0].(map[string]interface{})
+	require.True(t, ok, "first array element should be a map")
+	assert.Equal(t, "Fluffy", first["name"])
 }

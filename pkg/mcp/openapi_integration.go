@@ -177,8 +177,9 @@ func (e *OpenAPIExecutor) Execute(ctx context.Context, name string, args map[str
 		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
-	// Read and parse response
-	var result map[string]interface{}
+	// Read and parse response — use interface{} so JSON arrays (not just
+	// objects) decode without error (DF-016).
+	var result interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return map[string]interface{}{
 			"message": "Request executed but response parsing failed",
@@ -292,8 +293,9 @@ func ExecuteHTTP(baseURL, method, path string, args map[string]interface{}) ([]b
 		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
-	// Read response body
-	var result map[string]interface{}
+	// Read response body — use interface{} so JSON arrays (not just
+	// objects) decode without error (DF-016).
+	var result interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
