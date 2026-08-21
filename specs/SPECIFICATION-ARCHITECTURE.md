@@ -139,7 +139,7 @@ These define the user-facing interfaces.
 
 ### 4.1 CLI Interface
 **Files:**
-- `CLI-ENTRY-POINT.md` - Main CLI entry (cmd/cli/main.go)
+- `CLI-ENTRY-POINT.md` - Main CLI entry (cmd/openapi-cli/main.go)
 - `CLI-COMMAND-STRUCTURE.md` - Cobra command hierarchy
 - `CLI-BUILT-IN-COMMANDS.md` - auth, version, config, etc.
 - `CLI-GENERATED-COMMANDS.md` - Dynamic command generation

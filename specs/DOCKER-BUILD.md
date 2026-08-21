@@ -27,7 +27,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s -X main.version=$(git describe --tags)" \
     -o muster \
-    ./cmd/cli
+    ./cmd/openapi-cli
 
 # Final stage - Distroless
 FROM gcr.io/distroless/static-debian11:nonroot
@@ -97,7 +97,7 @@ RUN go mod download
 
 # Layer 2: Source (rebuilt on code changes)
 COPY . .
-RUN go build -o muster ./cmd/cli
+RUN go build -o muster ./cmd/openapi-cli
 
 # Layer 3: Runtime (minimal, static)
 FROM scratch
@@ -115,7 +115,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go build -o muster ./cmd/cli
+    go build -o muster ./cmd/openapi-cli
 ```
 
 ---

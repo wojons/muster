@@ -284,7 +284,7 @@ done
 
 ## Reference Implementation
 
-The **Go CLI** (`cmd/cli/`) serves as **reference implementation**. All SDKs must:
+The **Go CLI** (`cmd/openapi-cli/`) serves as **reference implementation**. All SDKs must:
 
 1. **Pass same test suite** as Go CLI
 2. **Match error codes** and messages exactly

@@ -135,7 +135,7 @@ sequenceDiagram
 ## File Location
 
 ```
-cmd/cli/main.go
+cmd/openapi-cli/main.go
 ```
 
 ## Complete Implementation

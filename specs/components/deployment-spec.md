@@ -105,19 +105,19 @@ go build -ldflags "\
 
 ```bash
 # Linux AMD64 (no CGO)
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/muster-linux-amd64 ./cmd/cli
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/muster-linux-amd64 ./cmd/openapi-cli
 
 # Linux ARM64 (no CGO)
-GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bin/muster-linux-arm64 ./cmd/cli
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bin/muster-linux-arm64 ./cmd/openapi-cli
 
 # macOS AMD64 (with CGO for keychain)
-GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -o bin/muster-darwin-amd64 ./cmd/cli
+GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -o bin/muster-darwin-amd64 ./cmd/openapi-cli
 
 # macOS ARM64 (with CGO for keychain)
-GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -o bin/muster-darwin-arm64 ./cmd/cli
+GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -o bin/muster-darwin-arm64 ./cmd/openapi-cli
 
 # Windows AMD64
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/muster-windows-amd64.exe ./cmd/cli
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/muster-windows-amd64.exe ./cmd/openapi-cli
 ```
 
 ### 2.3 CGO Considerations
@@ -129,7 +129,7 @@ SQLite requires CGO. For cross-platform builds:
 go mod edit -replace github.com/mattn/go-sqlite3=github.com/glebarez/go-sqlite@v1.21.2
 
 # Or disable SQLite for specific builds
-go build -tags nosqlite -o bin/muster-nosqlite ./cmd/cli
+go build -tags nosqlite -o bin/muster-nosqlite ./cmd/openapi-cli
 ```
 
 ### 2.4 Platform-Specific Build Tags
@@ -348,7 +348,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s -X main.version=$(git describe --tags)" \
     -o muster \
-    ./cmd/cli
+    ./cmd/openapi-cli
 
 # Final stage - Distroless
 FROM gcr.io/distroless/static-debian11:nonroot
@@ -390,7 +390,7 @@ RUN go mod download
 
 # Layer 2: Source (rebuilt on code changes)
 COPY . .
-RUN go build -o muster ./cmd/cli
+RUN go build -o muster ./cmd/openapi-cli
 
 # Layer 3: Runtime (minimal, static)
 FROM scratch

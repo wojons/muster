@@ -499,7 +499,7 @@ type Profile struct {
 
 ## 2. CLI Implementation
 
-### File: `cmd/cli/main.go`
+### File: `cmd/openapi-cli/main.go`
 
 ```go
 package main

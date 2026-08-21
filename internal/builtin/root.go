@@ -40,7 +40,7 @@ and serves them via MCP protocol.`,
 			// When the user invokes a meta-command, hide the
 			// dynamically-loaded persisted commands so they don't
 			// pollute help/version/completion output. This mirrors
-			// the skip in cmd/cli/main.go persistentPreRun so
+			// the skip in cmd/openapi-cli/main.go persistentPreRun so
 			// stored commands are not advertised in the same
 			// contexts where we skip config initialization.
 			//
@@ -95,7 +95,7 @@ and serves them via MCP protocol.`,
 
 // isMetaCommandName reports whether the named command is a meta-command
 // for which persisted (on-disk generated) commands should be hidden.
-// Mirrors the skip in cmd/cli/main.go persistentPreRun.
+// Mirrors the skip in cmd/openapi-cli/main.go persistentPreRun.
 func isMetaCommandName(name string) bool {
 	switch name {
 	case "help", "version", "completion", "__complete":

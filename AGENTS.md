@@ -25,13 +25,11 @@ go test -v ./...              # Run all unit tests
 make test-unit                # Unit tests only
 make test-integration         # ⭐ INTEGRATION TESTS
 make test-e2e                 # ⭐ END-TO-END TESTS
-make test-race                # Race condition tests
 
 # Validation
 make validate                 # Full validation gate: unit + integration + security + lint + vet (./demo/run-all.sh is the real e2e gate)
 make demo                     # Integration demo (STATUS: 5/10 mocked — remediation in progress; NOT a green gate)
 ./demo/run-all.sh             # ⭐ REAL end-to-end gate (build+services+demo scripts, 23+ checks)
-check                         # Run all checks (test + lint + validate)
 
 # Lint/Format
 make lint                     # Run golangci-lint
@@ -46,10 +44,10 @@ make deps                     # Download dependencies
 make tidy                     # Tidy go modules
 
 # Skills (USE THESE!)
-make skill-gap-analysis       # Find implementation gaps
-make skill-test-gap-analysis  # Find missing tests
-make skill-security-scan      # Security validation
-make skill-trust-verify       # Verify system claims
+make security-audit         # Run comprehensive security audit
+make security-check         # Quick security checks
+make deps-audit             # Audit dependencies for vulnerabilities (govulncheck)
+make deps-outdated          # List outdated dependencies
 ```
 
 ## Project Structure
@@ -113,8 +111,9 @@ specs/                      # 276 specification files
   activeContext.md          # Current work focus
   progress.md               # What's done/remaining
 
-.agents/skills/             # 63 available agent skills
+.agents/skills/             # 71 available agent skills
   */SKILL.md                # Individual skill definitions
+skills/                     # Repo-root skill docs (muster-usage only)
 
 demo/                       # Demo application
 test/                       # Test utilities & fixtures
@@ -333,10 +332,10 @@ make validate
 
 ### 6. Skill Validation (USE SKILLS!)
 ```bash
-# Run critical skills
-make skill-gap-analysis
-make skill-test-gap-analysis
-make skill-security-scan
+# Run skill-backed audit targets
+make security-audit
+make deps-audit
+make validate
 ```
 - [ ] No critical gaps found
 - [ ] No security issues
@@ -352,7 +351,7 @@ make vet
 - [ ] Code formatted
 - [ ] No vet issues
 
-## Available Skills (63 Total - USE THEM!)
+## Available Skills (71 Total - USE THEM!)
 
 **Critical Skills for Integration:**
 - `@testing-integration` - Build integration tests
@@ -374,19 +373,14 @@ make vet
 
 ### How to Use Skills
 ```bash
-# Makefile targets (add to Makefile)
-skill-gap-analysis:
-	@opencode run --agent gap-analysis "Analyze implementation gaps"
-
-skill-test-gap-analysis:
-	@opencode run --agent test-gap-analysis "Find missing test coverage"
-
-skill-security-scan:
-	@opencode run --agent security-scan "Scan for vulnerabilities"
-
-skill-trust-verify:
-	@opencode run --agent trust-but-verify "Validate system claims"
+# Skill-backed audit targets (defined in the Makefile)
+make security-audit        # Comprehensive security audit
+make security-check        # Quick security checks
+make deps-audit            # Dependency vulnerabilities (govulncheck)
+make deps-outdated         # List outdated dependencies
 ```
+
+Agent skills live in `.agents/skills/` (71 SKILL.md files). The repo-root `skills/` directory holds only `muster-usage` — a usage doc, not a skill library.
 
 ### Skill Schedule
 - **Daily**: @security-scan, @trust-but-verify
@@ -457,13 +451,13 @@ demo/
 - **Go version**: 1.26.6 (see go.mod)
 - **Specs**: `specs/` (276 specification files)
 - **Demo**: `demo/` (prove system works)
-- **Skills**: `.agents/skills/` (63 available skills)
+- **Skills**: `.agents/skills/` (71 available skills)
 
 ## Key Principles
 
 1. **Integration is NOT optional** - Every component must connect
 2. **Demo proves functionality** - If you can't demo it, it's not done
-3. **Skills improve quality** - Use the 63 available skills regularly
+3. **Skills improve quality** - Use the 71 available skills regularly
 4. **Adversarial thinking** - Challenge assumptions, test edge cases
 5. **Trust but verify** - Validate all claims independently
 

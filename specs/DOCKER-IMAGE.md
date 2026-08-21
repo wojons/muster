@@ -59,7 +59,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -X main.date=$(BUILD_DATE)' \
     -a -installsuffix cgo \
     -o openapi-cli \
-    ./cmd/cli
+    ./cmd/openapi-cli
 
 # Build MCP server binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -200,7 +200,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -X main.commit=${GIT_COMMIT} \
     -X main.date=${BUILD_DATE}" \
     -o openapi-cli \
-    ./cmd/cli
+    ./cmd/openapi-cli
 
 # Stage 2: Runtime (target platform)
 FROM --platform=$TARGETPLATFORM gcr.io/distroless/static:nonroot
@@ -275,7 +275,7 @@ CMD ["air", "-c", ".air.toml"]
 ### 5. Go Build Configuration
 
 ```go
-// cmd/cli/main.go
+// cmd/openapi-cli/main.go
 package main
 
 import (

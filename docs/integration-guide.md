@@ -41,7 +41,7 @@ make build          # builds all three binaries into bin/
 ls bin/             # openapi-cli  openapi-daemon  openapi-mcp  (exactly these three)
 ```
 
-Requires Go 1.23+ (the module targets go 1.26). `bin/` is gitignored; `make
+Requires Go 1.26.6+ (the module targets go 1.26.6). `bin/` is gitignored; `make
 build` is the canonical way to produce the three binaries above — no other
 binary names are produced by any Makefile target.
 

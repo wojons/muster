@@ -154,7 +154,7 @@ sequenceDiagram
 ### Root Command Setup
 
 ```go
-// cmd/cli/main.go
+// cmd/openapi-cli/main.go
 package main
 
 import (
@@ -2569,7 +2569,7 @@ func TestCommandIntegration(t *testing.T) {
 ## Complete File Structure
 
 ```
-cmd/cli/
+cmd/openapi-cli/
 ├── main.go                    # CLI entry point
 └── commands/
     ├── version.go             # Version command

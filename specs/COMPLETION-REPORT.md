@@ -160,7 +160,7 @@
 ### ✅ What Ralph Loop Can Generate
 
 **Entry Points**:
-- cmd/cli/main.go - Complete CLI entry
+- cmd/openapi-cli/main.go - Complete CLI entry
 - cmd/mcp/main.go - Complete MCP entry
 - cmd/daemon/main.go - Complete daemon entry
 

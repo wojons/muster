@@ -124,12 +124,12 @@ Complete macOS implementation details are in:
 
 ### Build for macOS
 ```bash
-GOOS=darwin GOARCH=amd64 go build ./cmd/cli
+GOOS=darwin GOARCH=amd64 go build ./cmd/openapi-cli
 ```
 
 ### Build for Apple Silicon
 ```bash
-GOOS=darwin GOARCH=arm64 go build ./cmd/cli
+GOOS=darwin GOARCH=arm64 go build ./cmd/openapi-cli
 ```
 
 ### Test on macOS

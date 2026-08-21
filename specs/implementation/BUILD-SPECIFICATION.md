@@ -50,7 +50,7 @@ all: build
 # Build for current platform
 build:
 	@echo "Building $(BINARY_NAME) $(VERSION)..."
-	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/cli
+	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/openapi-cli
 	go build $(LDFLAGS) -o bin/$(BINARY_NAME)-mcp ./cmd/mcp
 	go build $(LDFLAGS) -o bin/$(BINARY_NAME)-daemon ./cmd/daemon
 
@@ -60,13 +60,13 @@ build-all:
 	@for platform in $(PLATFORMS); do \
 		GOOS=$$(echo $$platform | cut -d/ -f1) \
 		GOARCH=$$(echo $$platform | cut -d/ -f2) \
-		go build $(LDFLAGS) -o dist/$(BINARY_NAME)-$$(echo $$platform | tr / -) ./cmd/cli; \
+		go build $(LDFLAGS) -o dist/$(BINARY_NAME)-$$(echo $$platform | tr / -) ./cmd/openapi-cli; \
 		echo "Built: dist/$(BINARY_NAME)-$$(echo $$platform | tr / -)"; \
 	done
 
 # Development build (faster)
 dev:
-	go build -o bin/$(BINARY_NAME) ./cmd/cli
+	go build -o bin/$(BINARY_NAME) ./cmd/openapi-cli
 
 # Install dependencies
 deps:
@@ -133,7 +133,7 @@ release: clean
 		GOOS=$$(echo $$platform | cut -d/ -f1) \
 		GOARCH=$$(echo $$platform | cut -d/ -f2) \
 		OUTPUT=dist/$(BINARY_NAME)-$$(echo $$platform | tr / -)-$(VERSION); \
-		go build $(LDFLAGS) -o $$OUTPUT ./cmd/cli; \
+		go build $(LDFLAGS) -o $$OUTPUT ./cmd/openapi-cli; \
 		upx -q $$OUTPUT 2>/dev/null || true; \
 	done
 	@echo "Release binaries created in dist/"
@@ -469,7 +469,7 @@ RUN go mod download
 COPY . .
 
 # Build binaries
-RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/openapi-cli ./cmd/cli
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/openapi-cli ./cmd/openapi-cli
 RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/openapi-cli-mcp ./cmd/mcp
 
 # Final stage

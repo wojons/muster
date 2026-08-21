@@ -40,7 +40,7 @@ func buildBinary() (string, error) {
     tmpDir := os.TempDir()
     binPath := filepath.Join(tmpDir, "muster-e2e")
     
-    cmd := exec.Command("go", "build", "-o", binPath, "./cmd/cli")
+    cmd := exec.Command("go", "build", "-o", binPath, "./cmd/openapi-cli")
     cmd.Dir = "../.." // Adjust to project root
     
     if err := cmd.Run(); err != nil {

@@ -182,7 +182,7 @@ muster/
 Each binary has its own main package:
 
 ```go
-// cmd/cli/main.go
+// cmd/openapi-cli/main.go
 package main
 
 import (

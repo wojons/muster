@@ -450,7 +450,7 @@ make build
 Implement `inventory fetch` command:
 
 ```go
-// cmd/cli/commands/inventory.go
+// cmd/openapi-cli/commands/inventory.go
 package commands
 
 import (

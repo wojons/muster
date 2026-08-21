@@ -296,7 +296,7 @@
 
 **Generate complete code for:**
 
-1. **CLI binary** (`cmd/cli/main.go`)
+1. **CLI binary** (`cmd/openapi-cli/main.go`)
    - Cobra command structure
    - Global flags
    - Dynamic command generation

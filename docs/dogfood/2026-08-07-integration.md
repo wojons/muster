@@ -25,7 +25,7 @@ make build                      # ~1-2 min; builds bin/openapi-cli, bin/openapi-
 ./bin/openapi-cli version       # v0.1.0-8-g0d790342 (0d790342) — version injection works post-GAP-007
 ```
 
-Requires Go 1.23+ (module targets 1.26). `bin/` is gitignored — always
+Requires Go 1.26.6+ (module targets 1.26.6). `bin/` is gitignored — always
 `make build` on a fresh clone.
 
 For deterministic offline use, start a demo service (they're real Flask APIs

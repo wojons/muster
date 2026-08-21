@@ -489,7 +489,7 @@ import (
 
 | Binary | Source | Output Path |
 |--------|--------|-------------|
-| `openapi-cli` | `cmd/cli/` | `bin/openapi-cli` |
+| `openapi-cli` | `cmd/openapi-cli/` | `bin/openapi-cli` |
 | `openapi-cli-mcp` | `cmd/mcp/` | `bin/openapi-cli-mcp` |
 | `openapi-cli-daemon` | `cmd/daemon/` | `bin/openapi-cli-daemon` |
 
@@ -753,7 +753,7 @@ mkdir -p {cmd/{cli,mcp,daemon},internal/{cli,core/{inventory,config,auth,crypto,
 
 # Create initial files
 touch \
-    cmd/cli/main.go \
+    cmd/openapi-cli/main.go \
     cmd/mcp/main.go \
     cmd/daemon/main.go \
     go.mod \
@@ -787,7 +787,7 @@ chmod +x scripts/init-project.sh
 
 | Type | Path |
 |------|------|
-| **Main Entry** | `cmd/cli/main.go` |
+| **Main Entry** | `cmd/openapi-cli/main.go` |
 | **MCP Entry** | `cmd/mcp/main.go` |
 | **Daemon Entry** | `cmd/daemon/main.go` |
 | **Core Interfaces** | `internal/core/*/manager.go` |

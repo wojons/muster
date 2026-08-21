@@ -22,19 +22,19 @@
 
 ```bash
 # Linux AMD64 (no CGO)
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/muster-linux-amd64 ./cmd/cli
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/muster-linux-amd64 ./cmd/openapi-cli
 
 # Linux ARM64 (no CGO)
-GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bin/muster-linux-arm64 ./cmd/cli
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bin/muster-linux-arm64 ./cmd/openapi-cli
 
 # macOS AMD64 (with CGO for keychain)
-GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -o bin/muster-darwin-amd64 ./cmd/cli
+GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -o bin/muster-darwin-amd64 ./cmd/openapi-cli
 
 # macOS ARM64 (with CGO for keychain)
-GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -o bin/muster-darwin-arm64 ./cmd/cli
+GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -o bin/muster-darwin-arm64 ./cmd/openapi-cli
 
 # Windows AMD64
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/muster-windows-amd64.exe ./cmd/cli
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/muster-windows-amd64.exe ./cmd/openapi-cli
 ```
 
 ---
@@ -48,7 +48,7 @@ SQLite requires CGO. For cross-platform builds:
 go mod edit -replace github.com/mattn/go-sqlite3=github.com/glebarez/go-sqlite@v1.21.2
 
 # Or disable SQLite for specific builds
-go build -tags nosqlite -o bin/muster-nosqlite ./cmd/cli
+go build -tags nosqlite -o bin/muster-nosqlite ./cmd/openapi-cli
 ```
 
 ---
@@ -93,15 +93,15 @@ LDFLAGS=-ldflags "-X main.Version=$(VERSION) -s -w"
 build-all: build-linux build-darwin build-windows
 
 build-linux:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-amd64 ./cmd/cli
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-arm64 ./cmd/cli
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-amd64 ./cmd/openapi-cli
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-arm64 ./cmd/openapi-cli
 
 build-darwin:
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-amd64 ./cmd/cli
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-arm64 ./cmd/cli
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-amd64 ./cmd/openapi-cli
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-arm64 ./cmd/openapi-cli
 
 build-windows:
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-windows-amd64.exe ./cmd/cli
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-windows-amd64.exe ./cmd/openapi-cli
 ```
 
 ---
@@ -115,7 +115,7 @@ ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o muster ./cmd/cli
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o muster ./cmd/openapi-cli
 
 FROM scratch
 COPY --from=builder /build/muster /muster

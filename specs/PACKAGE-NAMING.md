@@ -18,7 +18,7 @@ import "github.com/openapi-cli/openapi-cli/internal/cache"
 import "github.com/openapi-cli/openapi-cli/pkg/config"
 
 // Command entry points
-import "github.com/openapi-cli/openapi-cli/cmd/cli"
+import "github.com/openapi-cli/openapi-cli/cmd/openapi-cli"
 ```
 
 ---
@@ -27,7 +27,7 @@ import "github.com/openapi-cli/openapi-cli/cmd/cli"
 
 | Location | Purpose | Example |
 |----------|---------|---------|
-| `cmd/` | Main packages (binaries) | `cmd/cli`, `cmd/mcp` |
+| `cmd/` | Main packages (binaries) | `cmd/openapi-cli`, `cmd/mcp` |
 | `pkg/` | Public API/libraries | `pkg/config`, `pkg/client` |
 | `internal/` | Private implementation | `internal/cache`, `internal/db` |
 | `api/` | API definitions/proto | `api/v1/service.proto` |
