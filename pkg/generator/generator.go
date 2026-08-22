@@ -121,6 +121,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -1280,6 +1281,21 @@ func tableCollectKeys(items []interface{}) []string {
 func tableFormatValue(v interface{}) string {
 	if v == nil {
 		return "-"
+	}
+	// Render non-scalar values (maps/slices) as compact JSON instead of Go %v syntax.
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Array:
+		b, err := json.Marshal(v)
+		if err != nil {
+			// Fallback to %v if JSON marshalling fails.
+			break
+		}
+		s := string(b)
+		if len(s) > 80 {
+			return s[:77] + "..."
+		}
+		return s
 	}
 	s := fmt.Sprintf("%v", v)
 	if len(s) > 80 {

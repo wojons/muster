@@ -2295,6 +2295,111 @@ func TestExecuteAndPrint_UnknownFormatError(t *testing.T) {
 	require.Contains(t, err.Error(), "bogus")
 }
 
+func TestExecuteAndPrint_TableFormat_NestedArrayJSON(t *testing.T) {
+	// DF-021: nested objects and arrays must render as JSON, not Go %v syntax.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[{"id":1,"name":"alpha","category":{"id":1,"name":"Dogs"},"photoUrls":["url1","url2"]}]`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/pets", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+
+	// category should be compact JSON, not Go map syntax
+	require.Contains(t, output, `{"id":1,"name":"Dogs"}`)
+	require.NotContains(t, output, "map[id:1")
+	// photoUrls should be JSON array, not Go slice syntax
+	require.Contains(t, output, `["url1","url2"]`)
+	require.NotContains(t, output, "[url1 url2]")
+}
+
+func TestExecuteAndPrint_TableFormat_SingleObjectNestedJSON(t *testing.T) {
+	// DF-021: single-object response with nested object renders as JSON.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"name":"widget","meta":{"color":"red","size":1.5}}`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/widget", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+
+	require.Contains(t, output, `{"color":"red","size":1.5}`)
+	require.NotContains(t, output, "map[color:red")
+}
+
+func TestExecuteAndPrint_TableFormat_ScalarUnchanged(t *testing.T) {
+	// DF-021: scalar values (string, bool, nil) must keep existing behavior.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[{"id":1,"name":"alpha","active":true,"note":null}]`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/items", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+
+	require.Contains(t, output, "alpha")
+	require.Contains(t, output, "true")
+	require.Contains(t, output, "-")
+}
+
+func TestExecuteAndPrint_TableFormat_LongJSONTruncated(t *testing.T) {
+	// DF-021: long JSON values are truncated to 80 chars with ellipsis.
+	longVal := strings.Repeat("x", 100)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[{"id":1,"data":["` + longVal + `"]}]`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/items", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+
+	require.Contains(t, output, "...")
+}
+
 func TestExecuteAndPrint_NonJSONBodyDumpsRaw(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`plain text response`))
