@@ -123,6 +123,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"text/tabwriter"
@@ -1292,6 +1293,15 @@ func tableFormatValue(v interface{}) string {
 			break
 		}
 		s := string(b)
+		if len(s) > 80 {
+			return s[:77] + "..."
+		}
+		return s
+	}
+	// Render float64 without scientific notation so large integer IDs
+	// (e.g. 90010011) display as whole numbers, not 9.0010011e+07.
+	if f, ok := v.(float64); ok {
+		s := strconv.FormatFloat(f, 'f', -1, 64)
 		if len(s) > 80 {
 			return s[:77] + "..."
 		}

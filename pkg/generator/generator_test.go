@@ -2400,6 +2400,58 @@ func TestExecuteAndPrint_TableFormat_LongJSONTruncated(t *testing.T) {
 	require.Contains(t, output, "...")
 }
 
+func TestExecuteAndPrint_TableFormat_LargeIntID(t *testing.T) {
+	// DF-025: large integer IDs must not render in scientific notation.
+	// JSON numbers decode to float64; Go %v switches to e-notation for large values.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[{"id":90010011,"name":"alpha"}]`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/items", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+
+	// Must show 90010011, never e-notation
+	require.Contains(t, output, "90010011")
+	require.NotContains(t, output, "e+07")
+	require.NotContains(t, output, "e+")
+}
+
+func TestExecuteAndPrint_TableFormat_FloatPrecision(t *testing.T) {
+	// DF-025: genuine fractional floats still render with their decimal part.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[{"price":19.99,"name":"item"}]`))
+	})
+	ts := httptest.NewServer(handler)
+	defer ts.Close()
+
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	builder := request.NewBuilder(ts.URL, "/items", "GET")
+	var buf bytes.Buffer
+	cmd := newExecuteAndPrintCmd(&buf)
+	cmd.Flags().Set("output", "table")
+
+	err = executeAndPrint(gen, builder, cmd, context.Background())
+	require.NoError(t, err)
+	output := buf.String()
+
+	require.Contains(t, output, "19.99")
+}
+
 func TestExecuteAndPrint_NonJSONBodyDumpsRaw(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`plain text response`))
