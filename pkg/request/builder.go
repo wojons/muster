@@ -12,7 +12,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Builder constructs HTTP requests from operation metadata and user-provided parameters.
@@ -248,8 +250,26 @@ func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
 		req.Header.Set("Content-Type", b.contentType)
 	}
 
-	client := &http.Client{}
+	client := newHTTPClient()
 	return client.Do(req)
+}
+
+// defaultHTTPTimeout is the fallback timeout for generated API calls when
+// the MUSTER_HTTP_TIMEOUT env var is absent, unparseable, or <= 0.
+const defaultHTTPTimeout = 30 * time.Second
+
+// newHTTPClient returns an *http.Client whose Timeout is configured from the
+// MUSTER_HTTP_TIMEOUT env var (value in seconds). If the env var is absent,
+// unparseable, or <= 0, the 30s default is used. This follows the same
+// os.Getenv pattern as MUSTER_BASE_URL in pkg/generator/generator.go.
+func newHTTPClient() *http.Client {
+	timeout := defaultHTTPTimeout
+	if v := os.Getenv("MUSTER_HTTP_TIMEOUT"); v != "" {
+		if secs, err := strconv.Atoi(v); err == nil && secs > 0 {
+			timeout = time.Duration(secs) * time.Second
+		}
+	}
+	return &http.Client{Timeout: timeout}
 }
 
 // BuildRequest constructs an HTTP request from the given method, path, body, and headers.

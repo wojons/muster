@@ -878,3 +878,95 @@ func TestWithTimeout_VariousDurations(t *testing.T) {
 		t.Error("BaseURL changed after multiple WithTimeout calls")
 	}
 }
+
+// =============================================================================
+// PHASE 16: HTTP Client Timeout (DF-023 — MUSTER_HTTP_TIMEOUT)
+// =============================================================================
+
+// TestExecute_HTTPTimeoutErrorsOnHang asserts that when MUSTER_HTTP_TIMEOUT
+// is set to a short value, Execute() returns an error quickly instead of
+// hanging on a slow upstream.
+func TestExecute_HTTPTimeoutErrorsOnHang(t *testing.T) {
+	t.Setenv("MUSTER_HTTP_TIMEOUT", "1")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(5 * time.Second) // hang beyond the 1s timeout, short enough for cleanup
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/hang", "GET")
+
+	start := time.Now()
+	_, err := b.Execute(context.Background())
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Execute() should error on hung endpoint with 1s timeout")
+	}
+	// Must return within a reasonable bound (well under the 5s handler sleep)
+	if elapsed > 10*time.Second {
+		t.Errorf("Execute() took %v to error; expected < 10s with 1s timeout", elapsed)
+	}
+}
+
+// TestExecute_HTTPTimeoutFastEndpointSucceeds asserts that a fast endpoint
+// still works when MUSTER_HTTP_TIMEOUT is set.
+func TestExecute_HTTPTimeoutFastEndpointSucceeds(t *testing.T) {
+	t.Setenv("MUSTER_HTTP_TIMEOUT", "2")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/fast", "GET")
+	resp, err := b.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("Execute() error on fast endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("StatusCode = %d, want 200", resp.StatusCode)
+	}
+}
+
+// TestExecute_HTTPTimeoutInvalidValueFallsBackToDefault verifies that
+// unparseable/absent values fall back to the 30s default without panicking.
+func TestExecute_HTTPTimeoutInvalidValueFallsBackToDefault(t *testing.T) {
+	t.Setenv("MUSTER_HTTP_TIMEOUT", "not-a-number")
+
+	c := newHTTPClient()
+	if c.Timeout != defaultHTTPTimeout {
+		t.Errorf("newHTTPClient() Timeout = %v, want default %v", c.Timeout, defaultHTTPTimeout)
+	}
+}
+
+// TestExecute_HTTPTimeoutZeroOrNegativeFallsBackToDefault verifies that
+// <= 0 values fall back to the 30s default.
+func TestExecute_HTTPTimeoutZeroOrNegativeFallsBackToDefault(t *testing.T) {
+	t.Setenv("MUSTER_HTTP_TIMEOUT", "0")
+	c := newHTTPClient()
+	if c.Timeout != defaultHTTPTimeout {
+		t.Errorf("newHTTPClient() Timeout = %v for 0, want default %v", c.Timeout, defaultHTTPTimeout)
+	}
+
+	t.Setenv("MUSTER_HTTP_TIMEOUT", "-5")
+	c = newHTTPClient()
+	if c.Timeout != defaultHTTPTimeout {
+		t.Errorf("newHTTPClient() Timeout = %v for -5, want default %v", c.Timeout, defaultHTTPTimeout)
+	}
+}
+
+// TestNewHTTPClient_DefaultWhenEnvAbsent verifies the default 30s timeout
+// when the env var is not set.
+func TestNewHTTPClient_DefaultWhenEnvAbsent(t *testing.T) {
+	// t.Setenv restores the original value on cleanup; but if MUSTER_HTTP_TIMEOUT
+	// was already set in the environment, explicitly unset it.
+	t.Setenv("MUSTER_HTTP_TIMEOUT", "")
+	c := newHTTPClient()
+	if c.Timeout != defaultHTTPTimeout {
+		t.Errorf("newHTTPClient() Timeout = %v, want default %v", c.Timeout, defaultHTTPTimeout)
+	}
+}
