@@ -543,8 +543,6 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 	}
 
 	cmd.Flags().StringP("output", "o", g.config.DefaultFormat, fmt.Sprintf("Output format (%s)", strings.Join(g.config.SupportedFormats, ", ")))
-	cmd.Flags().StringP("namespace", "n", "", "Resource namespace")
-	cmd.Flags().BoolP("watch", "w", false, "Watch for changes")
 	cmd.Flags().BoolP("raw", "r", false, "Output raw API response")
 }
 

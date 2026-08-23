@@ -581,7 +581,8 @@ func TestGenerateCommands_BasicPipeline(t *testing.T) {
 	// Every subcommand should have standard flags added by addFlags
 	for _, sub := range petsCmd.Commands() {
 		require.NotNil(t, sub.Flag("output"), "should have --output flag")
-		require.NotNil(t, sub.Flag("namespace"), "should have --namespace flag")
+		require.Nil(t, sub.Flag("namespace"), "dead --namespace flag removed from leaves")
+		require.Nil(t, sub.Flag("watch"), "dead --watch flag removed from leaves")
 	}
 }
 
