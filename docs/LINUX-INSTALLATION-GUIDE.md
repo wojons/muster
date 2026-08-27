@@ -1,3 +1,5 @@
+> **⚠️ ASPIRATIONAL / NOT YET AVAILABLE** — This guide documents a planned package repository that is not yet operational. The package repository domain (packages.example.com) is a placeholder. For now, install Muster from source using `make build-cli`. See the main [README](../README.md#quick-start) for current installation instructions.
+
 # Linux Installation Guide
 
 **Status**: Framework Documentation created (2026-03-10)
@@ -52,8 +54,8 @@ go version
 
 ```bash
 # Add OpenAPI CLI repository
-curl -fsSL https://packages.openapi-cli.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/openapi-cli-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/openapi-cli-archive-keyring.gpg] https://packages.openapi-cli.io/ $(. /etc/os-release && echo $VERSION_CODENAME) main" | sudo tee /etc/apt/sources.list.d/openapi-cli.list
+curl -fsSL https://packages.example.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/openapi-cli-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/openapi-cli-archive-keyring.gpg] https://packages.example.com/ $(. /etc/os-release && echo $VERSION_CODENAME) main" | sudo tee /etc/apt/sources.list.d/openapi-cli.list
 
 # Install
 sudo apt update
@@ -84,11 +86,11 @@ sudo systemctl enable --now openapi-cli
 
 ```bash
 # Add OpenAPI CLI repository
-sudo rpm --import https://packages.openapi-cli.io/gpg
+sudo rpm --import https://packages.example.com/gpg
 sudo tee /etc/yum.repos.d/openapi-cli.repo <<'EOF'
 [openapi-cli]
 name=OpenAPI CLI Repository
-baseurl=https://packages.openapi-cli.io/packages/$releasever/$basearch/
+baseurl=https://packages.example.com/packages/$releasever/$basearch/
 enabled=1
 gpgcheck=0
 EOF
@@ -120,8 +122,8 @@ sudo systemctl enable --now openapi-cli
 
 ```bash
 # Add OpenAPI CLI repository
-sudo wget -O /etc/apk/keys/openapi-cli.rsa.pub https://packages.openapi-cli.io/alpine/openapi-cli.rsa.pub
-sudo echo "https://packages.openapi-cli.io/alpine/main" | sudo tee -a /etc/apk/repositories
+sudo wget -O /etc/apk/keys/openapi-cli.rsa.pub https://packages.example.com/alpine/openapi-cli.rsa.pub
+sudo echo "https://packages.example.com/alpine/main" | sudo tee -a /etc/apk/repositories
 
 # Install
 apk update

@@ -1,3 +1,5 @@
+> **⚠️ ASPIRATIONAL / NOT YET AVAILABLE** — This guide documents a planned package repository that is not yet operational. The package repository domain (packages.example.com) is a placeholder. For now, install Muster from source using `make build-cli`. See the main [README](../README.md#quick-start) for current installation instructions.
+
 # Package Repository Setup Guide
 
 **Status**: Complete Setup Guide (2026-03-12)
@@ -15,7 +17,7 @@ This guide provides complete instructions for setting up package repositories to
 ### Repository Structure
 
 ```
-packages.openapi-cli.io/
+packages.example.com/
 ├── apt/                    # Debian/Ubuntu APT repository
 │   ├── dists/
 │   │   ├── focal/
@@ -38,7 +40,7 @@ packages.openapi-cli.io/
 
 ### Key Requirements
 
-- **Domain**: packages.openapi-cli.io (or custom domain)
+- **Domain**: packages.example.com (or custom domain)
 - **GPG Signing**: Required for all repositories
 - **Web Server**: nginx+static or CDN
 - **CI/CD**: GitHub Actions for automated repository updates
@@ -78,13 +80,13 @@ REPO_KEY_ID="repository@openapi-cli.io"
 
 ```bash
 # Download signing key URL
-https://packages.openapi-cli.io/gpg
+https://packages.example.com/gpg
 
 # Add to APT keyring
-curl -fsSL https://packages.openapi-cli.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/openapi-cli-archive-keyring.gpg
+curl -fsSL https://packages.example.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/openapi-cli-archive-keyring.gpg
 
 # Add to RPM keyring (RHEL/CentOS)
-sudo rpm --import https://packages.openapi-cli.io/gpg
+sudo rpm --import https://packages.example.com/gpg
 ```
 
 #### Backup and Security
@@ -173,7 +175,7 @@ ask-passphrase
 EOF
 
 # Upload repository directory (using rsync)
-rsync -avz /var/www/packages/ user@packages.openapi-cli.io:/var/www/html/packages/
+rsync -avz /var/www/packages/ user@packages.example.com:/var/www/html/packages/
 ```
 
 #### Manual APT Repository Creation
@@ -266,16 +268,16 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
 
           # Deploy
-          rsync -avz --delete dists/ user@packages.openapi-cli.io:/var/www/apt/dists/
-          rsync -avz --delete pool/ user@packages.openapi-cli.io:/var/www/apt/pool/
+          rsync -avz --delete dists/ user@packages.example.com:/var/www/apt/dists/
+          rsync -avz --delete pool/ user@packages.example.com:/var/www/apt/pool/
 ```
 
 ### Client-Side APT Configuration
 
 ```bash
 # Add repository (Ubuntu/Debian)
-curl -fsSL https://packages.openapi-cli.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/openapi-cli-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/openapi-cli-archive-keyring.gpg] https://packages.openapi-cli.io/apt jammy main" | sudo tee /etc/apt/sources.list.d/openapi-cli.list
+curl -fsSL https://packages.example.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/openapi-cli-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/openapi-cli-archive-keyring.gpg] https://packages.example.com/apt jammy main" | sudo tee /etc/apt/sources.list.d/openapi-cli.list
 
 # Update and install
 sudo apt update
@@ -398,23 +400,23 @@ jobs:
 
       - name: Publish
         run: |
-          rsync -avz --delete yum/ user@packages.openapi-cli.io:/var/www/yum/
+          rsync -avz --delete yum/ user@packages.example.com:/var/www/yum/
 ```
 
 ### Client-Side YUM Configuration
 
 ```bash
 # Add repository (RHEL/CentOS)
-sudo rpm --import https://packages.openapi-cli.io/gpg
+sudo rpm --import https://packages.example.com/gpg
 
 # Create DNF/YUM repository file
 sudo tee /etc/yum.repos.d/openapi-cli.repo <<EOF
 [openapi-cli]
 name=OpenAPI CLI Repository
-baseurl=https://packages.openapi-cli.io/yum/\$releasever
+baseurl=https://packages.example.com/yum/\$releasever
 enabled=1
 gpgcheck=1
-gpgkey=https://packages.openapi-cli.io/gpg
+gpgkey=https://packages.example.com/gpg
 EOF
 
 # Install
@@ -523,15 +525,15 @@ jobs:
 
       - name: Publish
         run: |
-          rsync -avz --delete alpine/ user@packages.openapi-cli.io:/var/www/alpine/
+          rsync -avz --delete alpine/ user@packages.example.com:/var/www/alpine/
 ```
 
 ### Client-Side Alpine Configuration
 
 ```bash
 # Add Alpine repository
-sudo wget -O /etc/apk/keys/openapi-cli.rsa.pub https://packages.openapi-cli.io/alpine/openapi-cli.rsa.pub
-echo "https://packages.openapi-cli.io/alpine/community" >> /etc/apk/repositories
+sudo wget -O /etc/apk/keys/openapi-cli.rsa.pub https://packages.example.com/alpine/openapi-cli.rsa.pub
+echo "https://packages.example.com/alpine/community" >> /etc/apk/repositories
 
 # Install
 apk update
@@ -633,19 +635,19 @@ jobs:
           # Deploy based on repository type
           case "${{ matrix.repo }}" in
             apt)
-              rsync -avz --delete dists/ user@packages.openapi-cli.io:/var/www/apt/
-              rsync -avz --delete pool/ user@packages.openapi-cli.io:/var/www/apt/
+              rsync -avz --delete dists/ user@packages.example.com:/var/www/apt/
+              rsync -avz --delete pool/ user@packages.example.com:/var/www/apt/
               ;;
             yum)
-              rsync -avz --delete yum/ user@packages.openapi-cli.io:/var/www/yum/
+              rsync -avz --delete yum/ user@packages.example.com:/var/www/yum/
               ;;
             alpine)
-              rsync -avz --delete alpine/ user@packages.openapi-cli.io:/var/www/alpine/
+              rsync -avz --delete alpine/ user@packages.example.com:/var/www/alpine/
               ;;
           esac
 
           # Verify deployment
-          curl -I https://packages.openapi-cli.io/${{ matrix.repo }}/
+          curl -I https://packages.example.com/${{ matrix.repo }}/
 ```
 
 ---
@@ -659,16 +661,16 @@ jobs:
 # Check repository health
 
 # APT repository health
-curl -f https://packages.openapi-cli.io/apt/dists/jammy/Release || echo "APT: FAIL"
+curl -f https://packages.example.com/apt/dists/jammy/Release || echo "APT: FAIL"
 
 # YUM repository health
-curl -f https://packages.openapi-cli.io/yum/el9/repodata/repomd.xml || echo "YUM: FAIL"
+curl -f https://packages.example.com/yum/el9/repodata/repomd.xml || echo "YUM: FAIL"
 
 # Alpine repository health
-curl -f https://packages.openapi-cli.io/alpine/v3.18/community/APKINDEX.tar.gz || echo "Alpine: FAIL"
+curl -f https://packages.example.com/alpine/v3.18/community/APKINDEX.tar.gz || echo "Alpine: FAIL"
 
 # GPG key validation
-gpg --list-packets https://packages.openapi-cli.io/gpg || echo "GPG: FAIL"
+gpg --list-packets https://packages.example.com/gpg || echo "GPG: FAIL"
 ```
 
 ### Repository Version History
@@ -680,7 +682,7 @@ gpg --list-packets https://packages.openapi-cli.io/gpg || echo "GPG: FAIL"
 import requests
 import json
 
-REPO_BASE = "https://packages.openapi-cli.io"
+REPO_BASE = "https://packages.example.com"
 
 def check_repo_versions():
     """Check all repository package versions"""
@@ -758,7 +760,7 @@ This guide provides complete setup for:
 - ✅ Security best practices
 
 **Required Components**:
-- Domain name for hosting (packages.openapi-cli.io)
+- Domain name for hosting (packages.example.com)
 - GPG signing key (4096-bit RSA)
 - Web server (nginx) or CDN
 - GitHub Actions for CI/CD automation
