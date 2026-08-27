@@ -24,7 +24,7 @@ import (
     "os"
     "path/filepath"
 
-    "github.com/openapi-cli/openapi-cli/pkg/daemon"
+    "github.com/wojons/muster/pkg/daemon"
 )
 
 func main() {
@@ -553,7 +553,7 @@ import (
     "syscall"
     "time"
 
-    "github.com/openapi-cli/openapi-cli/pkg/daemon"
+    "github.com/wojons/muster/pkg/daemon"
 )
 
 func main() {

@@ -478,6 +478,6 @@ openapi-cli --version
 
 ## Support
 
-- **GitHub Issues**: [Report bugs](https://github.com/openapi-cli/openapi-cli/issues)
-- **Discussions**: [Ask questions](https://github.com/openapi-cli/openapi-cli/discussions)
-- **Documentation**: [Full docs](https://openapi-cli.dev/docs/)
+- **GitHub Issues**: [Report bugs](https://github.com/wojons/muster/issues)
+- **Discussions**: [Ask questions](https://github.com/wojons/muster/discussions)
+- **Documentation**: [Full docs](https://github.com/wojons/muster/tree/main/docs)

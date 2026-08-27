@@ -222,7 +222,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Download artifacts
-        run: wget -q https://github.com/openapi-cli/openapi-cli/releases/download/${{ github.ref_name }}/openapi-cli*.deb
+        run: wget -q https://github.com/wojons/muster/releases/download/${{ github.ref_name }}/openapi-cli*.deb
 
       - name: Setup reprepro
         run: |
@@ -371,7 +371,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Download artifacts
-        run: wget -q https://github.com/openapi-cli/openapi-cli/releases/download/${{ github.ref_name }}/openapi-cli*.rpm
+        run: wget -q https://github.com/wojons/muster/releases/download/${{ github.ref_name }}/openapi-cli*.rpm
 
       - name: Setup RPM tools
         run: |
@@ -454,10 +454,10 @@ pkgname=openapi-cli
 pkgver=1.0.0
 pkgrel=1
 pkgdesc="Dynamic OpenAPI CLI with MCP server"
-url="https://github.com/openapi-cli/openapi-cli"
+url="https://github.com/wojons/muster"
 arch="x86_64 aarch64"
 license="MIT"
-source="$pkgname-$pkgver.tar.gz::https://github.com/openapi-cli/openapi-cli/archive/v$pkgver.tar.gz"
+source="$pkgname-$pkgver.tar.gz::https://github.com/wojons/muster/archive/v$pkgver.tar.gz"
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
@@ -554,10 +554,10 @@ pkgver=1.0.0
 pkgrel=1
 pkgdesc="Dynamic OpenAPI CLI with MCP server"
 arch=('x86_64')
-url="https://github.com/openapi-cli/openapi-cli"
+url="https://github.com/wojons/muster"
 license=('MIT')
 depends=('glibc')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/openapi-cli/openapi-cli/archive/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/wojons/muster/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
@@ -619,7 +619,7 @@ jobs:
 
       - name: Download release artifacts
         run: |
-          wget -q https://github.com/openapi-cli/openapi-cli/releases/download/${{ github.ref_name }}/*
+          wget -q https://github.com/wojons/muster/releases/download/${{ github.ref_name }}/*
 
       - name: Publish to ${{ matrix.repo }}
         env:

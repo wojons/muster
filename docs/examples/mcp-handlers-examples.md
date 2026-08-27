@@ -18,8 +18,8 @@ import (
     "fmt"
     "os"
 
-    "github.com/openapi-cli/openapi-cli/pkg/mcp"
-    "github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
+    "github.com/wojons/muster/pkg/mcp"
+    "github.com/wojons/muster/pkg/mcp/handlers"
 )
 
 func main() {
@@ -52,7 +52,7 @@ func main() {
 
 ```go
 import (
-    "github.com/openapi-cli/openapi-cli/pkg/mcp/types"
+    "github.com/wojons/muster/pkg/mcp/types"
 )
 
 func createHelloHandler() handlers.ToolHandlerFunc {
@@ -344,9 +344,9 @@ import (
     "os/signal"
     "syscall"
 
-    "github.com/openapi-cli/openapi-cli/pkg/mcp"
-    "github.com/openapi-cli/openapi-cli/pkg/mcp/handlers"
-    "github.com/openapi-cli/openapi-cli/pkg/mcp/types"
+    "github.com/wojons/muster/pkg/mcp"
+    "github.com/wojons/muster/pkg/mcp/handlers"
+    "github.com/wojons/muster/pkg/mcp/types"
 )
 
 func main() {

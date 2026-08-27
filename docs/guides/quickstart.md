@@ -225,4 +225,4 @@ alias all-pets='openapi-cli request GET https://petstore.swagger.io/v2/pet/findB
 
 - Run `openapi-cli --help` or `openapi-cli <command> --help`
 - Check the [Guides Index](../README.md) for more tutorials
-- Visit [GitHub Discussions](https://github.com/openapi-cli/openapi-cli/discussions)
+- Visit [GitHub Discussions](https://github.com/wojons/muster/discussions)

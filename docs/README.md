@@ -43,13 +43,13 @@ Welcome to the comprehensive documentation for **Muster** - a modern CLI tool fo
 
 ```bash
 # macOS (Homebrew)
-brew install openapi-cli/openapi-cli/openapi-cli
+brew install wojons/muster/openapi-cli
 
 # Linux
-curl -fsSL https://openapi-cli.dev/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/wojons/muster/main/scripts/install.sh | bash
 
 # Windows (PowerShell)
-irm https://openapi-cli.dev/install.ps1 | iex
+# Download the latest release from https://github.com/wojons/muster/releases
 ```
 
 ### First Steps
@@ -82,13 +82,13 @@ openapi-cli docs generate openapi.yaml
 
 Documentation is always available for the latest stable release:
 
-- **Latest** - Current stable release ([docs/](https://openapi-cli.dev/docs/))
-- **In Development** - Work-in-progress features ([docs/preview/](https://openapi-cli.dev/docs/preview/))
+- **Latest** - Current stable release ([docs/](https://github.com/wojons/muster/tree/main/docs))
+- **In Development** - Work-in-progress features ([repository](https://github.com/wojons/muster))
 
 ## Getting Help
 
-- **Issues**: [GitHub Issues](https://github.com/openapi-cli/openapi-cli/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/openapi-cli/openapi-cli/discussions)
+- **Issues**: [GitHub Issues](https://github.com/wojons/muster/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/wojons/muster/discussions)
 - **CLI Help**: Run `openapi-cli --help` or `openapi-cli <command> --help`
 
 ## Contributing

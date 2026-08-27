@@ -22,8 +22,8 @@ Setup guide for contributing to OpenAPI CLI.
 
 ```bash
 # Clone the repository
-git clone https://github.com/openapi-cli/openapi-cli.git
-cd openapi-cli
+git clone https://github.com/wojons/muster.git
+cd muster
 
 # Verify Go modules
 go mod verify
@@ -469,5 +469,5 @@ go test -race -timeout 5m ./...
 - [Effective Go](https://golang.org/doc/effective_go.html)
 - [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
 - [Go Wiki](https://github.com/golang/go/wiki)
-- [Project Issues](https://github.com/openapi-cli/openapi-cli/issues)
-- [Project Discussions](https://github.com/openapi-cli/openapi-cli/discussions)
+- [Project Issues](https://github.com/wojons/muster/issues)
+- [Project Discussions](https://github.com/wojons/muster/discussions)

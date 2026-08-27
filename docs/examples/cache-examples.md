@@ -21,7 +21,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/openapi-cli/openapi-cli/pkg/cache"
+    "github.com/wojons/muster/pkg/cache"
 )
 
 func main() {
@@ -495,7 +495,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/openapi-cli/openapi-cli/pkg/cache"
+    "github.com/wojons/muster/pkg/cache"
 )
 
 type APIClient struct {

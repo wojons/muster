@@ -118,7 +118,7 @@ package main
 
 import (
     "fmt"
-    "github.com/openapi-cli/openapi-cli/internal/security"
+    "github.com/wojons/muster/internal/security"
 )
 
 func main() {

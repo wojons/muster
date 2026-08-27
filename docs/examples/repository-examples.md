@@ -19,7 +19,7 @@ import (
     "os"
     "path/filepath"
 
-    "github.com/openapi-cli/openapi-cli/pkg/repository"
+    "github.com/wojons/muster/pkg/repository"
 )
 
 func main() {
@@ -460,7 +460,7 @@ import (
     "path/filepath"
     "time"
 
-    "github.com/openapi-cli/openapi-cli/pkg/repository"
+    "github.com/wojons/muster/pkg/repository"
 )
 
 type User struct {

@@ -259,7 +259,7 @@ daemon:
 logging:
   level: info
   format: json
-  file: /var/log/openapi-cli/openapi-cli.log
+  file: /var/log/wojons/muster.log
 
 auth:
   enable_oauth2: true

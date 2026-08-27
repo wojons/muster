@@ -67,7 +67,7 @@ sudo systemctl enable --now openapi-cli
 
 ```bash
 # Download latest binary
-wget https://github.com/openapi-cli/openapi-cli/releases/download/v1.0.0/openapi-cli-linux-amd64
+wget https://github.com/wojons/muster/releases/download/v1.0.0/openapi-cli-linux-amd64
 chmod +x openapi-cli-linux-amd64
 sudo mv openapi-cli-linux-amd64 /usr/local/bin/openapi-cli
 
@@ -105,7 +105,7 @@ sudo systemctl enable --now openapi-cli
 ```bash
 # Download latest binary
 sudo dnf install -y wget
-wget https://github.com/openapi-cli/openapi-cli/releases/download/v1.0.0/openapi-cli-linux-amd64
+wget https://github.com/wojons/muster/releases/download/v1.0.0/openapi-cli-linux-amd64
 chmod +x openapi-cli-linux-amd64
 sudo mv openapi-cli-linux-amd64 /usr/local/bin/openapi-cli
 
@@ -146,7 +146,7 @@ sudo systemctl enable --now openapi-cli
 
 ```bash
 # Download latest binary
-wget https://github.com/openapi-cli/openapi-cli/releases/download/v1.0.0/openapi-cli-linux-amd64
+wget https://github.com/wojons/muster/releases/download/v1.0.0/openapi-cli-linux-amd64
 chmod +x openapi-cli-linux-amd64
 sudo mv openapi-cli-linux-amd64 /usr/local/bin/openapi-cli
 
@@ -211,7 +211,7 @@ daemon:
 logging:
   level: info
   format: json
-  file: /var/log/openapi-cli/openapi-cli.log
+  file: /var/log/wojons/muster.log
 ```
 
 ### Managing Services
@@ -298,7 +298,7 @@ daemon:
 logging:
   level: info
   format: json
-  file: /var/log/openapi-cli/openapi-cli.log
+  file: /var/log/wojons/muster.log
 
 auth:
   enable_oauth2: true
@@ -370,7 +370,7 @@ sudo systemctl status openapi-cli
 sudo journalctl -u openapi-cli -n 100
 
 # Application logs
-sudo tail -n 100 /var/log/openapi-cli/openapi-cli.log
+sudo tail -n 100 /var/log/wojons/muster.log
 
 # Socket check
 ls -la /run/muster/daemon.sock

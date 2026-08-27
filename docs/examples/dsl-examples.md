@@ -17,7 +17,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/openapi-cli/openapi-cli/pkg/dsl"
+    "github.com/wojons/muster/pkg/dsl"
 )
 
 func main() {

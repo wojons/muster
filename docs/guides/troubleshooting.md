@@ -25,7 +25,7 @@ bash: /usr/local/bin/openapi-cli: Permission denied
 2. **Install to user directory**:
    ```bash
    mkdir -p ~/.local/bin
-   curl -L https://github.com/openapi-cli/openapi-cli/releases/latest/download/openapi-cli-linux-amd64 -o ~/.local/bin/openapi-cli
+   curl -L https://github.com/wojons/muster/releases/latest/download/openapi-cli-linux-amd64 -o ~/.local/bin/openapi-cli
    chmod +x ~/.local/bin/openapi-cli
    export PATH="$HOME/.local/bin:$PATH"
    ```
@@ -671,8 +671,8 @@ openapi-cli request GET https://petstore.swagger.io/v2/pet/1 --verbose
 
 ### Contact Support
 
-1. Check [GitHub Issues](https://github.com/openapi-cli/openapi-cli/issues)
-2. Join [GitHub Discussions](https://github.com/openapi-cli/openapi-cli/discussions)
+1. Check [GitHub Issues](https://github.com/wojons/muster/issues)
+2. Join [GitHub Discussions](https://github.com/wojons/muster/discussions)
 3. Collect diagnostic info:
 
    ```bash
