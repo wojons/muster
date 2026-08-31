@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-08-07
+
 ### Added
 - **CLI**: Dynamic command discovery from OpenAPI specs (`discover`, `request`, `generate`)
 - **MCP Server**: Full MCP protocol — `tools/list`, `tools/call`, stdio transport

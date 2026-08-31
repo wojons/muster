@@ -22,11 +22,12 @@ Three deployment modes, one codebase. CLI for humans, MCP for AI agents, daemon 
 
 ## Quick start
 
-> **Note:** This repository is **PRIVATE**. Internal consumers need GitHub credentials and GOPRIVATE configured:
+> **Note:** This repository is **PRIVATE** and is not published to the public Go proxy.
+> **First**, configure GOPRIVATE and authenticate with GitHub:
 > ```bash
 > go env -w GOPRIVATE=github.com/wojons/*
 > ```
-> Once authenticated, `go get github.com/wojons/muster@v0.1.0` works directly.
+> Then `go get github.com/wojons/muster@v0.1.0` resolves from the private repo.
 
 ```bash
 # Build

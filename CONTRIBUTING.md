@@ -28,6 +28,17 @@ make build-cli        # -> bin/openapi-cli
 - `go build ./...` passes
 - `./demo/run-all.sh` passes (23/23)
 
+## CI status
+
+GitHub Actions is currently **billing-blocked** (external — needs org billing access), so
+no automated checks run on pushes. Until it is restored, the **local pre-push gate is the
+CI substitute** — run it before every push:
+
+```bash
+make validate        # unit + integration + security + lint + vet
+./demo/run-all.sh    # real end-to-end gate (23+ checks)
+```
+
 ## Documentation changes
 
 - Markdown sources live in `docs/` (guides/, api/, architecture/, contributing/).
