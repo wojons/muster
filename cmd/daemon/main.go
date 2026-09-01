@@ -82,13 +82,13 @@ func run() error {
 	// the six supported subcommands (start/stop/status/restart/reload/proxy).
 	flagSet.Usage = func() {
 		out := flagSet.Output()
-		fmt.Fprintf(out, "Usage: %s [start|stop|status|restart|reload|proxy] [flags]\n\n", os.Args[0])
-		fmt.Fprintln(out, "Commands:")
+		_, _ = fmt.Fprintf(out, "Usage: %s [start|stop|status|restart|reload|proxy] [flags]\n\n", os.Args[0])
+		_, _ = fmt.Fprintln(out, "Commands:")
 		for _, cmd := range []string{"start", "stop", "status", "restart", "reload", "proxy"} {
-			fmt.Fprintf(out, "  %s\n", cmd)
+			_, _ = fmt.Fprintf(out, "  %s\n", cmd)
 		}
-		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, "Flags:")
+		_, _ = fmt.Fprintln(out, "")
+		_, _ = fmt.Fprintln(out, "Flags:")
 		flagSet.PrintDefaults()
 	}
 	err := flagSet.Parse(flagArgs)
@@ -242,7 +242,7 @@ func spawnDaemonChildWithArgs(controller *daemon.Controller, args []string) erro
 	if err != nil {
 		return fmt.Errorf("open %s: %w", os.DevNull, err)
 	}
-	defer devnull.Close()
+	defer func() { _ = devnull.Close() }()
 
 	cmd := exec.Command(exe, args...)
 	cmd.Env = append(os.Environ(), "MUSTER_DAEMON_CHILD=1")

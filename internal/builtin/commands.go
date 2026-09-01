@@ -43,7 +43,7 @@ Safe to run repeatedly: an existing config file is never overwritten.`,
 			path := filepath.Join(dir, "config.yaml")
 
 			if _, err := os.Stat(path); err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "Configuration already exists at %s (unchanged)\n", path)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Configuration already exists at %s (unchanged)\n", path)
 				return nil
 			}
 
@@ -54,7 +54,7 @@ Safe to run repeatedly: an existing config file is never overwritten.`,
 				return fmt.Errorf("write config: %w", err)
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Created default configuration at %s\n", path)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Created default configuration at %s\n", path)
 			return nil
 		},
 	}
