@@ -112,6 +112,13 @@ Add to your Claude Desktop config or any MCP client:
 }
 ```
 
+Base URL resolution (DF-MUSTER-1): `openapi-mcp` targets the spec's own
+`servers[].url` by default — `--spec` alone is enough when the spec declares
+an absolute server URL, and every call would otherwise fail with
+`unsupported protocol scheme ""`. `--base-url` or the `MUSTER_BASE_URL` env
+var overrides the spec's server when you need to retarget (staging, local
+mock, etc.).
+
 Every OpenAPI operation becomes an MCP tool. `tools/list` shows them all. `tools/call` executes them. The AI never knows it's talking to a REST API.
 
 ## Daemon

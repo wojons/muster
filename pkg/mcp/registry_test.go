@@ -632,3 +632,211 @@ func TestToolRegistry_ImplementsToolLister(t *testing.T) {
 		t.Fatal("ToolRegistry should implement handlers.ToolLister")
 	}
 }
+
+// --- effectiveBaseURL / servers[] resolution (DF-MUSTER-1) ---
+
+// DF-MUSTER-1: with no explicit base URL, tools must default to the spec's
+// servers[] URL (resolved by pkg/openapi into Operation.ServerURL) so
+// tools/call works with --spec only.
+func TestConverter_ConvertToTools_DefaultsToSpecServerURL(t *testing.T) {
+	c := NewConverter("")
+	doc := &openapi3.T{
+		OpenAPI: "3.0.0",
+		Servers: openapi3.Servers{
+			{URL: "https://api.example.com/v1"},
+		},
+		Paths: &openapi3.Paths{
+			Extensions: map[string]interface{}{},
+		},
+	}
+	doc.Paths.Set("/pets", &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			OperationID: "listPets",
+			Summary:     "List all pets",
+			Responses:   openapi3.NewResponses(),
+		},
+	})
+
+	tools, configs, err := c.ConvertToTools(doc)
+	if err != nil {
+		t.Fatalf("ConvertToTools failed: %v", err)
+	}
+	if len(tools) != 1 {
+		t.Fatalf("expected 1 tool, got %d", len(tools))
+	}
+	if tools[0].BaseURL != "https://api.example.com/v1" {
+		t.Errorf("tool BaseURL = %q, want spec servers[] URL", tools[0].BaseURL)
+	}
+	if cfg := configs["listPets"]; cfg.BaseURL != "https://api.example.com/v1" {
+		t.Errorf("config BaseURL = %q, want spec servers[] URL", cfg.BaseURL)
+	}
+}
+
+// DF-MUSTER-1: an explicit base URL must still override the spec's servers[].
+func TestConverter_ConvertToTools_ExplicitBaseURLOverridesSpecServer(t *testing.T) {
+	c := NewConverter("https://override.example.com")
+	doc := &openapi3.T{
+		OpenAPI: "3.0.0",
+		Servers: openapi3.Servers{
+			{URL: "https://api.example.com/v1"},
+		},
+		Paths: &openapi3.Paths{
+			Extensions: map[string]interface{}{},
+		},
+	}
+	doc.Paths.Set("/pets", &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			OperationID: "listPets",
+			Responses:   openapi3.NewResponses(),
+		},
+	})
+
+	tools, configs, err := c.ConvertToTools(doc)
+	if err != nil {
+		t.Fatalf("ConvertToTools failed: %v", err)
+	}
+	if tools[0].BaseURL != "https://override.example.com" {
+		t.Errorf("tool BaseURL = %q, want explicit override", tools[0].BaseURL)
+	}
+	if configs["listPets"].BaseURL != "https://override.example.com" {
+		t.Errorf("config BaseURL = %q, want explicit override", configs["listPets"].BaseURL)
+	}
+}
+
+// A relative spec server URL (petstore-style "/api/v3") cannot be
+// dereferenced standalone, so it must NOT satisfy an unset base URL.
+func TestConverter_ConvertToTools_RelativeServerURLNotUsed(t *testing.T) {
+	c := NewConverter("")
+	doc := &openapi3.T{
+		OpenAPI: "3.0.0",
+		Servers: openapi3.Servers{
+			{URL: "/api/v3"},
+		},
+		Paths: &openapi3.Paths{
+			Extensions: map[string]interface{}{},
+		},
+	}
+	doc.Paths.Set("/pets", &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			OperationID: "listPets",
+			Responses:   openapi3.NewResponses(),
+		},
+	})
+
+	tools, configs, err := c.ConvertToTools(doc)
+	if err != nil {
+		t.Fatalf("ConvertToTools failed: %v", err)
+	}
+	if tools[0].BaseURL != "" {
+		t.Errorf("tool BaseURL = %q, want empty for relative server URL", tools[0].BaseURL)
+	}
+	if configs["listPets"].BaseURL != "" {
+		t.Errorf("config BaseURL = %q, want empty for relative server URL", configs["listPets"].BaseURL)
+	}
+}
+
+// No servers[] anywhere and no override → empty base URL (previous behavior).
+func TestConverter_ConvertToTools_NoServersNoOverride(t *testing.T) {
+	c := NewConverter("")
+	doc := &openapi3.T{
+		OpenAPI: "3.0.0",
+		Paths: &openapi3.Paths{
+			Extensions: map[string]interface{}{},
+		},
+	}
+	doc.Paths.Set("/items", &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			OperationID: "listItems",
+			Responses:   openapi3.NewResponses(),
+		},
+	})
+
+	tools, configs, err := c.ConvertToTools(doc)
+	if err != nil {
+		t.Fatalf("ConvertToTools failed: %v", err)
+	}
+	if tools[0].BaseURL != "" {
+		t.Errorf("tool BaseURL = %q, want empty", tools[0].BaseURL)
+	}
+	if configs["listItems"].BaseURL != "" {
+		t.Errorf("config BaseURL = %q, want empty", configs["listItems"].BaseURL)
+	}
+}
+
+// Operation-level servers[] (highest spec priority) must beat the root one.
+func TestConverter_ConvertToTools_OperationServerURLWins(t *testing.T) {
+	c := NewConverter("")
+	opServers := openapi3.Servers{
+		{URL: "https://special.example.com/v3"},
+	}
+	doc := &openapi3.T{
+		OpenAPI: "3.0.0",
+		Servers: openapi3.Servers{
+			{URL: "https://api.example.com/v1"},
+		},
+		Paths: &openapi3.Paths{
+			Extensions: map[string]interface{}{},
+		},
+	}
+	doc.Paths.Set("/pets", &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			OperationID: "listPets",
+			Servers:     &opServers,
+			Responses:   openapi3.NewResponses(),
+		},
+	})
+
+	tools, _, err := c.ConvertToTools(doc)
+	if err != nil {
+		t.Fatalf("ConvertToTools failed: %v", err)
+	}
+	if tools[0].BaseURL != "https://special.example.com/v3" {
+		t.Errorf("tool BaseURL = %q, want operation-level server URL", tools[0].BaseURL)
+	}
+}
+
+// End-to-end through the executor: a tool converted with no explicit base URL
+// must reach the spec's declared server (an httptest server standing in for
+// the servers[] URL), not fail with 'unsupported protocol scheme ""'.
+func TestToolExecutor_Execute_UsesSpecServerURLWithoutOverride(t *testing.T) {
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer server.Close()
+
+	c := NewConverter("")
+	doc := &openapi3.T{
+		OpenAPI: "3.0.0",
+		Servers: openapi3.Servers{
+			{URL: server.URL}, // spec declares the server; no --base-url given
+		},
+		Paths: &openapi3.Paths{
+			Extensions: map[string]interface{}{},
+		},
+	}
+	doc.Paths.Set("/api/data", &openapi3.PathItem{
+		Get: &openapi3.Operation{
+			OperationID: "getData",
+			Responses:   openapi3.NewResponses(),
+		},
+	})
+
+	tools, configs, err := c.ConvertToTools(doc)
+	if err != nil {
+		t.Fatalf("ConvertToTools failed: %v", err)
+	}
+	if tools[0].BaseURL == "" {
+		t.Fatal("tool BaseURL empty; servers[] resolution regressed")
+	}
+
+	exec := NewOpenAPIExecutor(configs)
+	if _, err := exec.Execute(context.Background(), "getData", map[string]interface{}{}); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+	if gotPath != "/api/data" {
+		t.Errorf("request path = %q, want /api/data on the spec-declared server", gotPath)
+	}
+}

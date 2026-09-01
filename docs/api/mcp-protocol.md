@@ -27,14 +27,15 @@ Configure in Claude Desktop settings:
   "mcpServers": {
     "openapi-cli": {
       "command": "/path/to/bin/openapi-mcp",
-      "args": [
-        "--spec", "/path/to/openapi.yaml",
-        "--base-url", "https://api.example.com/v1"
-      ]
+      "args": ["--spec", "/path/to/openapi.yaml"]
     }
   }
 }
 ```
+
+`--base-url` (or the `MUSTER_BASE_URL` env var) is an optional override: by
+default the server targets the spec's own `servers[].url`, so `--spec` alone
+works whenever the spec declares an absolute server URL.
 
 ### Manual Testing
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -386,6 +387,26 @@ func NewConverter(baseURL string) *Converter {
 	return &Converter{BaseURL: baseURL}
 }
 
+// effectiveBaseURL resolves the base URL for a single operation, mirroring
+// pkg/generator's resolution chain: an explicit base URL (the converter's
+// BaseURL, sourced from --base-url / MUSTER_BASE_URL in cmd/mcp-server) wins,
+// then the operation's resolved server URL from the spec (operation- →
+// path- → root-level servers[], already extracted by pkg/openapi), then "".
+// A relative spec server URL (e.g. "/api/v3") cannot be dereferenced on its
+// own, so it does not satisfy an otherwise-unset base URL (DF-MUSTER-1).
+func (c *Converter) effectiveBaseURL(opServerURL string) string {
+	if c.BaseURL != "" {
+		return c.BaseURL
+	}
+	if opServerURL == "" {
+		return ""
+	}
+	if u, err := url.Parse(opServerURL); err != nil || u.Scheme == "" {
+		return ""
+	}
+	return opServerURL
+}
+
 // ConvertToTools converts an OpenAPI document to MCP tools and execution configs.
 func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]ExecutionConfig, error) {
 	if doc == nil || doc.Paths == nil {
@@ -461,18 +482,23 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 			return nil, nil, fmt.Errorf("marshal schema for %s: %w", toolName, err)
 		}
 
+		// DF-MUSTER-1: default to the spec's servers[] URL so tools/call
+		// works with --spec only; an explicit base URL (converter BaseURL
+		// from --base-url / MUSTER_BASE_URL) still overrides.
+		baseURL := c.effectiveBaseURL(op.ServerURL)
+
 		tool := OpenAPITool{
 			Name:        toolName,
 			Description: description,
 			Method:      op.Method,
 			Path:        op.Path,
-			BaseURL:     c.BaseURL,
+			BaseURL:     baseURL,
 			InputSchema: schemaJSON,
 		}
 		tools = append(tools, tool)
 
 		configs[toolName] = ExecutionConfig{
-			BaseURL:     c.BaseURL,
+			BaseURL:     baseURL,
 			Method:      op.Method,
 			Path:        op.Path,
 			InputSchema: schemaJSON,

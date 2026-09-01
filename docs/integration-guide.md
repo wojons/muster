@@ -150,10 +150,16 @@ Flags:
 | Flag | Purpose |
 |------|---------|
 | `-spec` | Path to the OpenAPI spec file (required) |
-| `-base-url` | Base URL for API operations — **required when the spec declares a relative `servers[].url`** (the public petstore spec declares `"/api/v3"`, so without `-base-url` calls fail with `unsupported protocol scheme ""`) |
+| `-base-url` | Base URL override for API operations (env: `MUSTER_BASE_URL`). Optional: when omitted, `openapi-mcp` uses the spec's own `servers[].url` (operation- → path- → root-level), so `--spec` alone works for specs declaring an absolute server URL. Relative `servers[].url` values (e.g. `/api/v3`) cannot be dereferenced standalone — supply `-base-url` for those. |
 | `-wasm-plugin` | WASM response-transformation plugin (see §6) |
 | `-audit` | Enable audit logging (or `MUSTER_AUDIT_ENABLED=1`) |
 | `-log-level`, `-log-output` | Logging control (default: `info` to `stderr`) |
+
+**Base URL resolution order (DF-MUSTER-1):** `--base-url` flag →
+`MUSTER_BASE_URL` env var → the spec's `servers[].url` → none (calls fail at
+request time until a base URL exists). The resolved URL is announced on
+stderr at startup (`Using base URL: …`), so a misconfigured server is visible
+before the first call.
 
 ### 2.2 Drive it over stdio by hand (JSON-RPC)
 
@@ -183,6 +189,11 @@ printf '%s\n' \
 '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"getPetById","arguments":{"petId":1}}}' \
 | ./bin/openapi-mcp -spec /tmp/petstore.json -base-url https://petstore3.swagger.io/api/v3
 ```
+
+The `-base-url` here is only needed because the petstore spec declares a
+*relative* server (`/api/v3`). For a spec with an absolute `servers[].url`,
+omit the flag entirely and `tools/call` targets the spec's server (see the
+resolution order in §2.1).
 
 Real output: the tool result content carries the pet JSON
 (`{"id":1,"name":"Pet1",...}`).

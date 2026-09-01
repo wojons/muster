@@ -1342,3 +1342,50 @@ func TestMcpActorID_EnvironmentVariable(t *testing.T) {
 	os.Setenv("LOGNAME", "")
 	require.Equal(t, "mcp-client", mcpActorID())
 }
+
+// --- base URL override resolution (DF-MUSTER-1) ---
+
+func TestResolveBaseURL_FlagWins(t *testing.T) {
+	oldBaseURL := *baseURLFlag
+	defer func() { *baseURLFlag = oldBaseURL }()
+
+	t.Setenv("MUSTER_BASE_URL", "https://env.example.com")
+	*baseURLFlag = "https://flag.example.com"
+
+	require.Equal(t, "https://flag.example.com", resolveBaseURL(), "--base-url flag must win over MUSTER_BASE_URL")
+}
+
+func TestResolveBaseURL_EnvFallback(t *testing.T) {
+	oldBaseURL := *baseURLFlag
+	defer func() { *baseURLFlag = oldBaseURL }()
+
+	t.Setenv("MUSTER_BASE_URL", "https://env.example.com")
+	*baseURLFlag = ""
+
+	require.Equal(t, "https://env.example.com", resolveBaseURL(), "MUSTER_BASE_URL is the fallback override")
+}
+
+func TestResolveBaseURL_NoneSet(t *testing.T) {
+	oldBaseURL := *baseURLFlag
+	defer func() { *baseURLFlag = oldBaseURL }()
+
+	t.Setenv("MUSTER_BASE_URL", "")
+	*baseURLFlag = ""
+
+	require.Equal(t, "", resolveBaseURL(), "no flag and no env means no override (spec servers[] applies)")
+}
+
+func TestEffectiveToolBaseURL_OverridePreferred(t *testing.T) {
+	tools := []mcp.OpenAPITool{{Name: "a", BaseURL: "https://spec.example.com"}}
+	require.Equal(t, "https://override.example.com", effectiveToolBaseURL(tools, "https://override.example.com"))
+}
+
+func TestEffectiveToolBaseURL_FromTools(t *testing.T) {
+	tools := []mcp.OpenAPITool{{Name: "a", BaseURL: "https://spec.example.com"}}
+	require.Equal(t, "https://spec.example.com", effectiveToolBaseURL(tools, ""))
+}
+
+func TestEffectiveToolBaseURL_Empty(t *testing.T) {
+	tools := []mcp.OpenAPITool{{Name: "a", BaseURL: ""}}
+	require.Equal(t, "", effectiveToolBaseURL(tools, ""))
+}

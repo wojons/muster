@@ -38,13 +38,23 @@ type MCPServerConfig struct {
 
 var (
 	specPathFlag   = flag.String("spec", "", "Path to OpenAPI specification file")
-	baseURLFlag    = flag.String("base-url", "", "Base URL for API operations")
+	baseURLFlag    = flag.String("base-url", "", "Base URL for API operations (overrides the spec's servers[] URL; env: MUSTER_BASE_URL)")
 	logLevelFlag   = flag.String("log-level", "info", "Log level")
 	logOutputFlag  = flag.String("log-output", "stderr", "Log output destination")
 	auditFlag      = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
 	wasmPluginFlag = flag.String("wasm-plugin", "", "Path to WASM plugin for response transformation")
 	versionFlag    = flag.Bool("version", false, "Print version information and exit")
 )
+
+// resolveBaseURL resolves the explicit base-URL override for the MCP server:
+// the --base-url flag wins, then the MUSTER_BASE_URL env var, then "" (no
+// override — tools fall back to the spec's servers[] URL, DF-MUSTER-1).
+func resolveBaseURL() string {
+	if *baseURLFlag != "" {
+		return *baseURLFlag
+	}
+	return os.Getenv("MUSTER_BASE_URL")
+}
 
 func loadConfig() *MCPServerConfig {
 	return &MCPServerConfig{
@@ -56,7 +66,7 @@ func loadConfig() *MCPServerConfig {
 		MaxConcurrentCommands: 10,
 		CommandTimeout:        30 * time.Second,
 		SpecPath:              *specPathFlag,
-		BaseURL:               *baseURLFlag,
+		BaseURL:               resolveBaseURL(),
 		WasmPlugin:            *wasmPluginFlag,
 	}
 }
@@ -160,7 +170,9 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
 
 	fmt.Fprintf(os.Stderr, "Loaded spec: %s (%s)\n", doc.Info.Title, doc.Info.Version)
 
-	// Convert OpenAPI operations to MCP tools
+	// Convert OpenAPI operations to MCP tools. The converter defaults each
+	// tool to the operation's spec server URL (servers[]); an explicit
+	// override here (--base-url flag / MUSTER_BASE_URL env) wins instead.
 	converter := mcp.NewConverter(config.BaseURL)
 	tools, configs, err := converter.ConvertToTools(doc)
 	if err != nil {
@@ -168,6 +180,11 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "Generated %d MCP tools\n", len(tools))
+	if baseURL := effectiveToolBaseURL(tools, config.BaseURL); baseURL != "" {
+		fmt.Fprintf(os.Stderr, "Using base URL: %s (override=%t)\n", baseURL, config.BaseURL != "")
+	} else {
+		fmt.Fprintf(os.Stderr, "No base URL available: spec has no absolute servers[] URL and no override given (--base-url / MUSTER_BASE_URL)\n")
+	}
 
 	// Create registry and executor
 	registry := mcp.NewOpenAPIRegistry(tools, configs)
@@ -188,6 +205,22 @@ func RegisterHandler(server *mcp.Server, handler handlers.Handler) {
 	if server != nil {
 		server.RegisterHandler(handler)
 	}
+}
+
+// effectiveToolBaseURL reports the base URL the converted tools will actually
+// target: the explicit override when set, else the resolved spec server URL
+// stamped on the tools (both are set to the same value by the converter).
+// Returns "" when neither is available (calls will fail at request time).
+func effectiveToolBaseURL(tools []mcp.OpenAPITool, override string) string {
+	if override != "" {
+		return override
+	}
+	for _, tool := range tools {
+		if tool.BaseURL != "" {
+			return tool.BaseURL
+		}
+	}
+	return ""
 }
 
 // loadSpec loads an OpenAPI spec from a file path or URL.
