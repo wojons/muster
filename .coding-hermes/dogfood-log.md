@@ -47,3 +47,4 @@ prior stand-in cycles established the convention "never PUT below operator
 pin" (GAP-029/030/031 reasoning G5). Foreman is enabled and ticking
 (last tick 2026-08-17 12:46); it will pick up DF-007..012 on the next
 natural tick.
+2026-09-01 | PROMISING-BUT-ROUGH | 5s t2fs | friction 11 | 5 findings
