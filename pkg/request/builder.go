@@ -220,6 +220,12 @@ func (b *Builder) WithContentType(ct string) *Builder {
 }
 
 // Execute builds and executes the HTTP request.
+//
+// API shape (DF-MUSTER-5): Execute returns a standard *http.Response, not a
+// []byte or decoded struct — the caller owns reading (and closing) resp.Body
+// (io.ReadAll(resp.Body) is the canonical read). To set the request body,
+// use JSONBody (raw JSON string) or WithBody (io.Reader) before calling
+// Execute; JSONBody/WithBody are read when the request is built.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/request/builder.go
 func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
 	url := b.buildURL()

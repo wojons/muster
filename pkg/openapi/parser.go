@@ -33,8 +33,21 @@ func DefaultParseOptions() ParseOptions {
 }
 
 // ParseResult holds the result of parsing an OpenAPI document.
+//
+// API shape (DF-MUSTER-5): Document is the fully parsed *openapi3.T
+// (kin-openapi) document — there is no separate Info/Paths field on this
+// struct. Access spec metadata through the document itself:
+// result.Document.Info for the info section (title/version) and
+// result.Document.Paths to look up path items. Version carries the spec's
+// declared version string (from Info.Version) for convenience.
 type ParseResult struct {
-	Version  string
+	// Version is the OpenAPI version string declared in the document's
+	// info section (e.g. "1.0.0").
+	Version string
+
+	// Document is the parsed OpenAPI document (*openapi3.T). Use
+	// Document.Info for metadata and Document.Paths for operations — the
+	// result does not expose .Info/.Paths fields of its own.
 	Document *openapi3.T
 }
 
