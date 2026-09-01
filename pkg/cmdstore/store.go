@@ -56,6 +56,12 @@ const (
 	FlagKindBody      FlagKind = "body"
 	FlagKindFile      FlagKind = "file"      // multipart file upload flag
 	FlagKindMultipart FlagKind = "multipart" // non-file multipart form field
+
+	// FlagKindRawBody marks the raw JSON request body flag (--body/-b) added
+	// by the generator to JSON-body commands. The loader sends its value
+	// verbatim as the request body (validated JSON) instead of marshaling it
+	// as a single property or routing it as a query param (DF-MUSTER-5).
+	FlagKindRawBody FlagKind = "raw-body"
 )
 
 // FlagMetadata describes a command flag.

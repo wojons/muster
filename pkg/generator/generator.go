@@ -178,6 +178,18 @@ const (
 	// verbatim. Persistence consumers must prefer this annotation so the
 	// help users actually see contains examples that run (DF-010).
 	AnnotationOperationExample = "muster/openapi-example"
+
+	// RawBodyFlagName is the --body/-b flag added to typed POST/PUT/PATCH
+	// commands that have a JSON request body. When set, its raw JSON is
+	// sent verbatim and the per-property body flags are ignored
+	// (DF-MUSTER-5).
+	RawBodyFlagName = "body"
+
+	// RawBodyAnnotation is stamped on commands that register the
+	// RawBodyFlagName flag, so the persistence layer (internal/builtin/
+	// generate.go) tags the flag as a body-kind flag — not a query param —
+	// when saving command metadata (DF-MUSTER-5).
+	RawBodyAnnotation = "muster/raw-body-flag"
 )
 
 type NamingStrategy int
@@ -537,9 +549,28 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 			cmd.Flags().StringP(flagName, shorthand, "", description)
 		}
 
-		if bodyProp.Required {
-			_ = cmd.MarkFlagRequired(flagName)
+		// Required body properties are enforced by the run handler, not via
+		// cobra's MarkFlagRequired: --body replaces the per-property flags
+		// entirely when set, and a cobra-level requirement would reject
+		// "--body '{...}'" before the handler ever runs (DF-MUSTER-5).
+	}
+
+	// Raw JSON body flag (--body/-b): when set, the value is sent verbatim
+	// as the request body and the per-property body flags above are ignored
+	// (DF-MUSTER-5). Registered only for the JSON-body operations the run
+	// handler serves (POST/PUT/PATCH with parsed body properties), and
+	// skipped when a spec property/parameter already produced a "body" flag
+	// (collision — the spec-declared flag wins). The RawBodyAnnotation
+	// stamp lets the persistence layer tag the flag as body-kind metadata
+	// so reloaded commands send it as the body, not as a query param.
+	hasJSONBody := len(op.RequestBody) > 0 &&
+		(op.Method == http.MethodPost || op.Method == http.MethodPut || op.Method == http.MethodPatch)
+	if hasJSONBody && cmd.Flags().Lookup(RawBodyFlagName) == nil {
+		cmd.Flags().StringP(RawBodyFlagName, "b", "", "Raw JSON request body (overrides individual body flags)")
+		if cmd.Annotations == nil {
+			cmd.Annotations = make(map[string]string)
 		}
+		cmd.Annotations[RawBodyAnnotation] = "true"
 	}
 
 	cmd.Flags().StringP("output", "o", g.config.DefaultFormat, fmt.Sprintf("Output format (%s)", strings.Join(g.config.SupportedFormats, ", ")))
@@ -1024,6 +1055,26 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 		// Build JSON body from request body property flags (for POST/PUT/PATCH)
 		if len(op.RequestBody) > 0 &&
 			(op.Method == http.MethodPost || op.Method == http.MethodPut || op.Method == http.MethodPatch) {
+			// Raw --body/-b JSON override (DF-MUSTER-5): when set, the
+			// value is validated and sent verbatim; every per-property body
+			// flag below is ignored. Required properties are satisfied by
+			// the raw payload itself.
+			if rawBody, err := g.rawBodyValue(cmd); err != nil {
+				return err
+			} else if rawBody != "" {
+				builder.JSONBody(rawBody)
+				builder.SetHeader("Content-Type", "application/json")
+				return executeAndPrint(g, builder, cmd, ctx)
+			}
+
+			// Required body properties are enforced here, not via cobra
+			// MarkFlagRequired (see addFlags): --body satisfies them in one
+			// shot, so the individual flags must not be hard-required
+			// (DF-MUSTER-5).
+			if err := g.validateRequiredBodyProps(cmd, op); err != nil {
+				return err
+			}
+
 			bodyMap := make(map[string]interface{})
 			hasBodyFlag := false
 
@@ -1110,6 +1161,48 @@ func parseObjectBodyValue(flagName, raw string) (interface{}, error) {
 		return nil, fmt.Errorf("invalid JSON for --%s: %w (value: %q)", flagName, err, raw)
 	}
 	return parsed, nil
+}
+
+// rawBodyValue returns the --body/-b raw JSON request body when the flag is
+// set. The value is validated as JSON but returned verbatim — it is sent to
+// the wire exactly as the caller wrote it (DF-MUSTER-5). Returns ("", nil)
+// when the flag is absent or was not changed.
+func (g *Generator) rawBodyValue(cmd *cobra.Command) (string, error) {
+	flag := cmd.Flags().Lookup(RawBodyFlagName)
+	if flag == nil || !flag.Changed {
+		return "", nil
+	}
+	raw, err := cmd.Flags().GetString(RawBodyFlagName)
+	if err != nil {
+		return "", fmt.Errorf("get flag %s: %w", RawBodyFlagName, err)
+	}
+	if !json.Valid([]byte(raw)) {
+		return "", fmt.Errorf("invalid JSON for --%s: value is not valid JSON (value: %q)", RawBodyFlagName, raw)
+	}
+	return raw, nil
+}
+
+// validateRequiredBodyProps errors when a required request body property's
+// flag is unset. Called only when --body is absent: the raw payload
+// satisfies every required property at once, so individual flags must not be
+// cobra-required (DF-MUSTER-5).
+func (g *Generator) validateRequiredBodyProps(cmd *cobra.Command, op *openapi.Operation) error {
+	var missing []string
+	for _, bodyProp := range op.RequestBody {
+		if !bodyProp.Required {
+			continue
+		}
+		flagName := g.normalizeFlagName(bodyProp.Name)
+		flag := cmd.Flags().Lookup(flagName)
+		if flag != nil && flag.Changed {
+			continue
+		}
+		missing = append(missing, "--"+flagName)
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required body flag(s): %s (or provide --%s with raw JSON)", strings.Join(missing, ", "), RawBodyFlagName)
+	}
+	return nil
 }
 
 // parseArrayBodyValue parses a string flag value into a slice suitable for

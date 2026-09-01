@@ -2,6 +2,7 @@ package cmdstore
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -682,4 +683,90 @@ func TestLoader_CreateRunHandler_BaseURLEnvOverride(t *testing.T) {
 
 	require.NoError(t, cmds[0].RunE(cmds[0], []string{}))
 	require.Equal(t, srv.Listener.Addr().String(), gotHost)
+}
+
+func TestLoader_CreateRunHandler_RawBodyFlag(t *testing.T) {
+	var gotBody string
+	var gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "POST", r.Method)
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		gotContentType = r.Header.Get("Content-Type")
+		require.Empty(t, r.URL.RawQuery, "--body must not leak into the query string")
+		w.WriteHeader(201)
+		_, _ = w.Write([]byte(`{"id":1}`))
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{
+			Name:   "create-task",
+			Use:    "create-task",
+			Method: "POST",
+			Path:   "/tasks",
+			Flags: []FlagMetadata{
+				{Name: "body", Shorthand: "b", Type: "string", Kind: FlagKindRawBody},
+				{Name: "title", Type: "string", Kind: FlagKindBody, JSONName: "title"},
+			},
+		},
+	}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+	cmds[0].SetErr(buf)
+
+	// Reconstructed command exposes --body with -b shorthand
+	bodyFlag := cmds[0].Flag("body")
+	require.NotNil(t, bodyFlag, "reconstructed command should expose --body")
+	require.Equal(t, "b", bodyFlag.Shorthand)
+
+	// --body wins over per-property body flags: raw JSON sent verbatim
+	raw := `{"title":"raw","nested":{"k":[1,2]}}`
+	require.NoError(t, cmds[0].Flags().Set("body", raw))
+	require.NoError(t, cmds[0].Flags().Set("title", "ignored"))
+
+	err = cmds[0].RunE(cmds[0], []string{})
+	require.NoError(t, err)
+	require.Equal(t, raw, gotBody)
+	require.Equal(t, "application/json", gotContentType)
+	require.Contains(t, buf.String(), `{"id":1}`)
+}
+
+func TestLoader_CreateRunHandler_RawBodyFlag_InvalidJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("request must not be sent for invalid --body JSON")
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{
+			Name:   "create-task",
+			Use:    "create-task",
+			Method: "POST",
+			Path:   "/tasks",
+			Flags: []FlagMetadata{
+				{Name: "body", Shorthand: "b", Type: "string", Kind: FlagKindRawBody},
+			},
+		},
+	}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+	cmds[0].SetErr(buf)
+
+	require.NoError(t, cmds[0].Flags().Set("body", "{not-json"))
+	err = cmds[0].RunE(cmds[0], []string{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid JSON for --body")
 }

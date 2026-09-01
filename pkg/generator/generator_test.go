@@ -3236,3 +3236,199 @@ func TestGenerateCommands_ArrayQueryParam(t *testing.T) {
 	require.Contains(t, receivedQuery, "tags=b")
 	require.NotContains(t, receivedQuery, "[a b]")
 }
+
+// ---------------------------------------------------------------------------
+// DF-MUSTER-5: raw --body/-b JSON flag on typed commands
+// ---------------------------------------------------------------------------
+
+// bodyCaptureServer returns an httptest server that records the request body,
+// Content-Type, and raw query string it receives, responding with a fixed
+// JSON document so executeAndPrint can format a response.
+func bodyCaptureServer(t *testing.T) (*httptest.Server, *bodyCapture) {
+	t.Helper()
+	capture := &bodyCapture{}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		capture.body = string(b)
+		capture.contentType = r.Header.Get("Content-Type")
+		capture.rawQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id": 1}`))
+	}))
+	t.Cleanup(ts.Close)
+	return ts, capture
+}
+
+type bodyCapture struct {
+	body        string
+	contentType string
+	rawQuery    string
+}
+
+// rawBodySpecJSON returns a minimal spec with a POST operation whose request
+// body has a required "title" property, plus a GET collection operation.
+func rawBodySpecJSON() string {
+	return `{"openapi":"3.0.0","info":{"title":"Tasks","version":"1.0.0"},"paths":{"/tasks":{"get":{"operationId":"listTasks","summary":"List tasks","responses":{"200":{"description":"OK"}}},"post":{"operationId":"createTask","summary":"Create task","requestBody":{"content":{"application/json":{"schema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}}}},"responses":{"201":{"description":"Created"}}}}}}`
+}
+
+func TestGenerateCommands_RawBodyFlag_AddedToPostOnly(t *testing.T) {
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(rawBodySpecJSON()))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	tasksCmd := commands[0]
+	createCmd, _, err := tasksCmd.Find([]string{"create-task"})
+	require.NoError(t, err)
+	listCmd, _, err := tasksCmd.Find([]string{"list-tasks"})
+	require.NoError(t, err)
+
+	// (a) --body exists with -b shorthand on the POST command
+	bodyFlag := createCmd.Flag(RawBodyFlagName)
+	require.NotNil(t, bodyFlag, "POST command should expose --body")
+	require.Equal(t, "b", bodyFlag.Shorthand)
+	require.Contains(t, bodyFlag.Usage, "Raw JSON request body")
+	require.Contains(t, bodyFlag.Usage, "overrides individual body flags")
+	require.Equal(t, "true", createCmd.Annotations[RawBodyAnnotation])
+
+	// GET command must NOT have --body
+	require.Nil(t, listCmd.Flag(RawBodyFlagName), "GET command should not expose --body")
+	require.Empty(t, listCmd.Annotations[RawBodyAnnotation])
+}
+
+func TestCreateRunHandler_RawBody_UsedVerbatim(t *testing.T) {
+	ts, capture := bodyCaptureServer(t)
+
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(rawBodySpecJSON()))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	createCmd, _, err := commands[0].Find([]string{"create-task"})
+	require.NoError(t, err)
+
+	buf := new(bytes.Buffer)
+	createCmd.SetOut(buf)
+	createCmd.SetErr(buf)
+
+	// (b) --body raw JSON is used verbatim; the required --title flag is NOT
+	// enforced because the raw payload satisfies the required property.
+	raw := `{"title":"raw","extra":[1,2,3]}`
+	require.NoError(t, createCmd.Flags().Set(RawBodyFlagName, raw))
+	require.NoError(t, createCmd.RunE(createCmd, []string{}))
+
+	require.Equal(t, raw, capture.body)
+	require.Equal(t, "application/json", capture.contentType)
+	require.NotContains(t, capture.rawQuery, "body=", "--body must not leak into the query string")
+}
+
+func TestCreateRunHandler_RawBody_InvalidJSON(t *testing.T) {
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(rawBodySpecJSON()))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	createCmd, _, err := commands[0].Find([]string{"create-task"})
+	require.NoError(t, err)
+
+	// (c) invalid JSON in --body returns a clear error before any request
+	require.NoError(t, createCmd.Flags().Set(RawBodyFlagName, "{not-json"))
+	err = createCmd.RunE(createCmd, []string{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid JSON for --body")
+}
+
+func TestCreateRunHandler_PerPropertyFlags_WithoutRawBody(t *testing.T) {
+	ts, capture := bodyCaptureServer(t)
+
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(rawBodySpecJSON()))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	createCmd, _, err := commands[0].Find([]string{"create-task"})
+	require.NoError(t, err)
+
+	buf := new(bytes.Buffer)
+	createCmd.SetOut(buf)
+	createCmd.SetErr(buf)
+
+	// (d) per-property flags still work when --body is absent
+	require.NoError(t, createCmd.Flags().Set("title", "typed"))
+	require.NoError(t, createCmd.RunE(createCmd, []string{}))
+
+	require.JSONEq(t, `{"title":"typed"}`, capture.body)
+	require.Equal(t, "application/json", capture.contentType)
+}
+
+func TestCreateRunHandler_RawBody_OverridesPerPropertyFlags(t *testing.T) {
+	ts, capture := bodyCaptureServer(t)
+
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: ts.URL})
+	require.NoError(t, err)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(rawBodySpecJSON()))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	createCmd, _, err := commands[0].Find([]string{"create-task"})
+	require.NoError(t, err)
+
+	buf := new(bytes.Buffer)
+	createCmd.SetOut(buf)
+	createCmd.SetErr(buf)
+
+	// Both --title and --body given: --body wins, --title is ignored.
+	require.NoError(t, createCmd.Flags().Set("title", "typed"))
+	require.NoError(t, createCmd.Flags().Set(RawBodyFlagName, `{"title":"raw"}`))
+	require.NoError(t, createCmd.RunE(createCmd, []string{}))
+
+	require.JSONEq(t, `{"title":"raw"}`, capture.body)
+}
+
+func TestCreateRunHandler_RawBody_MissingRequiredProperty(t *testing.T) {
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(rawBodySpecJSON()))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	createCmd, _, err := commands[0].Find([]string{"create-task"})
+	require.NoError(t, err)
+
+	// --title is required by the spec but must NOT be cobra-required:
+	// cobra's required-flag check would run before the handler and reject
+	// a --body-only invocation (DF-MUSTER-5).
+	titleFlag := createCmd.Flag("title")
+	require.NotNil(t, titleFlag)
+	require.Empty(t, titleFlag.Annotations[cobra.BashCompOneRequiredFlag],
+		"required body property must not be MarkFlagRequired")
+
+	// Without --body and without --title → handler enforces the requirement.
+	err = createCmd.RunE(createCmd, []string{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing required body flag(s): --title")
+}

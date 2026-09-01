@@ -195,12 +195,16 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 		// Separate flags into file, body, header, and query groups
 		var bodyFlags []FlagMetadata
 		var queryFlags []FlagMetadata
+		var rawBodyFlags []FlagMetadata
 		var fileFlagPath string
 
 		for _, flagMeta := range meta.Flags {
 			switch flagMeta.Kind {
 			case FlagKindBody:
 				bodyFlags = append(bodyFlags, flagMeta)
+			case FlagKindRawBody:
+				// raw JSON request body (--body/-b) — handled below
+				rawBodyFlags = append(rawBodyFlags, flagMeta)
 			case FlagKindHeader:
 				// handled below
 			case FlagKindFile:
@@ -258,6 +262,24 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 					}
 				}
 			}
+		}
+
+		// Raw JSON body override (DF-MUSTER-5): when a raw-body flag
+		// (--body/-b) is set, its validated JSON is sent verbatim as the
+		// request body and every per-property body flag is ignored. This
+		// mirrors pkg/generator.createRunHandler behavior on persisted
+		// (reloaded) commands.
+		for _, flagMeta := range rawBodyFlags {
+			if cmd.Flag(flagMeta.Name) == nil || !cmd.Flag(flagMeta.Name).Changed {
+				continue
+			}
+			raw, _ := cmd.Flags().GetString(flagMeta.Name)
+			if !json.Valid([]byte(raw)) {
+				return fmt.Errorf("invalid JSON for --%s: value is not valid JSON (value: %q)", flagMeta.Name, raw)
+			}
+			builder.JSONBody(raw)
+			builder.SetHeader("Content-Type", "application/json")
+			return executeAndReadResponse(builder, cmd, ctx)
 		}
 
 		// Build JSON body from body-kind flags (for POST/PUT/PATCH operations)

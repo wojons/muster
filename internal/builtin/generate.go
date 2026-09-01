@@ -419,6 +419,15 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 			flagMeta.JSONName = jsonName
 		}
 
+		// Tag the raw JSON body flag (--body/-b, DF-MUSTER-5) so the loader
+		// sends its value verbatim as the request body instead of routing it
+		// as a query parameter. The generator stamps RawBodyAnnotation on
+		// commands that registered the flag, so a spec property/parameter
+		// that merely shares the name "body" is not mis-tagged.
+		if cmd.Annotations[generator.RawBodyAnnotation] == "true" && flag.Name == generator.RawBodyFlagName {
+			flagMeta.Kind = cmdstore.FlagKindRawBody
+		}
+
 		cmdMeta.Flags = append(cmdMeta.Flags, flagMeta)
 	})
 
