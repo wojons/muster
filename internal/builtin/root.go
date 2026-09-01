@@ -35,7 +35,8 @@ func newRootCommand(cfg *config.Config, auditHook *audit.Hook) *cobra.Command {
 		Short: "OpenAPI-powered CLI and MCP server",
 		Long: `A unified CLI tool that generates commands from OpenAPI specifications
 and serves them via MCP protocol.`,
-		Version: version.Get().Short(),
+		Version:       version.Get().Short(),
+		SilenceErrors: true, // errors are printed exactly once by cmd/openapi-cli/main.go; without this cobra prints them again
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// When the user invokes a meta-command, hide the
 			// dynamically-loaded persisted commands so they don't

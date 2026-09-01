@@ -297,6 +297,17 @@ func TestNewRootCommandWithAudit(t *testing.T) {
 	})
 }
 
+func TestRootCommand_SilenceErrors(t *testing.T) {
+	// DF-MUSTER-4: the root command must NOT print errors itself — cobra's
+	// default error print duplicates the one in cmd/openapi-cli/main.go,
+	// so every failing invocation printed "Error: ..." twice on stderr.
+	// main.go owns the single print; SilenceErrors disables cobra's copy.
+	cfg := &config.Config{}
+	root := NewRootCommand(cfg)
+
+	assert.True(t, root.SilenceErrors, "root command must set SilenceErrors so errors print exactly once on stderr")
+}
+
 func TestCliActorID(t *testing.T) {
 	t.Run("returns USER env when set", func(t *testing.T) {
 		os.Setenv("USER", "testuser")

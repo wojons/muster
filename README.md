@@ -42,15 +42,17 @@ make build-cli
 ./bin/openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
 
 # Typed commands are now available on the next invocation, e.g.:
-./bin/openapi-cli list-pets
+./bin/openapi-cli get-pet-by-id 1
 
-# Or execute ad-hoc operations with the generic request command
-# (note: the public petstore server returns HTTP 500 on findByStatus — server-side,
-# not a Muster bug; GET /pet/1 is stable)
-./bin/openapi-cli request GET https://petstore3.swagger.io/api/v3/pet/1 -o json
+# Or execute ad-hoc operations with the generic request command.
+# Note: the public petstore3.swagger.io demo server returns HTTP 500 on most
+# petstore endpoints — including findByStatus AND GET /pet/1 — server-side,
+# not a Muster bug. For a reliable request example, use the demo's local mock
+# services: ./demo/run-all.sh (below) starts them, then e.g.:
+./bin/openapi-cli request GET http://localhost:9801/tasks -o json
 
 # Point generated commands at another environment without regenerating:
-# ./bin/openapi-cli list-pets --base-url https://staging.example.com
+# ./bin/openapi-cli get-pet-by-id 1 --base-url https://staging.example.com
 # (or export MUSTER_BASE_URL=https://staging.example.com)
 
 # Run the full demo (5 mock services, 10 scripts, all 7 surfaces)
