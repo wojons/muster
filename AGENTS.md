@@ -22,6 +22,11 @@ make build-daemon             # Build daemon
 
 # Testing (CRITICAL - run ALL before committing)
 go test -v ./...              # Run all unit tests
+# ⚠️ NOTE: bare `go test ./...` also runs the 30-minute daemon stability soak
+# (test/stability), which exceeds Go's 10-minute per-package timeout and
+# panics with "test timed out". For a quick pass use the short suite:
+go test -short ./...          # Short suite (excludes long-running stability tests)
+make test-short               # Same, via Makefile
 make test-unit                # Unit tests only
 make test-integration         # ⭐ INTEGRATION TESTS
 make test-e2e                 # ⭐ END-TO-END TESTS
@@ -298,6 +303,11 @@ go test -v ./...
 ```
 - [ ] All tests passing
 - [ ] Coverage > 80%
+
+> ⚠️ NOTE: bare `go test ./...` also runs the 30-minute daemon stability soak
+> (test/stability), which exceeds Go's 10-minute per-package timeout and panics
+> with "test timed out". For a quick pass use `go test -short ./...` or
+> `make test-short` (excludes long-running stability tests).
 
 ### 2. Integration Tests
 ```bash

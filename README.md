@@ -177,6 +177,11 @@ go build -o bin/openapi-daemon ./cmd/daemon
 
 # Run tests
 go test ./...
+# NOTE: the full suite includes a 30-minute daemon stability soak test
+# (test/stability), which exceeds Go's 10-minute per-package timeout and
+# fails with "panic: test timed out". Use the short suite for a quick pass:
+go test -short ./...
+# (or: make test-short)
 
 # Run the demo
 ./demo/run-all.sh
