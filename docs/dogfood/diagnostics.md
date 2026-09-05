@@ -223,3 +223,68 @@ timing, which is why this slipped through.)
 5. **MCP is the most complete typed surface** — 22/22 tools incl. nested
    resources, no collisions, no truncation. Prefer it for full-coverage
    workflows until DF-007/DF-008 land.
+
+## 2026-09-04 addendum — fix-verification run + bunker install leg
+
+**Status change:** DF-007/DF-008 (generator) and DF-009/DF-011 (daemon) verified FIXED by
+real use on HEAD 01849718. The "right way" above is now simpler: `generate` is safe on
+operationId-less specs, and `start --backend-url` really proxies.
+
+### Why the generator fix works (shape)
+
+Nested same-verb operations now get path-qualified command names
+(`create-project-task` vs `create-project`), so a name is unique per (verb, path
+template) rather than per (verb, last-segment). The 08-17 mangling class
+(`/projectss`, `delete-mileston`) is gone because name derivation no longer
+falls back to stem-mangling when operationIds are absent — verified by the
+programmatic 22-ops → 21-unique-commands diff (no collisions possible without
+drops).
+
+### New root cause found this run: tests clobber the real user store (DF-013)
+
+`demo/test-suites/100-cli-real-integration_test.go` builds the real CLI and exec()s
+`generate` via `exec.CommandContext` **without setting HOME/XDG_DATA_HOME for the
+child**. The child resolves the store path from the environment → writes the
+INVOKING USER's `$XDG_DATA_HOME/openapi-cli/commands.json`, overwriting it with
+fixtures. Caught forensically: store `generated_at` (23:32:40) matched the
+`go test -short` window exactly, and the file's `spec_path` pointed at
+`/tmp/TestRealCLIIntegration3574462870/002/petstore.yaml` — a temp dir only the
+test creates. **Lesson:** any test that exec()s the project's own binary must
+`t.Setenv("HOME", t.TempDir())` first; otherwise "all tests green" is quietly
+destroying user state. This is the third independent instance of the
+persisted-store-overwrite family (DF-003 → GAP fix → now the test suite itself).
+
+### Relative server URLs: the last `unsupported protocol scheme` trap (DF-015)
+
+Petstore's `servers[].url` is `/api/v3` (relative). Resolution against the spec's
+fetch URL does not happen for typed commands, so execution builds
+`Get "/api/v3/pet/1"` → `unsupported protocol scheme ""`. The MCP surface got the
+`--spec`-alone resolution fix (DF-MUSTER-1); the CLI surface still needs either
+the same resolution or a doc'd `--base-url` note in the quickstart. Until fixed:
+**always pass `--base-url`/`MUSTER_BASE_URL` for relative-server specs.**
+
+### Bunker install leg — how a fresh machine actually goes (and what broke)
+
+Order that worked on a bare Debian 13 agent:
+1. Toolchain: `curl -LO go.dev/dl/go1.26.5.linux-amd64.tar.gz` → extract to
+   `~/toolchain` → PATH. (Docs assume this exists; they shouldn't.)
+2. Code: documented `git clone` fails without credentials (private repo — correct
+   per access policy; tar-staging from an authorized machine is the sanctioned
+   fallback). Without git metadata, `version` prints `dev (unknown)` — cosmetic.
+3. Build: `make build-cli`. **Broke once**: `link: mapping output file failed:
+   no space left on device` — the 64MB Go tarball still in HOME plus module cache
+   hit a per-agent ~1.5G budget at peak. Fix: delete the tarball, rebuild. Docs
+   should warn container/CI users about peak build footprint (~1.2G).
+4. Smoke: discover+generate on petstore3 (works), typed `get-pet-by-id 1` dies
+   with `unsupported protocol scheme ""` (DF-015 — spec has relative server URL),
+   with `--base-url` reaches petstore (500 is petstore's own documented breakage),
+   generic `request GET` against a local file server returns 200 with intact body.
+
+### Right way (2026-09-04)
+
+1. Build (`make build`), scratch HOME, `generate` any spec — operationIds or not.
+2. Relative `servers[].url`? Pass `--base-url` or `MUSTER_BASE_URL`. Always.
+3. Run tests ONLY with a scratch HOME until DF-013 is fixed; or re-`generate` after.
+4. Daemon: `start --backend-url` proxies, `restart` restarts, `status`/`stop` as
+   before. `proxy` mode remains for foreground debugging.
+5. MCP unchanged: `-spec` + `-base-url` covers every op, 22/22 tools.

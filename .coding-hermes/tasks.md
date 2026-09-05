@@ -1,4 +1,14 @@
 
+## Dogfood Findings (2026-09-04)
+Verdict: SHIPPABLE (first run to earn it — all 7 surfaces verified working on HEAD; 3 new findings below, all tests/infra/docs, none break the product)
+Promise: "Turn any OpenAPI spec into a CLI, an MCP server, and a Go library — instantly." Reality: holds. `./demo/run-all.sh` passed 23/23 checks in ~163s; full CLI CRUD round-trip vs live task-forge mock; MCP tools/list 22/22; daemon start/proxy/restart/status/stop all verified.
+
+- [P1] DF-013 — Running the documented test suite (`go test -short ./...`) DESTROYS the user's persisted command store. demo/test-suites/100-cli-real-integration_test.go exec()s the real CLI `generate` without HOME/XDG isolation; the user's ~/.local/share/openapi-cli/commands.json gets overwritten with test fixtures (spec_path=/tmp/TestRealCLIIntegration…, base_url=127.0.0.1:<random>). Repro + fix in board row.
+- [P1] DF-014 — Bunkerd (infra, repo bunker) lost its in-memory agent registry mid-session: fresh spawn failed "port range allocation: pool exhausted (10 ranges)" with 9 orphaned users holding ranges; a second agent was destroyed mid-session by a concurrent E2E battery run. Registry must persist + reconcile on boot. Filed on the bunker board as SPAWN-REG-001; cross-ref here.
+- [P2] DF-015 — README quickstart verbatim dies on relative-server specs: petstore `servers[].url` is `/api/v3` (relative), so the generated `get-pet-by-id 1` exits 1 with `unsupported protocol scheme ""` client-side. `--base-url`/`MUSTER_BASE_URL` fix it (verified) but the README never says so for the CLI surface. Doc gap + resolution candidate.
+
+Fix-verification of DF-007..DF-012 (all marked complete): **all six confirmed actually fixed on HEAD 01849718** — operationId-less generate yields 22 ops→21 unique commands, zero mangles, zero collisions (`create-project-task` distinct from `create-project`); daemon start-mode proxies real traffic and restart restarts; typed `--help` examples correct; `--version` present on all binaries. Bunker fresh-install leg: PASS after manual Go install (docs silently assume Go 1.26.6+; recorded in diagnostics).
+
 ## Dogfood Findings (2026-09-01)
 Verdict: PROMISING-BUT-ROUGH
 Promise: {"entry_point":"CLI binary bin/openapi-cli (cmd/openapi-cli); companion binaries openapi-mcp (MCP server, cmd/mcp-server) and openapi-daemon (daemon, cmd/daemon); also importable as Go packages under pkg/","promise":"Muster promises that a user can take any OpenAPI 3.x specification and instantly turn it into a working CLI + MCP server + daemon with zero hand-written code."}

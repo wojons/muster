@@ -48,3 +48,35 @@ pin" (GAP-029/030/031 reasoning G5). Foreman is enabled and ticking
 (last tick 2026-08-17 12:46); it will pick up DF-007..012 on the next
 natural tick.
 2026-09-01 | PROMISING-BUT-ROUGH | 5s t2fs | friction 11 | 5 findings
+
+## 2026-09-04 — Fix-verification run + first bunker install leg
+
+**Promise statement:** *"Muster claims a user can turn any OpenAPI spec into a
+CLI, an MCP server, and a Go library instantly — no codegen."*
+
+**What was done (real use, not tests):** `./demo/run-all.sh` 23/23 PASS (~163s);
+fresh `make build-cli` (4s, v0.1.1-57-g01849718); full CLI CRUD round-trip vs
+live task-forge mock incl. the formerly-shadowed nested `create-project-task`;
+programmatic generator inventory check (22 spec ops → 21 unique commands, zero
+missing, zero collisions); daemon start-mode proxies REAL traffic, restart
+restarts (DF-009/011 verified); MCP 22/22 tools; `go test -short` 70s cold
+45 pkgs 0 FAIL. Bunker leg: fresh agent on las-bunker-03, manual Go toolchain
+install, documented `make build-cli` (broke once: transient "no space left on
+device" — tarball cleanup fixed), smoke PASS (discover/generate/typed
+--base-url/request 200).
+
+**Fix verification:** DF-007, DF-008, DF-009, DF-010, DF-011, DF-012 — ALL six
+confirmed actually fixed on HEAD 01849718.
+
+**Findings written to board:** DF-013 (P1, tests clobber real user command
+store — caught live), DF-015 (P2, relative-server specs die client-side and
+docs don't mention --base-url) in `.coding-hermes/board/tasks.jsonl`;
+SPAWN-REG-001 (P1, bunkerd in-memory registry loss / orphaned port ranges) on
+the bunker board, cross-referenced as DF-014 here.
+
+**Foreman:** NOT woken — operator pin cooldown_s=604800 in ~/.hermes/fleet.toml;
+standing convention "never PUT below operator pin" (GAP-029/030/031 reasoning
+G5). muster foreman enabled, last tick 2026-09-02 23:26. New rows surface at
+the next natural tick.
+
+2026-09-04 | SHIPPABLE | install_seconds=67 | bunker=las-bunker-03 agent=6ce1acfc | smoke=ok | t2fs ~5min local / ~12min bunker | friction 3 | 3 findings (DF-013, DF-014→bunker, DF-015)
