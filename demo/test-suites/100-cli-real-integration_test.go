@@ -18,6 +18,23 @@ import (
 
 // TestRealCLIIntegration proves OpenAPI → Command → HTTP → Response actually works
 func TestRealCLIIntegration(t *testing.T) {
+	// Isolate the child CLI's persisted command store: without this, the
+	// exec'd `generate` writes to the invoking user's REAL store
+	// ($XDG_DATA_HOME/openapi-cli/commands.json, falling back to
+	// $HOME/.local/share), destroying their generated commands (DF-013).
+	// Capture the real module cache BEFORE redirecting HOME — the go build
+	// below needs it, and a fresh cache inside the temp HOME leaves
+	// read-only files that break TempDir cleanup.
+	modCache := ""
+	if out, err := exec.Command("go", "env", "GOMODCACHE").Output(); err == nil {
+		modCache = strings.TrimSpace(string(out))
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	if modCache != "" {
+		t.Setenv("GOMODCACHE", modCache)
+	}
+
 	// Get the repo root directory from the test file's location
 	repoRoot, err := getRepoRoot()
 	if err != nil {
