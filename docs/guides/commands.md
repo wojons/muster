@@ -405,11 +405,37 @@ The MCP server is a separate binary (`openapi-mcp`), not a subcommand of
 
 ## Output Formats
 
-The `request` command supports these output formats via `-o, --output`:
+The `request` command and every generated command (e.g. `get-pet` after
+generating from a spec) accept `-o, --output`:
 
-- `table` - Table format (default)
-- `json` - JSON output
-- `yaml` - YAML output
+| Format | Behavior |
+|--------|----------|
+| `table` (default) | Human-readable table: arrays become rows with key headers; single objects become key/value rows |
+| `json` | Pretty-printed JSON (2-space indent) |
+| `yaml` | YAML rendering |
+
+```bash
+openapi-cli request GET https://petstore3.swagger.io/api/v3/pet/findByStatus?status=available -o json
+openapi-cli get-pet 83165 -o yaml
+```
+
+Generated commands additionally accept `--raw` (`-r`) to dump the response
+body verbatim, bypassing formatting:
+
+```bash
+openapi-cli get-pet 83165 --raw
+```
+
+Notes:
+
+- Formatting applies to successful JSON responses. A non-JSON or empty body is
+  printed as-is regardless of `--output`.
+- On HTTP errors the response body is still printed, followed by an
+  `HTTP error: <status>` message (exit code 4, see Exit Codes below).
+- `--output`/`--raw` are provided by the command generator; commands reloaded
+  from the persisted store currently print the raw body, do not apply
+  `--output` formatting, and forward `--raw` as a `?raw=true` query parameter
+  (loader gaps, tracked on the project board).
 
 ## Exit Codes
 
