@@ -18,7 +18,7 @@ This guide provides complete instructions for configuring systemd service units 
 openapi-cli.service             # Main CLI initialization service
 openapi-cli-daemon.service      # Daemon service (HTTP/gRPC API)
 openapi-cli.socket              # Socket activation for daemon
-openapi-cli-mcp.service         # MCP server service
+openapi-mcp.service             # MCP server service
 ```
 
 ### Service Dependencies
@@ -127,7 +127,7 @@ WantedBy=sockets.target
 - `SocketGroup=muster`: Socket group ownership
 - `WantedBy=sockets.target`: Socket activation target
 
-#### 3. openapi-cli-mcp.service
+#### 3. openapi-mcp.service
 
 ```ini
 [Unit]
@@ -140,7 +140,7 @@ Wants=network-online.target
 Type=simple
 User=muster
 Group=muster
-ExecStart=/usr/bin/openapi-cli-mcp --config /etc/openapi-cli/mcp-config.yaml
+ExecStart=/usr/bin/openapi-mcp --config /etc/openapi-cli/mcp-config.yaml
 Restart=on-failure
 RestartSec=5s
 
@@ -291,20 +291,24 @@ prompts:
 ### Enable and Start Services
 
 ```bash
+# Preflight: verify binary versions (each prints a short version line and exits)
+openapi-mcp --version
+openapi-daemon --version
+
 # Enable all services
 sudo systemctl enable openapi-cli.socket
 sudo systemctl enable openapi-cli-daemon.service
-sudo systemctl enable openapi-cli-mcp.service
+sudo systemctl enable openapi-mcp.service
 
 # Start all services
 sudo systemctl start openapi-cli.socket
 sudo systemctl start openapi-cli-daemon.service
-sudo systemctl start openapi-cli-mcp.service
+sudo systemctl start openapi-mcp.service
 
 # Verify status
 sudo systemctl status openapi-cli.socket
 sudo systemctl status openapi-cli-daemon.service
-sudo systemctl status openapi-cli-mcp.service
+sudo systemctl status openapi-mcp.service
 ```
 
 ---
@@ -337,7 +341,7 @@ ExecStart=/usr/bin/openapi-cli daemon
 ```ini
 [Service]
 Type=simple
-ExecStart=/usr/bin/openapi-cli-mcp
+ExecStart=/usr/bin/openapi-mcp
 ```
 
 **Advantages**:

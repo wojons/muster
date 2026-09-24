@@ -126,8 +126,8 @@ mTLS) — see [docs/guides/configuration.md](guides/configuration.md).
 
 **`openapi-mcp` is the one and only MCP server binary.** It is built by
 `make build-mcp` from `cmd/mcp-server`. No other MCP binary is produced by the
-build — if you find an `mcp-server` or `openapi-cli-mcp-server` file in `bin/`,
-it is a stale artifact from an ad-hoc build; delete it and rebuild.
+build — if you find an `mcp-server` binary in `bin/`, it is a stale artifact
+from an ad-hoc build; delete it and rebuild.
 
 Every OpenAPI operation becomes an MCP tool: `tools/list` shows them,
 `tools/call` executes them, and the AI client never sees a raw REST call.

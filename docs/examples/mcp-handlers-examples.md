@@ -28,7 +28,7 @@ func main() {
 
     // Configure server
     config := &mcp.ServerConfig{
-        Name:    "openapi-cli-mcp",
+        Name:    "openapi-mcp",
         Version: "1.0.0",
     }
 
@@ -368,7 +368,7 @@ func main() {
 
     // Configure server
     config := &mcp.ServerConfig{
-        Name:         "openapi-cli-mcp",
+        Name:         "openapi-mcp",
         Version:      "1.0.0",
         Vendor:       "OpenAPI CLI",
         Product:      "OpenAPI CLI MCP Server",

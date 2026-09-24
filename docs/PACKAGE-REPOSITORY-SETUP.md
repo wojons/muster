@@ -122,7 +122,7 @@ gpg --edit-key repository@openapi-cli.io
         └── all/
             └── openapi-cli/
                 ├── openapi-cli_1.0.0_amd64.deb
-                └── openapi-cli-mcp_1.0.0_amd64.deb
+                └── openapi-mcp_1.0.0_amd64.deb
 ```
 
 ### APT Repository Setup
@@ -256,7 +256,7 @@ jobs:
       - name: Add packages
         run: |
           reprepro --nosignatures --ask-passphrase includedeb jammy openapi-cli_*.deb
-          reprepro --nosignatures --ask-passphrase includedeb jammy openapi-cli-mcp_*.deb
+          reprepro --nosignatures --ask-passphrase includedeb jammy openapi-mcp_*.deb
 
       - name: Publish to repository
         env:
@@ -281,7 +281,7 @@ echo "deb [signed-by=/usr/share/keyrings/openapi-cli-archive-keyring.gpg] https:
 
 # Update and install
 sudo apt update
-sudo apt install openapi-cli openapi-cli-mcp
+sudo apt install openapi-cli openapi-mcp
 ```
 
 ---
@@ -420,7 +420,7 @@ gpgkey=https://packages.example.com/gpg
 EOF
 
 # Install
-sudo dnf install openapi-cli openapi-cli-mcp
+sudo dnf install openapi-cli openapi-mcp
 ```
 
 ---
@@ -537,7 +537,7 @@ echo "https://packages.example.com/alpine/community" >> /etc/apk/repositories
 
 # Install
 apk update
-apk add openapi-cli openapi-cli-mcp
+apk add openapi-cli openapi-mcp
 ```
 
 ---
