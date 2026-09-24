@@ -122,6 +122,34 @@ openapi-cli request GET https://api.example.com/pet/findByStatus --param status=
 openapi-cli request GET https://api.example.com/pet/1 --output json
 ```
 
+### Typed and generated commands (`--body`/`-b`)
+
+Generated commands (created by `generate`) support a raw JSON body flag on
+operations that take a JSON request body (POST/PUT/PATCH methods). The flag
+is added only when the operation has a JSON request body; if the spec itself
+declares a property or parameter named `body`, that spec-declared flag wins
+and the raw flag is not added.
+
+The value is a raw JSON string (quote it in your shell). It is validated as
+JSON and sent verbatim as the request body with `Content-Type:
+application/json` — it is neither wrapped nor merged with other flags. When
+`--body` is set it overrides the individual per-property body flags and
+satisfies all required body properties in one shot (you do not need to pass
+each required property flag). The same flag and semantics apply to commands
+reloaded from the persisted command store. File input (e.g. `@file`) is not
+supported — only inline JSON.
+
+**Examples**:
+```bash
+openapi-cli myapi pet create --body '{"name":"Fluffy"}'
+openapi-cli myapi pet update 42 --body '{"name":"Fluffy","status":"sold"}'
+```
+
+The command path is `<app-name> <resource> <operation>`; the app name comes
+from the spec used with `generate`. Run `openapi-cli <app-name> <resource>
+<operation> --help` to see the flags of a generated command, including
+`--body` when the operation accepts a JSON body.
+
 ## DSL Commands
 
 ### `dsl run`
@@ -135,7 +163,7 @@ openapi-cli dsl run <file.star> [flags]
 
 **Examples**:
 ```bash
-openapi-cli dsl run automation.star
+openapi-cli dsl run demo/scripts/workflow.star
 ```
 
 ## Daemon Commands
