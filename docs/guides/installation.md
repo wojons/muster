@@ -129,6 +129,19 @@ downloads fail, check:
 go env GOPROXY        # should be a reachable proxy, e.g. https://proxy.golang.org,direct
 ```
 
+## Upgrading an existing install
+
+Build from source installs do not self-update: re-run the build and replace
+the binary (see the guide
+[upgrade-verification.md](upgrade-verification.md) for the tagged
+release → HEAD verification the repo ships, including the v0.1.0 module-path
+stamping caveat):
+
+```bash
+git pull && make build-cli        # rebuild the new version over the old install
+scripts/verify-upgrade-path.sh    # prove a tagged upgrade works end to end
+```
+
 ## Uninstallation
 
 The build-from-source install leaves nothing outside the repo clone:
