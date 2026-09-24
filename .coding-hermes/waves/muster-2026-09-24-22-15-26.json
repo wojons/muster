@@ -1,0 +1,41 @@
+{
+  "tick_id": "muster-2026-09-24-22-15-26",
+  "project": "muster",
+  "base": "origin/main",
+  "base_sha": "9bdd6d48",
+  "wave_budget": 9,
+  "workers": [
+    {
+      "task_id": "DOC-1",
+      "worktree": "/home/kara/worktrees/muster-DOC-1",
+      "branch": "wt/DOC-1",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/home/kara/worktrees/wave-briefs-muster-2026-09-24-22-15-26/muster-muster-2026-09-24-22-15-26-DOC-1-brief.txt"
+    },
+    {
+      "task_id": "DOC-3",
+      "worktree": "/home/kara/worktrees/muster-DOC-3",
+      "branch": "wt/DOC-3",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/home/kara/worktrees/wave-briefs-muster-2026-09-24-22-15-26/muster-muster-2026-09-24-22-15-26-DOC-3-brief.txt"
+    },
+    {
+      "task_id": "DOC-5",
+      "worktree": "/home/kara/worktrees/muster-DOC-5",
+      "branch": "wt/DOC-5",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/home/kara/worktrees/wave-briefs-muster-2026-09-24-22-15-26/muster-muster-2026-09-24-22-15-26-DOC-5-brief.txt"
+    },
+    {
+      "task_id": "DOC-6",
+      "worktree": "/home/kara/worktrees/muster-DOC-6",
+      "branch": "wt/DOC-6",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/home/kara/worktrees/wave-briefs-muster-2026-09-24-22-15-26/muster-muster-2026-09-24-22-15-26-DOC-6-brief.txt"
+    }
+  ]
+}

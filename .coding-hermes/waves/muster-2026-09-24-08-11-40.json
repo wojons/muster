@@ -1,0 +1,31 @@
+{
+  "tick_id": "muster-2026-09-24-08-11-40",
+  "project": "muster",
+  "base": "origin/main",
+  "base_sha": "b0b79db1",
+  "workers": [
+    {
+      "task_id": "PROTO-001",
+      "worktree": "~/worktrees/muster-PROTO-001",
+      "branch": "wt/PROTO-001",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm"
+    },
+    {
+      "task_id": "QA-MUSTER-3",
+      "worktree": "~/worktrees/muster-QA-MUSTER-3",
+      "branch": "wt/QA-MUSTER-3",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm"
+    },
+    {
+      "task_id": "QA-MUSTER-4",
+      "worktree": "~/worktrees/muster-QA-MUSTER-4",
+      "branch": "wt/QA-MUSTER-4",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm"
+    }
+  ],
+  "finished_at": "2026-09-24T22:30:00Z",
+  "finish_note": "Recovered by tick muster-2026-09-24-22-15-26: all 3 commits verified ancestors of main (88e14672, c7c621d1, 4c99417f); rows complete; worktrees/branches already cleaned by tick 615."
+}
