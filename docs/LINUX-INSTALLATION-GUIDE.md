@@ -19,7 +19,30 @@ This guide covers installation of Muster (OpenAPI CLI + MCP Server) on Linux pla
 **Memory**: 512MB minimum (1GB recommended)
 **Go**: Version 1.25.0 or higher (for building from source)
 **Disk**: 100MB for binary + 50MB runtime
-**Dependencies**: libsqlite3-dev (for full functionality)
+
+**Dependencies (build from source)**: `pkg-config` + `libseccomp-dev`
+(Debian/Ubuntu) — a full-module build (`go build ./...`, `go vet ./...`,
+`go test ./...`) compiles the cgo seccomp platform package (`pkg/platform` →
+`github.com/seccomp/libseccomp-golang`), whose `#cgo pkg-config: libseccomp`
+directive invokes `pkg-config --cflags -- libseccomp`; without these system
+packages the build fails while compiling `pkg/platform` with
+`github.com/seccomp/libseccomp-golang: exec: "pkg-config": executable file
+not found in $PATH` (missing `pkg-config`) or `Package libseccomp was not
+found in the pkg-config search path` (missing `libseccomp-dev`, i.e. the
+`libseccomp.pc` file). RHEL/CentOS/Fedora equivalent:
+`sudo dnf install -y pkgconf-pkg-config libseccomp-devel`.
+
+```bash
+# Debian/Ubuntu — required before building/testing from source
+sudo apt-get install -y pkg-config libseccomp-dev
+```
+
+> **Note:** `make build-cli` alone does not import the seccomp package, but
+> tests (`go test ./...`) and full-module builds always do — install both
+> packages before contributing or running CI-equivalent builds. The SQLite
+> driver (`github.com/mattn/go-sqlite3`) bundles its own SQLite amalgamation,
+> so building from source does **not** require `libsqlite3-dev` (and a
+> binary/package install requires neither).
 
 ### Pre-Installation Verification
 

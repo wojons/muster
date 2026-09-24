@@ -34,6 +34,16 @@ LDFLAGS := -ldflags "-X github.com/wojons/muster/internal/version.Version=$(VERS
 # assemble the target's runtime/cgo.
 CGO_ENABLED ?= 1
 
+# Linux build deps for CGO_ENABLED=1 (QA-MUSTER-1): full-module builds
+# (`go build ./...`, `go test ./...`) compile pkg/platform, which pulls in
+# github.com/seccomp/libseccomp-golang whose cgo directive
+# (`#cgo pkg-config: libseccomp`) needs `pkg-config` and `libseccomp-dev`
+# on the system (RHEL/Fedora: pkgconf-pkg-config + libseccomp-devel):
+#   sudo apt-get install -y pkg-config libseccomp-dev
+# (The shipped binaries alone do not import the seccomp package.)
+# Without them a fresh build fails with:
+#   github.com/seccomp/libseccomp-golang: exec: "pkg-config": executable file not found in $PATH
+
 # Platform targets
 PLATFORMS := \
 	darwin/amd64 \

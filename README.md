@@ -191,6 +191,21 @@ go test -short ./...
 
 Requires Go 1.26.6+, Python 3 (for demo services), Flask (`pip install flask`).
 
+> **Linux build note (Debian/Ubuntu):** a full-module build (`go build ./...`,
+> `go vet ./...`, `go test ./...`) compiles the cgo seccomp platform package
+> (`pkg/platform` → `github.com/seccomp/libseccomp-golang`), which requires
+> the system packages `pkg-config` and `libseccomp-dev`:
+> ```bash
+> sudo apt-get install -y pkg-config libseccomp-dev
+> ```
+> On RHEL/CentOS/Fedora: `sudo dnf install -y pkgconf-pkg-config libseccomp-devel`.
+> Without them the build fails while compiling `pkg/platform` with
+> `github.com/seccomp/libseccomp-golang: exec: "pkg-config": executable file
+> not found in $PATH` (when `pkg-config` is missing) or `Package libseccomp
+> was not found in the pkg-config search path` (when `libseccomp-dev` is
+> missing). The shipped binaries alone (`make build-cli`) do not import this
+> package, but tests and full-module builds always do.
+
 ## Project structure
 
 ```
