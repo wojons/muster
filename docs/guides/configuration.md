@@ -553,5 +553,5 @@ openapi-cli:
 ## Next Steps
 
 - [Command Reference](commands.md) - All available commands
-- [Authentication Guide](../api/authentication.md) - Complete auth setup
+- [REST API Authentication](../api/rest-api.md#authentication) - Authentication methods and setup
 - [MCP Server Guide](../api/mcp-protocol.md) - MCP protocol details
