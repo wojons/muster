@@ -480,10 +480,10 @@ If hit ratio < 30%:
 - **Emergency:** +1-XXX-XXX-XXXX
 
 ### Related Documentation
-- [Monitoring Setup](./OPS-MONITORING.md)
-- [Troubleshooting Guide](../docs/TROUBLESHOOTING.md)
-- [Architecture Overview](../docs/ARCHITECTURE.md)
-- [Incident Response Playbook](../docs/INCIDENT-RESPONSE.md)
+- [Monitoring Metrics](./METRICS-STANDARDIZATION.md) - Prometheus metric naming and RED/USE methodology
+- [Log Aggregation Setup](./LOG-AGGREGATION.md) - Centralized log pipeline configuration
+- [Troubleshooting Guide](./guides/troubleshooting.md) - Common issues and solutions
+- [Architecture Overview](./architecture/overview.md) - System design and components
 
 ---
 
