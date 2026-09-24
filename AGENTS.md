@@ -105,6 +105,10 @@ internal/                   # Internal utilities
 
 specs/                      # 276 specification files
   master-specification.md   # Primary north star spec
+  PROTOCOLS.md              # ⭐ Protocol adapter seam + support matrix (design
+                            #   authority for ALL protocol work — gRPC, JSON-RPC,
+                            #   GraphQL, AsyncAPI, SOAP; read BEFORE any protocol
+                            #   row; demo-plan names the first protocol gate)
   implementation/           # Implementation specs
   *.md                      # Feature specifications
 
@@ -459,7 +463,7 @@ demo/
 - **Contributing**: `CONTRIBUTING.md`
 - **Makefile**: `make help` for all targets
 - **Go version**: 1.26.6 (see go.mod)
-- **Specs**: `specs/` (276 specification files)
+- **Specs**: `specs/` (276 specification files; `specs/PROTOCOLS.md` is the design authority for all protocol/adapter work — matrix + gates + demo plan)
 - **Demo**: `demo/` (prove system works)
 - **Skills**: `.agents/skills/` (71 available skills)
 

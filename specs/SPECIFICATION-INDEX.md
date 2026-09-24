@@ -197,6 +197,7 @@ Complete index of all 276 specification files for the OpenAPI CLI + MCP Server s
 - `PROFILES.md` – Specification for PROFILES
 - `PROGRESS-BARS.md` – Specification for PROGRESS BARS
 - `PROJECT-STRUCTURE.md` – Specification for PROJECT STRUCTURE
+- `PROTOCOLS.md` – Specification for PROTOCOL ADAPTERS (adapter seam + protocol support matrix + implementation order + demo plan)
 - `PROMPT-TYPES.md` – Specification for PROMPT TYPES
 - `PROMPT-UI.md` – Specification for PROMPT UI
 - `QUICK-START.md` – Specification for QUICK START
