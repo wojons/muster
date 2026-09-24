@@ -4,7 +4,28 @@ Complete guide to using Starlark scripting language with OpenAPI CLI.
 
 ## Overview
 
-Starlark is a Python-like scripting language (Python dialect restricted for safety) that you can use to automate API interactions with OpenAPI CLI. Starlark is sandboxed by design, making it safe for scripting API workflows.
+The OpenAPI CLI includes a Starlark scripting engine for automating API interactions. Starlark is a Python-like language (a restricted Python dialect) that is deterministic and sandboxed by design.
+
+The `dsl run` command executes a `.star` script with four HTTP builtins wired in. Everything else available to a script is the standard Starlark language and its core builtins — the interpreter does not load your OpenAPI specification, does not expose an `api.*` client, and does not bridge environment variables or JSON/time modules into the script environment.
+
+## Command Reference
+
+The `dsl` command is defined in `internal/builtin/dsl.go` and has exactly one form and one flag:
+
+```bash
+openapi-cli dsl run <file.star> [--verbose | -V]
+```
+
+| Flag | Short | Effect |
+|------|-------|--------|
+| `--verbose` | `-V` | Print all global variable bindings after script execution |
+
+There are no other subcommands or flags:
+
+- No `dsl test` subcommand exists.
+- There is no `--spec` flag — the script environment does not load an OpenAPI specification.
+- There is no `--var` flag — values are passed by defining variables in the script itself.
+- There is no `--timeout` flag — scripts run until they finish or fail.
 
 ## Getting Started
 
@@ -13,270 +34,258 @@ Starlark is a Python-like scripting language (Python dialect restricted for safe
 Create a Starlark script file (`.star` extension):
 
 ```python
-#!/usr/bin/env openapi-cli dsl
+# A Starlark DSL script: define variables, functions,
+# and call the HTTP builtins.
 
-# Starlark DSL script
-# Make API request
-pet = api.pet.find_id(pet_id=1)
-print(f"Found pet: {pet['name']}")
+def describe(status, body):
+    return "status=" + str(status) + " body=" + body
 
-# Update status
-pet['status'] = 'sold'
-api.pet.update(id=1, body=pet)
-
-# Create new pet
-new_pet = api.pet.add(body={"name":"Rex","status":"available"})
-print(f"Created pet with ID: {new_pet['id']}")
+# Fetch data from an API
+result = http_get("https://api.example.com/v1/pets/1")
+print(describe(result[0], result[1]))
 ```
 
 ### Running a Script
 
 ```bash
 # Run a script
-openapi-cli dsl run script.star --spec openapi.yaml
+openapi-cli dsl run demo/scripts/hello.star
 
-# Pass variables
-openapi-cli dsl run script.star --spec openapi.yaml --var API_KEY=secret
+# Run a script and print every global variable binding afterwards
+openapi-cli dsl run demo/scripts/hello.star --verbose
 
-# With timeout
-openapi-cli dsl run automation.star --timeout 120s
+# Short form of the verbose flag
+openapi-cli dsl run demo/scripts/hello.star -V
 ```
+
+`print()` output goes to plain stdout. With `--verbose`, each global variable defined by the script is printed as `name = value` after execution.
 
 ## Built-in Functions
 
 ### HTTP Functions
 
-```python
-# Make HTTP GET request
-response = http.get("https://api.example.com/v1/pets")
-print(response.status)
-
-# Load JSON
-data = json.loads(response.body)
-
-# POST request
-response = http.post("https://api.example.com/v1/pets",
-                     body={"name":"Rex","status":"available"},
-                     headers={"Content-Type":"application/json"})
-```
-
-### API Client Functions
-
-The Starlark environment provides direct access to your OpenAPI specification as structured functions:
+Four HTTP builtins are provided by the CLI. Each returns a tuple of `(status_code, body)`:
 
 ```python
-# API calls mirror spec structure
-pet = api.pet.find_id(pet_id=1)
-pets = api.pet.find_status(status="available")
+# GET — returns (status_code, body)
+status, body = http_get("https://api.example.com/v1/pets")
+print(status)   # e.g. 200
+print(body)     # response body as a string
 
-# Update
-api.pet.update(id=1, body={"name":"Fluffy","status":"sold"})
+# POST — sends the body with Content-Type: application/json
+status, body = http_post("https://api.example.com/v1/pets", "{\"name\":\"Rex\"}")
 
-# Delete
-api.pet.delete(pet_id=1)
+# The body argument is optional for POST and PUT (an empty string is sent)
+status, body = http_post("https://api.example.com/v1/ping")
+
+# PUT — sends the body with Content-Type: application/json
+status, body = http_put("https://api.example.com/v1/pets/1", "{\"status\":\"sold\"}")
+
+# DELETE
+status, body = http_delete("https://api.example.com/v1/pets/1")
 ```
 
-### Utility Functions
+If a request fails at the transport level (DNS failure, connection refused), the builtin returns an error and the script aborts. A completed HTTP request with a non-2xx status code is *not* an error — check `status` in your script.
+
+### What Is NOT Provided
+
+The following do **not** exist in the current implementation — scripts that use them will fail:
+
+- No `api.pet.find_id(...)` style client functions. The script environment does not load an OpenAPI specification, so spec-derived operations cannot be called. If you need spec-driven requests, use the CLI's generated commands instead of the DSL, or build the request URL in the script.
+- No `env.get("NAME")` — environment variables are not bridged into scripts. Use literal values or define them at the top of the script.
+- No `json.loads` / `json.dumps` module.
+- No `time.now()` or date/time functions.
+- `hash(x)` is the Starlark builtin that hashes a value for use in sets/dicts — it is **not** SHA-256 and not usable for checksums.
+
+### Starlark Core Builtins
+
+Scripts run on the standard Starlark dialect (go.starlark.net) with no extra modules predeclared. Available core builtins include:
 
 ```python
-# Environment variables
-api_key = env.get("API_KEY")
-project_dir = env.get("PROJECT_DIR")
+# Types and construction
+n = int("42")
+s = str(99)
+f = float("2.5")
+d = dict(pairs=[("a", 1)])
+t = tuple([1, 2, 3])
+l = list(range(5))
 
-# Hashing
-hash_val = hash.sha256("data")
+# Aggregates and checks
+total = len(l)
+flag = all([True, False]) or any([True, False])
 
-# JSON operations
-obj = json.loads('{"name":"Fluffy"}')
-json_str = json.dumps(obj)
+# Math
+biggest = max(1, 2, 3)
+smallest = min(4, 5, 6)
+absolute = abs(-7)
 
-# Time operations
-now = time.now()
-formatted = time.format(now, "%Y-%m-%d")
+# Iteration helpers
+for i, name in enumerate(["a", "b"]):
+    print(i, name)
+
+# Sorting and reversing
+sorted_names = sorted(["carl", "anna", "bea"])
+backwards = reversed([1, 2, 3])
+
+# Strings
+upper = "hi".upper()
+lower = "HI".lower()
+parts = "a,b,c".split(",")
+joined = "-".join(["x", "y"])
+formatted = "pet={}".format("Rex")
+starts = "hello".startswith("he")
+
+# fail() aborts the script with an error message
+# fail("invalid input: " + repr(value))
 ```
+
+The full Starlark language reference: [Starlark Language Spec](https://github.com/bazelbuild/starlark).
+
+Note that Starlark is more restricted than Python: there is no `try`/`except`, no f-strings, no `raise`, no lambdas, and no `while True` unbounded recursion.
 
 ## Script Examples
 
-### Example 1: Pet Store Workflow
+The runnable example scripts live in `demo/scripts/`: `hello.star`, `transform.star`, and `workflow.star`.
+
+### Example 1: Fetch and Report
 
 ```python
-#!/usr/bin/env openapi-cli dsl
+# Fetch a list of pets and report the outcome
+status, body = http_get("https://api.example.com/v1/pets")
 
-# Find available pets
-pets = api.pet.find_status(status="available")
-
-print(f"Found {len(pets)} available pets")
-
-# Process each pet
-for pet in pets:
-    print(f"Pet {pet['id']}: {pet['name']}")
-
-    # Update status to sold
-    pet['status'] = 'sold'
-    api.pet.update(id=pet['id'], body=pet)
-
-print("All pets marked as sold")
+if status == 200:
+    print("Fetched pets OK")
+    print("Body length:", len(body))
+else:
+    print("Request failed with status", status)
+    fail("aborting: /pets returned " + str(status))
 ```
 
-### Example 2: Batch API Testing
+### Example 2: Batch Endpoint Checks
 
 ```python
-#!/usr/bin/env openapi-cli dsl
-
-# Test endpoints
-test_endpoints = [
-    ("GET /pet/1", lambda: api.pet.find_id(pet_id=1)),
-    ("GET /pet/findByStatus", lambda: api.pet.find_status(status="available")),
-    ("GET /store/inventory", lambda: api.store.inventory()),
+# Check several endpoints and count successes
+endpoints = [
+    "https://api.example.com/v1/pets/1",
+    "https://api.example.com/v1/pets/findByStatus?status=available",
+    "https://api.example.com/v1/store/inventory",
 ]
 
 success_count = 0
-for name, endpoint_call in test_endpoints:
-    try:
-        result = endpoint_call()
-        print(f"✓ {name} - Success")
-        success_count += 1
-    except error as e:
-        print(f"✗ {name} - Error: {e}")
+for url in endpoints:
+    status, body = http_get(url)
+    if status == 200:
+        print("OK   " + url)
+        success_count = success_count + 1
+    else:
+        print("FAIL " + url + " status=" + str(status))
 
-print(f"\nTests passed: {success_count}/{len(test_endpoints)}")
+print("Checks passed: " + str(success_count) + "/" + str(len(endpoints)))
 ```
 
-### Example 3: Data Migration
+### Example 3: Create a Resource
 
 ```python
-#!/usr/bin/env openapi-cli dsl
+# Create a pet, then confirm it can be fetched
+payload = "{\"name\":\"Rex\",\"status\":\"available\"}"
+status, body = http_post("https://api.example.com/v1/pets", payload)
 
-# Load old API data
-old_pets = api_old.pet.list_all()
+if status != 200:
+    fail("create failed with status " + str(status))
 
-# Iterate and migrate
-for old_pet in old_pets:
-    # Transform data
-    new_pet = {
-        "id": old_pet['id'],
-        "name": old_pet['name'],
-        "status": old_pet['availability'].lower()
-    }
-
-    # Create in new API
-    api_new.pet.add(body=new_pet)
-    print(f"Migrated pet {old_pet['id']}")
-
-print("Migration complete")
+# Update the created pet's status
+status, body = http_put("https://api.example.com/v1/pets/1", "{\"status\":\"sold\"}")
+print("update status:", status)
 ```
 
-### Example 4: Error Handling
+### Example 4: Retrying on Non-2xx Responses
+
+There is no `try`/`except` in Starlark, so retry loops must key off return values rather than exceptions. A transport-level failure aborts the script; the pattern below retries *unsuccessful HTTP statuses*:
 
 ```python
-#!/usr/bin/env openapi-cli dsl
+# Retry an endpoint until it answers 200 (bounded attempts)
+max_attempts = 3
 
-# Function to get pet with retries
-def get_pet_with_retry(pet_id, max_retries=3):
-    for attempt in range(max_retries):
-        try:
-            return api.pet.find_id(pet_id=pet_id)
-        except error as e:
-            print(f"Attempt {attempt + 1} failed: {e}")
-            if attempt + 1 == max_retries:
-                fail(f"Failed to get pet {pet_id} after {max_retries} attempts")
-    return None
+for attempt in range(1, max_attempts + 1):
+    status, body = http_get("https://api.example.com/v1/health")
+    if status == 200:
+        print("healthy on attempt", attempt)
+        break
+    print("attempt " + str(attempt) + " got status " + str(status))
 
-# Use the function
-pet = get_pet_with_retry(1)
-print(f"Retrieved pet: {pet['name']}")
+if status != 200:
+    fail("endpoint unhealthy after " + str(max_attempts) + " attempts")
 ```
 
-### Example 5: Parallel Execution
+### Example 5: Verbose Variable Dump
 
-```python
-#!/usr/bin/env openapi-cli dsl
+The existing `demo/scripts/workflow.star` defines globals that never reach `print()`. Run it with `--verbose` to inspect them:
 
-# Load spec URLs from environment
-base_url = env.get("API_BASE_URL", "https://api.example.com/v1")
-
-# Process items concurrently
-items = [1, 2, 3, 4, 5]
-
-results = []
-for item_id in items:
-    # Make request
-    response = http.get(f"{base_url}/items/{item_id}")
-    if response.status == 200:
-        data = json.loads(response.body)
-        results.append(data)
-
-print(f"Processed {len(results)} items")
+```bash
+$ openapi-cli dsl run demo/scripts/workflow.star --verbose
+Input: hello world
+Output: HELLO WORLD
+Success: Data validated and transformed
+input_data = "hello world"
+output = "HELLO WORLD"
+transform_data = <function transform_data>
+validate_data = <function validate_data>
 ```
+
+All global bindings — functions as well as values — are listed after the script's own output (binding order may vary between runs). Without `--verbose`, only the `print()` lines appear.
 
 ## Configuration
 
-### DSL Configuration Options
+### No Script-Level Configuration
 
-```yaml
-dsl:
-  enabled: true
-  stdlib: true                # Enable standard library
-  max_execution_time: 60s    # Maximum script execution time
-  allowed_imports:           # Allowed modules
-    - http
-    - json
-    - time
-    - io
-  max_memory: 64MB           # Maximum memory usage
-```
+The `dsl run` command reads no configuration: there is no `dsl:` config section, no execution-time limit, no memory cap, and no import allowlist for scripts (the `dsl:` block shown in [Configuration Guide](configuration.md) is not consumed by the `dsl run` command).
+
+Behavior is fixed by the implementation:
+
+- `print()` goes to plain stdout.
+- Extra script output (only with `--verbose`): global variable bindings.
+- No timeout: a script runs until it completes or an error aborts it.
 
 ### Environment Variables
 
-Pass environment variables to scripts:
-
-```bash
-# Set API key
-export API_KEY=your-secret
-
-# URL
-export API_BASE_URL=https://api.example.com/v1
-
-# Run script
-openapi-cli dsl run script.star
-```
-
-Access in script:
+The DSL runtime does **not** read environment variables into the script environment, and there is no `--var` flag. To parameterize a script, define variables at the top of the file:
 
 ```python
-api_key = env.get("API_KEY")
-base_url = env.get("API_BASE_URL")
+# check.star — edit these values per environment
+base_url = "https://staging.example.com/v1"
+api_key = "set-me"
 ```
+
+Keep secrets out of committed scripts: define them in a local, untracked copy of the script.
 
 ## Advanced Topics
 
 ### Working with Lists
 
 ```python
-# List operations
-pets = api.pet.find_status(status="available")
+status, body = http_get("https://api.example.com/v1/pets")
 
-# Find specific pet
-found_pet = None
-for pet in pets:
-    if pet['name'] == "Fluffy":
-        found_pet = pet
+# List operations (pure Starlark)
+names = ["anna", "carl", "bea"]
+found = None
+for name in names:
+    if name == "carl":
+        found = name
         break
 
-# Transform list
-names = [pet['name'] for pet in pets]
+# Transform a list
+lengths = [len(name) for name in names]
 
 # Filter
-available_pets = [p for p in pets if p['status'] == 'available']
+short_names = [n for n in names if len(n) < 5]
 ```
 
 ### Working with Dictionaries
 
 ```python
-# Create dictionary
 pet_data = {
     "name": "Fluffy",
-    "status": "available"
+    "status": "available",
 }
 
 # Update values
@@ -286,180 +295,187 @@ pet_data["status"] = "sold"
 if "name" in pet_data:
     print(pet_data["name"])
 
-# Iterate keys
-for key in pet_data:
-    print(f"{key}: {pet_data[key]}")
+# Iterate keys and values
+for key in pet_data.keys():
+    print(key, pet_data[key])
+
+# Safe lookup
+status_code = pet_data.get("status", "unknown")
 ```
 
 ### String Operations
 
 ```python
-# String manipulation
 name = "Fluffy"
 
 # Concatenation
-full_name = name + " the Dog"
+full_name = name + " the Cat"
 
 # Slicing
 short_name = name[0:3]
 
-# Format
-formatted = f"Pet name: {name}"
+# Formatting
+formatted = "Pet name: {}".format(name)
 
 # Case conversion
 upper_name = name.upper()
 lower_name = name.lower()
 ```
 
+Note: there are no f-strings in Starlark — use `+` concatenation or `.format()`.
+
 ## Error Handling
 
-### Built-in Error Types
+Starlark has no `try`/`except`. Errors are handled by checking return values; an unhandled error aborts the script with a non-zero exit.
+
+### Script Errors
 
 ```python
-# HTTP errors
-try:
-    pet = api.pet.find_id(pet_id=99999)
-except error as e:
-    print(f"HTTP Error: {e}")
+# Parse errors, execution errors, and failed builtin calls
+# all abort the script. fail() raises one deliberately:
 
-# Validation errors
-try:
-    api.pet.add(body={})  # Missing required fields
-except error as e:
-    print(f"Validation Error: {e}")
+def require(condition, message):
+    if not condition:
+        fail(message)
+    return condition
 
-# Timeout errors
-try:
-    timeout_operation()
-except error as e:
-    print(f"Timeout: {e}")
+require(len("Rex") > 0, "name must not be empty")
 ```
 
-### Custom Error Handling
+### HTTP Status Handling
+
+HTTP requests that complete are not errors, even for 4xx/5xx statuses — check the status code:
 
 ```python
-# Define validation function
+status, body = http_get("https://api.example.com/v1/pets/99999")
+if status != 200:
+    print("Request failed with status:", status)
+    print("Response body:", body)
+
+# Validation errors are yours to detect:
+payload = "{}"  # missing required fields
+status, body = http_post("https://api.example.com/v1/pets", payload)
+if status >= 400:
+    print("Server rejected payload, status:", status)
+```
+
+### Custom Validation
+
+```python
 def validate_pet(pet):
     required = ["id", "name", "status"]
     for field in required:
-        if field not in pet:
-            fail(f"Missing required field: {field}")
+        if field not in pet.keys():
+            fail("Missing required field: " + field)
     return pet
 
-# Use in workflow
-new_pet = {"name":"Fluffy"}
-try:
-    validated = validate_pet(new_pet)
-    api.pet.add(body=validated)
-except error as e:
-    print(f"Validation failed: {e}")
+new_pet = {"name": "Fluffy"}
+# validate_pet(new_pet) would abort the script:
+# "Missing required field: id"
 ```
 
 ## Testing Scripts
 
-### Test Mode
+There is no `dsl test` subcommand. To test a script, run it with `dsl run` and inspect its stdout and exit code:
 
 ```bash
-# Test script (dry run)
-openapi-cli dsl test script.star --spec openapi.yaml
+# Run the script normally
+openapi-cli dsl run demo/scripts/hello.star
 
-# With verbose output
-openapi-cli dsl test automation.star --verbose
+# Run with a dump of all global bindings — useful as a smoke check
+openapi-cli dsl run demo/scripts/hello.star --verbose
 ```
 
 ### Writing Testable Scripts
 
+Structure scripts so the interesting logic is in functions, and keep I/O calls explicit:
+
 ```python
-#!/usr/bin/env openapi-cli dsl
+# Functions that compute are easy to exercise with --verbose
+def build_url(base, path):
+    return base + "/" + path
 
-# Function to test
-def update_pet_status(pet_id, new_status):
-    pet = api.pet.find_id(pet_id=pet_id)
-    pet['status'] = new_status
-    api.pet.update(id=pet_id, body=pet)
+def is_ok(status):
+    return status >= 200 and status < 300
 
-# Test if run directly (not via dsl import)
-def main():
-    update_pet_status(1, "sold")
-    print("Pet status updated")
-
-# Only run main if script is executed directly
-if __name__ == "__main__":
-    main()
+# Calls that touch the network stay at the bottom of the script
+status, body = http_get(build_url("https://api.example.com/v1", "pets"))
+print("ok:", is_ok(status))
 ```
+
+Run with `--verbose` to see every binding, including intermediate values your functions produced.
 
 ## Best Practices
 
 ### 1. Keep Scripts Simple
 
 ```python
-# ✅ Good - Clear and simple
-pet = api.pet.find_id(pet_id=1)
-print(f"Pet name: {pet['name']}")
+# Good - clear and linear
+status, body = http_get("https://api.example.com/v1/pets/1")
+print("status:", status)
 
-# ❌ Bad - Too complex nested logic
-result = api.pet.find_id(pet_id=1) if condition else api.pet.find_by_name(name="Fluffy")
+# Avoid - dense one-liners hide control flow
+ok = http_get("https://api.example.com/v1/pets/1")[0] == 200 and len(http_get("https://api.example.com/v1/pets/1")[1]) > 0
 ```
 
 ### 2. Use Functions
 
 ```python
-# ✅ Good - Reusable function
-def find_pet(pet_id):
-    return api.pet.find_id(pet_id=pet_id)
+# Good - reusable function
+def fetch_pet(base_url, pet_id):
+    return http_get(base_url + "/pets/" + str(pet_id))
 
-# ❌ Bad - Repeated code
-pet1 = api.pet.find_id(pet_id=1)
-pet2 = api.pet.find_id(pet_id=2)
+status, body = fetch_pet("https://api.example.com/v1", 1)
+status, body = fetch_pet("https://api.example.com/v1", 2)
+
+# Avoid - repeated inline calls with drifted URLs
+status1, body1 = http_get("https://api.example.com/v1/pets/1")
+status2, body2 = http_get("https://api.example.com/v1/pet/2")
 ```
 
-### 3. Handle Errors
+### 3. Check HTTP Statuses
 
 ```python
-# ✅ Good - Error handling
-try:
-    pet = api.pet.find_id(pet_id=1)
-    print(f"Pet: {pet['name']}")
-except error as e:
-    print(f"Error: {e}")
+# Good - explicit status handling
+status, body = http_get("https://api.example.com/v1/pets/1")
+if status != 200:
+    fail("unexpected status: " + str(status))
+print("Pet:", body)
 
-# ❌ Bad - No error handling
-pet = api.pet.find_id(pet_id=1)
-print(f"Pet: {pet['name']}")
+# Avoid - assuming success
+status, body = http_get("https://api.example.com/v1/pets/1")
+print("Pet:", body)  # body may hold an error document
 ```
 
 ### 4. Use Comments
 
 ```python
-# ✅ Good - Documented
-# Load pet and update status
-pet = api.pet.find_id(pet_id=1)
-pet['status'] = 'sold'
-api.pet.update(id=1, body=pet)
+# Good - documented
+# Fetch the pet, then flip its status to sold
+status, body = http_get("https://api.example.com/v1/pets/1")
+status, body = http_put("https://api.example.com/v1/pets/1", "{\"status\":\"sold\"}")
 
-# ❌ Bad - Unclear intent
-result = api.pet.find_id(pet_id=1)
-result['status'] = 'sold'
-api.pet.update(id=1, body=result)
+# Avoid - unclear intent
+result = http_get("https://api.example.com/v1/pets/1")
+result2 = http_put("https://api.example.com/v1/pets/1", "{\"status\":\"sold\"}")
 ```
 
-### 5. Use Environment Variables
+### 5. Keep Secrets Out of Scripts
+
+There is no environment-variable bridge and no `--var` flag, so anything written in the script is visible to anyone who can read the file.
 
 ```python
-# ✅ Good - Configurable
-api_key = env.get("API_KEY")
-base_url = env.get("API_BASE_URL")
-
-# ❌ Bad - Hardcoded values
+# Avoid - hardcoded secret in a committed file
 api_key = "secret-key-12345"
-base_url = "https://api.example.com"
+
+# Better - keep the real value in a local untracked copy,
+# or feed it from the API layer that invokes the script
 ```
 
 ## Resources
 
 - [Starlark Language Spec](https://github.com/bazelbuild/starlark)
-- [OpenAPI Documentation](../api/README.md) - API reference
-- [Configuration Guide](configuration.md) - DSL configuration
+- [Configuration Guide](configuration.md) - CLI configuration
 - [Command Reference](commands.md) - DSL commands
 
 ## Common Patterns
@@ -467,83 +483,86 @@ base_url = "https://api.example.com"
 ### Pattern 1: Batch Processing
 
 ```python
-# Process multiple items
-items = api.items.list_all()
+# Process multiple items with one request per item
+item_ids = [1, 2, 3, 4, 5]
 
-for item in items:
-    # Process item
-    process(item)
-
-    # Update status
-    api.items.update(id=item['id'], body={"status":"processed"})
+for item_id in item_ids:
+    status, body = http_get("https://api.example.com/v1/items/" + str(item_id))
+    if status != 200:
+        print("item " + str(item_id) + " unavailable, skipping")
+        continue
+    update = http_put(
+        "https://api.example.com/v1/items/" + str(item_id),
+        "{\"status\":\"processed\"}",
+    )
+    print("item " + str(item_id) + " update status:", update[0])
 ```
 
 ### Pattern 2: Data Validation
 
 ```python
-# Validate before API call
+# Validate inputs before spending a request
 def validate(item):
-    if not item['name']:
+    if not item["name"]:
         fail("Name is required")
-    if item['status'] not in ['available', 'pending']:
+    if not (item["status"] == "available" or item["status"] == "pending"):
         fail("Invalid status")
     return item
 
-# Use
+new_item = {"name": "widget", "status": "available"}
 validated = validate(new_item)
-api.items.add(body=validated)
+payload = "{\"name\":\"" + validated["name"] + "\",\"status\":\"" + validated["status"] + "\"}"
+status, body = http_post("https://api.example.com/v1/items", payload)
+print("create status:", status)
 ```
 
-### Pattern 3: Retry Pattern
+### Pattern 3: Fail Fast on Unhealthy Dependencies
 
 ```python
-# Retry on failure
-def with_retry(fn, max_attempts=3):
-    for attempt in range(max_attempts):
-        try:
-            return fn()
-        except error as e:
-            if attempt + 1 == max_attempts:
-                raise
-            print(f"Attempt {attempt + 1} failed, retrying...")
+# Abort early if a dependency is down (no exception handling available,
+# so gate on the status tuple)
+status, body = http_get("https://api.example.com/health")
+if status != 200:
+    fail("dependency unhealthy, status=" + str(status))
 
-# Use
-result = with_retry(lambda: api.pet.find_id(pet_id=1))
+# ... continue with the real workflow
 ```
 
 ## Troubleshooting
 
 ### Script Won't Run
 
-**Issue**: `Error: Script execution failed`
+**Issue**: `Error: parse error` or `Error: execution error`
 
-**Solution**: Check script syntax and indentation. Starlark uses 2-space or 4-space indentation (no tabs).
+**Solution**: Check script syntax and indentation. Starlark is stricter than Python — no `try`/`except`, no f-strings, no lambdas. Use spaces for indentation.
 
-### Import Errors
+### Unknown Name Errors
 
-**Issue**: `Error: Module 'http' not found`
+**Issue**: `Error: execution error: ... undefined: api` (or `env`, `json`, `time`)
 
-**Solution**: Ensure the module is in the allowed_imports list:
+**Solution**: The script environment provides only the four HTTP builtins and the Starlark core. There is no `api.*` client, no environment-variable bridge, and no JSON or time modules — see [What Is NOT Provided](#what-is-not-provided).
 
-```yaml
-dsl:
-  allowed_imports:
-    - http
-```
+### Too Many Arguments
 
-### Timeout Issues
+**Issue**: `Error: accepts 2 arg(s), received 1`
 
-**Issue**: `Error: Script execution timeout`
+**Solution**: `dsl run` requires both the subcommand and the script path: `openapi-cli dsl run demo/scripts/hello.star`, not `openapi-cli dsl demo/scripts/hello.star`.
 
-**Solution**: Increase timeout in configuration:
+### Script Hangs
 
-```bash
-openapi-cli dsl run script.star --timeout 180s
+**Issue**: A script never finishes (for example, an unbounded loop waiting on an endpoint that never answers).
+
+**Solution**: There is no `--timeout` flag. Re-run after killing the process, and bound all loops explicitly:
+
+```python
+max_attempts = 5
+for attempt in range(max_attempts):
+    ...
 ```
 
 ## Related Documentation
 
-- [Configuration Guide](configuration.md) - DSL configuration options
+- [Configuration Guide](configuration.md) - CLI configuration options
 - [Command Reference](commands.md) - DSL commands
 - [API Documentation](../api/README.md) - Complete API reference
-- [Troubleshooting Guide](troubleshooting.md) - Common DSL issues
+- [Troubleshooting Guide](troubleshooting.md) - Common CLI issues
