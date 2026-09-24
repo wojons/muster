@@ -191,20 +191,18 @@ go test -short ./...
 
 Requires Go 1.26.6+, Python 3 (for demo services), Flask (`pip install flask`).
 
-> **Linux build note (Debian/Ubuntu):** a full-module build (`go build ./...`,
-> `go vet ./...`, `go test ./...`) compiles the cgo seccomp platform package
-> (`pkg/platform` → `github.com/seccomp/libseccomp-golang`), which requires
-> the system packages `pkg-config` and `libseccomp-dev`:
+> **Linux build note:** default builds (`go build ./...`, `go test ./...`,
+> all `make` targets) are dependency-free. The hardened CGO seccomp path is
+> opt-in behind the `seccomp` build tag and requires `pkg-config` +
+> `libseccomp-dev`:
 > ```bash
-> sudo apt-get install -y pkg-config libseccomp-dev
+> sudo apt-get install -y pkg-config libseccomp-dev   # Debian/Ubuntu
+> # RHEL/CentOS/Fedora: sudo dnf install -y pkgconf-pkg-config libseccomp-devel
+> go build -tags seccomp ./...
 > ```
-> On RHEL/CentOS/Fedora: `sudo dnf install -y pkgconf-pkg-config libseccomp-devel`.
-> Without them the build fails while compiling `pkg/platform` with
-> `github.com/seccomp/libseccomp-golang: exec: "pkg-config": executable file
-> not found in $PATH` (when `pkg-config` is missing) or `Package libseccomp
-> was not found in the pkg-config search path` (when `libseccomp-dev` is
-> missing). The shipped binaries alone (`make build-cli`) do not import this
-> package, but tests and full-module builds always do.
+> Without the tag, `pkg/platform` compiles a pure-Go stub
+> (`seccomp_stub.go`) that returns "seccomp support not compiled in" errors
+> at runtime instead of enforcing filters.
 
 ## Project structure
 

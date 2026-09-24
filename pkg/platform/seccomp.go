@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build linux && seccomp
+// +build linux,seccomp
 
 // Seccomp BPF filters for secure system call filtering on Linux
 package platform

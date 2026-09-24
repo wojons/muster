@@ -41,8 +41,16 @@ CGO_ENABLED ?= 1
 # on the system (RHEL/Fedora: pkgconf-pkg-config + libseccomp-devel):
 #   sudo apt-get install -y pkg-config libseccomp-dev
 # (The shipped binaries alone do not import the seccomp package.)
-# Without them a fresh build fails with:
+# Without them ONLY a `-tags seccomp` build fails (QA-MUSTER-2: the seccomp
+# code now lives behind the `seccomp` build tag; default builds use a pure-Go
+# stub in pkg/platform/seccomp_stub.go and need neither package):
 #   github.com/seccomp/libseccomp-golang: exec: "pkg-config": executable file not found in $PATH
+
+# Optional build tags: `make build-all TAGS=seccomp` enables the hardened CGO
+# seccomp path (requires pkg-config + libseccomp-dev). Default (TAGS empty)
+# builds are dependency-free.
+TAGS ?=
+GO_TAGS := $(if $(TAGS),-tags=$(TAGS))
 
 # Platform targets
 PLATFORMS := \
@@ -69,21 +77,21 @@ build: ## Build all binaries for current platform
 build-cli: ## Build CLI only
 	@echo "Building CLI $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY) ./cmd/openapi-cli
+	CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY) ./cmd/openapi-cli
 	@echo "✓ Built: $(BUILD_DIR)/$(CLI_BINARY)"
 
 .PHONY: build-mcp
 build-mcp: ## Build MCP server only
 	@echo "Building MCP server $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(MCP_BINARY) ./cmd/mcp-server
+	CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(MCP_BINARY) ./cmd/mcp-server
 	@echo "✓ Built: $(BUILD_DIR)/$(MCP_BINARY)"
 
 .PHONY: build-daemon
 build-daemon: ## Build daemon only
 	@echo "Building daemon $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(DAEMON_BINARY) ./cmd/daemon
+	CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(DAEMON_BINARY) ./cmd/daemon
 	@echo "✓ Built: $(BUILD_DIR)/$(DAEMON_BINARY)"
 
 .PHONY: build-all
@@ -91,11 +99,11 @@ build-all: ## Build all binaries
 	@echo "Building all binaries $(VERSION)..."
 	@mkdir -p $(BUILD_DIR)
 	@echo "  → Building CLI..."
-	@CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY) ./cmd/openapi-cli
+	@CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY) ./cmd/openapi-cli
 	@echo "  → Building MCP server..."
-	@CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(MCP_BINARY) ./cmd/mcp-server
+	@CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(MCP_BINARY) ./cmd/mcp-server
 	@echo "  → Building daemon..."
-	@CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(DAEMON_BINARY) ./cmd/daemon
+	@CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(DAEMON_BINARY) ./cmd/daemon
 	@echo "✓ All builds complete"
 
 # =============================================================================
@@ -204,28 +212,28 @@ test-e2e: build ## Run end-to-end tests
 build-fips: ## Build FIPS 140-3 compliant binary
 	@echo "Building FIPS 140-3 compliant binary..."
 	@mkdir -p $(BUILD_DIR)
-	GOFIPS140=v1.26.0 CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY)-fips ./cmd/openapi-cli
+	GOFIPS140=v1.26.0 CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY)-fips ./cmd/openapi-cli
 	@echo "✓ Built: $(BUILD_DIR)/$(CLI_BINARY)-fips (FIPS 140-3 mode)"
 
 .PHONY: build-fips-cli
 build-fips-cli: ## Build FIPS 140-3 compliant CLI only
 	@echo "Building FIPS 140-3 compliant CLI..."
 	@mkdir -p $(BUILD_DIR)
-	GOFIPS140=v1.26.0 CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY)-fips ./cmd/openapi-cli
+	GOFIPS140=v1.26.0 CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(CLI_BINARY)-fips ./cmd/openapi-cli
 	@echo "✓ Built: $(BUILD_DIR)/$(CLI_BINARY)-fips"
 
 .PHONY: build-fips-mcp
 build-fips-mcp: ## Build FIPS 140-3 compliant MCP server only
 	@echo "Building FIPS 140-3 compliant MCP server..."
 	@mkdir -p $(BUILD_DIR)
-	GOFIPS140=v1.26.0 CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(MCP_BINARY)-fips ./cmd/mcp-server
+	GOFIPS140=v1.26.0 CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(MCP_BINARY)-fips ./cmd/mcp-server
 	@echo "✓ Built: $(BUILD_DIR)/$(MCP_BINARY)-fips"
 
 .PHONY: build-fips-daemon
 build-fips-daemon: ## Build FIPS 140-3 compliant daemon only
 	@echo "Building FIPS 140-3 compliant daemon..."
 	@mkdir -p $(BUILD_DIR)
-	GOFIPS140=v1.26.0 CGO_ENABLED=$(CGO_ENABLED) go build $(LDFLAGS) -o $(BUILD_DIR)/$(DAEMON_BINARY)-fips ./cmd/daemon
+	GOFIPS140=v1.26.0 CGO_ENABLED=$(CGO_ENABLED) go build $(GO_TAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(DAEMON_BINARY)-fips ./cmd/daemon
 	@echo "✓ Built: $(BUILD_DIR)/$(DAEMON_BINARY)-fips"
 
 .PHONY: test-fips

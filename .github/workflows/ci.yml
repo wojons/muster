@@ -41,7 +41,10 @@ jobs:
           done
 
       - name: Test
-        run: go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security)
+        run: go test -short -count=1 $(go list ./... | grep -v -e test/stability -e test/security)
+
+      - name: Test (seccomp-tagged platform package)
+        run: go test -short -count=1 -tags seccomp ./pkg/platform/...
 
       - name: Demo
         run: ./demo/run-all.sh

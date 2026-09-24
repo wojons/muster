@@ -20,29 +20,25 @@ This guide covers installation of Muster (OpenAPI CLI + MCP Server) on Linux pla
 **Go**: Version 1.25.0 or higher (for building from source)
 **Disk**: 100MB for binary + 50MB runtime
 
-**Dependencies (build from source)**: `pkg-config` + `libseccomp-dev`
-(Debian/Ubuntu) — a full-module build (`go build ./...`, `go vet ./...`,
-`go test ./...`) compiles the cgo seccomp platform package (`pkg/platform` →
-`github.com/seccomp/libseccomp-golang`), whose `#cgo pkg-config: libseccomp`
-directive invokes `pkg-config --cflags -- libseccomp`; without these system
-packages the build fails while compiling `pkg/platform` with
-`github.com/seccomp/libseccomp-golang: exec: "pkg-config": executable file
-not found in $PATH` (missing `pkg-config`) or `Package libseccomp was not
-found in the pkg-config search path` (missing `libseccomp-dev`, i.e. the
-`libseccomp.pc` file). RHEL/CentOS/Fedora equivalent:
-`sudo dnf install -y pkgconf-pkg-config libseccomp-devel`.
+**Dependencies (build from source)**: none required for default builds.
+The hardened CGO seccomp path (`pkg/platform/seccomp.go` →
+`github.com/seccomp/libseccomp-golang`) is opt-in behind the `seccomp`
+build tag and requires `pkg-config` + `libseccomp-dev` (Debian/Ubuntu)
+or `pkgconf-pkg-config` + `libseccomp-devel` (RHEL/CentOS/Fedora):
 
 ```bash
-# Debian/Ubuntu — required before building/testing from source
+# Only needed for -tags seccomp builds (Debian/Ubuntu)
 sudo apt-get install -y pkg-config libseccomp-dev
 ```
 
-> **Note:** `make build-cli` alone does not import the seccomp package, but
-> tests (`go test ./...`) and full-module builds always do — install both
-> packages before contributing or running CI-equivalent builds. The SQLite
-> driver (`github.com/mattn/go-sqlite3`) bundles its own SQLite amalgamation,
-> so building from source does **not** require `libsqlite3-dev` (and a
-> binary/package install requires neither).
+Without the tag, `pkg/platform` compiles a pure-Go stub
+(`pkg/platform/seccomp_stub.go`) whose operations return "seccomp support
+not compiled in" — the full module builds and tests fine on any Linux box
+with just Go installed.
+
+> **Note:** The SQLite driver (`github.com/mattn/go-sqlite3`) bundles its
+> own SQLite amalgamation, so building from source does **not** require
+> `libsqlite3-dev` (and a binary/package install requires neither).
 
 ### Pre-Installation Verification
 
