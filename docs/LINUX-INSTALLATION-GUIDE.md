@@ -78,7 +78,7 @@ echo "deb [signed-by=/usr/share/keyrings/openapi-cli-archive-keyring.gpg] https:
 
 # Install
 sudo apt update
-sudo apt install openapi-cli openapi-cli-mcp
+sudo apt install openapi-cli openapi-mcp
 
 # Enable and start service
 sudo systemctl enable --now openapi-cli
@@ -115,7 +115,7 @@ gpgcheck=0
 EOF
 
 # Install
-sudo dnf install openapi-cli openapi-cli-mcp
+sudo dnf install openapi-cli openapi-mcp
 
 # Enable and start service
 sudo systemctl enable --now openapi-cli
@@ -146,7 +146,7 @@ sudo echo "https://packages.example.com/alpine/main" | sudo tee -a /etc/apk/repo
 
 # Install
 apk update
-apk add openapi-cli openapi-cli-mcp
+apk add openapi-cli openapi-mcp
 
 # Enable and start service (Alpine uses OpenRC)
 rc-update add openapi-cli default
@@ -188,7 +188,7 @@ The OpenAPI CLI daemon is managed by systemd with full service configuration.
 ```
 /usr/local/lib/systemd/system/openapi-cli.service
 /usr/local/lib/systemd/system/openapi-cli-daemon.service
-/usr/local/lib/systemd/system/openapi-cli-mcp.service
+/usr/local/lib/systemd/system/openapi-mcp.service
 ```
 
 #### Service Installation
@@ -203,12 +203,12 @@ sudo systemctl daemon-reload
 # Enable services
 sudo systemctl enable openapi-cli.service
 sudo systemctl enable openapi-cli-daemon.service
-sudo systemctl enable openapi-cli-mcp.service
+sudo systemctl enable openapi-mcp.service
 
 # Start services
 sudo systemctl start openapi-cli
 sudo systemctl start openapi-cli-daemon
-sudo systemctl start openapi-cli-mcp
+sudo systemctl start openapi-mcp
 ```
 
 #### Service Configuration Files
@@ -276,8 +276,9 @@ ls -la /etc/openapi-cli/
 openapi-cli generate --help
 # (requires an OpenAPI spec file to generate commands)
 
-# Test MCP server (in separate terminal)
-openapi-cli-mcp --version
+# Verify version reporting (each prints a short version line and exits)
+openapi-mcp --version
+openapi-daemon --version
 ```
 
 ## Configuration

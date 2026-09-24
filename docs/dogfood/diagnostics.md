@@ -104,8 +104,8 @@ https://github.com/wojons/muster.git`) still fails for outsiders.
 
 ### 5. MCP identity + tool generation (verified fixed)
 
-`pkg/mcp/server.go` initialize handler previously hardcoded
-`"openapi-cli-mcp"` (GAP-010, fixed f8ac65c6 Aug 7): live handshake now
+`pkg/mcp/server.go`'s initialize handler previously hardcoded the wrong
+server name (GAP-010, fixed f8ac65c6 Aug 7): live handshake now
 returns `serverInfo.name == "openapi-mcp"`. Tool generation: each path+method
 becomes `snake_case` tools (`POST /projects` → `post_projects`, `GET
 /projects/{project_id}/tasks` → `get_projects_{project_id}_tasks`). Path
@@ -121,12 +121,12 @@ bindings at script end. Keep scripts to the builtins + core expressions; use
 string concat for URLs; don't expect print() to be the output channel (the
 final binding dump is).
 
-### 7. Version reporting (GAP-007 verified, one gap left)
+### 7. Version reporting (verified fixed)
 
-Makefile ldflags now target `github.com/wojons/muster/internal/version.*`
-correctly — `openapi-cli version` prints `v0.1.0-8-g0d790342`. Gap: the other
-two binaries have no `--version` flag at all (`flag provided but not defined:
--version`) → DF-005.
+Makefile ldflags target `github.com/wojons/muster/internal/version.*` —
+`openapi-cli version` prints `v0.1.0-8-g0d790342` (DF-005 follow-up, Sep 24:
+`openapi-mcp --version` and `openapi-daemon --version` each print a short
+version line and exit, same `version.Get().Short()` format as the CLI).
 
 ## Errors hit during the run (and what they meant)
 
