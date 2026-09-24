@@ -1,5 +1,11 @@
 # Hardware Fingerprinting Algorithm Implementation
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`./cmd/fingerprint`, and the fingerprint algorithm package it describes). The
+> fingerprint model and persistence are `pkg/repository/sqlite.go` (type `Fingerprint`) and
+> `pkg/repository/sql/fingerprint_repository.go`. Treat the paths below as design-time
+> labels.
+
 ## Overview
 
 Production-ready hardware fingerprinting system for device identification across Linux, macOS, and Windows platforms.

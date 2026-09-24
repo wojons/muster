@@ -1,12 +1,19 @@
 # OpenAPI Parsing Specification
 
+> STATUS: HISTORICAL — the file paths in this spec (`internal/core/openapi/...`,
+> `internal/cli/generator.go`) were never built. The real parser is
+> `pkg/openapi/parser.go` (its types are defined inline there) and command generation is
+> `pkg/generator/generator.go`. Treat every `### File:` path below as a design-time label.
+
 ## Overview
 
 Complete specification for parsing OpenAPI 3.0 specifications and generating CLI commands dynamically.
 
 ## 1. OpenAPI Parser
 
-### File: `internal/core/openapi/parser.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/openapi/parser.go`.
+
+### File: `internal/core/openapi/parser.go` (real: `pkg/openapi/parser.go`)
 
 ```go
 package openapi
@@ -314,7 +321,9 @@ func isJSON(data []byte) bool {
 
 ## 2. Command Generator
 
-### File: `internal/cli/generator.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/generator/generator.go`.
+
+### File: `internal/cli/generator.go` (real: `pkg/generator/generator.go`)
 
 ```go
 package cli
@@ -809,7 +818,9 @@ func isRequired(schema *openapi.Schema, name string) bool {
 
 ## 3. Data Models
 
-### File: `internal/core/openapi/types.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/openapi/parser.go`.
+
+### File: `internal/core/openapi/types.go` (real: `pkg/openapi/parser.go`)
 
 ```go
 package openapi

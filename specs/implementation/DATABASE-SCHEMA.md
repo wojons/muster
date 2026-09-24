@@ -1,5 +1,12 @@
 # Database Schema Specification
 
+> STATUS: HISTORICAL — the file paths in this spec (`migrations/001_initial_schema.*`,
+> `queries/*.sql`, `sqlc.yaml`, `internal/db/...`) were never built. The real schema is the
+> goose migration set in `migrations/` (`00001_configs.sql` … `00009_hipaa_rbac.sql`),
+> applied out-of-band; there is no `queries/` directory, no `sqlc.yaml` and no Go migration
+> runner. Persistence is `pkg/repository/sqlite.go` with per-entity stores under
+> `pkg/repository/sql/`. Treat every `### File:` path below as a design-time label.
+
 ## Overview
 
 Complete SQL schema definitions for SQLite, MySQL, and PostgreSQL with migrations and sqlc configuration.
@@ -23,7 +30,9 @@ Complete SQL schema definitions for SQLite, MySQL, and PostgreSQL with migration
 
 ## 2. Complete SQL Schema
 
-### File: `migrations/001_initial_schema.up.sql`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `migrations/00001_configs.sql`.
+
+### File: `migrations/001_initial_schema.up.sql` (real: `migrations/00001_configs.sql`)
 
 ```sql
 -- inventories: Store fetched inventory versions
@@ -126,7 +135,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_log(event_type);
 CREATE INDEX IF NOT EXISTS idx_audit_host ON audit_log(host);
 ```
 
-### File: `migrations/001_initial_schema.down.sql`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `migrations/001_initial_schema.down.sql` (never implemented)
 
 ```sql
 DROP TABLE IF EXISTS rate_limit_state;
@@ -219,7 +230,9 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 ## 4. sqlc Configuration
 
-### File: `sqlc.yaml`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `sqlc.yaml` (never implemented)
 
 ```yaml
 version: "2"
@@ -273,7 +286,9 @@ sql:
 
 ## 5. SQL Queries
 
-### File: `queries/inventory.sql`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/repository/sql/inventory_repository.go`.
+
+### File: `queries/inventory.sql` (real: `pkg/repository/sql/inventory_repository.go`)
 
 ```sql
 -- name: GetInventory :one
@@ -311,7 +326,9 @@ AND fetched_at < datetime('now', '-' || $2 || ' days');
 SELECT COUNT(*) FROM inventories WHERE host = $1;
 ```
 
-### File: `queries/alias.sql`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/repository/sql/alias_repository.go`.
+
+### File: `queries/alias.sql` (real: `pkg/repository/sql/alias_repository.go`)
 
 ```sql
 -- name: GetAlias :one
@@ -339,7 +356,9 @@ SET version = $2, updated_at = CURRENT_TIMESTAMP
 WHERE name = $1;
 ```
 
-### File: `queries/module.sql`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `queries/module.sql` (never implemented)
 
 ```sql
 -- name: GetModule :one
@@ -373,7 +392,9 @@ SELECT COALESCE(SUM(size_bytes), 0) FROM modules;
 SELECT COUNT(*) FROM modules;
 ```
 
-### File: `queries/audit.sql`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/repository/sql/audit_repository.go`.
+
+### File: `queries/audit.sql` (real: `pkg/repository/sql/audit_repository.go`)
 
 ```sql
 -- name: LogAuditEvent :exec
@@ -411,7 +432,9 @@ SELECT COUNT(*) FROM audit_log
 WHERE host = $1 AND timestamp >= $2;
 ```
 
-### File: `queries/fingerprint.sql`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/repository/sql/fingerprint_repository.go`.
+
+### File: `queries/fingerprint.sql` (real: `pkg/repository/sql/fingerprint_repository.go`)
 
 ```sql
 -- name: GetFingerprint :one
@@ -435,7 +458,9 @@ DELETE FROM fingerprints
 WHERE created_at < datetime('now', '-90 days');
 ```
 
-### File: `queries/revocation.sql`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `queries/revocation.sql` (never implemented)
 
 ```sql
 -- name: GetRevocationCache :one
@@ -458,7 +483,9 @@ DELETE FROM revocation_cache WHERE host = $1;
 
 ## 6. Go Database Layer
 
-### File: `internal/db/store.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/repository/sqlite.go`.
+
+### File: `internal/db/store.go` (real: `pkg/repository/sqlite.go`)
 
 ```go
 package db
@@ -587,7 +614,9 @@ type RevocationCache struct {
 }
 ```
 
-### File: `internal/db/sqlite/store.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/repository/sqlite.go`.
+
+### File: `internal/db/sqlite/store.go` (real: `pkg/repository/sqlite.go`)
 
 ```go
 package sqlite
@@ -689,7 +718,9 @@ func (s *Store) Ping(ctx context.Context) error {
 
 ## 7. Migration Management
 
-### File: `internal/db/migrate.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migrate.go` (never implemented)
 
 ```go
 package db

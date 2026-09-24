@@ -1,5 +1,10 @@
 # MCP Server Implementation Specification
 
+> STATUS: HISTORICAL — the file paths in this spec (`pkg/mcp/types.go`, `internal/mcp/...`,
+> `cmd/mcp/main.go`) were never built at those paths. Real MCP code is `pkg/mcp/`
+> (`server.go`, `registry.go`, `handlers/types.go`) with entry point
+> `cmd/mcp-server/main.go`. Treat every `### File:` path below as a design-time label.
+
 Complete production-ready Go implementation for Model Context Protocol (MCP) server with stdio transport, tool generation from OpenAPI, and full JSON-RPC handling.
 
 ## Table of Contents
@@ -47,7 +52,9 @@ Complete production-ready Go implementation for Model Context Protocol (MCP) ser
 
 ## Core Types and Protocol
 
-### File: `pkg/mcp/types.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/mcp/handlers/types.go`.
+
+### File: `pkg/mcp/types.go` (real: `pkg/mcp/handlers/types.go`)
 
 ```go
 // Package mcp provides core MCP protocol types and constants
@@ -426,7 +433,9 @@ type PromptMessage struct {
 
 ## Transport Layer
 
-### File: `internal/mcp/transport.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/mcp/server.go`.
+
+### File: `internal/mcp/transport.go` (real: `pkg/mcp/server.go`)
 
 ```go
 package mcp
@@ -665,7 +674,9 @@ func (t *InMemoryTransport) GetMessages() []interface{} {
 
 ## Server Implementation
 
-### File: `internal/mcp/server.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/mcp/server.go`.
+
+### File: `internal/mcp/server.go` (real: `pkg/mcp/server.go`)
 
 ```go
 package mcp
@@ -1217,7 +1228,9 @@ type ToolHandler func(ctx context.Context, args map[string]interface{}) (*mcp.Ca
 
 ## Tool Generation
 
-### File: `internal/mcp/tool_registry.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/mcp/registry.go`.
+
+### File: `internal/mcp/tool_registry.go` (real: `pkg/mcp/registry.go`)
 
 ```go
 package mcp
@@ -1320,7 +1333,9 @@ func (r *ToolRegistry) Has(name string) bool {
 
 ## Error Handling
 
-### File: `internal/mcp/errors.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/mcp/server.go` + `pkg/errors/errors.go`.
+
+### File: `internal/mcp/errors.go` (real: `pkg/mcp/server.go`, `pkg/errors/errors.go`)
 
 ```go
 package mcp
@@ -1435,7 +1450,9 @@ func GetErrorCode(err error) int {
 
 ## Integration Layer
 
-### File: `cmd/mcp/main.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `cmd/mcp-server/main.go`.
+
+### File: `cmd/mcp/main.go` (real: `cmd/mcp-server/main.go`)
 
 ```go
 package main

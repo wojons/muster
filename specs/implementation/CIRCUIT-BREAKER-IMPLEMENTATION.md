@@ -1,12 +1,19 @@
 # Circuit Breaker Implementation Specification
 
+> STATUS: HISTORICAL — the component described here was never built: no package under
+> `pkg/` or `internal/` implements a circuit breaker, and `internal/core/circuitbreaker/`
+> does not exist. Every `### File:` heading below is a design-time label; each is marked
+> as unbuilt.
+
 Production-ready circuit breaker pattern implementation for Go with state machine, metrics, and HTTP middleware integration.
 
 ---
 
 ## 1. Core Implementation
 
-### File: `internal/core/circuitbreaker/breaker.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/circuitbreaker/breaker.go` (never implemented)
 
 ```go
 package circuitbreaker
@@ -520,7 +527,9 @@ func (b *Breaker) Close() {
 
 ## 2. HTTP Middleware Integration
 
-### File: `internal/core/circuitbreaker/middleware.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/circuitbreaker/middleware.go` (never implemented)
 
 ```go
 package circuitbreaker
@@ -716,7 +725,9 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 
 ## 3. Named Circuit Breakers (Registry)
 
-### File: `internal/core/circuitbreaker/registry.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/circuitbreaker/registry.go` (never implemented)
 
 ```go
 package circuitbreaker
@@ -854,7 +865,9 @@ func (r *Registry) Close() {
 
 ## 4. Metrics and Monitoring
 
-### File: `internal/core/circuitbreaker/metrics.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/circuitbreaker/metrics.go` (never implemented)
 
 ```go
 package circuitbreaker

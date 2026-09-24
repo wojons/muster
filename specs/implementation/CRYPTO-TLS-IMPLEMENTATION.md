@@ -1,5 +1,10 @@
 # Cryptography and TLS Implementation Specification
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`crypto/mtls.go`, and the CryptoManager interface). No `crypto/` package exists
+> in this repo; the only related code is `pkg/config/types.go` (MTLSConfig) and
+> `internal/builtin/auth.go`. Treat the paths below as design-time labels.
+
 ## Overview
 
 Production-ready Go cryptography and TLS implementation providing Ed25519 signatures, X.509 certificate management, mTLS support, secure key storage with platform integration, and TLS 1.2+ with strong cipher suites. Designed for secure inventory signature verification, mutual TLS authentication, and hardware fingerprinting.

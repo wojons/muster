@@ -1,5 +1,11 @@
 # Middleware Composition Specification
 
+> STATUS: HISTORICAL — the file paths in this spec (`internal/core/composition/...`) were
+> never built; there is no composition package. Clients are constructed with functional
+> options in `pkg/client/client.go`, and the only middleware are the RoundTripper wrappers
+> in `pkg/client/ratelimit.go` and `pkg/client/cache.go`. Treat every `### File:` path below
+> as a design-time label, not a real path.
+
 Production-ready Go implementation showing how all middleware components chain together with proper dependency injection, lifecycle management, and initialization order.
 
 ---
@@ -96,7 +102,9 @@ Production-ready Go implementation showing how all middleware components chain t
 
 ## 2. Component Interfaces
 
-### File: `internal/core/composition/interfaces.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/composition/interfaces.go` (never implemented)
 
 ```go
 package composition
@@ -191,7 +199,9 @@ type ApplicationLifecycle struct {
 
 ## 3. HTTP Client Factory
 
-### File: `internal/core/composition/client_factory.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/client/client.go`.
+
+### File: `internal/core/composition/client_factory.go` (real: `pkg/client/client.go`)
 
 ```go
 package composition
@@ -436,7 +446,9 @@ func (f *httpClientFactory) Close() error {
 
 ## 4. Middleware Chain Builder
 
-### File: `internal/core/composition/middleware_chain.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/client/ratelimit.go` + `pkg/client/cache.go`.
+
+### File: `internal/core/composition/middleware_chain.go` (real: `pkg/client/ratelimit.go`, `pkg/client/cache.go`)
 
 ```go
 package composition
@@ -603,7 +615,9 @@ func defaultKeyExtractor(req *http.Request) string {
 
 ## 5. Component Wiring
 
-### File: `internal/core/composition/wiring.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/composition/wiring.go` (never implemented)
 
 ```go
 package composition
@@ -900,7 +914,9 @@ func (a *dslHTTPAdapter) Delete(ctx context.Context, url string, headers map[str
 
 ## 6. Initialization Order
 
-### File: `internal/core/composition/initializer.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/composition/initializer.go` (never implemented)
 
 ```go
 package composition
@@ -1165,7 +1181,9 @@ func (i *Initializer) GetErrors() []error {
 
 ## 7. Configuration Injection
 
-### File: `internal/core/composition/config_injection.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/composition/config_injection.go` (never implemented)
 
 ```go
 package composition
@@ -1380,7 +1398,9 @@ func getEnvDefault(key, defaultValue string) string {
 
 ## 8. Lifecycle Management
 
-### File: `internal/core/composition/lifecycle.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/composition/lifecycle.go` (never implemented)
 
 ```go
 package composition

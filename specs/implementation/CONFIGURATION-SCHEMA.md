@@ -1,5 +1,10 @@
 # Configuration Schema Specification
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/config/`). The real config schema is `pkg/config/types.go`, loaded
+> by `pkg/config/loader.go` and watched by `pkg/config/watcher.go`. Treat the paths below
+> as design-time labels, not real paths.
+
 ## Overview
 
 JSON Schema definitions for all configuration files with validation rules and Go struct mappings.

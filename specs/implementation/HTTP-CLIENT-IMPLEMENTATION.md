@@ -1,5 +1,11 @@
 # HTTP Client Implementation Specification
 
+> STATUS: HISTORICAL — the file paths in this spec (`internal/core/http/...`) were never
+> built; there is no `internal/core/http/` package. Real HTTP client code is `pkg/client/`
+> (`client.go`, `ratelimit.go`, `cache.go`) with `pkg/request/`, `pkg/response/`,
+> `pkg/retry/` and `pkg/rate/tokenbucket.go`. Circuit breaking exists nowhere in this repo.
+> Treat every `### File:` path below as a design-time label, not a real path.
+
 Production-ready Go HTTP client implementation with middleware system, authentication integration, rate limiting, circuit breaker support, and comprehensive error handling.
 
 ---
@@ -37,7 +43,9 @@ Production-ready Go HTTP client implementation with middleware system, authentic
 
 ## 1. Core Interfaces
 
-### File: `internal/core/http/client.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/client/client.go`.
+
+### File: `internal/core/http/client.go` (real: `pkg/client/client.go`)
 
 ```go
 package http
@@ -215,7 +223,9 @@ func containsAt(s, substr string) bool {
 
 ## 2. Authentication Integration
 
-### File: `internal/core/http/auth.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/auth`.
+
+### File: `internal/core/http/auth.go` (real: `pkg/auth`)
 
 ```go
 package http
@@ -349,7 +359,9 @@ func (am *authManager) close() error {
 
 ## 3. Rate Limiter Integration
 
-### File: `internal/core/http/ratelimit.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/client/ratelimit.go` + `pkg/rate/tokenbucket.go`.
+
+### File: `internal/core/http/ratelimit.go` (real: `pkg/client/ratelimit.go`, `pkg/rate/tokenbucket.go`)
 
 ```go
 package http
@@ -432,7 +444,9 @@ func defaultRateLimitKey(req *http.Request) string {
 
 ## 4. Circuit Breaker Integration
 
-### File: `internal/core/http/circuitbreaker.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/http/circuitbreaker.go` (never implemented)
 
 ```go
 package http
@@ -522,7 +536,9 @@ func IsCircuitBreakerError(err error) bool {
 
 ## 5. Middleware System
 
-### File: `internal/core/http/middleware.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/client/ratelimit.go` + `pkg/client/cache.go`.
+
+### File: `internal/core/http/middleware.go` (real: `pkg/client/ratelimit.go`, `pkg/client/cache.go`)
 
 ```go
 package http
@@ -797,7 +813,9 @@ func randomString(n int) string {
 
 ## 6. Client Implementation
 
-### File: `internal/core/http/client_impl.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/client/client.go`.
+
+### File: `internal/core/http/client_impl.go` (real: `pkg/client/client.go`)
 
 ```go
 package http
@@ -1338,7 +1356,9 @@ func isAbsoluteURL(urlStr string) bool {
 
 ## 7. TLS Configuration
 
-### File: `internal/core/http/tls.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/http/tls.go` (never implemented)
 
 ```go
 package http
@@ -1476,7 +1496,9 @@ func CreateMTLSConfig(certPEM, keyPEM, caPEM []byte, serverName string) (*tls.Co
 
 ## 8. Complete Integration Example
 
-### File: `internal/core/http/example.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/http/example.go` (never implemented)
 
 ```go
 package http
@@ -1711,7 +1733,9 @@ var (
 
 ## 9. Testing
 
-### File: `internal/core/http/client_test.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/client/client_test.go`.
+
+### File: `internal/core/http/client_test.go` (real: `pkg/client/client_test.go`)
 
 ```go
 package http
@@ -1917,7 +1941,9 @@ func BenchmarkClientGet(b *testing.B) {
 
 ## 10. Package Documentation
 
-### File: `internal/core/http/doc.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/http/doc.go` (never implemented)
 
 ```go
 // Package http provides a production-ready HTTP client with comprehensive features:

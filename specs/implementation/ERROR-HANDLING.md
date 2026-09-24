@@ -1,5 +1,10 @@
 # Error Handling Specification
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/errors/`, `internal/core/circuitbreaker/`, `internal/core/retry/`,
+> `internal/core/recovery/`). Real error types are `pkg/errors/errors.go` (AppError) and
+> retries are `pkg/retry/retry.go`; the circuit breaker and recovery packages do not exist.
+
 ## Overview
 
 Comprehensive error handling strategy including error types, codes, retry logic, circuit breaker, and recovery mechanisms.

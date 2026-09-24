@@ -1,5 +1,11 @@
 # Code Guide - Go Implementation Specifications
 
+> STATUS: HISTORICAL — the file paths in this spec use an early layout that was never
+> built for three of its four `### File:` headings. Only `cmd/openapi-cli/main.go` exists;
+> CLI command generation is `pkg/generator/generator.go` and the MCP server is
+> `pkg/mcp/server.go` (entry point `cmd/mcp-server/main.go`). The parenthetical note on
+> each heading below gives its real location.
+
 ## Project Structure
 
 ```
@@ -623,7 +629,9 @@ func getCacheDir() string {
 }
 ```
 
-### File: `internal/cli/generator.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/generator/generator.go`.
+
+### File: `internal/cli/generator.go` (real: `pkg/generator/generator.go`)
 
 ```go
 package cli
@@ -706,7 +714,9 @@ func executeOperation(ctx context.Context, op Operation, invMgr inventory.Manage
 
 ## 3. MCP Server Implementation
 
-### File: `cmd/mcp/main.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `cmd/mcp-server/main.go`.
+
+### File: `cmd/mcp/main.go` (real: `cmd/mcp-server/main.go`)
 
 ```go
 package main
@@ -784,7 +794,9 @@ func run() error {
 }
 ```
 
-### File: `internal/mcp/server.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/mcp/server.go`.
+
+### File: `internal/mcp/server.go` (real: `pkg/mcp/server.go`)
 
 ```go
 package mcp

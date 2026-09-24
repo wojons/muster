@@ -1,5 +1,9 @@
 # DSL Specification - Starlark Implementation
 
+> STATUS: HISTORICAL — the path referenced here (`internal/core/dsl/interpreter.go`) was
+> never built. The DSL is implemented by `pkg/dsl/interpreter.go`. Treat the path below as
+> a design-time label.
+
 ## Overview
 
 Complete specification for the Starlark DSL including grammar, builtins, evaluation engine, and Go implementation.

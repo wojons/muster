@@ -1,5 +1,11 @@
 # Inventory Manager Implementation Specification
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/inventory/`). The real inventory code is
+> `internal/builtin/inventory.go` with persistence in
+> `pkg/repository/sql/inventory_repository.go`. Treat the paths below as design-time
+> labels, not real paths.
+
 ## Overview
 
 Production-ready Go implementation for the inventory manager that handles fetching, caching, version management, signature verification, and module loading. This implementation provides thread-safe operations with SQLite-based caching, background refresh, and comprehensive metrics.

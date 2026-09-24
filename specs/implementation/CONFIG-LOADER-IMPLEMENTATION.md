@@ -1,5 +1,9 @@
 # Configuration Loader Implementation
 
+> STATUS: HISTORICAL — the file paths in this spec (`internal/core/config/...`) were never
+> built. Real configuration code is `pkg/config/` (`types.go`, `loader.go`, `watcher.go`).
+> Treat every `### File:` path below as a design-time label, not a real path.
+
 Complete Go implementation for configuration loading, merging, validation, and hot reload.
 
 ## Table of Contents
@@ -33,7 +37,9 @@ The configuration loader implements a hierarchical configuration system with mul
 
 ## 2. Configuration Types
 
-### File: `internal/core/config/types.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/config/types.go`.
+
+### File: `internal/core/config/types.go` (real: `pkg/config/types.go`)
 
 ```go
 package config
@@ -210,7 +216,9 @@ func (c *Configuration) String() string {
 
 ## 3. Sources Implementation
 
-### File: `internal/core/config/sources.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/config/loader.go`.
+
+### File: `internal/core/config/sources.go` (real: `pkg/config/loader.go`)
 
 ```go
 package config
@@ -491,7 +499,9 @@ func setAtPath(config map[string]interface{}, path string, value interface{}) {
 
 ## 4. Merging and Precedence
 
-### File: `internal/core/config/merge.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/config/loader.go`.
+
+### File: `internal/core/config/merge.go` (real: `pkg/config/loader.go`)
 
 ```go
 package config
@@ -675,7 +685,9 @@ func UnmarshalToConfig(data map[string]interface{}) (*Configuration, error) {
 
 ## 5. Profile Support
 
-### File: `internal/core/config/profiles.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/config/loader.go`.
+
+### File: `internal/core/config/profiles.go` (real: `pkg/config/loader.go`)
 
 ```go
 package config
@@ -871,7 +883,9 @@ func (pi ProfileInfo) String() string {
 
 ## 6. Validation with JSON Schema
 
-### File: `internal/core/config/validate.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/core/config/validate.go` (never implemented)
 
 ```go
 package config
@@ -1060,7 +1074,9 @@ func ValidateEnv() error {
 
 ## 7. File Watching and Hot Reload
 
-### File: `internal/core/config/watch.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/config/watcher.go`.
+
+### File: `internal/core/config/watch.go` (real: `pkg/config/watcher.go`)
 
 ```go
 package config
@@ -1238,7 +1254,9 @@ func (w *Watcher) Stop() error {
 
 ## 8. Environment Variable Mapping
 
-### File: `internal/core/config/env.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/config/loader.go`.
+
+### File: `internal/core/config/env.go` (real: `pkg/config/loader.go`)
 
 ```go
 package config
@@ -1356,7 +1374,9 @@ func Expand(s string) string {
 
 ## 9. Complete Manager Implementation
 
-### File: `internal/core/config/manager.go`
+> STATUS: HISTORICAL — this path was never built. Real implementation: `pkg/config/loader.go`.
+
+### File: `internal/core/config/manager.go` (real: `pkg/config/loader.go`)
 
 ```go
 package config
