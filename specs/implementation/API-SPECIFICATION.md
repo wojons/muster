@@ -1,5 +1,10 @@
 # API Specification - Complete HTTP API Definitions
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/determinism/`). Inventory fetching is `internal/builtin/inventory.go`;
+> the only HTTP servers in this repo are the daemon proxy (`pkg/daemon/proxy.go`) and the
+> metrics endpoint (`internal/monitoring/metrics.go`). The API below is design-time only.
+
 ## Base URLs
 
 ### Client API (Inventory Server)

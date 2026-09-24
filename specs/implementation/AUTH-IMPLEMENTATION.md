@@ -1,5 +1,10 @@
 # Authentication Implementation Specification
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/http/`, `pkg/auth/oauth2`, `pkg/securestore`). Real authentication
+> code is `pkg/auth/` (`keychain.go`, `oauth2_flow.go`). Treat the paths below as
+> design-time labels, not real paths.
+
 ## Overview
 
 Production-ready Go authentication implementation supporting OAuth2 (authorization code, client credentials, refresh), mTLS, and API key authentication with secure cross-platform credential storage.

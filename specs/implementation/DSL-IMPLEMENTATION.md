@@ -1,5 +1,9 @@
 # DSL Implementation - Complete Go Source Code
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/dsl/`). The DSL is implemented by `pkg/dsl/interpreter.go`. Treat
+> the paths below as design-time labels, not real paths.
+
 ## Overview
 
 Production-ready Starlark DSL implementation with go.starlark.net featuring HTTP builtins, JSON operations, and resource limits.

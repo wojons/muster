@@ -1,5 +1,10 @@
 # Rate Limiting Implementation Specification
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/ratelimit/`). Real rate limiting is `pkg/rate/tokenbucket.go` plus
+> the client-side `pkg/client/ratelimit.go` RoundTripper, persisted via
+> `pkg/repository/sql/ratelimit_repository.go`. Treat the paths below as design-time labels.
+
 **Status**: ✅ COMPLETE  
 **Date**: 2026-02-28  
 **Purpose**: Complete Go implementation of token bucket rate limiting

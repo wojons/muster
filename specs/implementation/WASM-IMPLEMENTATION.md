@@ -1,5 +1,10 @@
 # WASM Runtime Implementation Specification
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/wasm/`). The real WASM runtime is `pkg/wasm/` (`runtime.go`,
+> `module.go`, `middleware.go`, `sandbox.go`). Treat the paths below as design-time labels,
+> not real paths.
+
 ## Overview
 
 This document provides the complete production-ready Go implementation for a WASM runtime using Wasmtime. The runtime provides secure sandboxed execution of WebAssembly modules with capability-based access control.

@@ -1,5 +1,10 @@
 # Build Specification
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/update/updater.go`, `cmd/migrate`, `cmd/sqlc`). Real build and
+> release tooling is `Makefile`, `scripts/`, `Dockerfile`, `debian/`, `packaging/` and
+> `chart/`. Treat the paths below as design-time labels, not real paths.
+
 ## Overview
 
 Complete build system including Makefile, CI/CD pipeline, release automation, and distribution.

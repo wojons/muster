@@ -1,5 +1,11 @@
 # Database Migration System Specification
 
+> STATUS: HISTORICAL — the paths in this spec (`internal/db/migration/...`) were never
+> built: no Go migration system exists in this repo and nothing in `pkg/`, `internal/` or
+> `cmd/` references `migrations/`. The real schema is the goose migration set in
+> `migrations/` (`00001_configs.sql` … `00009_hipaa_rbac.sql`), applied out-of-band.
+> Treat every `### File:` path below as a design-time label.
+
 ## Overview
 
 Production-ready Go migration system supporting SQLite, PostgreSQL, and MySQL with transaction safety, advisory locks, rollback support, and schema validation.
@@ -26,7 +32,9 @@ Production-ready Go migration system supporting SQLite, PostgreSQL, and MySQL wi
 
 ## 2. Migration Definition Format
 
-### File: `internal/db/migration/migration.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migration/migration.go` (never implemented)
 
 ```go
 // Package migration provides database migration capabilities
@@ -236,7 +244,9 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 
 ## 3. Version Tracking & Migration Store
 
-### File: `internal/db/migration/store.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migration/store.go` (never implemented)
 
 ```go
 package migration
@@ -547,7 +557,9 @@ func (s *Store) Truncate(ctx context.Context) error {
 
 ## 4. Advisory Lock System
 
-### File: `internal/db/migration/lock.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migration/lock.go` (never implemented)
 
 ```go
 package migration
@@ -787,7 +799,9 @@ func WithLock(ctx context.Context, lm *LockManager, lockID int64, fn func() erro
 
 ## 5. Migration Executor
 
-### File: `internal/db/migration/executor.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migration/executor.go` (never implemented)
 
 ```go
 package migration
@@ -1189,7 +1203,9 @@ func (s *Status) IsUpToDate() bool {
 
 ## 6. Schema Validation
 
-### File: `internal/db/migration/validation.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migration/validation.go` (never implemented)
 
 ```go
 package migration
@@ -1599,7 +1615,9 @@ func ExpectedSchema() []Table {
 
 ## 7. Migration Reporter
 
-### File: `internal/db/migration/reporter.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migration/reporter.go` (never implemented)
 
 ```go
 package migration
@@ -1826,7 +1844,9 @@ func int64SliceToJSON(s []int64) string {
 
 ## 8. Main Migrator
 
-### File: `internal/db/migration/migrator.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migration/migrator.go` (never implemented)
 
 ```go
 package migration
@@ -2152,7 +2172,9 @@ func (m *Migrator) GetRegistry() *Registry {
 
 ## 9. Predefined Migrations
 
-### File: `internal/db/migration/migrations.go`
+> STATUS: HISTORICAL — this path was never built; no real counterpart exists.
+
+### File: `internal/db/migration/migrations.go` (never implemented)
 
 ```go
 package migration

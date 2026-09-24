@@ -1,5 +1,11 @@
 # Test Specifications
 
+> STATUS: HISTORICAL — the paths referenced here come from an early layout that was never
+> built (`internal/core/inventory`, `internal/core/http`, and the `test/` tree it
+> sketches). Tests live beside each package as `*_test.go`; the end-to-end gate is
+> `demo/run-all.sh` with the `Makefile` test targets. Treat the paths below as design-time
+> labels, not real paths.
+
 ## Overview
 
 Complete testing strategy including unit tests, integration tests, end-to-end tests, and test utilities.
