@@ -1,5 +1,20 @@
-version: '3.8'
-
+# Muster stack.
+#
+# A bare `docker compose up -d` starts the core dependency services (db, redis).
+# Optional services are gated behind profiles — activate them explicitly:
+#
+#   docker compose --profile daemon up -d     # daemon
+#   docker compose --profile cli up -d        # one-off CLI commands
+#   docker compose --profile mcp up -d        # MCP server
+#   docker compose --profile dev up -d        # db, redis, cli, mcp-server
+#   docker compose --profile monitoring up -d # api, prometheus, grafana
+#   docker compose --profile proxy up -d      # api, nginx (needs ./ssl certs)
+#   docker compose --profile prod up -d       # api, daemon, nginx, prometheus, grafana
+#   docker compose --profile full up -d       # everything
+#
+# Profile dependency note: any service whose depends_on targets are not active
+# under a profile alone makes that profile an invalid compose project, so every
+# profile here is dependency-closed (guarded by TestComposeProfileDependencyClosure).
 services:
   # Core API service
   api:
@@ -33,7 +48,6 @@ services:
       retries: 3
       start_period: 40s
     deploy:
-      replicas: 2
       resources:
         limits:
           cpus: '0.5'
@@ -46,6 +60,8 @@ services:
     profiles:
       - full
       - prod
+      - monitoring
+      - proxy
 
   # CLI service for one-off commands
   cli:
@@ -168,11 +184,6 @@ services:
       - "5432:5432"
     networks:
       - muster-network
-    profiles:
-      - db
-      - full
-      - dev
-      - prod
 
   # Redis Cache
   redis:
@@ -190,11 +201,6 @@ services:
       - "6379:6379"
     networks:
       - muster-network
-    profiles:
-      - redis
-      - full
-      - dev
-      - prod
 
   # Prometheus for metrics
   prometheus:
