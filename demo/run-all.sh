@@ -84,6 +84,29 @@ for script in demo/demos/[0-9]*.sh; do
   fi
 done
 
+# ── Run Integration Test Suites ──────────────────────────────
+# Canonical list mirrors demo/test-suites/run-all.sh. The *-real-integration.sh
+# and 05-daemon-proxied.sh suites are intentionally NOT run here: they require
+# a `muster-cli`/`muster-mcp` binary plus live services.
+banner "Running Integration Test Suites"
+
+for name in \
+  01-cli-generation \
+  02-mcp-flow \
+  03-wasm-execution \
+  04-auth-flows \
+  05-daemon-socket \
+  06-full-stack; do
+  script="demo/test-suites/$name.sh"
+  [ -e "$script" ] || { fail_msg "$name.sh (missing)"; continue; }
+  echo -n "  $name.sh... "
+  if bash "$script" &>/dev/null; then
+    pass "$name.sh"
+  else
+    fail_msg "$name.sh"
+  fi
+done
+
 # ── Summary ──────────────────────────────────────────────────
 banner "Results"
 echo "  ${GREEN}Passed: $PASS${NC}"

@@ -4,6 +4,12 @@
 
 set -e
 
+# Resolve everything from the repo root so the suite behaves identically no
+# matter which directory the caller runs it from (repo root, demo/, or
+# demo/test-suites/) and so a missing binary fails loudly instead of no-oping.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+
 echo "=== Test 01: CLI Generation ==="
 echo ""
 
@@ -16,32 +22,50 @@ NC='\033[0m' # No Color
 BINARY="${BINARY:-./bin/openapi-cli}"
 SPECS_DIR="./demo/openapi-specs"
 
+FAILED=0
+WARNED=0
+fail() { echo -e "${RED}✗ $1${NC}"; FAILED=$((FAILED + 1)); }
+warn() { echo -e "${YELLOW}⚠ $1${NC}"; WARNED=$((WARNED + 1)); }
+
+summary() {
+    echo ""
+    echo "=== Test 01 RESULT ==="
+    echo ""
+    echo "CLI Generation verification:"
+    if [ "$FAILED" -gt 0 ]; then
+        echo -e "  ${RED}FAIL${NC} - $FAILED failed, $WARNED warnings"
+        exit 1
+    fi
+    echo -e "  ${GREEN}PASS${NC} - 0 failed, $WARNED warnings"
+    exit 0
+}
+
 echo "Step 1: Check binary exists"
 echo "----------------------------"
+echo "  repo root: $REPO_ROOT"
 if [ ! -f "$BINARY" ]; then
     echo -e "${YELLOW}Building openapi-cli binary...${NC}"
-    cd ../..
-    make build > /dev/null 2>&1 || {
-        echo -e "${RED}FAIL: Could not build binary${NC}"
-        exit 1
-    }
-    cd demo/test-suites
-    echo -e "${GREEN}✓ Build successful${NC}"
-else
-    echo -e "${GREEN}✓ Binary exists: $BINARY${NC}"
+    if make build-cli > /dev/null 2>&1 && [ -x "$BINARY" ]; then
+        echo -e "${GREEN}✓ Build successful${NC}"
+    fi
 fi
+if [ ! -f "$BINARY" ]; then
+    fail "CLI binary not found at '$BINARY' (build it: make build-cli)"
+    summary
+fi
+echo -e "${GREEN}✓ Binary exists: $BINARY${NC}"
 
 echo ""
 echo "Step 2: Check spec files"
 echo "-------------------------"
 if [ ! -f "$SPECS_DIR/petstore.yaml" ]; then
-    echo -e "${RED}FAIL: petstore.yaml not found${NC}"
-    exit 1
+    fail "petstore.yaml not found at $SPECS_DIR/petstore.yaml"
+    summary
 fi
 echo -e "${GREEN}✓ petstore.yaml exists${NC}"
 
 if [ ! -f "$SPECS_DIR/simple.yaml" ]; then
-    echo -e "${YELLOW}⚠ simple.yaml not found (optional)${NC}"
+    warn "simple.yaml not found (optional)"
 else
     echo -e "${GREEN}✓ simple.yaml exists${NC}"
 fi
@@ -49,10 +73,12 @@ fi
 echo ""
 echo "Step 3: Test CLI version command"
 echo "--------------------------------"
-if $BINARY version 2>/dev/null | grep -q "openapi-cli"; then
+VERSION_OUTPUT="$($BINARY version 2>/dev/null || true)"
+if echo "$VERSION_OUTPUT" | grep -Eq "v?[0-9]+\.[0-9]+"; then
+    echo "  $VERSION_OUTPUT"
     echo -e "${GREEN}✓ CLI version command works${NC}"
 else
-    echo -e "${YELLOW}⚠ Version command may not work as expected${NC}"
+    warn "Version command may not work as expected"
 fi
 
 echo ""
@@ -61,7 +87,7 @@ echo "------------------------------"
 if $BINARY --help 2>/dev/null | grep -q "Usage:"; then
     echo -e "${GREEN}✓ CLI help command works${NC}"
 else
-    echo -e "${YELLOW}⚠ Help command may not work as expected${NC}"
+    warn "Help command may not work as expected"
 fi
 
 echo ""
@@ -74,19 +100,15 @@ if $BINARY generate --help 2>/dev/null | grep -q "generate"; then
     if $BINARY generate "$SPECS_DIR/simple.yaml" 2>/dev/null; then
         echo -e "${GREEN}✓ Generate command works with simple spec${NC}"
     else
-        echo -e "${YELLOW}⚠ Generate command found but may not fully implemented${NC}"
+        warn "Generate command found but may not fully implemented"
     fi
 else
-    echo -e "${YELLOW}⚠ Generate command not available (may not be implemented yet)${NC}"
+    warn "Generate command not available (may not be implemented yet)"
 fi
 
 echo ""
-echo "=== Test 01 PASSED ==="
-echo ""
 echo "Verified capabilities:"
-if [ -f "$BINARY" ]; then
-    echo "  ✓ Binary can be built"
-fi
+echo "  ✓ Binary can be built"
 echo "  ✓ OpenAPI spec files exist"
 if $BINARY version > /dev/null 2>&1; then
     echo "  ✓ CLI basic commands work"
@@ -96,3 +118,5 @@ echo "Note: Full command generation integration may require:"
 echo "  • OpenAPI Parser implementation"
 echo "  • Command Generator implementation"
 echo "  • Generate command wiring"
+
+summary
