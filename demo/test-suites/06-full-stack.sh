@@ -13,18 +13,36 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Determine project root
+# Determine project root and work from there, so the suite behaves the same
+# no matter which directory the caller runs it from (repo root, demo/, or
+# demo/test-suites/) and so a missing binary fails loudly instead of no-oping.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$PROJECT_ROOT"
 
-BINARY="${BINARY:-$PROJECT_ROOT/openapi-cli}"
-SPECS_DIR="$PROJECT_ROOT/demo/openapi-specs"
+BINARY="${BINARY:-./bin/openapi-cli}"
+SPECS_DIR="./demo/openapi-specs"
 FAILED=0
+fail() { echo -e "${RED}✗${NC} $1"; FAILED=$((FAILED + 1)); }
 
 echo "Full Stack Pipeline Test"
 echo "========================"
 echo ""
 echo "Testing: Load spec → Parse → Generate → Execute → Validate"
+echo ""
+
+# Step 0: resolve the CLI binary (a missing binary must not silently no-op)
+echo -e "${BLUE}[0/5]${NC} Resolve CLI binary"
+echo "--------------------------------"
+echo "  project root: $PROJECT_ROOT"
+echo "  binary:       $BINARY"
+if [ ! -f "$BINARY" ]; then
+    fail "CLI binary not found at '$BINARY' (build it: make build-cli)"
+elif [ ! -x "$BINARY" ]; then
+    fail "CLI binary at '$BINARY' is not executable"
+else
+    echo -e "${GREEN}✓${NC} CLI binary resolved"
+fi
 echo ""
 
 # Step 1: Load spec
@@ -34,7 +52,7 @@ if [ -f "$SPECS_DIR/petstore.yaml" ]; then
     echo -e "${GREEN}✓${NC} Spec file accessible"
 else
     echo -e "${RED}✗${NC} Spec file not found"
-    FAILED=1
+    fail "Spec file not found: $SPECS_DIR/petstore.yaml"
 fi
 
 # Step 2: Parse
@@ -49,7 +67,7 @@ else
         echo -e "${YELLOW}⚠${NC} Generate command exists but parsing may need work"
     else
         echo -e "${RED}✗${NC} Generate command not working"
-        FAILED=1
+        fail "Generate command not working"
     fi
 fi
 
@@ -74,12 +92,14 @@ fi
 echo ""
 echo -e "${BLUE}[4/5]${NC} Execute workflow"
 echo "----------------"
-# Test that CLI can run basic commands
-if $BINARY version 2>/dev/null | grep -q "version"; then
+# Test that CLI can run basic commands (any non-empty version output)
+VERSION_OUTPUT="$($BINARY version 2>/dev/null || true)"
+if [ -n "$VERSION_OUTPUT" ]; then
+    echo "  $VERSION_OUTPUT"
     echo -e "${GREEN}✓${NC} CLI executable"
 else
     echo -e "${RED}✗${NC} CLI not responding"
-    FAILED=1
+    fail "CLI not responding ($BINARY version)"
 fi
 
 if $BINARY --help 2>/dev/null | grep -q "Usage\|Commands"; then
@@ -125,11 +145,13 @@ rm -rf "$GEN_OUTPUT" 2>/dev/null || true
 echo ""
 echo "=== Test 06 RESULT ==="
 echo ""
-if [ $FAILED -eq 0 ] && [ $MISSING -eq 0 ]; then
-    echo -e "${GREEN}PASSED${NC} - Full stack pipeline functional"
-    exit 0
-else
-    echo -e "${YELLOW}PARTIAL${NC} - Some components need work"
+if [ "$FAILED" -gt 0 ]; then
+    echo -e "${RED}FAIL${NC} - $FAILED failed, $MISSING packages missing"
+    exit 1
+fi
+
+if [ "$MISSING" -gt 0 ]; then
+    echo -e "${YELLOW}PARTIAL${NC} - 0 failed, $MISSING packages missing"
     echo ""
     echo "Pipeline Status:"
     echo "  ✓ Load spec: Working"
@@ -139,3 +161,6 @@ else
     echo "  ✓ Validate: Components exist"
     exit 0
 fi
+
+echo -e "${GREEN}PASSED${NC} - Full stack pipeline functional"
+exit 0
