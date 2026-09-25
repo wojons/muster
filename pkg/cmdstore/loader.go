@@ -13,10 +13,30 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	"github.com/wojons/muster/pkg/auth"
 	"github.com/wojons/muster/pkg/log"
 	"github.com/wojons/muster/pkg/request"
 	"gopkg.in/yaml.v3"
 )
+
+// AuthFlagName is the runtime --auth credential-attachment flag on
+// reloaded commands (DF-023). Mirrors generator.AuthFlagName (pkg/generator
+// cannot be imported here without an import cycle): a parity test in
+// internal/builtin (which imports both packages) pins the two values equal.
+const AuthFlagName = "auth"
+
+// resolveStoredFn resolves a stored credential by name for the --auth
+// flag. Package-level var (default auth.ResolveStored) so tests can seam
+// it without touching the platform keychain; production paths always use
+// the default.
+var resolveStoredFn = auth.ResolveStored
+
+// AuthRuntimeAnnotation is stamped on reloaded commands where the loader
+// itself registered the runtime --auth flag (i.e. the spec had no
+// parameter of that name). The run handler consumes --auth only when this
+// annotation is present, so a spec's own "auth" parameter is never
+// diverted into the credential resolver.
+const AuthRuntimeAnnotation = "muster/auth-runtime-flag"
 
 // Loader reconstructs commands from stored metadata
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/cmdstore/loader.go
@@ -131,6 +151,15 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 		if flagMeta.Name == "raw" {
 			continue
 		}
+		// DF-023: the runtime --auth credential-attachment flag is
+		// re-registered by the loader itself (below) and consumed in the
+		// run handler — never re-registered from metadata, never forwarded
+		// as a query parameter. A spec parameter genuinely named "auth"
+		// persists WITHOUT FlagKindAuth (the generator only stamps the
+		// annotation when it registered the flag) and is unaffected.
+		if flagMeta.Kind == FlagKindAuth {
+			continue
+		}
 		switch flagMeta.Type {
 		case "string":
 			defaultVal := flagMeta.Default
@@ -162,6 +191,20 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 
 	// Always add header flag support to every loaded command for auth
 	cmd.Flags().StringSliceP("header", "H", nil, "Add HTTP header (format: 'Key: Value')")
+
+	// DF-023: runtime credential attachment on reloaded commands. Register
+	// the loader's --auth flag ONLY when metadata does not already carry a
+	// flag with that name (a spec parameter genuinely named "auth" was
+	// registered from metadata above and must reach the server as a normal
+	// parameter, never the credential resolver). The annotation tells the
+	// run handler this --auth is the runtime credential flag.
+	if cmd.Flags().Lookup(AuthFlagName) == nil {
+		cmd.Flags().String(AuthFlagName, "", "Attach a stored credential by name (see 'auth add')")
+		if cmd.Annotations == nil {
+			cmd.Annotations = map[string]string{}
+		}
+		cmd.Annotations[AuthRuntimeAnnotation] = "true"
+	}
 
 	// Runtime base-URL override: --base-url flag or MUSTER_BASE_URL env var
 	// takes precedence over the stored/generate-time URL, so a generated CLI
@@ -233,6 +276,22 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			builder.SetHeader("Authorization", "Bearer "+authToken)
 		}
 
+		// DF-023: attach the stored credential named by --auth BEFORE
+		// per-command --header flags so an explicit manual header with the
+		// same name keeps precedence (SetHeader overwrites). Only the
+		// loader-registered runtime flag (annotation) is consumed here; a
+		// spec's own "auth" parameter is forwarded as a query parameter.
+		if cmd.Flag(AuthFlagName) != nil && cmd.Annotations[AuthRuntimeAnnotation] == "true" {
+			authName, _ := cmd.Flags().GetString(AuthFlagName)
+			if authName != "" {
+				cred, err := resolveStoredFn(authName)
+				if err != nil {
+					return fmt.Errorf("resolve --auth: %w", err)
+				}
+				builder.SetHeader(cred.Name, cred.Value)
+			}
+		}
+
 		// Apply per-command --header flags
 		if cmd.Flag("header") != nil {
 			hdrValues, _ := cmd.Flags().GetStringSlice("header")
@@ -254,6 +313,12 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			// DF-016: --raw is a presentation flag consumed in
 			// executeAndReadResponse; never classify it as a query parameter.
 			if flagMeta.Name == "raw" {
+				continue
+			}
+			// DF-023: --auth is the runtime credential-attachment flag
+			// consumed in the run handler above; never classify it as a
+			// query parameter.
+			if flagMeta.Kind == FlagKindAuth {
 				continue
 			}
 			switch flagMeta.Kind {

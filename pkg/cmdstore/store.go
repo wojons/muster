@@ -62,6 +62,12 @@ const (
 	// verbatim as the request body (validated JSON) instead of marshaling it
 	// as a single property or routing it as a query param (DF-MUSTER-5).
 	FlagKindRawBody FlagKind = "raw-body"
+
+	// FlagKindAuth marks the runtime --auth credential-attachment flag
+	// (DF-023). Persisted with this kind so the loader's default branch
+	// cannot route it as a query parameter on reload; the loader itself
+	// re-registers the flag and consumes it in the run handler.
+	FlagKindAuth FlagKind = "auth"
 )
 
 // FlagMetadata describes a command flag.

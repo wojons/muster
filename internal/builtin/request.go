@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/wojons/muster/pkg/auth"
 	"github.com/wojons/muster/pkg/cache"
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/config"
@@ -27,13 +28,19 @@ func newRequestCommand(cfg *config.Config) *cobra.Command {
 		timeout    time.Duration
 		httpBody   string
 		wasmPlugin string
+		authName   string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "request <method> <url>",
 		Short: "Make HTTP requests",
-		Long:  `Send HTTP requests with support for various methods, headers, and output formats.`,
-		Args:  cobra.ExactArgs(2),
+		Long: `Send HTTP requests with support for various methods, headers, and output formats.
+
+Attach a stored credential (see 'auth add') with --auth NAME: bearer
+credentials are sent as an 'Authorization: Bearer SECRET' header, api-key
+credentials as an 'X-API-Key: SECRET' header. An explicit -H header with
+the same name takes precedence over the stored credential.`,
+		Args: cobra.ExactArgs(2),
 		// SilenceUsage prevents the full usage block from being dumped when a
 		// runtime error occurs (e.g. a 4xx/5xx HTTP response). Flag/arg misuse
 		// still surfaces usage via the custom FlagErrorFunc + Args validator
@@ -43,7 +50,7 @@ func newRequestCommand(cfg *config.Config) *cobra.Command {
 			method := strings.ToUpper(args[0])
 			targetURL := args[1]
 
-			return handleRequest(cfg, method, targetURL, headers, params, output, verbose, timeout, httpBody, wasmPlugin)
+			return handleRequest(cfg, method, targetURL, headers, params, output, verbose, timeout, httpBody, wasmPlugin, authName)
 		},
 	}
 
@@ -64,6 +71,7 @@ func newRequestCommand(cfg *config.Config) *cobra.Command {
 	}
 
 	cmd.Flags().StringSliceVarP(&headers, "header", "H", []string{}, "Add HTTP header (format: 'Key: Value')")
+	cmd.Flags().StringVar(&authName, "auth", "", "Attach a stored credential by name (see 'auth add')")
 	cmd.Flags().StringSliceVarP(&params, "param", "p", []string{}, "Add query parameter (format: 'key=value')")
 	cmd.Flags().StringVarP(&output, "output", "o", "table", "Output format (json, yaml, table)")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
@@ -83,7 +91,18 @@ func validateURLScheme(scheme string) error {
 	return nil
 }
 
-func handleRequest(cfg *config.Config, method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody string, wasmPlugin string) error {
+// resolveRequestCredential resolves the named stored credential for the
+// request command (DF-023). Package-level var so tests can seam it without
+// touching the platform keychain; production always uses the real chain.
+var resolveRequestCredential = func(name string) (auth.CredentialHeader, error) {
+	kc, err := auth.NewKeychain()
+	if err != nil {
+		return auth.CredentialHeader{}, fmt.Errorf("init keychain: %w", err)
+	}
+	return auth.ResolveCredentialHeader(kc, name)
+}
+
+func handleRequest(cfg *config.Config, method, targetURL string, headers, params []string, output string, verbose bool, timeout time.Duration, httpBody, wasmPlugin, authName string) error {
 	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
 		return fmt.Errorf("parse URL: %w", err)
@@ -94,6 +113,19 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 	}
 
 	builder := request.NewBuilder(parsedURL.Scheme+"://"+parsedURL.Host, parsedURL.Path, method)
+
+	// DF-023: attach a stored credential BEFORE explicit -H headers so a
+	// manual header with the same name keeps precedence (WithHeader
+	// overwrites). The resolved credential is kept for the verbose dump.
+	var attachedCred *auth.CredentialHeader
+	if authName != "" {
+		cred, err := resolveRequestCredential(authName)
+		if err != nil {
+			return fmt.Errorf("resolve --auth: %w", err)
+		}
+		builder.WithHeader(cred.Name, cred.Value)
+		attachedCred = &cred
+	}
 
 	for _, h := range headers {
 		parts := strings.SplitN(h, ":", 2)
@@ -163,8 +195,19 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Request: %s %s\n", method, targetURL)
 		fmt.Fprintf(os.Stderr, "Status: %d %s\n", resp.StatusCode, resp.Status)
+		// DF-023: report the attached credential MASKED — the secret is
+		// never echoed in verbose output ("Authorization: Bearer ***").
+		if attachedCred != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s\n", attachedCred.Name, maskAuthHeaderValue(attachedCred.Value))
+		}
 		for k, v := range resp.Header {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", k, strings.Join(v, ", "))
+			joined := strings.Join(v, ", ")
+			// DF-023: never echo credential secrets in verbose output —
+			// a credential header echoed by the server renders masked.
+			if strings.EqualFold(k, "Authorization") || strings.EqualFold(k, "X-API-Key") {
+				joined = maskAuthHeaderValue(joined)
+			}
+			fmt.Fprintf(os.Stderr, "%s: %s\n", k, joined)
 		}
 		fmt.Fprintln(os.Stderr)
 	}
@@ -190,4 +233,14 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 	}
 
 	return nil
+}
+
+// maskAuthHeaderValue renders an Authorization/X-API-Key header value safe
+// for verbose output: "Bearer abc" becomes "Bearer MASKED"; anything else
+// becomes "MASKED".
+func maskAuthHeaderValue(value string) string {
+	if i := strings.Index(value, " "); i > 0 {
+		return value[:i+1] + "***"
+	}
+	return "***"
 }

@@ -33,7 +33,15 @@ func newAuthCommand(cfg *config.Config) *cobra.Command {
 		Long: `Manage authentication credentials stored in the system keychain.
 
 Credentials are keyed by name and stored with a type (api-key, bearer,
-basic). Secrets live in the OS keychain; metadata is kept in config.`,
+basic). Secrets live in the OS keychain; metadata is kept in config.
+
+Use a stored credential on any request with --auth:
+
+  openapi-cli request GET https://api.example.com/tasks --auth myapi
+  openapi-cli openapi-cli <resource> <op> --auth myapi
+
+bearer credentials attach as 'Authorization: Bearer <secret>', api-key
+credentials as 'X-API-Key: <secret>'.`,
 	}
 
 	// auth add --name <name> --type <type> [--value <secret>]
@@ -302,10 +310,10 @@ func hasExtKeyUsage(cert *x509.Certificate, want x509.ExtKeyUsage) bool {
 // credentialMetaPath returns the JSON metadata file path for credentials.
 func credentialMetaPath(cfg *config.Config) string {
 	if cfg != nil && cfg.ConfigDir != "" {
-		return cfg.ConfigDir + "/credentials.json"
+		return cfg.ConfigDir + "/" + auth.CredentialMetaFileName
 	}
 	dir, _ := os.UserConfigDir()
-	return dir + "/muster/credentials.json"
+	return dir + "/muster/" + auth.CredentialMetaFileName
 }
 
 // loadCredentialMeta reads the name→type map from disk.

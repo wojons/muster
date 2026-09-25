@@ -336,25 +336,31 @@ Error: x509: certificate signed by unknown authority
 
 **Solutions**:
 
-1. **Check authentication status**:
+1. **Check which credentials are stored**:
    ```bash
    openapi-cli auth list
    ```
 
-2. **Store credentials**:
+2. **Store credentials** (if none exist):
    ```bash
    openapi-cli auth add --name myapi --type api-key --value YOUR_KEY
    ```
 
-3. **Set API key**:
+3. **Attach the stored credential to the request with --auth**:
    ```bash
-   export API_KEY=your-secret-key
-   openapi-cli auth add --name myapi --type api-key --value $API_KEY
+   openapi-cli request GET https://api.example.com/tasks --auth myapi
+   openapi-cli openapi-cli <resource> <operation> --auth myapi
    ```
 
-4. **Test authentication**:
+   `bearer` credentials are sent as `Authorization: Bearer <secret>`;
+   `api-key` credentials as `X-API-Key: <secret>`. The stored secret is
+   never printed — verbose output renders it masked
+   (`Authorization: Bearer ***`).
+
+4. **Or send a manual header** (explicit `-H` overrides `--auth`):
    ```bash
-   openapi-cli config show auth
+   openapi-cli request GET https://api.example.com/tasks \
+     -H "X-API-Key: YOUR_KEY"
    ```
 
 ### 429 Too Many Requests

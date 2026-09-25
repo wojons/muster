@@ -442,6 +442,15 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 			flagMeta.Kind = cmdstore.FlagKindRawBody
 		}
 
+		// DF-023: tag the runtime --auth credential-attachment flag so the
+		// loader classifies it as a presentation/runtime flag on reload
+		// (never a query parameter). The generator stamps AuthFlagAnnotation
+		// only when IT registered the flag, so a spec parameter genuinely
+		// named "auth" keeps its natural kind and reaches the server.
+		if cmd.Annotations[generator.AuthFlagAnnotation] == "true" && flag.Name == generator.AuthFlagName {
+			flagMeta.Kind = cmdstore.FlagKindAuth
+		}
+
 		cmdMeta.Flags = append(cmdMeta.Flags, flagMeta)
 	})
 

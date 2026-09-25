@@ -131,6 +131,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
+	"github.com/wojons/muster/pkg/auth"
 	"github.com/wojons/muster/pkg/log"
 	"github.com/wojons/muster/pkg/openapi"
 	"github.com/wojons/muster/pkg/request"
@@ -190,7 +191,25 @@ const (
 	// generate.go) tags the flag as a body-kind flag — not a query param —
 	// when saving command metadata (DF-MUSTER-5).
 	RawBodyAnnotation = "muster/raw-body-flag"
+
+	// AuthFlagName is the runtime --auth flag attached to generated operation
+	// commands (DF-023): its value names a stored credential (see 'auth add')
+	// that is resolved at execution time and injected as a request header
+	// (bearer → Authorization: Bearer <secret>, api-key → X-API-Key). It is a
+	// runtime flag, not a spec parameter — persistence skips it so a reloaded
+	// command re-registers it instead of leaking it as an ?auth= query param.
+	AuthFlagName = "auth"
+
+	// AuthFlagAnnotation marks a command whose --auth flag is the runtime
+	// credential-attachment flag (not a spec parameter named "auth").
+	AuthFlagAnnotation = "muster/auth-flag"
 )
+
+// resolveStoredFn resolves a stored credential by name for the --auth
+// flag. Package-level var (default auth.ResolveStored) so tests can seam
+// it without touching the platform keychain; production paths always use
+// the default.
+var resolveStoredFn = auth.ResolveStored
 
 type NamingStrategy int
 
@@ -433,6 +452,19 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation, usedNames map[s
 	}
 
 	g.addFlags(cmd, op)
+
+	// DF-023: runtime credential attachment. --auth resolves a stored
+	// credential (see 'auth add') at execution time and injects it as a
+	// header (bearer → Authorization: Bearer <secret>, api-key →
+	// X-API-Key). Skipped when the spec itself declares a parameter that
+	// normalizes to "auth" — the spec's flag wins and must not be
+	// redefined. The annotation marks the runtime flag so persistence
+	// (internal/builtin/generate.go) skips it instead of forwarding it as
+	// an ?auth= query parameter on reload (same pattern as --raw, DF-016).
+	if cmd.Flags().Lookup(AuthFlagName) == nil {
+		cmd.Flags().String(AuthFlagName, "", "Attach a stored credential by name (see 'auth add')")
+		cmd.Annotations[AuthFlagAnnotation] = "true"
+	}
 
 	return cmd
 }
@@ -1039,6 +1071,18 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 			return fmt.Errorf("cannot execute %s %s: %w", op.Method, op.Path, err)
 		}
 		builder := request.NewBuilder(baseURL, op.Path, op.Method)
+
+		// DF-023: attach the stored credential named by --auth BEFORE
+		// explicit header flags so a user-supplied header with the same
+		// name keeps precedence (SetHeader overwrites).
+		authName, _ := cmd.Flags().GetString(AuthFlagName)
+		if cmd.Flags().Lookup(AuthFlagName) != nil && authName != "" {
+			cred, err := resolveStoredFn(authName)
+			if err != nil {
+				return fmt.Errorf("resolve --auth: %w", err)
+			}
+			builder.SetHeader(cred.Name, cred.Value)
+		}
 
 		pathParams := g.extractPathParams(op.Path)
 		for i, param := range pathParams {

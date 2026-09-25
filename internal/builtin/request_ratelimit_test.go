@@ -65,7 +65,7 @@ func TestRequestCommand_RateLimit_Disabled(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		err := handleRequest(cfg, "GET", backend.URL+"/test", nil, nil, "table", false, 30*time.Second, "", "")
+		err := handleRequest(cfg, "GET", backend.URL+"/test", nil, nil, "table", false, 30*time.Second, "", "", "")
 		assert.NoError(t, err, "request %d should succeed when rate limiting is disabled", i+1)
 	}
 }
@@ -80,7 +80,7 @@ func TestRequestCommand_RateLimit_NilConfig(t *testing.T) {
 	defer backend.Close()
 
 	for i := 0; i < 10; i++ {
-		err := handleRequest(nil, "GET", backend.URL+"/test", nil, nil, "table", false, 30*time.Second, "", "")
+		err := handleRequest(nil, "GET", backend.URL+"/test", nil, nil, "table", false, 30*time.Second, "", "", "")
 		assert.NoError(t, err, "request %d should succeed with nil config", i+1)
 	}
 }
