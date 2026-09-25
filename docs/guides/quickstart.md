@@ -11,6 +11,10 @@ This quickstart will show you how to:
 4. Make your first API request
 5. Run as a daemon or MCP server
 
+> **Not built yet?** See the [installation guide's prerequisites](installation.md#prerequisites)
+> — a Go toolchain and a C compiler (CGO, for SQLite) are required before
+> `make build-cli` produces `bin/openapi-cli`.
+
 ## Step 1: Verify Installation
 
 ```bash

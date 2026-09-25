@@ -14,6 +14,13 @@ source**.
 ## Prerequisites
 
 - **Go 1.26.6+** (see `go.mod`; older toolchains get a hard toolchain error)
+- **A C compiler** — `gcc` or `clang`. SQLite support is a CGO package
+  (`github.com/mattn/go-sqlite3`) and `make` builds with `CGO_ENABLED=1`, so
+  without one `make build-cli` stops with
+  `cgo: C compiler "gcc" not found` (a bare `go build` does not fail — Go
+  silently disables cgo and the driver's cgo files are excluded). Install with
+  `sudo apt-get install -y gcc` (Debian/Ubuntu) or
+  `xcode-select --install` (macOS)
 - **git** (for cloning the repository)
 - **make** (optional — you can also invoke `go build` directly)
 - **Disk Space**: ~100MB free space
