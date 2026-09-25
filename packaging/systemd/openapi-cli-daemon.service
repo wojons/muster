@@ -5,11 +5,10 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
-NotifyAccess=all
+Type=simple
 User=muster
 Group=muster
-ExecStart=/usr/bin/openapi-cli daemon --config /etc/openapi-cli/config.yaml
+ExecStart=/usr/bin/openapi-daemon start --foreground --socket-path /run/muster/daemon.sock
 ExecStartPre=/bin/mkdir -p /run/muster
 ExecStartPost=/bin/chown -R muster:muster /run/muster
 Restart=on-failure
