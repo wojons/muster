@@ -1,0 +1,51 @@
+{
+  "scheduler_tick_id": "muster-2026-09-25-15-38-33",
+  "created_at": "2026-09-25T15:38:33-05:00",
+  "project": "muster",
+  "workdir": "/home/kara/muster",
+  "budget": 9,
+  "workers": [
+    {
+      "task_id": "DF-022",
+      "worktree": "wt/DF-022",
+      "branch": "wt/DF-022",
+      "base_sha": "6a7db4ce",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/tmp/m6800_brief_DF-022.md"
+    },
+    {
+      "task_id": "DF-023",
+      "worktree": "wt/DF-023",
+      "branch": "wt/DF-023",
+      "base_sha": "6a7db4ce",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/tmp/m6800_brief_DF-023.md"
+    },
+    {
+      "task_id": "PROTO-002",
+      "worktree": "wt/PROTO-002",
+      "branch": "wt/PROTO-002",
+      "base_sha": "6a7db4ce",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/tmp/m6800_brief_PROTO-002.md"
+    },
+    {
+      "task_id": "PROTO-004",
+      "worktree": "wt/PROTO-004",
+      "branch": "wt/PROTO-004",
+      "base_sha": "6a7db4ce",
+      "model": "glm-5.3-flash",
+      "provider": "zai-glm",
+      "brief": "/tmp/m6800_brief_PROTO-004.md"
+    }
+  ],
+  "independence": {
+    "checked": "no depends_on edges among the four rows (verified from tasks.jsonl); disjoint file sets — DF-022: pkg/config + internal/commands config; DF-023: pkg/auth + request wiring; PROTO-002: pkg/protocol/grpc; PROTO-004: pkg/protocol/jsonrpc; PROTO-003 excluded (depends on PROTO-002); CI-016 excluded (org billing wall, steps>0 failures are real but matrix needs billing fixed first); DOC/DEMO hunter rows single-serial-class not wave-material this tick",
+    "merge_plan": "serial merge DF-022 -> DF-023 -> PROTO-002 -> PROTO-004, gate each merge, post-merge worktree hygiene per t615 (merge-base --is-ancestor check before worktree remove + branch -d)"
+  },
+  "tick_number": 6018,
+  "wave_budget_source": "scheduler tick prompt WAVE_BUDGET=9"
+}
