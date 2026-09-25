@@ -90,5 +90,8 @@ func TestGenerateCommand_RelativeServerOverHTTP_ResolvesBaseURL(t *testing.T) {
 	require.NoError(t, leaf.RunE(leaf, []string{"1"}))
 	require.True(t, absRequested, "request must hit the resolved absolute base URL")
 	require.False(t, relativeRequested, "no request may go out with a raw relative base")
-	require.Contains(t, buf.String(), `{"id":1}`)
+	// DF-016: the reloaded path now formats per --output (default table),
+	// so the body is rendered as a formatted cell rather than the raw
+	// JSON dump; assert the response content survives formatting.
+	require.Contains(t, buf.String(), "1")
 }
