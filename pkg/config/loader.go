@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 // Loader handles configuration loading from multiple sources
@@ -92,6 +93,21 @@ func (l *Loader) loadFile(path string, cfg *Config) error {
 		return fmt.Errorf("unmarshal config: %w", err)
 	}
 
+	// viper flattens a config document to its leaf keys before unmarshalling,
+	// so a profile declared with no keys of its own — `profiles:\n  shell: {}`,
+	// exactly what `config profile create` writes when no --set pairs are
+	// given, or a bare `shell:` — has no leaf and disappears from the loaded
+	// config. The file and the loaded config must agree about which profiles
+	// exist, so re-add every name the document declares.
+	for _, name := range declaredProfileNames(path) {
+		if merged.Profiles == nil {
+			merged.Profiles = make(map[string]Profile)
+		}
+		if _, ok := merged.Profiles[name]; !ok {
+			merged.Profiles[name] = Profile{}
+		}
+	}
+
 	// Copy into cfg, preserving computed paths
 	dirs := struct{ configDir, cacheDir, dataDir string }{cfg.ConfigDir, cfg.CacheDir, cfg.DataDir}
 	*cfg = merged
@@ -100,6 +116,44 @@ func (l *Loader) loadFile(path string, cfg *Config) error {
 	cfg.DataDir = dirs.dataDir
 
 	return nil
+}
+
+// declaredProfileNames returns the profile names a config file declares under
+// `profiles:`, keyed the way the loader keys them (lowercased, or empty names
+// skipped). It reads the raw document because viper cannot round-trip a
+// profile whose value carries no leaf keys. An unreadable or unparsable file
+// yields no names: this is a repair pass, not a validator.
+func declaredProfileNames(path string) []string {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil
+	}
+	root := &doc
+	if root.Kind == yaml.DocumentNode {
+		if len(root.Content) == 0 {
+			return nil
+		}
+		root = root.Content[0]
+	}
+	if root.Kind != yaml.MappingNode {
+		return nil
+	}
+	profiles, err := mappingValue(root, "profiles", false)
+	if err != nil || profiles == nil {
+		return nil
+	}
+	names := make([]string, 0, len(profiles.Content)/2)
+	for i := 0; i+1 < len(profiles.Content); i += 2 {
+		name := strings.ToLower(strings.TrimSpace(profiles.Content[i].Value))
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // applyEnvOverrides applies MUSTER_* environment variables as overrides.
@@ -185,6 +239,30 @@ func (l *Loader) setDefaultPaths(cfg *Config) {
 func Load() (*Config, error) {
 	loader := NewLoader()
 	return loader.Load()
+}
+
+// ReloadProfiles replaces cfg.Profiles with the profiles read back from the
+// config file the CLI persists to (cfg.ConfigFile when set, otherwise
+// UserConfigFilePath). A command that writes a profile to disk calls this so
+// its in-memory copy matches exactly what the next process will load: the
+// loader lowercases configuration keys and drops keys it does not know, so a
+// hand-mirrored copy drifts from the file.
+func ReloadProfiles(cfg *Config) error {
+	if cfg == nil {
+		return fmt.Errorf("config not initialized")
+	}
+	path, err := UserConfigFilePath(cfg)
+	if err != nil {
+		return err
+	}
+	loader := NewLoader()
+	loader.SetConfigFile(path)
+	reloaded, err := loader.Load()
+	if err != nil {
+		return fmt.Errorf("reload config %s: %w", path, err)
+	}
+	cfg.Profiles = reloaded.Profiles
+	return nil
 }
 
 // BindPFlags binds Cobra command flags to Viper configuration keys.

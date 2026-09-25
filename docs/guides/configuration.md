@@ -440,28 +440,50 @@ meaning.
 
 ## Profiles
 
-Create profiles for different environments:
+A profile is a named bundle of settings for one environment: base URL, auth
+type, timeout, default flags and headers. Create one with
+`config profile create`, prefilling keys with repeatable `--set` pairs:
+
+```bash
+# Create a profile with its keys set in one command
+openapi-cli config profile create staging \
+  --set base_url=https://staging-api.example.com/v1 \
+  --set auth_type=bearer \
+  --set timeout=60s
+
+# Create a profile now and fill it in later
+openapi-cli config profile create development
+```
+
+`--set` takes a dot-path key (`key=value`) and stores the value as a string.
+The keys the configuration loader reads are `base_url`, `auth_type`,
+`timeout`, plus one level of nesting for the map-valued groups:
+`auth_config.<key>`, `default_flags.<key>`, `headers.<key>`. Profile names are
+case-insensitive and stored lowercased. Creating a profile does not activate
+it — see *Using profiles* below — and creating a name that already exists fails
+instead of overwriting it.
+
+The command writes into the `profiles:` block of your config file with a
+read-modify-write that preserves every other key, including the persisted
+`default_profile` written by `config profile switch`. Hand-editing that block
+stays supported; this is the shape the command produces (keys sorted, values
+kept as strings):
 
 ```yaml
 profiles:
-  development:
-    spec:
-      base_url: https://dev-api.example.com/v1
-    log:
-      level: debug
-
+  development: {}
   staging:
-    spec:
-      base_url: https://staging-api.example.com/v1
-    http:
-      timeout: 60s
+    auth_type: bearer
+    base_url: https://staging-api.example.com/v1
+    timeout: 60s
+```
 
-  production:
-    spec:
-      base_url: https://api.example.com/v1
-    http:
-      timeout: 30s
-      max_retries: 3
+Inspect and remove what you created:
+
+```bash
+openapi-cli config profile list        # every profile; '*' marks the active one
+openapi-cli config profile show staging
+openapi-cli config profile delete staging
 ```
 
 Using profiles:

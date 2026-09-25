@@ -209,7 +209,7 @@ openapi-cli config [command]
 
 | Command | Description |
 |---------|-------------|
-| `profile` | Manage configuration profiles (`list`, `show`, `switch`, `delete`) |
+| `profile` | Manage configuration profiles (`create`, `list`, `show`, `switch`, `delete`) |
 | `show` | Show current configuration |
 
 **Examples**:
