@@ -1,0 +1,425 @@
+{
+  "_comment": "Recorded introspection response for testdata/schema.graphql (PROTO-005). Both documents describe the same schema so the test battery can prove the SDL path and the introspection path produce the same operations.",
+  "data": {
+    "__schema": {
+      "queryType": { "name": "Query" },
+      "mutationType": { "name": "Mutation" },
+      "subscriptionType": { "name": "Subscription" },
+      "types": [
+        {
+          "kind": "OBJECT",
+          "name": "Query",
+          "description": "Root queries.",
+          "fields": [
+            {
+              "name": "user",
+              "description": "Fetch one user by ID.",
+              "args": [
+                {
+                  "name": "id",
+                  "description": "",
+                  "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "ID", "ofType": null } },
+                  "defaultValue": null
+                }
+              ],
+              "type": { "kind": "OBJECT", "name": "User", "ofType": null }
+            },
+            {
+              "name": "users",
+              "description": "List users, optionally filtered by role.",
+              "args": [
+                {
+                  "name": "limit",
+                  "description": "",
+                  "type": { "kind": "SCALAR", "name": "Int", "ofType": null },
+                  "defaultValue": "20"
+                },
+                {
+                  "name": "role",
+                  "description": "",
+                  "type": { "kind": "ENUM", "name": "Role", "ofType": null },
+                  "defaultValue": null
+                }
+              ],
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "LIST",
+                  "name": null,
+                  "ofType": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "OBJECT", "name": "User", "ofType": null } }
+                }
+              }
+            },
+            {
+              "name": "nodes",
+              "description": "Every node.",
+              "args": [],
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "LIST",
+                  "name": null,
+                  "ofType": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "INTERFACE", "name": "Node", "ofType": null } }
+                }
+              }
+            },
+            {
+              "name": "search",
+              "description": "Search across node types.",
+              "args": [
+                {
+                  "name": "term",
+                  "description": "",
+                  "type": { "kind": "SCALAR", "name": "String", "ofType": null },
+                  "defaultValue": null
+                }
+              ],
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "LIST",
+                  "name": null,
+                  "ofType": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "UNION", "name": "SearchResult", "ofType": null } }
+                }
+              }
+            },
+            {
+              "name": "ping",
+              "description": "Health probe.",
+              "args": [],
+              "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "String", "ofType": null } }
+            },
+            {
+              "name": "viewer",
+              "description": "The current viewer.",
+              "args": [],
+              "type": { "kind": "OBJECT", "name": "Viewer", "ofType": null }
+            }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "OBJECT",
+          "name": "Mutation",
+          "description": "Root mutations.",
+          "fields": [
+            {
+              "name": "createUser",
+              "description": "Create a user.",
+              "args": [
+                {
+                  "name": "input",
+                  "description": "",
+                  "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "INPUT_OBJECT", "name": "CreateUserInput", "ofType": null } },
+                  "defaultValue": null
+                }
+              ],
+              "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "OBJECT", "name": "User", "ofType": null } }
+            },
+            {
+              "name": "setRole",
+              "description": "Set one user's role.",
+              "args": [
+                {
+                  "name": "id",
+                  "description": "",
+                  "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "ID", "ofType": null } },
+                  "defaultValue": null
+                },
+                {
+                  "name": "role",
+                  "description": "",
+                  "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "ENUM", "name": "Role", "ofType": null } },
+                  "defaultValue": null
+                }
+              ],
+              "type": { "kind": "SCALAR", "name": "Boolean", "ofType": null }
+            },
+            {
+              "name": "noop",
+              "description": "Do nothing, returning an optional marker.",
+              "args": [],
+              "type": { "kind": "SCALAR", "name": "String", "ofType": null }
+            }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "OBJECT",
+          "name": "Subscription",
+          "description": "Out of scope: subscriptions are recognized and skipped by this adapter.",
+          "fields": [
+            {
+              "name": "userChanged",
+              "description": "",
+              "args": [
+                {
+                  "name": "id",
+                  "description": "",
+                  "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "ID", "ofType": null } },
+                  "defaultValue": null
+                }
+              ],
+              "type": { "kind": "OBJECT", "name": "User", "ofType": null }
+            }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "OBJECT",
+          "name": "User",
+          "description": "A person.",
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "args": [],
+              "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "ID", "ofType": null } }
+            },
+            {
+              "name": "name",
+              "description": "",
+              "args": [],
+              "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "String", "ofType": null } }
+            },
+            {
+              "name": "email",
+              "description": "",
+              "args": [],
+              "type": { "kind": "SCALAR", "name": "String", "ofType": null }
+            },
+            {
+              "name": "role",
+              "description": "",
+              "args": [],
+              "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "ENUM", "name": "Role", "ofType": null } }
+            },
+            {
+              "name": "tags",
+              "description": "",
+              "args": [],
+              "type": {
+                "kind": "LIST",
+                "name": null,
+                "ofType": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "String", "ofType": null } }
+              }
+            },
+            {
+              "name": "profile",
+              "description": "",
+              "args": [],
+              "type": { "kind": "OBJECT", "name": "Profile", "ofType": null }
+            }
+          ],
+          "inputFields": null,
+          "interfaces": [{ "name": "Node" }],
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "OBJECT",
+          "name": "Profile",
+          "description": "Extra profile data.",
+          "fields": [
+            { "name": "bio", "description": "", "args": [], "type": { "kind": "SCALAR", "name": "String", "ofType": null } },
+            { "name": "website", "description": "", "args": [], "type": { "kind": "SCALAR", "name": "String", "ofType": null } },
+            { "name": "joinedAt", "description": "", "args": [], "type": { "kind": "SCALAR", "name": "DateTime", "ofType": null } }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "OBJECT",
+          "name": "Viewer",
+          "description": "The current viewer.",
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "args": [],
+              "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "ID", "ofType": null } }
+            },
+            { "name": "name", "description": "", "args": [], "type": { "kind": "SCALAR", "name": "String", "ofType": null } }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "ENUM",
+          "name": "Role",
+          "description": "Roles a user can hold.",
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "enumValues": [
+            { "name": "ADMIN", "description": "" },
+            { "name": "MEMBER", "description": "" },
+            { "name": "GUEST", "description": "" }
+          ],
+          "possibleTypes": null
+        },
+        {
+          "kind": "INPUT_OBJECT",
+          "name": "CreateUserInput",
+          "description": "Input for createUser.",
+          "fields": null,
+          "inputFields": [
+            {
+              "name": "name",
+              "description": "",
+              "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "String", "ofType": null } },
+              "defaultValue": null
+            },
+            {
+              "name": "email",
+              "description": "",
+              "type": { "kind": "SCALAR", "name": "String", "ofType": null },
+              "defaultValue": null
+            },
+            {
+              "name": "role",
+              "description": "",
+              "type": { "kind": "ENUM", "name": "Role", "ofType": null },
+              "defaultValue": "MEMBER"
+            },
+            {
+              "name": "tags",
+              "description": "",
+              "type": {
+                "kind": "LIST",
+                "name": null,
+                "ofType": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "String", "ofType": null } }
+              },
+              "defaultValue": "[]"
+            },
+            {
+              "name": "profile",
+              "description": "",
+              "type": { "kind": "INPUT_OBJECT", "name": "ProfileInput", "ofType": null },
+              "defaultValue": null
+            }
+          ],
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "INPUT_OBJECT",
+          "name": "ProfileInput",
+          "description": "Nested input object, including a default.",
+          "fields": null,
+          "inputFields": [
+            {
+              "name": "bio",
+              "description": "",
+              "type": { "kind": "SCALAR", "name": "String", "ofType": null },
+              "defaultValue": null
+            },
+            {
+              "name": "website",
+              "description": "",
+              "type": { "kind": "SCALAR", "name": "String", "ofType": null },
+              "defaultValue": "\"\""
+            }
+          ],
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "SCALAR",
+          "name": "DateTime",
+          "description": "A custom scalar with no JSON mapping of its own.",
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "INTERFACE",
+          "name": "Node",
+          "description": "Anything with an ID.",
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "args": [],
+              "type": { "kind": "NON_NULL", "name": null, "ofType": { "kind": "SCALAR", "name": "ID", "ofType": null } }
+            }
+          ],
+          "inputFields": null,
+          "interfaces": [],
+          "enumValues": null,
+          "possibleTypes": [{ "name": "User" }]
+        },
+        {
+          "kind": "UNION",
+          "name": "SearchResult",
+          "description": "Either side of a search.",
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": [{ "name": "User" }, { "name": "Profile" }]
+        },
+        {
+          "kind": "SCALAR",
+          "name": "String",
+          "description": "Built-in String",
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "SCALAR",
+          "name": "Int",
+          "description": "Built-in Int",
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "SCALAR",
+          "name": "Boolean",
+          "description": "Built-in Boolean",
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": null
+        },
+        {
+          "kind": "SCALAR",
+          "name": "ID",
+          "description": "Built-in ID",
+          "fields": null,
+          "inputFields": null,
+          "interfaces": null,
+          "enumValues": null,
+          "possibleTypes": null
+        }
+      ]
+    }
+  }
+}
