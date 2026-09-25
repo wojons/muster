@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 )
@@ -20,12 +19,6 @@ import (
 func TestDaemonSocket_ProxyFlow(t *testing.T) {
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "daemon.sock")
-
-	// Get the repo root directory
-	repoRoot, err := getRepoRoot()
-	if err != nil {
-		t.Fatalf("Failed to get repo root: %v", err)
-	}
 
 	// Mock backend API server
 	backendAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,16 +37,10 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 	}))
 	defer backendAPI.Close()
 
-	// Build the actual daemon binary
-	binaryPath := filepath.Join(t.TempDir(), "daemon")
-	if runtime.GOOS == "windows" {
-		binaryPath += ".exe"
-	}
-	buildCmd := exec.Command("go", "build", "-o", binaryPath, repoRoot+"/cmd/daemon")
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build daemon: %v\n%s", err, out)
-	}
-	t.Logf("Built daemon binary: %s", binaryPath)
+	// Use the session-built daemon binary: TestMain builds it once per run
+	// instead of once per suite (GAP-045).
+	binaryPath := sharedBinary(t, "daemon")
+	t.Logf("Using session-built daemon binary: %s", binaryPath)
 
 	t.Run("Step1_SocketCreation", func(t *testing.T) {
 		t.Logf("Step 1: Start REAL daemon binary with socket")

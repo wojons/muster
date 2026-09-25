@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -22,24 +21,12 @@ func TestRealCLIIntegration(t *testing.T) {
 	// exec'd `generate` writes to the invoking user's REAL store
 	// ($XDG_DATA_HOME/openapi-cli/commands.json, falling back to
 	// $HOME/.local/share), destroying their generated commands (DF-013).
-	// Capture the real module cache BEFORE redirecting HOME — the go build
-	// below needs it, and a fresh cache inside the temp HOME leaves
-	// read-only files that break TempDir cleanup.
-	modCache := ""
-	if out, err := exec.Command("go", "env", "GOMODCACHE").Output(); err == nil {
-		modCache = strings.TrimSpace(string(out))
-	}
+	// Pin the real toolchain caches first: this test redirects HOME, and
+	// anything built under the temp HOME would recompile the whole dependency
+	// graph from an empty cache — a full-core burn on every run (GAP-045).
+	preserveToolchainCaches(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
-	if modCache != "" {
-		t.Setenv("GOMODCACHE", modCache)
-	}
-
-	// Get the repo root directory from the test file's location
-	repoRoot, err := getRepoRoot()
-	if err != nil {
-		t.Fatalf("Failed to get repo root: %v", err)
-	}
 
 	// 1. Start mock HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -63,16 +50,10 @@ func TestRealCLIIntegration(t *testing.T) {
 	defer server.Close()
 	t.Logf("Mock server running at: %s", server.URL)
 
-	// 2. Build the CLI binary
-	binaryPath := filepath.Join(t.TempDir(), "test-cli")
-	if runtime.GOOS == "windows" {
-		binaryPath += ".exe"
-	}
-	buildCmd := exec.Command("go", "build", "-o", binaryPath, repoRoot+"/cmd/openapi-cli")
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build CLI: %v\n%s", err, out)
-	}
-	t.Logf("Built binary: %s", binaryPath)
+	// 2. Use the session-built CLI binary: TestMain builds it once per run,
+	// before any test redirected HOME, so the build stays warm (GAP-045).
+	binaryPath := sharedBinary(t, "openapi-cli")
+	t.Logf("Using session-built CLI binary: %s", binaryPath)
 
 	// 3. Create a temporary OpenAPI spec pointing to our mock server
 	specPath := filepath.Join(t.TempDir(), "petstore.yaml")
