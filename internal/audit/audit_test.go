@@ -220,12 +220,14 @@ func TestAuditLogger_Close_DrainsEvents(t *testing.T) {
 }
 
 func TestHook_LogCommand(t *testing.T) {
-	os.Setenv("MUSTER_AUDIT_ENABLED", "1")
-	defer os.Unsetenv("MUSTER_AUDIT_ENABLED")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	sink := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
 
-	// Clean up any leftover audit files from previous tests
-	auditDir := filepath.Join(os.TempDir(), "muster-audit")
-	os.RemoveAll(auditDir)
+	// The hook must resolve the shared sink (AUD-001), not a private default.
+	if got := SinkPath(); got != sink {
+		t.Fatalf("SinkPath() = %q, want %q", got, sink)
+	}
 
 	hook := NewHook(DefaultConfig())
 	if !hook.config.Enabled {
@@ -242,11 +244,11 @@ func TestHook_LogCommand(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	// Verify audit log file was created
-	auditPath := filepath.Join(os.TempDir(), "muster-audit", "audit.log")
+	// Verify the event landed on the resolved sink.
+	auditPath := SinkPath()
 	data, err := os.ReadFile(auditPath)
 	if err != nil {
-		t.Fatalf("ReadFile audit log: %v", err)
+		t.Fatalf("ReadFile audit log %s: %v", auditPath, err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -273,13 +275,18 @@ func TestHook_LogCommand(t *testing.T) {
 	}
 }
 
+// TestHook_LogToolCall pins the non-override resolution end to end: with
+// $MUSTER_AUDIT_LOG unset the command-level hook writes to
+// <config dir>/muster/audit.jsonl. Before AUD-001 this hook wrote
+// $TMPDIR/muster-audit/audit.log, a file no reader ever opened.
 func TestHook_LogToolCall(t *testing.T) {
-	os.Setenv("MUSTER_AUDIT_ENABLED", "1")
-	defer os.Unsetenv("MUSTER_AUDIT_ENABLED")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	t.Setenv("MUSTER_AUDIT_LOG", "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
 
-	// Clean up any leftover audit files
-	auditDir := filepath.Join(os.TempDir(), "muster-audit")
-	os.RemoveAll(auditDir)
+	sink := defaultSinkUnderHome(t, home)
 
 	hook := NewHook(DefaultConfig())
 	ctx := context.Background()
@@ -291,10 +298,12 @@ func TestHook_LogToolCall(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	auditPath := filepath.Join(os.TempDir(), "muster-audit", "audit.log")
-	data, err := os.ReadFile(auditPath)
+	if got := SinkPath(); got != sink {
+		t.Fatalf("SinkPath() = %q, want %q", got, sink)
+	}
+	data, err := os.ReadFile(sink)
 	if err != nil {
-		t.Fatalf("ReadFile: %v", err)
+		t.Fatalf("ReadFile %s: %v", sink, err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -316,12 +325,9 @@ func TestHook_LogToolCall(t *testing.T) {
 }
 
 func TestHook_LogAuth(t *testing.T) {
-	os.Setenv("MUSTER_AUDIT_ENABLED", "1")
-	defer os.Unsetenv("MUSTER_AUDIT_ENABLED")
-
-	// Clean up any leftover audit files
-	auditDir := filepath.Join(os.TempDir(), "muster-audit")
-	os.RemoveAll(auditDir)
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	sink := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
 
 	hook := NewHook(DefaultConfig())
 	ctx := context.Background()
@@ -336,10 +342,9 @@ func TestHook_LogAuth(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	auditPath := filepath.Join(os.TempDir(), "muster-audit", "audit.log")
-	data, err := os.ReadFile(auditPath)
+	data, err := os.ReadFile(sink)
 	if err != nil {
-		t.Fatalf("ReadFile: %v", err)
+		t.Fatalf("ReadFile %s: %v", sink, err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -622,5 +627,94 @@ func TestAuditLogger_Log_BufferFull(t *testing.T) {
 	content := strings.TrimSpace(string(data))
 	if content == "" {
 		t.Error("expected at least one event in audit log")
+	}
+}
+
+// ── AUD-001: one audit sink for both writers ─────────────────────────────
+
+// defaultSinkUnderHome returns the fallback sink path expected when HOME is
+// redirected to home and $MUSTER_AUDIT_LOG is unset. It skips when the
+// platform's config-dir resolution ignores HOME, so the assertion can never
+// become vacuous.
+func defaultSinkUnderHome(t *testing.T, home string) string {
+	t.Helper()
+	cfgDir, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatalf("os.UserConfigDir: %v", err)
+	}
+	if !strings.HasPrefix(cfgDir, home) {
+		t.Skipf("os.UserConfigDir() ignores HOME on this platform (cfgDir=%q)", cfgDir)
+	}
+	return filepath.Join(cfgDir, "muster", "audit.jsonl")
+}
+
+// TestSinkPath_MUSTER_AUDIT_LOGWins pins the operator override: a non-empty
+// $MUSTER_AUDIT_LOG is the sink for every writer, whatever the config dir says.
+func TestSinkPath_MUSTER_AUDIT_LOGWins(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "custom", "events.jsonl")
+	t.Setenv("MUSTER_AUDIT_LOG", override)
+
+	if got := SinkPath(); got != override {
+		t.Fatalf("SinkPath() = %q, want the override %q", got, override)
+	}
+	if got := DefaultSinkPath(); got == override {
+		t.Fatal("DefaultSinkPath() must stay the config-dir path, got the override")
+	}
+}
+
+// TestSinkPath_ConfigDirFallback pins the fallback rule: with no override the
+// sink is <config dir>/muster/audit.jsonl — the JSON-lines store `audit log`
+// reads — and never the legacy $TMPDIR/muster-audit/audit.log.
+func TestSinkPath_ConfigDirFallback(t *testing.T) {
+	t.Setenv("MUSTER_AUDIT_LOG", "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	want := defaultSinkUnderHome(t, home)
+	if got := SinkPath(); got != want {
+		t.Fatalf("SinkPath() = %q, want %q", got, want)
+	}
+	if got := DefaultSinkPath(); got != want {
+		t.Fatalf("DefaultSinkPath() = %q, want %q", got, want)
+	}
+	if base := filepath.Base(want); base != "audit.jsonl" {
+		t.Fatalf("fallback file name = %q, want audit.jsonl", base)
+	}
+	if parent := filepath.Base(filepath.Dir(want)); parent != "muster" {
+		t.Fatalf("fallback parent dir = %q, want muster", parent)
+	}
+	if legacy := filepath.Join(os.TempDir(), "muster-audit", "audit.log"); SinkPath() == legacy {
+		t.Fatalf("SinkPath() still resolves the legacy temporary path %q", legacy)
+	}
+}
+
+// TestSinkPath_BothWritersUseSinkPath proves the command hook resolves the sink
+// through SinkPath: the file the hook actually wrote is the path the shared
+// helper returns for the same environment. The management-plane writer is
+// covered by TestAuditSink_BothWritersShareOnePath in internal/builtin.
+func TestSinkPath_BothWritersUseSinkPath(t *testing.T) {
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	sink := filepath.Join(t.TempDir(), "shared.jsonl")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
+
+	hook := NewHook(DefaultConfigEnabled())
+	hook.Log(&AuditEvent{
+		Level:    AuditLevelInfo,
+		Category: AuditCategorySystem,
+		Action:   "command.audit-sink-probe",
+		Actor:    AuditActor{ID: "probe", Type: "cli-user"},
+		Result:   AuditResult{Success: true, Code: "OK"},
+	})
+	if err := hook.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	data, err := os.ReadFile(SinkPath())
+	if err != nil {
+		t.Fatalf("ReadFile SinkPath() = %s: %v", SinkPath(), err)
+	}
+	if !strings.Contains(string(data), "command.audit-sink-probe") {
+		t.Fatalf("hook event missing from the SinkPath() file: %q", string(data))
 	}
 }

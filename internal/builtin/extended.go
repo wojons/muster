@@ -601,9 +601,10 @@ const (
 	auditEventWebhookTest   = "webhook.test"
 )
 
-// emitAuditEvent appends one audit event to the configured audit log
-// (MUSTER_AUDIT_LOG, else <config dir>/audit.jsonl — the same file `audit log`
-// reads) when audit logging is enabled, and is a no-op otherwise.
+// emitAuditEvent appends one audit event to the shared audit sink
+// (audit.SinkPath: MUSTER_AUDIT_LOG, else <config dir>/muster/audit.jsonl — the
+// same file `audit log` reads and the same file the command-level
+// audit.Hook writes) when audit logging is enabled, and is a no-op otherwise.
 //
 // The write is synchronous and its error is returned, so an enabled audit sink
 // that cannot be written fails the mutation loudly instead of silently
@@ -756,17 +757,13 @@ func enabledStr(b bool) string {
 	return "disabled (set MUSTER_AUDIT_ENABLED=1)"
 }
 
-// auditLogPath returns the default audit log file path. The CLI reads the
-// JSON-lines audit store; MUSTER_AUDIT_LOG overrides the location.
+// auditLogPath returns the audit sink path for the management plane. It is the
+// package-local name for audit.SinkPath, the single resolution shared with the
+// command-level hook (internal/audit.Hook) so both writers and the `audit log`
+// reader agree on one file: $MUSTER_AUDIT_LOG when set, else
+// <config dir>/muster/audit.jsonl.
 func auditLogPath() string {
-	if p := os.Getenv("MUSTER_AUDIT_LOG"); p != "" {
-		return p
-	}
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		dir = "."
-	}
-	return filepath.Join(dir, "muster", "audit.jsonl")
+	return audit.SinkPath()
 }
 
 // readAuditEvents reads JSON-line audit events from path. A limit <= 0 reads
