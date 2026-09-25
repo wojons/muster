@@ -47,6 +47,15 @@ require (
 )
 
 require (
+	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/jhump/protoreflect/v2 v2.0.0-beta.1 // indirect
+	github.com/petermattis/goid v0.0.0-20260113132338-7c7de50cc741 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5 // indirect
+)
+
+require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -70,6 +79,7 @@ require (
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/jhump/protoreflect v1.18.1
 	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -106,5 +116,6 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/grpc v1.83.2
+	google.golang.org/protobuf v1.36.12
 )
