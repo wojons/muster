@@ -20,8 +20,9 @@ import (
 //
 //	file.proto                      — single file, imports resolved from the file's dir
 //	a.proto,b.proto                 — multiple files
-//	dir1:dir2=a.proto               — explicit import paths before '='
-//	dir1:dir2=a.proto,b.proto       — import paths apply to all listed files
+//	dir1:dir2=a.proto               — relative file resolved against dir1 (cwd fallback),
+//	                                  with dir1:dir2 as import paths
+//	dir1:dir2=a.proto,b.proto       — dir1/import paths apply to all listed files
 func loadProtoSources(uri string) ([]*desc.FileDescriptor, error) {
 	importPaths := []string{}
 	filesPart := uri
@@ -77,20 +78,21 @@ func splitFileList(list string) []string {
 
 // diskAccessor builds a FileAccessor that reads files from disk without
 // protoparse's import-path joining: absolute paths are read verbatim;
-// relative names resolve against the import paths in order (or the current
-// directory when none are given). This keeps absolute temp-dir paths working
-// (protoparse's built-in ImportPaths resolution would double-prefix them:
-// <import-path>/<absolute-path>).
+// relative names resolve against the first declared dir then the current
+// directory (files named in the URI) or against the import paths in order
+// (import statements, or the current directory when none are given). This
+// keeps absolute temp-dir paths working (protoparse's built-in ImportPaths
+// resolution would double-prefix them: <import-path>/<absolute-path>).
 func diskAccessor(importPaths, files []string) protoparse.FileAccessor {
 	return func(name string) (io.ReadCloser, error) {
 		if filepath.IsAbs(name) {
 			return openProtoFile(name)
 		}
-		// A requested file by literal name: read relative to cwd (standard
-		// behavior for verbatim names).
+		// A requested file by literal name: the URI's dirs are its resolution
+		// base (DF-026), not only their includes' import paths.
 		for _, f := range files {
 			if f == name {
-				return openProtoFile(name)
+				return openRequestedFile(importPaths, name)
 			}
 		}
 		// An import statement: resolve against import paths in order.
@@ -108,6 +110,24 @@ func diskAccessor(importPaths, files []string) protoparse.FileAccessor {
 		}
 		return nil, fmt.Errorf("import %q not found (searched %v): %w", name, searchPaths, lastErr)
 	}
+}
+
+// openRequestedFile opens a file named verbatim in the discovery URI (as
+// opposed to one pulled in by an import statement). The "dir1:dir2=file.proto"
+// form declares where the file lives as well as its import paths, so a
+// relative name resolves against the FIRST declared dir and falls back to the
+// current directory — which keeps bare "file.proto" (no dirs declared) and
+// cwd-relative usage exactly as they were.
+func openRequestedFile(importPaths []string, name string) (io.ReadCloser, error) {
+	if len(importPaths) > 0 {
+		if f, err := os.Open(filepath.Join(importPaths[0], name)); err == nil {
+			if info, statErr := f.Stat(); statErr == nil && !info.IsDir() {
+				return f, nil
+			}
+			_ = f.Close()
+		}
+	}
+	return openProtoFile(name)
 }
 
 // openProtoFile opens a proto file with a mapped error (CodeNotFound on

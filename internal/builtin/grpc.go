@@ -52,9 +52,10 @@ func newGrpcCommand() *cobra.Command {
 		Short: "gRPC operations (discover, call) — unary",
 		Long: `gRPC protocol adapter (specs/PROTOCOLS.md, matrix row 2).
 
-Discovery sources: .proto files ("dir1:dir2=file.proto"), compiled
-descriptor sets (any non-.proto file), or server reflection
-("grpc://host:port").
+Discovery sources: .proto files ("dir1:dir2=file.proto" — a relative file
+resolves against dir1, then cwd; dir1:dir2 are the import paths for its
+includes), compiled descriptor sets (any non-.proto file), or server
+reflection ("grpc://host:port").
 
 Invocation is unary-only: streaming methods are rejected with a clear
 error (PROTO-003 boundary).`,
@@ -74,8 +75,9 @@ func newGrpcDiscoverCommand() *cobra.Command {
 		Long: `Ingest a gRPC discovery source and print the operations it exposes.
 
 <uri>:
-  file.proto               .proto source (imports resolved from the file's dir)
-  dir1:dir2=file.proto     .proto with explicit import paths
+  file.proto               .proto source, resolved against the current directory
+  dir1:dir2=file.proto     .proto file resolved against dir1 (then cwd), with
+                           dir1:dir2 as import paths for its includes
   file.pb (any non-.proto) compiled FileDescriptorSet
   grpc://host:port         live server reflection`,
 		Args: cobra.ExactArgs(1),
