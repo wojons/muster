@@ -27,6 +27,24 @@ plugins, Starlark DSL. **No codegen** — it parses the spec at runtime.
 | WASM | `openapi-cli modules run <file.wasm> [--fn <name>]` | ✅ works; sole export auto-selected (GAP-014) |
 | Starlark | `openapi-cli dsl run script.star` | ✅ works (http_get/post/put/delete builtins) |
 
+## Management plane (verified 2026-09-25, dogfood run 2 — DF-021..024)
+
+| Command | Status |
+|---------|--------|
+| `tenant set/switch/list/current` (no profiles in config.yaml) | ✅ works, persists to tenants.json |
+| `config profile switch` | ❌ prints success, persists NOTHING; global `--profile` flag and `MUSTER_PROFILE` env do not work — profiles are inert (DF-022) |
+| profiles + tenants together | ❌ defining ANY profile makes `tenant set/switch` reject every listed tenant (DF-021, internal/builtin/extended.go:322) |
+| `auth add/list` | ✅ stores credentials; ❌ but NO path ever attaches them to `request` or generated commands — use manual `-H` (DF-023) |
+| `inventory add/list` | ✅ works |
+| `webhook create/list/delete/test` | ✅ works, but delete/test take the `wh-<id>` ONLY (create/list show NAME too) |
+| `audit log` with `MUSTER_AUDIT_ENABLED=1` | ❌ writes zero events (DF-024) |
+| `auth mtls generate` | ✅ cert works; ⚠️ drops cert.pem/key.pem into CWD — run it in a scratch dir (DF-024) |
+| `completion bash/zsh/...` | ✅ loads cleanly |
+| config `aliases:` block | ❌ documented in configuration.md but never resolved (DF-024) |
+
+**Perf (2026-09-25):** management commands ~32 ms warm / ~28 ms cold (hyperfine,
+20 runs) — nothing user-noticeable is slow across three consecutive dogfood runs.
+
 ## Build
 
 ```bash
