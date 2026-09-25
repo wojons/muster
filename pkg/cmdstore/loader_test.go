@@ -316,7 +316,8 @@ func TestLoader_CreateRunHandler_Success(t *testing.T) {
 
 	err = cmds[0].RunE(cmds[0], []string{})
 	require.NoError(t, err)
-	require.Contains(t, buf.String(), `[{"id":1,"name":"fido"}]`)
+	// Default --output is table: response content rendered as table rows.
+	require.Contains(t, buf.String(), "fido")
 }
 
 func TestLoader_CreateRunHandler_HTTPError(t *testing.T) {
@@ -346,7 +347,8 @@ func TestLoader_CreateRunHandler_HTTPError(t *testing.T) {
 	err = cmds[0].RunE(cmds[0], []string{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "HTTP error")
-	require.Contains(t, buf.String(), `{"error":"internal"}`)
+	// Default --output is table: error body rendered as table rows.
+	require.Contains(t, buf.String(), "internal")
 }
 
 func TestLoader_CreateRunHandler_ConnectionRefused(t *testing.T) {
@@ -433,7 +435,8 @@ func TestLoader_CreateRunHandler_PostBody(t *testing.T) {
 
 	err = cmds[0].RunE(cmds[0], []string{})
 	require.NoError(t, err)
-	require.Contains(t, buf.String(), `{"id":1,"name":"fido"}`)
+	// Default --output is table: response content rendered as table rows.
+	require.Contains(t, buf.String(), "fido")
 }
 
 func TestLoader_CreateRunHandler_HeaderFlags(t *testing.T) {
@@ -655,7 +658,8 @@ func TestLoader_CreateRunHandler_BaseURLFlagOverride(t *testing.T) {
 
 	require.NoError(t, cmds[0].RunE(cmds[0], []string{}))
 	require.Equal(t, srv.Listener.Addr().String(), gotHost)
-	require.Contains(t, buf.String(), `[{"id":1}]`)
+	// Default --output is table: response content rendered as table rows.
+	require.Contains(t, buf.String(), "1")
 }
 
 func TestLoader_CreateRunHandler_BaseURLEnvOverride(t *testing.T) {
@@ -735,7 +739,8 @@ func TestLoader_CreateRunHandler_RawBodyFlag(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, raw, gotBody)
 	require.Equal(t, "application/json", gotContentType)
-	require.Contains(t, buf.String(), `{"id":1}`)
+	// Default --output is table: response content rendered as table rows.
+	require.Contains(t, buf.String(), "1")
 }
 
 func TestLoader_CreateRunHandler_RawBodyFlag_InvalidJSON(t *testing.T) {
@@ -769,4 +774,228 @@ func TestLoader_CreateRunHandler_RawBodyFlag_InvalidJSON(t *testing.T) {
 	err = cmds[0].RunE(cmds[0], []string{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid JSON for --body")
+}
+
+// DF-016: a reloaded command run with -o json must format the response
+// (indented JSON), matching the in-session generated path in
+// pkg/generator.executeAndPrint, instead of dumping the raw body.
+func TestLoader_CreateRunHandler_OutputJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":1,"name":"fido"}`))
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{
+			Name:   "get-pet",
+			Use:    "get-pet",
+			Method: "GET",
+			Path:   "/pets/{id}",
+			Args:   []string{"id"},
+		},
+	}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+	cmds[0].SetErr(buf)
+
+	require.NoError(t, cmds[0].Flags().Set("output", "json"))
+
+	err = cmds[0].RunE(cmds[0], []string{"1"})
+	require.NoError(t, err)
+
+	// Pretty-printed JSON is multi-line and indented — the raw body is not.
+	require.Contains(t, buf.String(), "\n")
+	require.Contains(t, buf.String(), "\n  \"id\": 1,")
+	require.Contains(t, buf.String(), "\n  \"name\": \"fido\"")
+	require.NotContains(t, buf.String(), `{"id":1,"name":"fido"}`)
+}
+
+// DF-016: --output yaml on the reloaded path renders YAML, like the
+// generated path.
+func TestLoader_CreateRunHandler_OutputYAML(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":1,"name":"fido"}`))
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{
+			Name:   "get-pet",
+			Use:    "get-pet",
+			Method: "GET",
+			Path:   "/pets/{id}",
+			Args:   []string{"id"},
+		},
+	}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+
+	require.NoError(t, cmds[0].Flags().Set("output", "yaml"))
+
+	err = cmds[0].RunE(cmds[0], []string{"1"})
+	require.NoError(t, err)
+	require.Contains(t, buf.String(), "id: 1")
+	require.Contains(t, buf.String(), "name: fido")
+}
+
+// DF-016: --output table on the reloaded path renders a key/value table,
+// like the generated path (default format is table).
+func TestLoader_CreateRunHandler_OutputTable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":1,"name":"fido"}`))
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{
+			Name:   "get-pet",
+			Use:    "get-pet",
+			Method: "GET",
+			Path:   "/pets/{id}",
+			Args:   []string{"id"},
+		},
+	}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+
+	require.NoError(t, cmds[0].Flags().Set("output", "table"))
+
+	err = cmds[0].RunE(cmds[0], []string{"1"})
+	require.NoError(t, err)
+	// Table rendering of a single object: key/value rows, not raw JSON.
+	require.Contains(t, buf.String(), "id")
+	require.Contains(t, buf.String(), "fido")
+	require.NotContains(t, buf.String(), `"name"`)
+}
+
+// DF-016: --raw on a reloaded command prints the raw body and is consumed
+// locally — the outgoing HTTP request URL must not contain ?raw=true
+// (previously pflag forwarded the unregistered --raw flag as a query param).
+func TestLoader_CreateRunHandler_RawOutputFlag(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Empty(t, r.URL.RawQuery, "--raw must be consumed locally, not forwarded as a query param")
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":1,"name":"fido"}`))
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{
+			Name:   "get-pet",
+			Use:    "get-pet",
+			Method: "GET",
+			Path:   "/pets/{id}",
+			Args:   []string{"id"},
+		},
+	}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	// Reconstructed command must expose the --raw flag locally.
+	rawFlag := cmds[0].Flag("raw")
+	require.NotNil(t, rawFlag, "reconstructed command should expose --raw")
+	require.False(t, rawFlag.Changed)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+
+	require.NoError(t, cmds[0].Flags().Set("raw", "true"))
+
+	err = cmds[0].RunE(cmds[0], []string{"1"})
+	require.NoError(t, err)
+	// --raw wins over --output: raw body, no formatting.
+	require.Contains(t, buf.String(), `{"id":1,"name":"fido"}`)
+}
+
+// DF-016: --raw wins over --output on the reloaded path, same precedence
+// as the generated path.
+func TestLoader_CreateRunHandler_RawOutputFlag_OverridesOutput(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Empty(t, r.URL.RawQuery)
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"id":1}`))
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{
+			Name:   "get-pet",
+			Use:    "get-pet",
+			Method: "GET",
+			Path:   "/pets/{id}",
+			Args:   []string{"id"},
+		},
+	}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+
+	require.NoError(t, cmds[0].Flags().Set("output", "json"))
+	require.NoError(t, cmds[0].Flags().Set("raw", "true"))
+
+	err = cmds[0].RunE(cmds[0], []string{"1"})
+	require.NoError(t, err)
+	// Raw body verbatim, not pretty-printed.
+	require.Contains(t, buf.String(), `{"id":1}`)
+	require.NotContains(t, buf.String(), "\n  \"id\": 1,")
+}
+
+// DF-016: non-JSON responses fall back to the raw body regardless of
+// --output, matching the generated path's behavior.
+func TestLoader_CreateRunHandler_OutputJSON_NonJSONBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("plain text body"))
+	}))
+	defer srv.Close()
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{
+		{
+			Name:   "get-text",
+			Use:    "get-text",
+			Method: "GET",
+			Path:   "/text",
+		},
+	}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+
+	buf := new(testWriter)
+	cmds[0].SetOut(buf)
+
+	require.NoError(t, cmds[0].Flags().Set("output", "json"))
+
+	err = cmds[0].RunE(cmds[0], []string{})
+	require.NoError(t, err)
+	require.Contains(t, buf.String(), "plain text body")
 }
