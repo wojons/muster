@@ -80,3 +80,42 @@ G5). muster foreman enabled, last tick 2026-09-02 23:26. New rows surface at
 the next natural tick.
 
 2026-09-04 | SHIPPABLE | install_seconds=67 | bunker=las-bunker-03 agent=6ce1acfc | smoke=ok | t2fs ~5min local / ~12min bunker | friction 3 | 3 findings (DF-013, DF-014→bunker, DF-015)
+2026-09-25 | PROMISING-BUT-ROUGH | install_seconds=51 | bunker=las-bunker-03 agent=bf29dbe1 (hand-run legs; standard battery blocked by QA-HARNESS-DF-020) | smoke=ok | t2fs ~5min local (build+discover+typed request), reload-format defect found in session 2 | friction 3 | 4 rows (DF-017, DF-018, DF-019, QA-HARNESS-DF-020)
+
+## 2026-09-25 — Second-session surface (persisted store reload) + fresh-install leg
+
+**Promise statement:** "Muster claims a user can turn any OpenAPI spec into a CLI
+instantly; typed commands persist to storage and reload on subsequent CLI
+invocations with the same behavior."
+
+**What was done (real use, not tests):** angle change per the skill (runs 1-5
+covered CLI/CRUD/MCP/daemon/Go-lib/Docker/WASM/DSL + install) — this run took
+the SECOND-SESSION surface nobody had used: `generate` → new process → reload
+from the persisted store. Isolated HOME (/tmp/dogfood-muster-home), live
+task-forge mock on :9801, a logging reverse proxy on :9802 for wire evidence.
+Verified: discover 0.04s cold, generate 0.03s cold, 22 commands persisted,
+typed CRUD (create 201, get 200, 404 exit 1), `generate --clear` +
+`unknown command` after clear, regenerate restores. hyperfine 20 runs:
+35.1ms ± 16.4ms warm. Found the reload path ignores -o/--output (raw body
+dumped for table/yaml) and `--raw` leaks as ?raw=true on the wire —
+DF-016's claim, now proven with a captured request line (DF-017).
+
+**Install leg:** standard bunker-qa battery emitted a 0-byte generated script
+(harness bug: unquoted heredoc executes backticked `docker pull` from a
+comment; DETECT_UP_PREV_DIR unbound for Go repos under set -u) — filed as
+QA-HARNESS-DF-020, battery leg declared SKIPPED-with-reason. Manual install
+leg run instead on the same class of fresh agent (Debian 13, bf29dbe1,
+las-bunker-03): Go bootstrap 4s, documented `make build-cli` 51s,
+discover/generate/simple-test smoke PASS; DF-017's -o yaml defect reproduced
+on the fresh install. Agent destroyed, key removed.
+
+**Findings written to board:** DF-017 (P2), DF-018 (P3), DF-019 (P3),
+QA-HARNESS-DF-020 (P2, harness) in `.coding-hermes/board/tasks.jsonl`,
+committed 466f0d1f, findings section 58ad05d7, pushed to origin/main.
+
+**Foreman:** NOT woken — operator pin cooldown_s=21600 in fleet.toml; standing
+convention "never PUT below operator pin" (GAP-029/030/031 G5). Foreman
+enabled; rows surface at the next natural tick.
+
+**No PERF rows filed:** nothing user-noticeable is slow (sub-40ms warm CLI,
+sub-1s cold generate); install time recorded above as a number.
