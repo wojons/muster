@@ -1,0 +1,111 @@
+"""
+The example schema for the PROTO-005 test battery.
+
+It is deliberately built to exercise every argument shape the adapter maps onto
+typed commands: non-null and nullable scalars, lists (nullable and non-null),
+enums (with and without a default), input objects (nested, with defaults),
+a custom scalar, an interface, a union, and a Subscription root that must be
+skipped. The introspection fixture (introspection.json) describes this same
+schema, so both ingestion paths can be compared against each other.
+"""
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+"""Root queries."""
+type Query {
+  """Fetch one user by ID."""
+  user(id: ID!): User
+
+  """List users, optionally filtered by role."""
+  users(limit: Int = 20, role: Role): [User!]!
+
+  """Every node."""
+  nodes: [Node!]!
+
+  """Search across node types."""
+  search(term: String): [SearchResult!]!
+
+  """Health probe."""
+  ping: String!
+
+  """The current viewer."""
+  viewer: Viewer
+}
+
+"""Root mutations."""
+type Mutation {
+  """Create a user."""
+  createUser(input: CreateUserInput!): User!
+
+  """Set one user's role."""
+  setRole(id: ID!, role: Role!): Boolean
+
+  """Do nothing, returning an optional marker."""
+  noop: String
+}
+
+"""Out of scope: subscriptions are recognized and skipped by this adapter."""
+type Subscription {
+  userChanged(id: ID!): User
+}
+
+"""A person."""
+type User implements Node {
+  id: ID!
+  name: String!
+  email: String
+  role: Role!
+  tags: [String!]
+  profile: Profile
+}
+
+"""Extra profile data."""
+type Profile {
+  bio: String
+  website: String
+  joinedAt: DateTime
+}
+
+"""The current viewer."""
+type Viewer {
+  id: ID!
+  name: String
+}
+
+"""Roles a user can hold."""
+enum Role {
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+"""Input for createUser."""
+input CreateUserInput {
+  name: String!
+  email: String
+  role: Role = MEMBER
+  tags: [String!] = []
+  profile: ProfileInput
+}
+
+"""Nested input object, including a default."""
+input ProfileInput {
+  bio: String
+  website: String = ""
+}
+
+"""A custom scalar with no JSON mapping of its own."""
+scalar DateTime
+
+"""Anything with an ID."""
+interface Node {
+  id: ID!
+}
+
+"""Either side of a search."""
+union SearchResult = User | Profile
+
+"""Directive definitions are parsed and then ignored."""
+directive @deprecatedFor(reason: String = "no reason given") on FIELD_DEFINITION

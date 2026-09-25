@@ -1,0 +1,1 @@
+{"query":"query UserQuery($id: ID!) {\n  user(id: $id) {\n    id\n    name\n    email\n    role\n    tags\n    profile {\n      bio\n      website\n      joinedAt\n    }\n  }\n}","variables":{"id":"u1"},"operationName":"UserQuery"}

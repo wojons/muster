@@ -17,9 +17,9 @@ import (
 
 // ── protocol ─────────────────────────────────────────────────────────────
 // The protocol subcommand namespace (specs/PROTOCOLS.md §5.1: new protocols
-// mount under a protocol group; root OpenAPI verbs stay frozen). JSON-RPC
-// 2.0 / OpenRPC is the first member (PROTO-004); later protocol adapters
-// (grpc, graphql, ...) register sibling subcommands here.
+// mount under a protocol group; root OpenAPI verbs stay frozen). Members:
+// JSON-RPC 2.0 / OpenRPC (PROTO-004) and GraphQL (PROTO-005); later protocol
+// adapters (soap, asyncapi, ...) register sibling subcommands here.
 
 // jsonrpcDefaultTimeout bounds each Execute call when the caller's context
 // carries no deadline (the caller's own deadline always wins per
@@ -42,6 +42,7 @@ Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 	}
 
 	cmd.AddCommand(newProtocolJSONRPCCommand())
+	cmd.AddCommand(newProtocolGraphQLCommand())
 	return cmd
 }
 
