@@ -43,12 +43,17 @@ func (h *Hook) ensureInit() error {
 		return nil
 	}
 
-	dir := filepath.Join(os.TempDir(), "muster-audit")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("audit: create log dir: %w", err)
+	// Resolve the one shared sink (SinkPath) so command-level events land in
+	// the same JSON-lines file the management-plane emitter writes and the
+	// `audit log` reader reads.
+	path := SinkPath()
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return fmt.Errorf("audit: create log dir: %w", err)
+		}
 	}
 
-	storage, err := NewFileStorage(filepath.Join(dir, "audit.log"), DefaultFileStorageOptions())
+	storage, err := NewFileStorage(path, DefaultFileStorageOptions())
 	if err != nil {
 		return fmt.Errorf("audit: open storage: %w", err)
 	}

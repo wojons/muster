@@ -1,7 +1,9 @@
 package builtin
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -803,4 +805,62 @@ func TestAuditEmit_UnwritableSinkFailsLoudly(t *testing.T) {
 	err = hook.Execute()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "audit")
+}
+
+// TestAuditSink_BothWritersShareOnePath is the AUD-001 regression: the two
+// audit writers — the command-level hook (ordinary CLI/MCP command events) and
+// the management-plane emitter (tenant/webhook mutations) — must resolve ONE
+// sink, the same file `audit log` reads. Before AUD-001 the hook wrote
+// $TMPDIR/muster-audit/audit.log, so an enabled audit trail could never show a
+// command event.
+func TestAuditSink_BothWritersShareOnePath(t *testing.T) {
+	sink := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
+
+	require.Equal(t, sink, audit.SinkPath(), "the $MUSTER_AUDIT_LOG override must win")
+	require.Equal(t, sink, auditLogPath(), "the management-plane path must be the same sink")
+
+	// Writer 1 — management plane: a mutating built-in command.
+	cfg := &config.Config{ConfigDir: t.TempDir()}
+	set := newTenantCommand(cfg)
+	set.SetArgs([]string{"set", "acme"})
+	require.NoError(t, set.Execute())
+
+	// Writer 2 — command level: the hook every CLI/MCP entry point logs through.
+	// The action carries a per-run nonce so the legacy-sink assertion below
+	// cannot be satisfied by stale files left behind by an earlier run.
+	probe := fmt.Sprintf("aud001-probe-%d", time.Now().UnixNano())
+	action := "tool." + probe
+	commandHook := audit.NewHook(audit.DefaultConfigEnabled())
+	commandHook.LogToolCall(context.Background(), probe, "mcp-client-9", true,
+		map[string]string{"spec": "petstore.yaml"})
+	require.NoError(t, commandHook.Close())
+
+	// Both records are in the one file the shared helper resolves.
+	events, err := readAuditEvents(audit.SinkPath(), 0)
+	require.NoError(t, err, "audit is enabled, so the sink must exist")
+	var actions []string
+	for _, e := range events {
+		actions = append(actions, e.Action)
+	}
+	assert.Contains(t, actions, "tenant.set")
+	assert.Contains(t, actions, action)
+
+	// The legacy temporary sink must not receive command events any more.
+	legacy := filepath.Join(os.TempDir(), "muster-audit", "audit.log")
+	if data, readErr := os.ReadFile(legacy); readErr == nil {
+		assert.NotContains(t, string(data), action,
+			"command events must not go to the legacy temporary sink")
+	}
+
+	// The reader command sees command-level events too: filter on the action
+	// only the hook's event carries; the rendered row carries its actor.
+	out, err := captureStdout(func() error {
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"log", "--filter", action})
+		return cmd.Execute()
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "mcp-client-9")
 }
