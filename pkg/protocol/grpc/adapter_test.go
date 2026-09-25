@@ -329,9 +329,11 @@ func TestExecute_ErrorMapping_FullTable(t *testing.T) {
 	}
 }
 
-// TestExecute_StreamingRejected: gate — Watch (server-streaming) is
-// discovered but Execute rejects it with a clear error (PROTO-003 boundary).
-func TestExecute_StreamingRejected(t *testing.T) {
+// TestExecute_ServerStreaming_Executable: the PROTO-003 boundary is gone — a
+// server-streaming method executes and returns the §4.5 bounded transcript
+// envelope instead of the PROTO-002 rejection. Unary behaviour is unchanged
+// (the PROTO-002 tests above).
+func TestExecute_ServerStreaming_Executable(t *testing.T) {
 	store := newKVStore()
 	lis, stop := serveKV(t, store, nil, nil)
 	defer stop()
@@ -350,24 +352,22 @@ func TestExecute_StreamingRejected(t *testing.T) {
 			watchOp = op
 		}
 	}
-	if watchOp == nil {
-		t.Fatal("Watch not discovered")
-	}
-	if watchOp.Kind == protocol.KindUnary {
-		t.Fatal("Watch mapped as unary — streaming classification broken")
+	if watchOp == nil || watchOp.Kind != protocol.KindServerStream {
+		t.Fatalf("Watch discovery = %#v, want a server-stream operation", watchOp)
 	}
 
-	_, err = adapter.Execute(context.Background(), "kv.KeyValue-Watch", map[string]interface{}{
+	res, err := adapter.Execute(context.Background(), "kv.KeyValue-Watch", map[string]interface{}{
 		"prefix": "k",
 	})
-	if err == nil {
-		t.Fatal("streaming Execute must fail")
+	if err != nil {
+		t.Fatalf("server-streaming Execute must succeed, got %v", err)
 	}
-	if !apperrors.IsError(err, apperrors.CodeValidation) {
-		t.Fatalf("streaming rejection = %v, want AppError CodeValidation", err)
+	raw, err := json.Marshal(res)
+	if err != nil {
+		t.Fatalf("transcript not JSON-serializable: %v", err)
 	}
-	if !strings.Contains(err.Error(), "PROTO-003") {
-		t.Fatalf("streaming rejection must name the PROTO-003 boundary, got: %v", err)
+	if !strings.Contains(string(raw), `"kind":"server-stream"`) {
+		t.Fatalf("transcript missing the §4.5 kind field: %s", raw)
 	}
 }
 

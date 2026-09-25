@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/wojons/muster/pkg/errors"
-	"github.com/wojons/muster/pkg/protocol"
 )
 
 // statusToCode maps a gRPC status code to the AppError code table in
@@ -98,12 +97,6 @@ func mapDecodeError(err error, fullMethod string) *errors.AppError {
 		return nil
 	}
 	return errors.Wrap(err, errors.CodeInternal, "decode response from "+fullMethod)
-}
-
-// streamingRejection builds the PROTO-003 boundary error for a streaming op.
-func streamingRejection(kind protocol.OperationKind) *errors.AppError {
-	return errors.Errorf(errors.CodeValidation,
-		"streaming methods are out of scope for the gRPC unary gate (PROTO-003): kind %d operations are not executable yet", int(kind))
 }
 
 // lookupMethod finds a method descriptor across linked files.

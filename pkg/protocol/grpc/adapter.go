@@ -14,7 +14,9 @@ import (
 )
 
 // Adapter implements protocol.Adapter for gRPC: file/descriptor-set/reflection
-// discovery plus unary execution (PROTO-002 scope).
+// discovery plus execution of all four RPC kinds — unary (PROTO-002) and the
+// three streaming kinds (PROTO-003), the latter behind the bounded transcript
+// contract in stream.go / specs/PROTOCOLS.md §4.5.
 type Adapter struct {
 	// conn dials the reflection/invocation target.
 	conn *grpc.ClientConn
@@ -28,6 +30,9 @@ type Adapter struct {
 
 	// carrier maps pkg/auth credentials into gRPC metadata (§4.1).
 	carrier *MetadataCarrier
+
+	// limits bounds every streaming invocation (defaults in stream.go).
+	limits StreamLimits
 }
 
 // NewAdapter creates a gRPC adapter.
@@ -54,6 +59,14 @@ func (a *Adapter) WithRateLimiter(tb *rateTokenBucket) *Adapter {
 // (Bearer(token) / NewMetadataCarrier(...)). Auth mapping is static per §4.1.
 func (a *Adapter) WithMetadata(c *MetadataCarrier) *Adapter {
 	a.carrier = c
+	return a
+}
+
+// WithStreamLimits bounds every streaming invocation this adapter runs
+// (§4.5). Unset or non-positive fields select the package defaults; there is
+// deliberately no unbounded mode.
+func (a *Adapter) WithStreamLimits(l StreamLimits) *Adapter {
+	a.limits = l
 	return a
 }
 
@@ -131,9 +144,40 @@ func (a *Adapter) Discover(ctx context.Context, uri string) ([]*protocol.Operati
 
 // Execute runs one operation (protocol.Executor). Per §4.3 the ctx deadline
 // IS the deadline (gRPC applies it natively); the adapter never sets its own
-// default timeout. Composition order: rate limit → auth metadata →
-// deadline → single attempt.
+// default timeout. Composition order: rate limit → auth metadata → deadline →
+// single attempt.
+//
+// Every RPC kind is executable. Unary returns the decoded response message.
+// The three streaming kinds return the §4.5 bounded StreamTranscript — never a
+// live stream — so an agent-facing caller cannot be hung by a server that does
+// not stop talking. Execute's args seed the request stream with AT MOST one
+// message; use ExecuteMessages to seed a longer request stream (client-streaming
+// and bidi methods).
 func (a *Adapter) Execute(ctx context.Context, opID string, args map[string]interface{}) (interface{}, error) {
+	var seed []map[string]interface{}
+	if len(args) > 0 {
+		seed = []map[string]interface{}{args}
+	}
+	return a.execute(ctx, opID, seed)
+}
+
+// ExecuteMessages runs one operation whose input is a message STREAM: one
+// argument map per request message. It exists because the Executor interface
+// carries a single args map, and a client-streaming/bidi request stream cannot
+// be expressed as one map — the CLI's --messages flag is the user-facing form.
+//
+// Unary and server-streaming methods accept zero or one message here (more is
+// a CodeValidation error, before any bytes hit the wire). Results follow the
+// same rules as Execute, including the bounded transcript for streaming kinds.
+func (a *Adapter) ExecuteMessages(ctx context.Context, opID string, messages []map[string]interface{}) (interface{}, error) {
+	return a.execute(ctx, opID, messages)
+}
+
+// execute is the shared resolution and dispatch path of Execute and
+// ExecuteMessages: validate, rate-limit, resolve the method, then hand off per
+// kind. ctx must already carry the auth metadata (the carrier-prefixed
+// context), so a caller-side cancellation is visible to every kind.
+func (a *Adapter) execute(ctx context.Context, opID string, seed []map[string]interface{}) (interface{}, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -160,23 +204,45 @@ func (a *Adapter) Execute(ctx context.Context, opID string, args map[string]inte
 		return nil, err
 	}
 
-	// PROTO-003 boundary: reject streaming at the transport boundary.
-	if method.IsServerStreaming() || method.IsClientStreaming() {
-		return nil, streamingRejection(kindOfMethod(method))
+	// §4.3 step 2+3: auth metadata under the caller's deadline. gRPC applies
+	// the ctx deadline natively; no adapter-default timeout exists here.
+	callCtx := a.carrier.OutgoingContext(ctx)
+	fullMethod := "/" + serviceName + "/" + methodName
+
+	switch kindOfMethod(method) {
+	case protocol.KindUnary:
+		return a.executeUnary(callCtx, method, fullMethod, opID, seed)
+	case protocol.KindServerStream:
+		return a.executeServerStream(callCtx, method, fullMethod, opID, seed)
+	case protocol.KindClientStream:
+		return a.executeClientStream(callCtx, method, fullMethod, opID, seed)
+	case protocol.KindBidiStream:
+		return a.executeBidiStream(callCtx, method, fullMethod, opID, seed)
+	default:
+		return nil, errors.Errorf(errors.CodeValidation,
+			"gRPC method %s has no executable kind", fullMethod)
+	}
+}
+
+// executeUnary runs a unary method: one request message in, one response out
+// (the PROTO-002 path, unchanged by the streaming work).
+func (a *Adapter) executeUnary(ctx context.Context, method *desc.MethodDescriptor, fullMethod, opID string, seed []map[string]interface{}) (interface{}, error) {
+	if len(seed) > 1 {
+		return nil, errors.Errorf(errors.CodeValidation,
+			"unary method %s takes exactly one request message, got %d", fullMethod, len(seed))
 	}
 
+	var args map[string]interface{}
+	if len(seed) == 1 {
+		args = seed[0]
+	}
 	reqMsg, err := buildRequest(method.GetInputType(), opID, args)
 	if err != nil {
 		return nil, err
 	}
 
-	// §4.3 step 2+3: auth metadata under the caller's deadline. gRPC applies
-	// the ctx deadline natively; no adapter-default timeout exists here.
-	callCtx := a.carrier.OutgoingContext(ctx)
-
-	fullMethod := "/" + serviceName + "/" + methodName
 	stub := grpcdynamic.NewStub(a.conn)
-	resp, rpcErr := stub.InvokeRpc(callCtx, method, reqMsg)
+	resp, rpcErr := stub.InvokeRpc(ctx, method, reqMsg)
 	if rpcErr != nil {
 		return nil, mapTransportError(rpcErr, fullMethod)
 	}

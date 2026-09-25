@@ -2,8 +2,10 @@ package grpc
 
 import (
 	"context"
+	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 
@@ -23,21 +25,31 @@ import (
 )
 
 // testKVSource is the shared test .proto: one service, two unary methods
-// (gate: "≥2 unary methods"), one server-streaming method (PROTO-003
-// boundary proof).
+// (gate: "≥2 unary methods") and all three streaming kinds (PROTO-003).
 const testKVSource = `syntax = "proto3";
 package kv;
 
 option go_package = "github.com/wojons/muster/testdata/grpc";
 
-// A key-value service with two unary methods and one streaming method.
+// A key-value service with two unary methods and every streaming kind.
 service KeyValue {
   // Get returns the value for a key.
   rpc Get(GetRequest) returns (GetResponse);
   // Set stores a value under a key.
   rpc Set(SetRequest) returns (SetResponse);
-  // Watch is server-streaming: discovered but rejected by Execute (PROTO-003).
+  // Watch is server-streaming: three events, then the stream ends normally.
   rpc Watch(WatchRequest) returns (stream WatchEvent);
+  // Tail is server-streaming and never ends on its own: the client's bound
+  // (max-messages, max-duration) or its cancellation is the only way out.
+  rpc Tail(TailRequest) returns (stream WatchEvent);
+  // Upload is client-streaming: N request messages in, one response out.
+  rpc Upload(stream UploadRequest) returns (UploadResponse);
+  // Chat is bidirectional: every request message is echoed back until the
+  // client stops sending.
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage);
+  // ChatHold is Chat, except a request whose text is "hold" leaves the stream
+  // open after the echo (the cancellation proof).
+  rpc ChatHold(stream ChatMessage) returns (stream ChatMessage);
 }
 
 message GetRequest {
@@ -66,14 +78,35 @@ message WatchEvent {
   string key = 1;
   string value = 2;
 }
+
+message TailRequest {
+  string prefix = 1;
+}
+
+message UploadRequest {
+  string key = 1;
+}
+
+message UploadResponse {
+  int32 count = 1;
+  string joined = 2;
+}
+
+message ChatMessage {
+  string text = 1;
+}
 `
 
 // kvServiceDef holds the parsed method descriptors the dynamic test server
 // dispatches on.
 type kvServiceDef struct {
-	get   *desc.MethodDescriptor
-	set   *desc.MethodDescriptor
-	watch *desc.MethodDescriptor
+	get      *desc.MethodDescriptor
+	set      *desc.MethodDescriptor
+	watch    *desc.MethodDescriptor
+	tail     *desc.MethodDescriptor
+	upload   *desc.MethodDescriptor
+	chat     *desc.MethodDescriptor
+	chatHold *desc.MethodDescriptor
 }
 
 // parseTestProto parses the in-memory test source into linked descriptors.
@@ -97,9 +130,13 @@ func kvDef(t *testing.T) *kvServiceDef {
 				continue
 			}
 			return &kvServiceDef{
-				get:   svc.FindMethodByName("Get"),
-				set:   svc.FindMethodByName("Set"),
-				watch: svc.FindMethodByName("Watch"),
+				get:      svc.FindMethodByName("Get"),
+				set:      svc.FindMethodByName("Set"),
+				watch:    svc.FindMethodByName("Watch"),
+				tail:     svc.FindMethodByName("Tail"),
+				upload:   svc.FindMethodByName("Upload"),
+				chat:     svc.FindMethodByName("Chat"),
+				chatHold: svc.FindMethodByName("ChatHold"),
 			}
 		}
 	}
@@ -241,7 +278,99 @@ func kvServiceDesc(def *kvServiceDef, store *kvStore, inject map[string]codes.Co
 					return nil
 				},
 			},
+			{
+				// Tail streams one event and then never ends on its own: only
+				// the client's bound or cancellation can stop it. This is the
+				// "an unbounded stream must not hang the caller" fixture.
+				StreamName:    "Tail",
+				ServerStreams: true,
+				Handler: func(srv interface{}, stream grpc.ServerStream) error {
+					req := dynamic.NewMessage(def.tail.GetInputType())
+					if err := stream.RecvMsg(req); err != nil {
+						return err
+					}
+					prefix, _ := req.GetFieldByName("prefix").(string)
+					resp := dynamic.NewMessage(def.tail.GetOutputType())
+					resp.SetFieldByName("key", prefix+"-tail")
+					resp.SetFieldByName("value", "event")
+					if err := stream.SendMsg(resp); err != nil {
+						return err
+					}
+					// Optional injected mid-stream failure: the client must
+					// keep the item it already received and report the error.
+					if code, ok := inject["/kv.KeyValue/Tail"]; ok {
+						return status.Error(code, "injected failure after the first event")
+					}
+					<-stream.Context().Done()
+					return stream.Context().Err()
+				},
+			},
+			{
+				StreamName:    "Upload",
+				ClientStreams: true,
+				Handler: func(srv interface{}, stream grpc.ServerStream) error {
+					var keys []string
+					for {
+						req := dynamic.NewMessage(def.upload.GetInputType())
+						err := stream.RecvMsg(req)
+						if err == io.EOF {
+							break
+						}
+						if err != nil {
+							return err
+						}
+						key, _ := req.GetFieldByName("key").(string)
+						keys = append(keys, key)
+					}
+					resp := dynamic.NewMessage(def.upload.GetOutputType())
+					resp.SetFieldByName("count", int32(len(keys)))
+					resp.SetFieldByName("joined", strings.Join(keys, ","))
+					return stream.SendMsg(resp)
+				},
+			},
+			{
+				StreamName:    "Chat",
+				ServerStreams: true,
+				ClientStreams: true,
+				Handler: func(srv interface{}, stream grpc.ServerStream) error {
+					return echoChat(stream, def.chat, false)
+				},
+			},
+			{
+				StreamName:    "ChatHold",
+				ServerStreams: true,
+				ClientStreams: true,
+				Handler: func(srv interface{}, stream grpc.ServerStream) error {
+					return echoChat(stream, def.chatHold, true)
+				},
+			},
 		},
+	}
+}
+
+// echoChat drives a bidirectional echo stream. With hold set, a request whose
+// text is "hold" makes the server keep the stream open after echoing it (it
+// stops only when the client goes away) — the cancellation fixture.
+func echoChat(stream grpc.ServerStream, method *desc.MethodDescriptor, hold bool) error {
+	for {
+		req := dynamic.NewMessage(method.GetInputType())
+		err := stream.RecvMsg(req)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		text, _ := req.GetFieldByName("text").(string)
+		resp := dynamic.NewMessage(method.GetOutputType())
+		resp.SetFieldByName("text", text)
+		if err := stream.SendMsg(resp); err != nil {
+			return err
+		}
+		if hold && text == "hold" {
+			<-stream.Context().Done()
+			return stream.Context().Err()
+		}
 	}
 }
 
