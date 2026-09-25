@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -18,12 +17,6 @@ import (
 
 // TestMCPIntegration proves MCP → OpenAPI → HTTP execution end-to-end using REAL binary
 func TestMCPIntegration(t *testing.T) {
-	// Get the repo root directory
-	repoRoot, err := getRepoRoot()
-	if err != nil {
-		t.Fatalf("Failed to get repo root: %v", err)
-	}
-
 	// 1. Start mock HTTP server for the API
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Logf("API Server request: %s %s", r.Method, r.URL.Path)
@@ -42,16 +35,10 @@ func TestMCPIntegration(t *testing.T) {
 	baseURL := server.URL
 	t.Logf("Mock API server at: %s", baseURL)
 
-	// 2. Build the actual MCP server binary
-	binaryPath := filepath.Join(t.TempDir(), "mcp-server")
-	if runtime.GOOS == "windows" {
-		binaryPath += ".exe"
-	}
-	buildCmd := exec.Command("go", "build", "-o", binaryPath, repoRoot+"/cmd/mcp-server")
-	if out, err := buildCmd.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to build MCP server: %v\n%s", err, out)
-	}
-	t.Logf("Built MCP server binary: %s", binaryPath)
+	// 2. Use the session-built MCP server binary: TestMain builds it once per
+	// run instead of once per suite (GAP-045).
+	binaryPath := sharedBinary(t, "mcp-server")
+	t.Logf("Using session-built MCP server binary: %s", binaryPath)
 
 	// 3. Create a temporary OpenAPI spec pointing to our mock server
 	specPath := filepath.Join(t.TempDir(), "petstore.yaml")
