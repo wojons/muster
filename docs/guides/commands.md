@@ -106,6 +106,7 @@ openapi-cli request <method> <url> [flags]
 ```
 
 **Options**:
+- `--auth <name>` - Attach a stored credential by name (see `auth add`; bearer → `Authorization: Bearer <secret>`, api-key → `X-API-Key: <secret>`; explicit `-H` with the same header overrides)
 - `-b, --body <string>` - Request body for POST/PUT requests
 - `-H, --header <strings>` - Add HTTP header (format: `'Key: Value'`; repeatable)
 - `-o, --output <format>` - Output format (`json`, `yaml`, `table`; default: `table`)
@@ -120,6 +121,7 @@ openapi-cli request GET https://petstore.swagger.io/v2/pet/1
 openapi-cli request POST https://api.example.com/pet --body '{"name":"Fluffy"}'
 openapi-cli request GET https://api.example.com/pet/findByStatus --param status=available
 openapi-cli request GET https://api.example.com/pet/1 --output json
+openapi-cli request GET https://api.example.com/tasks --auth myapi
 ```
 
 ### Typed and generated commands (`--body`/`-b`)
@@ -238,12 +240,19 @@ openapi-cli auth [command]
 | `remove` | Remove a credential (`<name>`) |
 | `mtls` | Manage mutual TLS credentials (`generate`, `configure`, `info`) |
 
+Stored credentials are attached to requests with `--auth <name>` (on the
+`request` command and on generated typed commands). `bearer` credentials
+attach as `Authorization: Bearer <secret>`, `api-key` credentials as
+`X-API-Key: <secret>`. The secret itself is never printed — verbose output
+renders it masked (`Authorization: Bearer ***`).
+
 **Examples**:
 ```bash
 openapi-cli auth add --name myapi --type api-key --value sk-abc123
 openapi-cli auth list
 openapi-cli auth remove myapi
 openapi-cli auth mtls generate
+openapi-cli request GET https://api.example.com/tasks --auth myapi
 ```
 
 ## Audit Commands
@@ -530,7 +539,7 @@ openapi-cli:
 | Command not found | `export PATH=$HOME/.local/bin:$PATH` |
 | Permission denied | `chmod +x /usr/local/bin/openapi-cli` |
 | Unknown command | Run `openapi-cli --help` for the real command list |
-| 401 errors | `openapi-cli auth add --name myapi --type api-key --value <key>` |
+| 401 errors | `openapi-cli auth add --name myapi --type api-key --value <key>`, then add `--auth myapi` to the request |
 | Timeout | `openapi-cli request ... --timeout 60s` |
 | Debug info | Check `openapi-cli audit log` for recent events |
 

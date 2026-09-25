@@ -229,14 +229,31 @@ auth:
 openapi-cli auth login --provider google --client-id YOUR_CLIENT_ID
 
 # Store credentials securely
-openapi-cli credentials store myapi --header X-API-Key --value my-secret
+openapi-cli auth add --name myapi --type api-key --value my-secret
 
 # List stored credentials
-openapi-cli credentials list
+openapi-cli auth list
 
 # Remove credentials
-openapi-cli credentials remove myapi
+openapi-cli auth remove myapi
 ```
+
+### Using Stored Credentials (`--auth`)
+
+Credentials stored with `auth add` are attached to outgoing requests with
+`--auth <name>` — on the `request` command and on generated typed
+commands:
+
+```bash
+openapi-cli request GET https://api.example.com/tasks --auth myapi
+```
+
+The credential type decides the header: `bearer` attaches as
+`Authorization: Bearer <secret>`, `api-key` as `X-API-Key: <secret>`,
+`basic` as `Authorization: Basic <base64 user:password>`. An explicit
+`-H "Header: Value"` with the same name overrides the stored credential.
+Secrets are never echoed — verbose output renders the credential masked
+(`Authorization: Bearer ***`).
 
 ## Output Configuration
 

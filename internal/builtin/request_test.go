@@ -62,13 +62,13 @@ func TestValidateURLScheme(t *testing.T) {
 
 func TestHandleRequest_ParseURLError(t *testing.T) {
 	// A URL with an invalid control character will fail URL parsing
-	err := handleRequest(nil, "GET", "http://example.com/\x00path", nil, nil, "", false, 5*time.Second, "", "")
+	err := handleRequest(nil, "GET", "http://example.com/\x00path", nil, nil, "", false, 5*time.Second, "", "", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse URL")
 }
 
 func TestHandleRequest_InvalidScheme(t *testing.T) {
-	err := handleRequest(nil, "GET", "ftp://example.com/path", nil, nil, "", false, 5*time.Second, "", "")
+	err := handleRequest(nil, "GET", "ftp://example.com/path", nil, nil, "", false, 5*time.Second, "", "", "")
 	require.Error(t, err)
 	// The error wraps: "invalid URL scheme: unsupported scheme ..."
 	assert.True(t, strings.Contains(err.Error(), "invalid URL scheme"), "expected 'invalid URL scheme' in error: %v", err)
@@ -145,7 +145,7 @@ func TestHandleRequest_Success(t *testing.T) {
 	defer server.Close()
 
 	output := captureStdoutRequest(func() {
-		err := handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "")
+		err := handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "", "")
 		require.NoError(t, err)
 	})
 
@@ -161,7 +161,7 @@ func TestHandleRequest_HTTP400Error(t *testing.T) {
 
 	var err error
 	output := captureStdoutRequest(func() {
-		err = handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "")
+		err = handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "", "")
 	})
 
 	require.Error(t, err)
@@ -175,7 +175,7 @@ func TestHandleRequest_HTTP500Error(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "")
+	err := handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "request failed with status 500")
 }
@@ -189,7 +189,7 @@ func TestHandleRequest_JSONOutput(t *testing.T) {
 	defer server.Close()
 
 	output := captureStdoutRequest(func() {
-		err := handleRequest(nil, "GET", server.URL, nil, nil, "json", false, 5*time.Second, "", "")
+		err := handleRequest(nil, "GET", server.URL, nil, nil, "json", false, 5*time.Second, "", "", "")
 		require.NoError(t, err)
 	})
 
@@ -209,7 +209,7 @@ func TestHandleRequest_JSONOutput_NonJSONBody(t *testing.T) {
 	defer server.Close()
 
 	output := captureStdoutRequest(func() {
-		err := handleRequest(nil, "GET", server.URL, nil, nil, "json", false, 5*time.Second, "", "")
+		err := handleRequest(nil, "GET", server.URL, nil, nil, "json", false, 5*time.Second, "", "", "")
 		require.NoError(t, err)
 	})
 
@@ -228,7 +228,7 @@ func TestHandleRequest_VerboseOutput(t *testing.T) {
 	var stdout, stderr string
 	stdout = captureStdoutRequest(func() {
 		stderr = captureStderrRequest(func() {
-			err := handleRequest(nil, "GET", server.URL, nil, nil, "", true, 5*time.Second, "", "")
+			err := handleRequest(nil, "GET", server.URL, nil, nil, "", true, 5*time.Second, "", "", "")
 			require.NoError(t, err)
 		})
 	})
@@ -253,7 +253,7 @@ func TestHandleRequest_WithRateLimitConfig(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := handleRequest(cfg, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "")
+	err := handleRequest(cfg, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "", "")
 	require.NoError(t, err)
 }
 
@@ -273,7 +273,7 @@ func TestHandleRequest_WithCacheConfig(t *testing.T) {
 	defer server.Close()
 
 	output := captureStdoutRequest(func() {
-		err := handleRequest(cfg, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "")
+		err := handleRequest(cfg, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "", "")
 		require.NoError(t, err)
 	})
 
@@ -289,7 +289,7 @@ func TestHandleRequest_POSTWithBody(t *testing.T) {
 	defer server.Close()
 
 	output := captureStdoutRequest(func() {
-		err := handleRequest(nil, "POST", server.URL, nil, nil, "", false, 5*time.Second, `{"name":"test"}`, "")
+		err := handleRequest(nil, "POST", server.URL, nil, nil, "", false, 5*time.Second, `{"name":"test"}`, "", "")
 		require.NoError(t, err)
 	})
 
@@ -307,7 +307,7 @@ func TestHandleRequest_WithHeaders(t *testing.T) {
 
 	headers := []string{"Authorization: Bearer abc123", "Content-Type: application/json"}
 	output := captureStdoutRequest(func() {
-		err := handleRequest(nil, "GET", server.URL, headers, nil, "", false, 5*time.Second, "", "")
+		err := handleRequest(nil, "GET", server.URL, headers, nil, "", false, 5*time.Second, "", "", "")
 		require.NoError(t, err)
 	})
 
@@ -332,7 +332,7 @@ func TestHandleRequest_WithQueryParams(t *testing.T) {
 
 	params := []string{"key1=value1", "key2=value2"}
 	output := captureStdoutRequest(func() {
-		err := handleRequest(nil, "GET", server.URL, params, nil, "", false, 5*time.Second, "", "")
+		err := handleRequest(nil, "GET", server.URL, params, nil, "", false, 5*time.Second, "", "", "")
 		require.NoError(t, err)
 	})
 
@@ -347,7 +347,7 @@ func TestHandleRequest_EmptyResponseBody(t *testing.T) {
 
 	var captured string
 	captured = captureStdoutRequest(func() {
-		err := handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "")
+		err := handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "", "")
 		require.NoError(t, err)
 	})
 
@@ -357,7 +357,7 @@ func TestHandleRequest_EmptyResponseBody(t *testing.T) {
 
 func TestHandleRequest_ConnectionRefused(t *testing.T) {
 	// Use an unreachable port
-	err := handleRequest(nil, "GET", "http://127.0.0.1:1/path", nil, nil, "", false, 1*time.Second, "", "")
+	err := handleRequest(nil, "GET", "http://127.0.0.1:1/path", nil, nil, "", false, 1*time.Second, "", "", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "execute request")
 }
@@ -369,7 +369,7 @@ func TestHandleRequest_WASMPluginLoadError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "/nonexistent/plugin.wasm")
+	err := handleRequest(nil, "GET", server.URL, nil, nil, "", false, 5*time.Second, "", "/nonexistent/plugin.wasm", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "wasm: load plugin")
 }
