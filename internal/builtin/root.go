@@ -94,6 +94,7 @@ and serves them via MCP protocol.`,
 	root.AddCommand(newTenantCommand(cfg))
 	root.AddCommand(newAuditCommand())
 	root.AddCommand(newProtocolCommand())
+	root.AddCommand(newGrpcCommand())
 
 	// Load and add persisted commands from storage
 	loadPersistedCommands(root, cfg)
