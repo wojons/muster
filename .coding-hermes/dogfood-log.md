@@ -154,3 +154,56 @@ No new install surface changed since.
 
 **No PERF rows filed:** tenant/config-store command 31.9ms ± 21.3ms warm,
 27.9ms cold — nothing a user would notice.
+
+## 2026-09-25 (3rd run, same day) — fix-verification + new protocol seams
+
+**Promise statement:** "Today's merged fixes (DF-021/022/023) work as a real
+user would experience them, and the two new protocol seams (PROTO-004
+JSON-RPC, PROTO-002 gRPC) can be driven end-to-end against real servers a
+user would plausibly have."
+
+**Angle change per skill:** runs 1-2 today covered the entry surface and
+management plane; this run targeted the fixes merged after them (HEAD moved
+5f24a1af → 3d0be0da: ec67cf2a, dc36ca9a, 290b94c8, fecee3c4, 5375a106) plus
+the never-dogfooded protocol seams.
+
+**What was done (real use, not tests):** isolated HOME (/tmp/df-muster-4),
+live task-forge mock (:9801), repo inkwell auth mock (:9803), plus two
+servers built for the run: a real JSON-RPC 2.0 service with OpenRPC doc
+(:9911, add/echo) and a real gRPC server with reflection (:9912,
+calc.v1.Calculator, unary Add + server-streaming StreamSum).
+- DF-021 VERIFIED: tenant set/switch works with profiles defined (was the P1 brick).
+- DF-022 VERIFIED: `config profile switch` persists default_profile; `config
+  show` reports source (flag > env > persisted chain proven live).
+- DF-023 VERIFIED with negative tests: no cred → 401, wrong cred → 401,
+  stored `--auth` cred → 200; typed generated commands carry --auth parity.
+- PROTO-004 VERIFIED: discover (typed params) + calls (add → 42, echo round-trip)
+  + clean unknown-method error. Friction: --endpoint-only call rejected (--doc
+  mandatory) → DF-025.
+- PROTO-002 VERIFIED: discovery via .proto AND reflection agree; unary calls
+  via both sources ({"sum":"42"} / {"sum":"3"}); streaming cleanly rejected per
+  PROTO-003; bad arg type → clean typed error. Friction: `dir=file.proto`
+  resolves file against CWD not dir= → DF-026.
+- MCP re-check post-merges: initialize OK, 22 tools, tools/call returns real rows.
+- Generated-command path re-run: discover + generate + typed list-tasks OK.
+
+**Findings written to board (commit 27205f30):** DF-025 (P2, jsonrpc
+endpoint-only rejected vs help text), DF-026 (P2, grpc dir= resolution),
+DF-027 (P3, no `config profile create` subcommand — first profile requires
+hand-editing YAML), SKIPPED-install-bunker (P2).
+
+**Install leg: SKIPPED-install-bunker with evidence.** las-03 offline
+(ssh timeout ×4, tailscale offline 32m+); las-02 reachable but bunkerd
+crash-looping at restart counter 22897 ("refusing to bind non-loopback
+plaintext listener :10002,:10001: set tls.enabled" + "audit chain-head
+recovery skipped: record hash mismatch (tampered)"); las-01 offline 3h,
+las-04 offline 8h. Install surface DID change today (go.mod/go.sum gained
+gRPC deps in 5375a106), so installability is UNPROVEN at current HEAD —
+next dogfood must re-run the leg.
+
+**No PERF rows filed:** warm typed command 11.3ms ± 0.7ms, grpc call
+end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
+(hyperfine 20 runs) — nothing a user would notice.
+
+**Time-to-first-success:** < 2 min (init → first successful request).
+

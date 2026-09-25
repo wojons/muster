@@ -4,8 +4,9 @@ description: >-
   How to USE Muster (github.com/wojons/muster) — the dynamic OpenAPI-to-tooling
   system: CLI, MCP server, daemon, Go library, Docker, WASM, Starlark DSL.
   Load this skill before building on, demoing, testing, or dogfooding Muster.
-  Verified by real use on 2026-08-07, 2026-08-17, and 2026-09-04 (see docs/dogfood/).
-version: 1.2.0
+  Verified by real use on 2026-08-07, 2026-08-17, 2026-09-04, and 2026-09-25
+  (fixes + protocol seams; see docs/dogfood/).
+version: 1.3.0
 category: software-development
 ---
 
@@ -26,15 +27,36 @@ plugins, Starlark DSL. **No codegen** — it parses the spec at runtime.
 | Docker | `docker build -t muster:latest .` (ENTRYPOINT=openapi-cli) | ✅ (verified 08-07) |
 | WASM | `openapi-cli modules run <file.wasm> [--fn <name>]` | ✅ works; sole export auto-selected (GAP-014) |
 | Starlark | `openapi-cli dsl run script.star` | ✅ works (http_get/post/put/delete builtins) |
+| Protocol seams | `openapi-cli protocol jsonrpc …` / `openapi-cli grpc discover|call …` | ✅ verified vs real servers 2026-09-25 (see below) |
 
-## Management plane (verified 2026-09-25, dogfood run 2 — DF-021..024)
+## Protocol seams (verified 2026-09-25, dogfood run 3 — against REAL servers, not fixtures)
+
+```bash
+# JSON-RPC 2.0 via OpenRPC discovery doc (discover + call):
+openapi-cli protocol jsonrpc --doc http://host/rpc                      # list operations
+openapi-cli protocol jsonrpc --doc http://host/rpc --method add --args '{"a":2,"b":40}'
+# ⚠️ --endpoint alone is NOT accepted (--doc mandatory) despite its help text — DF-025
+# ⚠️ unknown method errors cleanly: `method "x" not found in the discovery document (discovered: …)`
+
+# gRPC — discovery from .proto file OR server reflection (both verified agreeing):
+openapi-cli grpc discover "dir=file.proto"        # ⚠️ file resolves against CWD, NOT dir= — DF-026
+openapi-cli grpc discover grpc://host:port         # reflection; no files needed
+# Unary call, either source:
+openapi-cli grpc call pkg.Svc-Method --source grpc://host:port --arg a=1 --arg b=2
+openapi-cli grpc call pkg.Svc-Method --source file.proto --target host:port --arg a=1
+# Streaming methods → clean VALIDATION_ERROR (documented PROTO-003 unary gate), bad arg types → typed error.
+# Perf: end-to-end reflection call 11.6 ms ± 0.9 ms warm.
+```
+
+## Management plane (verified 2026-09-25, dogfood run 2 — DF-021..024; run 3 re-verified the FIXES)
 
 | Command | Status |
 |---------|--------|
 | `tenant set/switch/list/current` (no profiles in config.yaml) | ✅ works, persists to tenants.json |
-| `config profile switch` | ❌ prints success, persists NOTHING; global `--profile` flag and `MUSTER_PROFILE` env do not work — profiles are inert (DF-022) |
-| profiles + tenants together | ❌ defining ANY profile makes `tenant set/switch` reject every listed tenant (DF-021, internal/builtin/extended.go:322) |
-| `auth add/list` | ✅ stores credentials; ❌ but NO path ever attaches them to `request` or generated commands — use manual `-H` (DF-023) |
+| `tenant set/switch` WITH profiles defined | ✅ FIXED (run 3, commit ec67cf2a; was DF-021) |
+| `config profile switch` | ✅ FIXED (run 3, commit dc36ca9a) — persists `default_profile`; `config show` reports the source; precedence flag > env (MUSTER_PROFILE) > persisted verified live |
+| `auth add --name <n> --type bearer/api-key --value <v>` | ✅ name is flag-only (positional rejected by design); docs consistent |
+| `--auth <name>` on `request` AND generated typed commands | ✅ FIXED (run 3, commit 290b94c8) — negative-tested: no cred 401, wrong cred 401, stored cred 200 |
 | `inventory add/list` | ✅ works |
 | `webhook create/list/delete/test` | ✅ works, but delete/test take the `wh-<id>` ONLY (create/list show NAME too) |
 | `audit log` with `MUSTER_AUDIT_ENABLED=1` | ❌ writes zero events (DF-024) |

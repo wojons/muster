@@ -288,3 +288,36 @@ Order that worked on a bare Debian 13 agent:
 4. Daemon: `start --backend-url` proxies, `restart` restarts, `status`/`stop` as
    before. `proxy` mode remains for foreground debugging.
 5. MCP unchanged: `-spec` + `-base-url` covers every op, 22/22 tools.
+
+### Run 4 (2026-09-25, fixes + protocol seams) — how the new seams work and where they bite
+
+The protocol seam (specs/PROTOCOLS.md) is a neutral operation model between the
+CLI and non-OpenAPI protocol families: discovery ingests a family-specific
+document and prints operations as {id, kind, parameters, source}; call executes
+one operation through the family's adapter. PROTO-004 mounts `protocol jsonrpc`
+(OpenRPC doc → typed params → HTTP POST JSON-RPC 2.0); PROTO-002 mounts `grpc`
+(.proto ingestion, compiled descriptor sets, or server reflection → unary call).
+Errors are typed VALIDATION_ERRORs with the actual parse failure embedded
+(`strconv.ParseInt…`), which is what makes the seams usable without reading
+source.
+
+Errors hit while using (2026-09-25 run 4):
+1. `protocol jsonrpc --endpoint …` alone → `--doc is required` despite the flag
+   help saying the endpoint "default: the document's servers[0].url". A
+   doc-less call mode is implied but absent (DF-025). Right way: always pass
+   --doc, even when you only want to call.
+2. `grpc discover "dir=file.proto"` resolves the FILE against the CWD, not the
+   declared dir= (import-path treatment only) (DF-026). Right way: run from the
+   declared dir, or use an absolute file path in the file half.
+3. `auth add <positional-name>` → `--name is required`. Not a bug: the flag is
+   the documented form; positional was my guess. Docs are consistent.
+4. Streaming gRPC methods and JSON-RPC batches are out of scope BY DESIGN
+   (PROTO-003 boundary) — the errors say so explicitly, which is the right UX.
+
+Bunker install leg (2026-09-25 run 4): SKIPPED — las-03 offline, las-02
+bunkerd crash-looping (plaintext-bind refusal + audit chain-head hash
+mismatch, restart counter 22897), las-01/04 offline. go.mod gained gRPC deps
+the same day, so install-at-HEAD is unproven; next dogfood re-runs the leg.
+Right way (agents hitting this later): file SKIPPED-install-bunker with the
+journal evidence, never widen repo access, never "fix" the daemon config —
+that is an ops decision.
