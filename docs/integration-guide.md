@@ -41,7 +41,11 @@ make build          # builds all three binaries into bin/
 ls bin/             # openapi-cli  openapi-daemon  openapi-mcp  (exactly these three)
 ```
 
-Requires Go 1.26.6+ (the module targets go 1.26.6). `bin/` is gitignored; `make
+Requires Go 1.26.6+ (the module targets go 1.26.6). A C compiler
+(`gcc`/`clang`) is also required — SQLite support is a CGO package and
+`make build` runs with `CGO_ENABLED=1` (see
+[docs/guides/installation.md](guides/installation.md#prerequisites)). `bin/` is
+gitignored; `make
 build` is the canonical way to produce the three binaries above — no other
 binary names are produced by any Makefile target.
 

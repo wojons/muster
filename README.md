@@ -20,6 +20,29 @@ Three deployment modes, one codebase. CLI for humans, MCP for AI agents, daemon 
 
 > 📖 New here? The [Integration Guide](docs/integration-guide.md) has a runnable example for every surface — CLI, MCP, daemon, Go library, Docker, WASM, and Starlark — with real commands and outputs.
 
+## Prerequisites
+
+Building from source needs a Go toolchain **and** a C compiler. Muster's SQLite
+support is a CGO package (`github.com/mattn/go-sqlite3`), and `make` builds with
+`CGO_ENABLED=1` (its default), so a `gcc`/`clang` on `PATH` is not optional.
+
+| Requirement | Notes |
+|---|---|
+| **Go 1.26.6+** | the version in [`go.mod`](go.mod) — older toolchains fail with a hard toolchain error. Check with `go version`; install from https://go.dev/dl/ |
+| **C compiler** (`gcc` or `clang`) | required for CGO (SQLite). Without one, `make build-cli` stops with `cgo: C compiler "gcc" not found` (reported from `runtime/cgo`) |
+| **make**, **git**, **curl** | build driver, cloning the repo, fetching specs over http(s) |
+
+Debian 13 / Ubuntu — one line:
+
+```bash
+sudo apt-get update && sudo apt-get install -y golang gcc make git curl
+```
+
+`golang` from the distro archive is often **older than `go.mod`'s minimum**: run
+`go version` and compare it against the `go` directive in [`go.mod`](go.mod)
+(currently `1.26.6`) before building. If it is behind, install the toolchain
+from https://go.dev/dl/ instead.
+
 ## Quick start
 
 > **Note:** This repository is **PRIVATE** and is not published to the public Go proxy.
@@ -196,6 +219,7 @@ go test -short ./...
 ```
 
 Requires Go 1.26.6+, Python 3 (for demo services), Flask (`pip install flask`).
+Also requires a C compiler for CGO (SQLite) — see [Prerequisites](#prerequisites).
 
 > **Linux build note:** default builds (`go build ./...`, `go test ./...`,
 > all `make` targets) are dependency-free. The hardened CGO seccomp path is
