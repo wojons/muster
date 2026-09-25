@@ -1,4 +1,16 @@
 
+## Dogfood Findings (2026-09-25) — second-session surface + fresh-install leg
+
+Verdict: PROMISING-BUT-ROUGH (product solid, but the "second session" experience — the persisted store a user relies on after the first run — silently drops the `--output` formatting that works in the first)
+Promise: "Turn any OpenAPI spec into a CLI, an MCP server, and a Go library — instantly; typed commands persist and reload on subsequent invocations." Reality: generation, discover, typed CRUD, 404 exit codes and the reload of typed commands all work (35.1ms ± 16.4ms warm, 0.03-0.04s cold discover/generate); the reload path's output-formatting is broken (DF-016 confirmed live, now DF-017 with wire evidence).
+
+- [P2] DF-017 — persisted-command loader ignores `-o/--output` and forwards `--raw` as `?raw=true` (live wire evidence; DF-016 confirmation). `get-project 1 -o table` / `-o yaml` reloaded from the store print the raw JSON body; a logging proxy captured `GET /projects/1?raw=true` for `--raw` vs a clean `GET /projects/1` without. Session path (generator.go) formats correctly. Reproduced on a fresh bunker install too. Fix + acceptance criteria in board row.
+- [P3] DF-018 — README Quick start never states the Go-toolchain (and CGO C-compiler) prerequisite; fresh Debian 13 has make/curl/git but no go, so the documented `make build-cli` dead-ends. Same gap hit in the 09-04 run; time-to-first-success on a clean box is dominated by the undocumented bootstrap.
+- [P3] DF-019 — HTTP 404 prints the server error body followed by the FULL Usage block (exit code correct at 1). Scripting users read a flag-mistake dump where a compact not-found line belongs.
+- [P2] QA-HARNESS-DF-020 — (harness, not muster) `~/.hermes/scripts/bunker-qa.sh` emitted a 0-byte qa-run.sh for muster: a comment containing backticked `docker pull` executes inside the unquoted generation heredoc, and `QA_UP_PREV_DIR` is baked while `DETECT_UP_PREV_DIR` is unbound for Go repos → `set -u` kills generation mid-script. Battery never ran; install+smoke legs were executed by hand on an equivalent fresh agent and PASSED (Go bootstrap 4s, documented build 51s, discover/generate/simple-test smoke ok).
+
+Measured: `hyperfine --warmup 3 --runs 20 './bin/openapi-cli get-project 1'` → 35.1 ms ± 16.4 ms (min 16.3, max 75.9); discover/generate cold ≈ 0.03-0.04 s; `make build-cli` warm 5.4 s local / 51 s cold bunker. Nothing user-noticeable is slow — no PERF rows filed.
+
 ## Dogfood Findings (2026-09-04)
 Verdict: SHIPPABLE (first run to earn it — all 7 surfaces verified working on HEAD; 3 new findings below, all tests/infra/docs, none break the product)
 Promise: "Turn any OpenAPI spec into a CLI, an MCP server, and a Go library — instantly." Reality: holds. `./demo/run-all.sh` passed 23/23 checks in ~163s; full CLI CRUD round-trip vs live task-forge mock; MCP tools/list 22/22; daemon start/proxy/restart/status/stop all verified.
