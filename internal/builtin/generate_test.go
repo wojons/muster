@@ -22,6 +22,15 @@ import (
 )
 
 func TestNewGenerateCommand(t *testing.T) {
+	// Sandbox the ambient store location before any subtest runs the real
+	// generate flow. The "executes with ..." subtests build the command
+	// with a zero-value config, so persistCommands resolves the default
+	// store path ($XDG_DATA_HOME/openapi-cli/commands.json, falling back
+	// to $HOME/.local/share/openapi-cli/commands.json) and overwrites the
+	// invoking user's own generated commands (DF-013 class; DF-028).
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
 	t.Run("creates generate command", func(t *testing.T) {
 		cfg := &config.Config{}
 		cmd := newGenerateCommand(cfg)
@@ -1356,6 +1365,14 @@ func TestCommandsToMetadata_FlatRunnableExamples(t *testing.T) {
 // --help resolves to a real command — no "unknown command <group>" — and
 // that rendered help documents positional path args (DF-010).
 func TestPersistedHelp_FlatRunnableExamples(t *testing.T) {
+	// This test constructs the store with the default path
+	// (cmdstore.NewCommandStore() below). Sandbox HOME/XDG_DATA_HOME so the
+	// store can never resolve to the invoking user's real
+	// ~/.local/share/openapi-cli store in any future revision of the store's
+	// default-path handling (DF-013 class; DF-028).
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
 	specJSON := []byte(taskForgeNoIDSpecJSON)
 
 	loader := openapi3.NewLoader()
