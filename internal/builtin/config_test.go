@@ -18,7 +18,7 @@ func TestNewConfigCommand(t *testing.T) {
 			Version:        "1.0.0",
 			DefaultProfile: "default",
 		}
-		cmd := newConfigCommand(cfg)
+		cmd := newConfigCommand(cfg, nil)
 
 		assert.NotNil(t, cmd)
 		assert.Equal(t, "config", cmd.Name())
@@ -28,7 +28,7 @@ func TestNewConfigCommand(t *testing.T) {
 
 	t.Run("has show subcommand", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newConfigCommand(cfg)
+		cmd := newConfigCommand(cfg, nil)
 
 		hasShow := false
 		for _, subCmd := range cmd.Commands() {
@@ -42,7 +42,7 @@ func TestNewConfigCommand(t *testing.T) {
 
 	t.Run("has profile subcommand", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newConfigCommand(cfg)
+		cmd := newConfigCommand(cfg, nil)
 
 		hasProfile := false
 		for _, subCmd := range cmd.Commands() {
@@ -62,7 +62,7 @@ func TestNewConfigCommand(t *testing.T) {
 			Version:        "1.0.0",
 			DefaultProfile: "default",
 		}
-		cmd := newConfigCommand(cfg)
+		cmd := newConfigCommand(cfg, nil)
 
 		var showCmd *cobra.Command
 		for _, subCmd := range cmd.Commands() {
@@ -73,14 +73,18 @@ func TestNewConfigCommand(t *testing.T) {
 		}
 
 		require.NotNil(t, showCmd)
-		showCmd.Run(showCmd, []string{})
+		require.NotNil(t, showCmd.RunE)
+		_, err := captureStdoutCompletion(func() error {
+			return showCmd.RunE(showCmd, []string{})
+		})
+		require.NoError(t, err)
 	})
 }
 
 func TestNewProfileCommand(t *testing.T) {
 	t.Run("creates profile command", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		assert.NotNil(t, cmd)
 		assert.Equal(t, "profile", cmd.Name())
@@ -89,7 +93,7 @@ func TestNewProfileCommand(t *testing.T) {
 
 	t.Run("has list subcommand", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		hasList := false
 		for _, subCmd := range cmd.Commands() {
@@ -103,7 +107,7 @@ func TestNewProfileCommand(t *testing.T) {
 
 	t.Run("has show subcommand", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		hasShow := false
 		for _, subCmd := range cmd.Commands() {
@@ -117,7 +121,7 @@ func TestNewProfileCommand(t *testing.T) {
 
 	t.Run("has switch subcommand", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		hasSwitch := false
 		for _, subCmd := range cmd.Commands() {
@@ -131,7 +135,7 @@ func TestNewProfileCommand(t *testing.T) {
 
 	t.Run("has delete subcommand", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		hasDelete := false
 		for _, subCmd := range cmd.Commands() {
@@ -145,7 +149,7 @@ func TestNewProfileCommand(t *testing.T) {
 
 	t.Run("show requires exactly one argument", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var showCmd *cobra.Command
 		for _, subCmd := range cmd.Commands() {
@@ -161,7 +165,7 @@ func TestNewProfileCommand(t *testing.T) {
 
 	t.Run("switch requires exactly one argument", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var switchCmd *cobra.Command
 		for _, subCmd := range cmd.Commands() {
@@ -177,7 +181,7 @@ func TestNewProfileCommand(t *testing.T) {
 
 	t.Run("delete requires exactly one argument", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var deleteCmd *cobra.Command
 		for _, subCmd := range cmd.Commands() {
@@ -195,7 +199,7 @@ func TestNewProfileCommand(t *testing.T) {
 func TestNewProfileCommand_RunList(t *testing.T) {
 	t.Run("list empty profiles", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var listCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -207,8 +211,7 @@ func TestNewProfileCommand_RunList(t *testing.T) {
 		require.NotNil(t, listCmd)
 
 		output, _ := captureStdoutCompletion(func() error {
-			listCmd.Run(listCmd, []string{})
-			return nil
+			return listCmd.RunE(listCmd, []string{})
 		})
 		assert.Contains(t, output, "No profiles configured")
 	})
@@ -221,7 +224,7 @@ func TestNewProfileCommand_RunList(t *testing.T) {
 			},
 			DefaultProfile: "production",
 		}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var listCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -233,8 +236,7 @@ func TestNewProfileCommand_RunList(t *testing.T) {
 		require.NotNil(t, listCmd)
 
 		output, _ := captureStdoutCompletion(func() error {
-			listCmd.Run(listCmd, []string{})
-			return nil
+			return listCmd.RunE(listCmd, []string{})
 		})
 		assert.Contains(t, output, "* production")
 		assert.Contains(t, output, "staging")
@@ -248,7 +250,7 @@ func TestNewProfileCommand_RunShow(t *testing.T) {
 				"production": {BaseURL: "https://api.example.com", AuthType: "bearer"},
 			},
 		}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var showCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -260,8 +262,7 @@ func TestNewProfileCommand_RunShow(t *testing.T) {
 		require.NotNil(t, showCmd)
 
 		output, _ := captureStdoutCompletion(func() error {
-			showCmd.Run(showCmd, []string{"production"})
-			return nil
+			return showCmd.RunE(showCmd, []string{"production"})
 		})
 		assert.Contains(t, output, "production")
 		assert.Contains(t, output, "https://api.example.com")
@@ -270,7 +271,7 @@ func TestNewProfileCommand_RunShow(t *testing.T) {
 
 	t.Run("show not found profile", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var showCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -282,8 +283,7 @@ func TestNewProfileCommand_RunShow(t *testing.T) {
 		require.NotNil(t, showCmd)
 
 		output, _ := captureStdoutCompletion(func() error {
-			showCmd.Run(showCmd, []string{"nonexistent"})
-			return nil
+			return showCmd.RunE(showCmd, []string{"nonexistent"})
 		})
 		assert.Contains(t, output, "not found")
 	})
@@ -298,7 +298,7 @@ func TestNewProfileCommand_RunSwitch(t *testing.T) {
 			},
 			DefaultProfile: "production",
 		}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var switchCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -310,8 +310,7 @@ func TestNewProfileCommand_RunSwitch(t *testing.T) {
 		require.NotNil(t, switchCmd)
 
 		output, _ := captureStdoutCompletion(func() error {
-			switchCmd.Run(switchCmd, []string{"staging"})
-			return nil
+			return switchCmd.RunE(switchCmd, []string{"staging"})
 		})
 		assert.Contains(t, output, "staging")
 		assert.Equal(t, "staging", cfg.DefaultProfile)
@@ -319,7 +318,7 @@ func TestNewProfileCommand_RunSwitch(t *testing.T) {
 
 	t.Run("switch to missing profile", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var switchCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -331,8 +330,7 @@ func TestNewProfileCommand_RunSwitch(t *testing.T) {
 		require.NotNil(t, switchCmd)
 
 		output, _ := captureStdoutCompletion(func() error {
-			switchCmd.Run(switchCmd, []string{"nonexistent"})
-			return nil
+			return switchCmd.RunE(switchCmd, []string{"nonexistent"})
 		})
 		assert.Contains(t, output, "not found")
 	})
@@ -347,7 +345,7 @@ func TestNewProfileCommand_RunDelete(t *testing.T) {
 			},
 			DefaultProfile: "staging",
 		}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var deleteCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -359,8 +357,7 @@ func TestNewProfileCommand_RunDelete(t *testing.T) {
 		require.NotNil(t, deleteCmd)
 
 		output, _ := captureStdoutCompletion(func() error {
-			deleteCmd.Run(deleteCmd, []string{"staging"})
-			return nil
+			return deleteCmd.RunE(deleteCmd, []string{"staging"})
 		})
 		assert.Contains(t, output, "Deleted")
 		_, exists := cfg.Profiles["staging"]
@@ -369,7 +366,7 @@ func TestNewProfileCommand_RunDelete(t *testing.T) {
 
 	t.Run("delete non-existent profile", func(t *testing.T) {
 		cfg := &config.Config{}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var deleteCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -381,8 +378,7 @@ func TestNewProfileCommand_RunDelete(t *testing.T) {
 		require.NotNil(t, deleteCmd)
 
 		output, _ := captureStdoutCompletion(func() error {
-			deleteCmd.Run(deleteCmd, []string{"nonexistent"})
-			return nil
+			return deleteCmd.RunE(deleteCmd, []string{"nonexistent"})
 		})
 		assert.Contains(t, output, "not found")
 	})
@@ -394,7 +390,7 @@ func TestNewProfileCommand_RunDelete(t *testing.T) {
 			},
 			DefaultProfile: "production",
 		}
-		cmd := newProfileCommand(cfg)
+		cmd := newProfileCommand(cfg, nil)
 
 		var deleteCmd *cobra.Command
 		for _, sub := range cmd.Commands() {
@@ -405,7 +401,10 @@ func TestNewProfileCommand_RunDelete(t *testing.T) {
 		}
 		require.NotNil(t, deleteCmd)
 
-		deleteCmd.Run(deleteCmd, []string{"production"})
+		_, err := captureStdoutCompletion(func() error {
+			return deleteCmd.RunE(deleteCmd, []string{"production"})
+		})
+		require.NoError(t, err)
 		assert.Equal(t, "", cfg.DefaultProfile)
 	})
 }

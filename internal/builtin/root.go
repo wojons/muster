@@ -68,9 +68,15 @@ and serves them via MCP protocol.`,
 		},
 	}
 
+	// Global persistent profile selection flag (--profile), documented in
+	// docs/guides/configuration.md. Registration is idempotent and the
+	// resolved selection is consumed by config/profile-aware commands via
+	// config.ResolveProfile (flag > MUSTER_PROFILE > persisted default).
+	config.BindProfileFlag(root)
+
 	// Add built-in commands
 	root.AddCommand(newVersionCommand())
-	root.AddCommand(newConfigCommand(cfg))
+	root.AddCommand(newConfigCommand(cfg, root))
 	// Note: "help" is intentionally NOT added here. Cobra auto-registers
 	// its own default "help" command; adding a second one previously
 	// caused two "help" entries in the Available Commands list.

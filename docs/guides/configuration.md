@@ -439,13 +439,30 @@ profiles:
 
 Using profiles:
 
+The active profile is resolved in this order: `--profile` flag >
+`MUSTER_PROFILE` environment variable > the persisted `default_profile`
+in your config file > none.
+
 ```bash
-# Load specific profile
+# Persist a default profile (writes default_profile into your config
+# file; the choice survives across commands and restarts)
+openapi-cli config profile switch production
+
+# Load a specific profile for one command (global flag, highest priority)
 openapi-cli --profile production pet get
 
-# Profile from environment
+# Profile from environment (overrides the persisted default)
 export MUSTER_PROFILE=production
 openapi-cli pet get
+```
+
+Show the active profile and where it came from:
+
+```bash
+openapi-cli config show
+# ...
+# Default Profile: production
+# Active Profile: production (source: persisted)
 ```
 
 ## Advanced Configuration
