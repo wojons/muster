@@ -23,27 +23,27 @@ require (
 	// Testing
 	github.com/stretchr/testify v1.12.1
 	github.com/subosito/gotenv v1.6.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/bytecodealliance/wasmtime-go/v8 v8.0.0
-	github.com/getkin/kin-openapi v0.148.0
+	github.com/getkin/kin-openapi v0.149.0
 	github.com/godbus/dbus/v5 v5.2.2
-	github.com/mattn/go-sqlite3 v1.14.50
+	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/prometheus/client_golang v1.24.1
 	github.com/rs/zerolog v1.35.1
-	github.com/seccomp/libseccomp-golang v0.11.1
+	github.com/seccomp/libseccomp-golang v0.12.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.44.0
 	github.com/tetratelabs/wazero v1.12.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
-	go.starlark.net v0.0.0-20260708150628-5395d018f003
-	golang.org/x/crypto v0.56.0
+	go.starlark.net v0.0.0-20260908191801-89a6a09411d5
+	golang.org/x/crypto v0.57.0
 )
 
 require (
@@ -51,7 +51,7 @@ require (
 	github.com/jhump/protoreflect/v2 v2.0.0-beta.1 // indirect
 	github.com/petermattis/goid v0.0.0-20260113132338-7c7de50cc741 // indirect
 	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5 // indirect
 )
 
