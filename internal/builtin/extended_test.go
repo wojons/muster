@@ -605,3 +605,202 @@ func testAuditEvent(eventType, actorID string) audit.AuditEvent {
 		Actor:     audit.AuditActor{ID: actorID, Type: "cli-user", Name: actorID},
 	}
 }
+
+// ── DF-024 regressions ───────────────────────────────────────────────────
+
+// TestWebhookCommand_DeleteByName is the DF-024 regression: `webhook create`
+// and `webhook list` deal in names, but `delete` accepted only the stored
+// `wh-<id>`, so the name the user had just typed was rejected as not found.
+func TestWebhookCommand_DeleteByName(t *testing.T) {
+	cfg := &config.Config{ConfigDir: t.TempDir()}
+
+	create := newWebhookCommand(cfg)
+	create.SetArgs([]string{"create", "--name", "hook1", "--url", "https://example.com/hook", "--events", "pet.created"})
+	require.NoError(t, create.Execute())
+	subs, err := loadWebhooks(cfg)
+	require.NoError(t, err)
+	require.Len(t, subs, 1)
+
+	out, err := captureStdout(func() error {
+		del := newWebhookCommand(cfg)
+		del.SetArgs([]string{"delete", "hook1"})
+		return del.Execute()
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, subs[0].ID, "the removed subscription is reported by id")
+	assert.Contains(t, out, "hook1", "and by the name the user passed")
+
+	subs, err = loadWebhooks(cfg)
+	require.NoError(t, err)
+	assert.Empty(t, subs)
+
+	// The reference is gone from the store, so deleting it again still errors.
+	again := newWebhookCommand(cfg)
+	again.SetArgs([]string{"delete", "hook1"})
+	require.Error(t, again.Execute())
+}
+
+// TestWebhookCommand_TestByName mirrors the delete fix for `test`.
+func TestWebhookCommand_TestByName(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	webhookTestClient = srv.Client()
+	t.Cleanup(func() { webhookTestClient = &http.Client{Timeout: 10 * time.Second} })
+
+	cfg := &config.Config{ConfigDir: t.TempDir()}
+	create := newWebhookCommand(cfg)
+	create.SetArgs([]string{"create", "--name", "hook1", "--url", srv.URL, "--events", "pet.created"})
+	require.NoError(t, create.Execute())
+
+	out, err := captureStdout(func() error {
+		probe := newWebhookCommand(cfg)
+		probe.SetArgs([]string{"test", "hook1"})
+		return probe.Execute()
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "reachable")
+}
+
+// TestResolveWebhook pins the lookup contract behind name-or-id: a plain name
+// resolves, ids win over names, an empty reference never matches, and unnamed
+// subscriptions (those created by `webhook subscribe`) are only reachable by id.
+func TestResolveWebhook(t *testing.T) {
+	subs := []webhookSub{
+		{ID: "wh-1", Name: "billing"},
+		{ID: "wh-2"},
+		{ID: "hook1", Name: "shadow"},
+		{ID: "wh-3", Name: "hook1"},
+	}
+
+	byID := resolveWebhook(subs, "wh-1")
+	require.NotNil(t, byID)
+	assert.Equal(t, "wh-1", byID.ID)
+
+	// A reference that is only ever a NAME must resolve by name.
+	byName := resolveWebhook(subs, "billing")
+	require.NotNil(t, byName, "a name reference must resolve")
+	assert.Equal(t, "wh-1", byName.ID)
+
+	// "hook1" is subs[3]'s name and subs[2]'s id: the id match wins,
+	// wherever it sits in the slice.
+	byBoth := resolveWebhook(subs, "hook1")
+	require.NotNil(t, byBoth)
+	assert.Equal(t, "hook1", byBoth.ID)
+	assert.Equal(t, "shadow", byBoth.Name)
+
+	// Unnamed subscriptions are not reachable by name.
+	assert.Equal(t, "wh-2", resolveWebhook(subs, "wh-2").ID)
+	assert.Nil(t, resolveWebhook(subs, ""), "an empty reference never matches")
+	assert.Nil(t, resolveWebhook(subs, "wh-9"))
+	assert.Nil(t, resolveWebhook(subs, "no-such-name"))
+	assert.Nil(t, resolveWebhook(nil, "wh-1"))
+}
+
+// TestAuditEmit_MutationEventsLand is the DF-024 regression for audit emission:
+// with audit enabled, the management-plane mutations must append JSON-lines
+// events to the audit log that `audit log` reads. Previously the CLI had a
+// reader and no writers, so an enabled audit trail was always empty.
+func TestAuditEmit_MutationEventsLand(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	t.Setenv("MUSTER_AUDIT_LOG", "")
+
+	cfgDir := filepath.Join(home, ".config", "muster")
+	cfg := &config.Config{ConfigDir: cfgDir}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	webhookTestClient = srv.Client()
+	t.Cleanup(func() { webhookTestClient = &http.Client{Timeout: 10 * time.Second} })
+
+	set := newTenantCommand(cfg)
+	set.SetArgs([]string{"set", "acme"})
+	require.NoError(t, set.Execute())
+
+	sw := newTenantCommand(cfg)
+	sw.SetArgs([]string{"switch", "acme"})
+	require.NoError(t, sw.Execute())
+
+	create := newWebhookCommand(cfg)
+	create.SetArgs([]string{"create", "--name", "hook1", "--url", srv.URL, "--events", "pet.created"})
+	require.NoError(t, create.Execute())
+
+	probe := newWebhookCommand(cfg)
+	probe.SetArgs([]string{"test", "hook1"})
+	require.NoError(t, probe.Execute())
+
+	del := newWebhookCommand(cfg)
+	del.SetArgs([]string{"delete", "hook1"})
+	require.NoError(t, del.Execute())
+
+	logPath := filepath.Join(cfgDir, "audit.jsonl")
+	events, err := readAuditEvents(logPath, 0)
+	require.NoError(t, err, "audit is enabled, so the log file must exist")
+	var got []string
+	for _, e := range events {
+		got = append(got, e.EventType)
+	}
+	assert.Equal(t, []string{
+		auditEventTenantSet,
+		auditEventTenantSwitch,
+		auditEventWebhookCreate,
+		auditEventWebhookTest,
+		auditEventWebhookDelete,
+	}, got)
+
+	// The reader command surfaces the same records.
+	out, err := captureStdout(func() error {
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"log", "--filter", "webhook"})
+		return cmd.Execute()
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, auditEventWebhookCreate)
+	assert.Contains(t, out, auditEventWebhookDelete)
+}
+
+// TestAuditEmit_DisabledWritesNothing pins the opt-in side: with audit logging
+// off the mutations succeed and no audit file appears.
+func TestAuditEmit_DisabledWritesNothing(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "")
+	t.Setenv("MUSTER_AUDIT_LOG", logPath)
+
+	cfg := &config.Config{ConfigDir: t.TempDir()}
+	cmd := newTenantCommand(cfg)
+	cmd.SetArgs([]string{"set", "acme"})
+	require.NoError(t, cmd.Execute())
+
+	_, err := os.Stat(logPath)
+	assert.True(t, os.IsNotExist(err), "audit disabled must not create the audit log")
+}
+
+// TestAuditEmit_UnwritableSinkFailsLoudly is the other half of the DF-024 fix:
+// an enabled sink that cannot be written must fail the mutation with a non-zero
+// error instead of silently dropping the audit record.
+func TestAuditEmit_UnwritableSinkFailsLoudly(t *testing.T) {
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("not a directory"), 0600))
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	t.Setenv("MUSTER_AUDIT_LOG", filepath.Join(blocker, "audit.jsonl"))
+
+	cfg := &config.Config{ConfigDir: t.TempDir()}
+	cmd := newTenantCommand(cfg)
+	cmd.SetArgs([]string{"set", "acme"})
+	err := cmd.Execute()
+	require.Error(t, err, "an unwritable audit sink must fail the mutation")
+	assert.Contains(t, err.Error(), "audit")
+
+	// The same guard covers the webhook path.
+	hook := newWebhookCommand(cfg)
+	hook.SetArgs([]string{"create", "--name", "h", "--url", "https://example.com/h", "--events", "x.y"})
+	err = hook.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "audit")
+}

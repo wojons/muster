@@ -153,6 +153,9 @@ func newAuthMTLSCommand(cfg *config.Config) *cobra.Command {
 		Short: "Generate a self-signed RSA 2048-bit client certificate",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
+			if dir == "" {
+				dir = mtlsMaterialDir(cfg)
+			}
 			certPath, keyPath, err := generateSelfSignedCert(dir)
 			if err != nil {
 				return err
@@ -162,7 +165,7 @@ func newAuthMTLSCommand(cfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
-	genCmd.Flags().String("dir", ".", "Directory to write cert.pem and key.pem into")
+	genCmd.Flags().String("dir", "", "Directory to write cert.pem and key.pem into (default: <config dir>/mtls/<profile>)")
 	mtls.AddCommand(genCmd)
 
 	// auth mtls info [--cert <path>]
@@ -223,6 +226,31 @@ func newAuthMTLSCommand(cfg *config.Config) *cobra.Command {
 	mtls.AddCommand(confCmd)
 
 	return mtls
+}
+
+// mtlsMaterialDir returns the directory generated mTLS material is written to:
+// <config dir>/mtls/<profile>/, where <profile> is the active profile's name
+// ("default" when none is selected).
+//
+// It used to default to the current working directory, which dropped a
+// world-readable cert.pem and a 0600 private key.pem into whatever directory
+// the CLI happened to be run from — typically a repository root, untracked and
+// unignored (DF-024). Keeping the private key inside the config tree matches
+// where every other piece of CLI state lives and keeps it out of checkouts.
+func mtlsMaterialDir(cfg *config.Config) string {
+	base := ""
+	if cfg != nil && cfg.ConfigDir != "" {
+		base = cfg.ConfigDir
+	} else if dir, err := os.UserConfigDir(); err == nil {
+		base = filepath.Join(dir, "muster")
+	} else {
+		base = "."
+	}
+	name := "default"
+	if cfg != nil && cfg.DefaultProfile != "" {
+		name = cfg.DefaultProfile
+	}
+	return filepath.Join(base, "mtls", name)
 }
 
 // generateSelfSignedCert creates an RSA 2048-bit self-signed certificate
