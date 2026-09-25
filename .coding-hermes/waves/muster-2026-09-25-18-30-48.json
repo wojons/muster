@@ -1,0 +1,53 @@
+{
+  "scheduler_tick_id": "muster-2026-09-25-18-30-48",
+  "created_at": "2026-09-25T18:35:00-05:00",
+  "project": "muster",
+  "workdir": "/home/kara/muster",
+  "budget": 11,
+  "workers": [
+    {
+      "task_id": "DF-024",
+      "worktree": "wt/DF-024",
+      "branch": "wt/DF-024",
+      "base_sha": "c34a7a2f",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6183_brief_DF-024.md"
+    },
+    {
+      "task_id": "DF-025",
+      "worktree": "wt/DF-025",
+      "branch": "wt/DF-025",
+      "base_sha": "c34a7a2f",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6183_brief_DF-025.md"
+    },
+    {
+      "task_id": "DF-026",
+      "worktree": "wt/DF-026",
+      "branch": "wt/DF-026",
+      "base_sha": "c34a7a2f",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6183_brief_DF-026.md"
+    },
+    {
+      "task_id": "GAP-045",
+      "worktree": "wt/GAP-045",
+      "branch": "wt/GAP-045",
+      "base_sha": "c34a7a2f",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6183_brief_GAP-045.md"
+    }
+  ],
+  "independence": {
+    "checked": "no depends_on edges among the four rows (verified from tasks.jsonl); disjoint file sets verified live at HEAD c34a7a2f — DF-024: internal/builtin/{root,extended,auth}.go + docs/guides/configuration.md + .gitignore; DF-025: internal/builtin/{jsonrpc,protocol}.go + pkg/protocol/jsonrpc/; DF-026: internal/builtin/grpc.go + pkg/protocol/grpc/; GAP-045: test/ + demo/test-suites test files only",
+    "excluded": "DF-027 excluded (collides with DF-024 in internal/builtin/extended.go — serial post-merge); DF-018 deferred (README bootstrap, serial after merge); DF-017 closed as duplicate of DF-016 (loader.go already registers --raw and honors --output at HEAD, live-verified); CI-016/INT-CI-001 are the org billing wall (steps=0, no code fix); GAP-032/DF-014/SKIPPED-install-bunker external blocks; CONSENSUS-INT-001 deferred to serial lane (consensus serve boot + E2E recipe, no file conflicts but long-tail)",
+    "merge_plan": "serial merge DF-025 -> DF-026 -> DF-024 -> GAP-045 (protocol fixes first, extended.go bundle next, test-bounding last), gitreins guard + short suite gate each merge, post-merge hygiene per t615 (merge-base --is-ancestor before worktree remove + branch -d)",
+    "serial_followon": "DF-027 (config profile create) + DF-018 (README bootstrap prereqs) after merge if tick budget allows"
+  },
+  "tick_number": 6019,
+  "wave_budget_source": "scheduler tick prompt WAVE_BUDGET=11"
+}
