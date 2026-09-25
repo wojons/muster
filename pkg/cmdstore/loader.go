@@ -84,11 +84,38 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 	}
 
 	// Create command
+	// DF-019: SilenceUsage keeps a runtime/HTTP error (e.g. a 404 from the
+	// server) from dumping the full Usage/Examples/Flags block. Flag-parse
+	// errors still show usage via the custom FlagErrorFunc below, which
+	// un-silences usage for that error class — same pattern as
+	// internal/builtin/request.go.
 	cmd := &cobra.Command{
-		Use:     meta.Use,
-		Short:   meta.Short,
-		Long:    meta.Long,
-		Example: meta.Example,
+		Use:          meta.Use,
+		Short:        meta.Short,
+		Long:         meta.Long,
+		Example:      meta.Example,
+		SilenceUsage: true,
+	}
+
+	// Flag-parse errors (unknown flag, bad value) should still show usage.
+	cmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+		c.SilenceUsage = false
+		return err
+	})
+
+	// Arg-count errors (wrong number of positional args) should still show
+	// usage: validate against the persisted argument count and un-silence on
+	// failure. The handler itself also checks (expected %d arguments, got %d)
+	// but that path is a runtime error, not an arg-validation error.
+	if len(meta.Args) > 0 {
+		want := len(meta.Args)
+		cmd.Args = func(c *cobra.Command, args []string) error {
+			if len(args) != want {
+				c.SilenceUsage = false
+				return fmt.Errorf("accepts %d arg(s), received %d", want, len(args))
+			}
+			return nil
+		}
 	}
 
 	// Add flags

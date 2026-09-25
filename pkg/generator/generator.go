@@ -385,12 +385,37 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation, usedNames map[s
 	longDesc := g.buildLongDescription(op)
 	example := g.buildExample(name, op)
 
+	// DF-019: SilenceUsage keeps a runtime/HTTP error (e.g. a 404 from the
+	// server) from dumping the full Usage/Examples/Flags block, which read
+	// like a flag mistake to a scripting user. Flag/arg misuse still shows
+	// usage via the custom FlagErrorFunc below, which un-silences usage for
+	// that error class — same pattern as internal/builtin/request.go.
 	cmd := &cobra.Command{
-		Use:     usage,
-		Short:   op.Summary,
-		Long:    longDesc,
-		Example: example,
-		RunE:    g.createRunHandler(op),
+		Use:          usage,
+		Short:        op.Summary,
+		Long:         longDesc,
+		Example:      example,
+		SilenceUsage: true,
+		RunE:         g.createRunHandler(op),
+	}
+
+	// Flag-parse errors (unknown flag, bad value) should still show usage.
+	cmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+		c.SilenceUsage = false
+		return err
+	})
+
+	// Arg-count errors (wrong number of positional args) should still show
+	// usage: validate against the path-parameter count and un-silence on
+	// failure (same pattern as internal/builtin/request.go's Args wrapper).
+	if pathParamCount := len(g.extractPathParams(op.Path)); pathParamCount > 0 {
+		cmd.Args = func(c *cobra.Command, args []string) error {
+			if len(args) != pathParamCount {
+				c.SilenceUsage = false
+				return fmt.Errorf("accepts %d arg(s), received %d", pathParamCount, len(args))
+			}
+			return nil
+		}
 	}
 
 	// Stamp the exact operation metadata so downstream consumers
