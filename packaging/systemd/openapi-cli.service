@@ -7,7 +7,7 @@ After=network.target openapi-cli-daemon.service
 Type=oneshot
 RemainAfterExit=yes
 User=root
-ExecStart=/usr/bin/openapi-cli init --config /etc/openapi-cli/config.yaml
+ExecStart=/usr/bin/openapi-cli init
 TimeoutStopSec=5
 
 [Install]
