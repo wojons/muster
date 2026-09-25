@@ -155,6 +155,15 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			baseURL = env
 		}
 
+		// DF-015: fail with the actionable --base-url / MUSTER_BASE_URL hint
+		// when the persisted base URL is still empty or relative (e.g. an
+		// older store generated from a local-file spec declaring a relative
+		// servers[].url) instead of the bare `unsupported protocol scheme ""`
+		// http error.
+		if err := request.ValidateRequestBaseURL(baseURL); err != nil {
+			return fmt.Errorf("cannot execute %s %s: %w", meta.Method, meta.Path, err)
+		}
+
 		// Build HTTP request
 		builder := request.NewBuilder(baseURL, meta.Path, meta.Method)
 

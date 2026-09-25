@@ -54,6 +54,12 @@ make build-cli
 # Point generated commands at another environment without regenerating:
 # ./bin/openapi-cli get-pet-by-id 1 --base-url https://staging.example.com
 # (or export MUSTER_BASE_URL=https://staging.example.com)
+#
+# Specs whose servers[].url is RELATIVE (e.g. "/api/v3") resolve against the
+# spec fetch URL when generated over http(s). For local-file specs with a
+# relative server, pass the base explicitly with --base-url (or
+# MUSTER_BASE_URL) — running such a command without one fails with a hint
+# naming those two options instead of a bare http error.
 
 # Run the full demo (5 mock services, 10 scripts, all 7 surfaces)
 ./demo/run-all.sh

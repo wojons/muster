@@ -58,11 +58,15 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 			// Determine whether to load from file or URL
 			var data []byte
 			var err error
+			var specSourceURL string
 			if strings.HasPrefix(specPath, "http://") || strings.HasPrefix(specPath, "https://") {
 				data, err = fetchSpec(specPath)
 				if err != nil {
 					return fmt.Errorf("fetch spec from URL: %w", err)
 				}
+				// DF-015: remember the fetch URL so relative server URLs in
+				// the spec can be resolved against it below.
+				specSourceURL = specPath
 			} else {
 				data, err = os.ReadFile(specPath)
 				if err != nil {
@@ -78,6 +82,13 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 			if err != nil {
 				return fmt.Errorf("parse spec: %w", err)
 			}
+
+			// DF-015: resolve RELATIVE server URLs (e.g. "/api/v3") against
+			// the spec fetch URL so generated commands carry a usable
+			// absolute base URL. No-op for local-file specs (specSourceURL
+			// empty — relative servers keep the historical behavior, and the
+			// run handler fails with an actionable hint if executed).
+			openapi.ApplySourceURLToDocument(result.Document, specSourceURL)
 
 			fmt.Printf("✓ Parsed spec (version: %s)\n", result.Version)
 
@@ -146,8 +157,11 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 
 // defaultBaseURLFromSpec returns the spec's first server URL when it is an
 // absolute URL, otherwise the legacy placeholder. Relative server URLs
-// (e.g. "/api" or "") cannot be used as an HTTP request base URL and would
-// fail at request time ("unsupported protocol scheme").
+// (e.g. "/api" or "") cannot be used as an HTTP request base URL; when the
+// spec was fetched over http(s) they are resolved upstream
+// (openapi.ApplySourceURLToDocument, DF-015) before this runs, and anything
+// still relative fails at execution with the actionable --base-url /
+// MUSTER_BASE_URL hint instead of the bare "unsupported protocol scheme".
 func defaultBaseURLFromSpec(doc *openapi3.T) string {
 	if doc != nil && len(doc.Servers) > 0 && doc.Servers[0] != nil {
 		if u := doc.Servers[0].URL; strings.Contains(u, "://") {

@@ -260,6 +260,17 @@ func (g *Generator) GenerateCommands(spec *openapi3.T) ([]*cobra.Command, error)
 	return commands, nil
 }
 
+// GenerateCommandsWithSourceURL is GenerateCommands plus DF-015 relative
+// server resolution: when the spec was fetched over http(s) and declares a
+// RELATIVE servers[].url (e.g. "/api/v3"), every server URL in the document
+// is resolved against the spec fetch URL before operation extraction, so
+// generated commands carry a usable absolute base URL. Pass specSourceURL
+// as "" (local-file specs) to keep the historical behavior unchanged.
+func (g *Generator) GenerateCommandsWithSourceURL(spec *openapi3.T, specSourceURL string) ([]*cobra.Command, error) {
+	openapi.ApplySourceURLToDocument(spec, specSourceURL)
+	return g.GenerateCommands(spec)
+}
+
 func (g *Generator) groupOperations(ops []*openapi.Operation) map[string][]*openapi.Operation {
 	groups := make(map[string][]*openapi.Operation)
 
@@ -994,6 +1005,13 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 		// var, then the spec/generate-time URL above.
 		if override := runtimeBaseURL(cmd); override != "" {
 			baseURL = override
+		}
+		// DF-015: fail with the actionable --base-url / MUSTER_BASE_URL hint
+		// when the base URL is still empty or relative (spec declared a
+		// relative servers[].url and nothing resolved it) instead of the bare
+		// `unsupported protocol scheme ""` http error.
+		if err := request.ValidateRequestBaseURL(baseURL); err != nil {
+			return fmt.Errorf("cannot execute %s %s: %w", op.Method, op.Path, err)
 		}
 		builder := request.NewBuilder(baseURL, op.Path, op.Method)
 
