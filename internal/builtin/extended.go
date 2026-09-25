@@ -94,39 +94,73 @@ func createWebhook(cfg *config.Config, name, url, events string) (*webhookSub, e
 	return &sub, nil
 }
 
-// findWebhook returns the subscription with the given ID.
-func findWebhook(cfg *config.Config, id string) (*webhookSub, error) {
+// resolveWebhook returns the subscription matching ref, which may be either
+// the stored id (`wh-<n>`) or the human-readable name. Ids are matched first
+// and over the whole set before names, so an entry whose name happens to look
+// like another entry's id can never shadow the id lookup. Entries created by
+// `webhook subscribe` carry no name and are therefore only matchable by id.
+func resolveWebhook(subs []webhookSub, ref string) *webhookSub {
+	if ref == "" {
+		return nil
+	}
+	for i := range subs {
+		if subs[i].ID == ref {
+			return &subs[i]
+		}
+	}
+	for i := range subs {
+		if subs[i].Name != "" && subs[i].Name == ref {
+			return &subs[i]
+		}
+	}
+	return nil
+}
+
+// findWebhook returns the subscription named or identified by ref.
+func findWebhook(cfg *config.Config, ref string) (*webhookSub, error) {
 	subs, err := loadWebhooks(cfg)
 	if err != nil {
 		return nil, err
 	}
-	for i := range subs {
-		if subs[i].ID == id {
-			return &subs[i], nil
-		}
+	sub := resolveWebhook(subs, ref)
+	if sub == nil {
+		return nil, fmt.Errorf("webhook %s not found", ref)
 	}
-	return nil, fmt.Errorf("webhook %s not found", id)
+	return sub, nil
 }
 
-// removeWebhook deletes the subscription with the given ID and persists.
-func removeWebhook(cfg *config.Config, id string) error {
+// removeWebhook deletes the subscription named or identified by ref and
+// persists the remaining set. It returns the removed entry so callers can
+// report which subscription went away when the user passed a name rather than
+// an id.
+func removeWebhook(cfg *config.Config, ref string) (*webhookSub, error) {
 	subs, err := loadWebhooks(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	kept := subs[:0]
-	found := false
+	target := resolveWebhook(subs, ref)
+	if target == nil {
+		return nil, fmt.Errorf("webhook %s not found", ref)
+	}
+	kept := make([]webhookSub, 0, len(subs))
 	for _, s := range subs {
-		if s.ID == id {
-			found = true
-			continue
+		if s.ID != target.ID {
+			kept = append(kept, s)
 		}
-		kept = append(kept, s)
 	}
-	if !found {
-		return fmt.Errorf("webhook %s not found", id)
+	if err := saveWebhooks(cfg, kept); err != nil {
+		return nil, err
 	}
-	return saveWebhooks(cfg, kept)
+	return target, nil
+}
+
+// webhookLabel renders a subscription for operator-facing messages: the id
+// alone, plus the name when one is set.
+func webhookLabel(sub *webhookSub) string {
+	if sub.Name == "" {
+		return sub.ID
+	}
+	return fmt.Sprintf("%s (%s)", sub.ID, sub.Name)
 }
 
 // webhookTestClient performs connectivity checks for `webhook test`.
@@ -205,6 +239,10 @@ daemon to deliver event notifications.`,
 			if err != nil {
 				return err
 			}
+			if err := emitAuditEvent(auditEventWebhookCreate, "webhook.create", "webhook", sub.ID, sub.Name, true,
+				map[string]string{"url": sub.URL, "events": sub.EventType}); err != nil {
+				return err
+			}
 			fmt.Printf("Created webhook %s (%s) -> %s (events: %s)\n", sub.ID, sub.Name, sub.URL, sub.EventType)
 			return nil
 		},
@@ -218,21 +256,26 @@ daemon to deliver event notifications.`,
 	cmd.AddCommand(create)
 
 	cmd.AddCommand(&cobra.Command{
-		Use:     "delete <id>",
+		Use:     "delete <id|name>",
 		Aliases: []string{"unsubscribe"},
 		Short:   "Remove a webhook subscription",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := removeWebhook(cfg, args[0]); err != nil {
+			removed, err := removeWebhook(cfg, args[0])
+			if err != nil {
 				return err
 			}
-			fmt.Printf("Deleted webhook %s\n", args[0])
+			if err := emitAuditEvent(auditEventWebhookDelete, "webhook.delete", "webhook", removed.ID, removed.Name, true,
+				map[string]string{"url": removed.URL}); err != nil {
+				return err
+			}
+			fmt.Printf("Deleted webhook %s\n", webhookLabel(removed))
 			return nil
 		},
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "test <id>",
+		Use:   "test <id|name>",
 		Short: "Test connectivity to a webhook URL",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -240,9 +283,19 @@ daemon to deliver event notifications.`,
 			if err != nil {
 				return err
 			}
-			status, err := probeWebhookURL(sub.URL)
-			if err != nil {
-				return fmt.Errorf("webhook %s (%s) unreachable: %w", sub.ID, sub.URL, err)
+			status, probeErr := probeWebhookURL(sub.URL)
+			details := map[string]string{"url": sub.URL}
+			if probeErr == nil {
+				details["status"] = fmt.Sprintf("HTTP %d", status)
+			} else {
+				details["error"] = probeErr.Error()
+			}
+			if auditErr := emitAuditEvent(auditEventWebhookTest, "webhook.test", "webhook", sub.ID, sub.Name,
+				probeErr == nil, details); auditErr != nil {
+				return auditErr
+			}
+			if probeErr != nil {
+				return fmt.Errorf("webhook %s (%s) unreachable: %w", sub.ID, sub.URL, probeErr)
 			}
 			fmt.Printf("Webhook %s (%s) reachable: HTTP %d\n", sub.ID, sub.URL, status)
 			return nil
@@ -478,6 +531,9 @@ selection survives across switches and restarts.`,
 			if err := setActiveTenant(cfg, args[0]); err != nil {
 				return err
 			}
+			if err := emitAuditEvent(auditEventTenantSet, "tenant.set", "tenant", args[0], args[0], true, nil); err != nil {
+				return err
+			}
 			fmt.Printf("Set active tenant to %s\n", args[0])
 			return nil
 		},
@@ -489,6 +545,9 @@ selection survives across switches and restarts.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := setActiveTenant(cfg, args[0]); err != nil {
+				return err
+			}
+			if err := emitAuditEvent(auditEventTenantSwitch, "tenant.switch", "tenant", args[0], args[0], true, nil); err != nil {
 				return err
 			}
 			fmt.Printf("Switched to tenant %s\n", args[0])
@@ -531,6 +590,62 @@ selection survives across switches and restarts.`,
 }
 
 // ── audit ────────────────────────────────────────────────────────────────
+
+// Audit event types emitted by mutating built-in commands. They are stable
+// identifiers: `audit log --filter <value>` matches them.
+const (
+	auditEventTenantSet     = "tenant.set"
+	auditEventTenantSwitch  = "tenant.switch"
+	auditEventWebhookCreate = "webhook.create"
+	auditEventWebhookDelete = "webhook.delete"
+	auditEventWebhookTest   = "webhook.test"
+)
+
+// emitAuditEvent appends one audit event to the configured audit log
+// (MUSTER_AUDIT_LOG, else <config dir>/audit.jsonl — the same file `audit log`
+// reads) when audit logging is enabled, and is a no-op otherwise.
+//
+// The write is synchronous and its error is returned, so an enabled audit sink
+// that cannot be written fails the mutation loudly instead of silently
+// dropping the record. That matters for exactly the events below: a tenant
+// switch or a webhook mutation that leaves no trace is the failure mode the
+// audit trail exists to prevent.
+func emitAuditEvent(eventType, action, resourceType, resourceID, resourceName string, success bool, details map[string]string) error {
+	acfg := audit.DefaultConfig()
+	if !acfg.Enabled {
+		return nil
+	}
+
+	path := auditLogPath()
+	if dir := filepath.Dir(path); dir != "" {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return fmt.Errorf("audit: create log dir for %s: %w", path, err)
+		}
+	}
+	storage, err := audit.NewFileStorage(path, audit.DefaultFileStorageOptions())
+	if err != nil {
+		return fmt.Errorf("audit: open log %s: %w", path, err)
+	}
+	defer func() { _ = storage.Close() }()
+
+	actor := cliActorID()
+	code := "ERROR"
+	if success {
+		code = "OK"
+	}
+	return storage.Write(&audit.AuditEvent{
+		Timestamp: time.Now().UTC(),
+		EventType: eventType,
+		Level:     audit.AuditLevelInfo,
+		Category:  audit.AuditCategoryData,
+		Action:    action,
+		Actor:     audit.AuditActor{ID: actor, Type: "cli-user", Name: actor},
+		Resource:  audit.AuditResource{ID: resourceID, Type: resourceType, Name: resourceName},
+		Result:    audit.AuditResult{Success: success, Code: code},
+		Context:   audit.AuditContext{Metadata: details},
+		Success:   success,
+	})
+}
 
 func newAuditCommand() *cobra.Command {
 	cmd := &cobra.Command{

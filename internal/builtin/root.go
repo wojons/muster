@@ -3,6 +3,7 @@ package builtin
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/wojons/muster/internal/audit"
@@ -74,6 +75,17 @@ and serves them via MCP protocol.`,
 	// config.ResolveProfile (flag > MUSTER_PROFILE > persisted default).
 	config.BindProfileFlag(root)
 
+	// Resolve user-defined command aliases (the config file's `aliases:` map)
+	// BEFORE Cobra performs command lookup. main.go executes the root without
+	// calling SetArgs, so seeding the expanded argv here is exactly what the
+	// dispatcher will see; callers that call SetArgs afterwards keep full
+	// control of argv. Without this, `openapi-cli <alias>` failed with
+	// `unknown command "<alias>"` even though the alias was configured and
+	// documented (DF-024).
+	if expanded, ok := expandAliasArgs(cfg, os.Args[1:]); ok {
+		root.SetArgs(expanded)
+	}
+
 	// Add built-in commands
 	root.AddCommand(newVersionCommand())
 	root.AddCommand(newConfigCommand(cfg, root))
@@ -111,6 +123,38 @@ func isMetaCommandName(name string) bool {
 		return true
 	}
 	return false
+}
+
+// expandAliasArgs rewrites the command word of args when it names a
+// user-defined alias from the config file's `aliases:` map, returning the
+// rewritten argv and true. The mapped command line is split on whitespace and
+// the remaining original arguments are appended, so both an alias that stands
+// for a whole invocation (`tasks: request GET http://localhost:9801/tasks`)
+// and one that only stands for a command plus defaults (`ls: inventory list`)
+// keep working, and user-supplied trailing arguments still reach the target
+// command.
+//
+// Only the first argument is considered: global flags that precede the
+// command word (`--profile x <alias>`) are not aliases and must keep their
+// normal meaning. A mapping that does not name a command (empty, or
+// whitespace only) or that would expand to itself is left untouched, so a
+// misconfigured alias can never loop the rewrite.
+func expandAliasArgs(cfg *config.Config, args []string) ([]string, bool) {
+	if cfg == nil || len(args) == 0 || len(cfg.Aliases) == 0 {
+		return args, false
+	}
+	target, ok := cfg.Aliases[args[0]]
+	if !ok {
+		return args, false
+	}
+	fields := strings.Fields(target)
+	if len(fields) == 0 || fields[0] == args[0] {
+		return args, false
+	}
+	expanded := make([]string, 0, len(fields)+len(args)-1)
+	expanded = append(expanded, fields...)
+	expanded = append(expanded, args[1:]...)
+	return expanded, true
 }
 
 // helpRequested returns true if the --help flag was set on the given command.

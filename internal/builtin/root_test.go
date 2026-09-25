@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -336,4 +337,122 @@ func TestCliActorID(t *testing.T) {
 		defer os.Unsetenv("LOGNAME")
 		assert.Equal(t, "primary", cliActorID())
 	})
+}
+
+// TestExpandAliasArgs pins the argv rewrite rules for config aliases.
+func TestExpandAliasArgs(t *testing.T) {
+	cfg := &config.Config{Aliases: map[string]string{
+		"tasks": "config show",
+		"pf":    "config profile",
+		"blank": "   ",
+		"loop":  "loop now",
+	}}
+
+	t.Run("maps an alias to the mapped command line", func(t *testing.T) {
+		got, ok := expandAliasArgs(cfg, []string{"tasks"})
+		require.True(t, ok)
+		assert.Equal(t, []string{"config", "show"}, got)
+	})
+
+	t.Run("appends the original trailing arguments", func(t *testing.T) {
+		got, ok := expandAliasArgs(cfg, []string{"pf", "list", "--verbose"})
+		require.True(t, ok)
+		assert.Equal(t, []string{"config", "profile", "list", "--verbose"}, got)
+	})
+
+	t.Run("leaves non-alias argv untouched", func(t *testing.T) {
+		args := []string{"version"}
+		got, ok := expandAliasArgs(cfg, args)
+		assert.False(t, ok)
+		assert.Equal(t, args, got)
+	})
+
+	t.Run("ignores a leading global flag", func(t *testing.T) {
+		// Only the command word is aliased: `--profile staging tasks` must
+		// keep its normal meaning rather than resolving `--profile` as a
+		// command name.
+		args := []string{"--profile", "staging", "tasks"}
+		got, ok := expandAliasArgs(cfg, args)
+		assert.False(t, ok)
+		assert.Equal(t, args, got)
+	})
+
+	t.Run("ignores a blank mapping", func(t *testing.T) {
+		args := []string{"blank", "x"}
+		got, ok := expandAliasArgs(cfg, args)
+		assert.False(t, ok)
+		assert.Equal(t, args, got)
+	})
+
+	t.Run("never expands an alias into itself", func(t *testing.T) {
+		args := []string{"loop", "x"}
+		got, ok := expandAliasArgs(cfg, args)
+		assert.False(t, ok)
+		assert.Equal(t, args, got)
+	})
+
+	t.Run("no aliases and no config are no-ops", func(t *testing.T) {
+		args := []string{"tasks"}
+		got, ok := expandAliasArgs(nil, args)
+		assert.False(t, ok)
+		assert.Equal(t, args, got)
+
+		got, ok = expandAliasArgs(&config.Config{}, args)
+		assert.False(t, ok)
+		assert.Equal(t, args, got)
+
+		got, ok = expandAliasArgs(cfg, nil)
+		assert.False(t, ok)
+		assert.Nil(t, got)
+	})
+}
+
+// TestRootCommand_AliasDispatch is the DF-024 regression for command aliases:
+// an `aliases:` entry in config.yaml must be expanded before Cobra resolves the
+// command, so `openapi-cli <alias>` runs the mapped command instead of failing
+// with `unknown command "<alias>"`. The documented feature — the config block,
+// the usage example, and the loader — existed end to end except for the one
+// step that turned the alias into the command that runs.
+func TestRootCommand_AliasDispatch(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	cfgDir := filepath.Join(home, ".config", "muster")
+	require.NoError(t, os.MkdirAll(cfgDir, 0700))
+	cfgFile := filepath.Join(cfgDir, "config.yaml")
+	require.NoError(t, os.WriteFile(cfgFile, []byte(
+		"aliases:\n  tasks: config show\n  pf: config profile\n"), 0600))
+
+	// Control: with no aliases configured the very same argv cannot dispatch.
+	// Asserted, not assumed — if `tasks` ever resolves on its own the
+	// assertions below stop proving anything.
+	control := NewRootCommand(&config.Config{ConfigDir: cfgDir})
+	control.SetArgs([]string{"tasks"})
+	err := control.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown command")
+
+	// The alias must arrive through the real config loader (the seam main.go
+	// uses), not a hand-built struct.
+	loader := config.NewLoader()
+	loader.SetConfigFile(cfgFile)
+	cfg, err := loader.Load()
+	require.NoError(t, err)
+	require.Equal(t, "config show", cfg.Aliases["tasks"], "config loader must surface the aliases block")
+	require.Equal(t, "config profile", cfg.Aliases["pf"])
+
+	// main.go executes the root without calling SetArgs, so seed os.Args the
+	// way a shell invocation would.
+	oldArgs := os.Args
+	t.Cleanup(func() { os.Args = oldArgs })
+
+	os.Args = []string{"openapi-cli", "tasks"}
+	out, err := captureStdout(func() error { return NewRootCommand(cfg).Execute() })
+	require.NoError(t, err)
+	assert.Contains(t, out, "Config Dir:", "`tasks` must dispatch to `config show`")
+
+	// Trailing arguments are appended: `pf list` -> `config profile list`.
+	os.Args = []string{"openapi-cli", "pf", "list"}
+	out, err = captureStdout(func() error { return NewRootCommand(cfg).Execute() })
+	require.NoError(t, err)
+	assert.Contains(t, out, "No profiles configured")
 }

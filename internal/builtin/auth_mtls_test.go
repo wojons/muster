@@ -62,6 +62,50 @@ func TestAuthMTLSCommand_GenerateInfo(t *testing.T) {
 	require.NoError(t, info.Execute())
 }
 
+// TestMTLSMaterialDir pins where generated material lands: inside the config
+// tree, scoped by the active profile.
+func TestMTLSMaterialDir(t *testing.T) {
+	base := filepath.Join("some", "config", "muster")
+	assert.Equal(t, filepath.Join(base, "mtls", "default"),
+		mtlsMaterialDir(&config.Config{ConfigDir: base}))
+	assert.Equal(t, filepath.Join(base, "mtls", "prod"),
+		mtlsMaterialDir(&config.Config{ConfigDir: base, DefaultProfile: "prod"}))
+}
+
+// TestAuthMTLSCommand_GenerateDefaultsToConfigDir is the DF-024 regression:
+// `auth mtls generate` used to write cert.pem and a 0600 key.pem into the
+// CURRENT working directory, so running it from a repository root left an
+// untracked private key next to the checkout.
+func TestAuthMTLSCommand_GenerateDefaultsToConfigDir(t *testing.T) {
+	cfgDir := t.TempDir()
+	cwd := t.TempDir()
+	t.Chdir(cwd)
+
+	cmd := newAuthMTLSCommand(&config.Config{ConfigDir: cfgDir})
+	out, err := captureStdout(func() error {
+		cmd.SetArgs([]string{"generate"})
+		return cmd.Execute()
+	})
+	require.NoError(t, err)
+
+	wantDir := filepath.Join(cfgDir, "mtls", "default")
+	certPath := filepath.Join(wantDir, "cert.pem")
+	keyPath := filepath.Join(wantDir, "key.pem")
+	assert.Contains(t, out, certPath, "the written certificate path must be printed")
+	assert.Contains(t, out, keyPath, "the written key path must be printed")
+
+	keyInfo, err := os.Stat(keyPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0600), keyInfo.Mode().Perm(), "the private key stays 0600")
+	_, err = os.Stat(certPath)
+	require.NoError(t, err)
+
+	for _, name := range []string{"cert.pem", "key.pem"} {
+		_, statErr := os.Stat(filepath.Join(cwd, name))
+		assert.Truef(t, os.IsNotExist(statErr), "%s must not be written into the current directory", name)
+	}
+}
+
 // TestAuthMTLSCommand_ConfigureRequiresPaths verifies configure validates.
 func TestAuthMTLSCommand_ConfigureRequiresPaths(t *testing.T) {
 	cfg := &config.Config{ConfigDir: t.TempDir()}

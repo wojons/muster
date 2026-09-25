@@ -173,13 +173,9 @@ openapi-cli config reset
 
 ### Configuration Validation
 
-```bash
-# Validate configuration file
-openapi-cli config validate
-
-# Check configuration for syntax errors
-openapi-cli config lint
-```
+There is no separate `config validate` / `config lint` command. Configuration is
+read when a command runs and the resolved result is shown by `config show` —
+see [Configuration Validation](#configuration-validation) below.
 
 ## Authentication Configuration
 
@@ -221,6 +217,13 @@ auth:
     key_path: ${TLS_KEY_PATH}
     ca_path: ${TLS_CA_PATH}
 ```
+
+Generate client material with `openapi-cli auth mtls generate`. The certificate
+and private key are written under the config directory —
+`<config dir>/mtls/<profile>/cert.pem` and `key.pem` (profile is the active
+profile name, or `default`) — and the written paths are printed, so the files
+never land in the current working directory. Pass `--dir <dir>` to choose a
+different location, then point `cert_path`/`key_path` at the result.
 
 ### Managing Credentials
 
@@ -428,6 +431,13 @@ openapi-cli get-pet
 openapi-cli all-pets
 ```
 
+An alias is expanded before the CLI looks the command up: the mapped command
+line is split on whitespace, and any arguments you pass after the alias are
+appended. So `create-order --dry-run` runs `store order --dry-run`. Only the
+first word of the invocation is treated as an alias — global flags that come
+before the command (`openapi-cli --profile staging get-pet`) keep their usual
+meaning.
+
 ## Profiles
 
 Create profiles for different environments:
@@ -527,16 +537,23 @@ rate_limit:
 
 ## Configuration Validation
 
+There is no separate `config validate` / `config check` / `config hierarchy`
+command. Configuration files are read when a command starts, and the effective
+merged result is printed by:
+
 ```bash
-# Validate configuration
-openapi-cli config validate
+# Show the resolved configuration (config/cache/data dirs, version,
+# default and active profile)
+openapi-cli config show
 
-# Check for best practices
-openapi-cli config check
-
-# Show configuration merge hierarchy
-openapi-cli config hierarchy
+# List the configured profiles and which one is active
+openapi-cli config profile list
 ```
+
+`config show` is the source of truth for what the current invocation actually
+resolved. A config source that is present but unparsable is skipped while
+loading — the remaining defaults survive — so if an edit is not reflected in
+`config show`, check that the file still parses.
 
 ## Example Configuration Files
 

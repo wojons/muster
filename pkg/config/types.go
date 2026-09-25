@@ -32,6 +32,11 @@ type Config struct {
 	Plugin    PluginConfig    `mapstructure:"plugin"`
 	Logging   LoggingConfig   `mapstructure:"logging"`
 
+	// Aliases maps a user-defined command word to the command line it
+	// expands to (docs/guides/configuration.md, "Command Aliases"). The CLI
+	// rewrites argv[1] with the mapped command before Cobra resolves it.
+	Aliases map[string]string `mapstructure:"aliases"`
+
 	// Computed paths (not from config file)
 	ConfigDir string `mapstructure:"-"`
 	CacheDir  string `mapstructure:"-"`
