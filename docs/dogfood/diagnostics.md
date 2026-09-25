@@ -321,3 +321,52 @@ the same day, so install-at-HEAD is unproven; next dogfood re-runs the leg.
 Right way (agents hitting this later): file SKIPPED-install-bunker with the
 journal evidence, never widen repo access, never "fix" the daemon config —
 that is an ops decision.
+
+## Run 4 (2026-09-25, later): the MCP server vs the official client — how each defect was isolated
+
+The angle that mattered: all prior runs drove MCP with hand-rolled JSON-RPC
+REQUESTS only. A real client (official `mcp` Python SDK) also sends the
+`notifications/initialized` NOTIFICATION — and that is the only reason the
+wire defect became visible. Lesson: the SDK's pydantic union error, ugly as
+it looks, enumerates every variant it tried — read it as a wire-dump
+description. Then reproduce WITHOUT the SDK (40-line raw stdio probe) so the
+finding stands on the protocol, not on one client's parser:
+
+1. DF-031 (stray `{"jsonrpc":"2.0","result":null}` line): raw probe shows it
+   lands between the initialize response and the tools/list response, i.e.
+   exactly when `notifications/initialized` is processed. Code site:
+   pkg/mcp/server.go handleRequest — id-nil messages flow into sendResponse
+   with (nil, nil). External conformance reports (modelcontextprotocol/
+   conformance #274 et al.) describe the same client-breaking class. The
+   right way to test servers: assert stdout SILENCE on notifications, not
+   just correct responses to requests.
+2. DF-032 vs DF-033 vs DF-034 (contract-layer drift): one tools/list dump
+   yields all three — capabilities in initialize, name charset, schema
+   properties. The schema-vs-behavior distinction took a live round-trip:
+   calls succeed with hand-supplied path params even though the schema
+   omits them, which localizes the defect to tool CONSTRUCTION (advertising)
+   and not the dispatch path.
+3. The "PATCH ignored my body" false lead: direct curl against the mock
+   (mock mutates fine) + MCP call with flat args (mutates fine) proved the
+   wire path correct; my `body`-wrapper arg shape was the wrong guess.
+   Check `--help`/schema verbatim before filing (skill pitfall).
+4. DF-035 (Makefile): the fresh-agent build died with the LINKER's usage
+   text — grep the build log for the actual `go build` line; the offending
+   `-X …Branch=HEAD unknown` is visible verbatim. Local control (same tree,
+   no .git) built clean → the trigger is git-present-but-zero-commits, where
+   `git rev-parse --abbrev-ref HEAD` prints `HEAD` AND exits non-zero
+   (unlike --short). One word of shell output quietly became a linker flag.
+5. Bunker leg (install PROVEN this run, on bunker-mvp): las-01/03/04
+   offline, las-02 bunkerd still crash-looping — the run 3 SKIPPED is
+   resolved. Toolchain bootstrap (~90 s incl. go1.26.6 download) + documented
+   `make build-cli` reproduced DF-035 on the tar-stream+git-init tree, then
+   the pure tarball path built in 3 s; discover/generate/typed-suggest/
+   generic-request smoke all passed on the fresh install. Ops notes for
+   future runs: (a) mvp agents come with gcc/go1.22/make/curl/git/docker
+   preinstalled (Ubuntu 24.04) — richer than the las-03 Debian agents, and
+   go.mod's floor check still forces the bootstrap; (b) destroy times out
+   with a big home (2.6 GB Go toolchain) because default policy archives the
+   home before deleting — shrink first (chmod -R u+w ~/go; rm -rf ~/go …),
+   took 3 attempts to learn; (c) spawn on 0.1.4 did not install a local ssh
+   key — pull /etc/bunkerd/ssh/<id> from the daemon host (root alias) and
+   never put the API key into notes or artifacts.

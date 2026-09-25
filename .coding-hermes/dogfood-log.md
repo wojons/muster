@@ -207,3 +207,5 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 
 **Time-to-first-success:** < 2 min (init → first successful request).
 
+| 2026-09-25 (run 4) | PROMISING-BUT-ROUGH | install_seconds=3 (tarball path, warm deps; 96s cold incl. toolchain+modules; DF-035 breaks the git-init'd-tarball variant) | bunker=bunker-mvp agent=b430959d | smoke=ok | t2fs ~3min (build→discover→typed request; MCP client connect works pre-SDK-crash-fix only for lenient clients) | friction 6 | 5 rows (DF-031, DF-032, DF-033, DF-034, DF-035) |
+

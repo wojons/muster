@@ -151,6 +151,26 @@ curl localhost:9801/openapi.json   # their own OpenAPI specs (NOTE: no operation
 ```
 Mock stores are **in-memory** — data resets on server restart (by design).
 
+## MCP server — verified with the OFFICIAL MCP Python SDK (2026-09-25, run 4)
+
+Prior runs hand-rolled JSON-RPC; run 4 connected the real `mcp` package
+(ClientSession + stdio) — the same shape Claude Desktop uses. Working
+recipe: `docs/dogfood/2026-09-25-mcp-official-client.md`.
+
+| Aspect | Status |
+|---|---|
+| initialize / tools/list / tools/call round-trip (create→read→patch→list→delete→404) | ✅ works, 23 ms median full session |
+| wire conformance | ❌ DF-031: server answers `notifications/initialized` with `{"jsonrpc":"2.0","result":null}` — CRASHES the official SDK (7 pydantic errors) on connect |
+| advertised capabilities | ❌ DF-032: `capabilities:{}` (no tools) while serving 22 tools; version hardcoded 1.0.0 |
+| tool names | ⚠️ DF-033: 16/22 embed literal `{curly}` path templates (outside MCP charset) |
+| tool inputSchema | ❌ DF-034: templated tools omit their path params entirely — schema-validating clients must reject 16/22 tools |
+
+Client-side notes (current SDK, snake_case): `init.server_info`,
+`t.input_schema`, `res.is_error`; `env=` in StdioServerParameters REPLACES
+the environment (pass PATH); body fields are TOP-LEVEL schema properties
+(call `patch_tasks_{task_id}` with `{"task_id": N, "priority": "high"}`,
+not a `body` wrapper).
+
 ## Pitfalls checklist
 
 1. `make build` first — `bin/` is gitignored; stale binaries mislead.
@@ -163,6 +183,9 @@ Mock stores are **in-memory** — data resets on server restart (by design).
 8. Public petstore endpoints `findByStatus`/`store/inventory` return 500 server-side (swagger.io issue, not Muster) — use `GET /pet/1`, `GET /store/order/1`, or local demo services.
 9. Daemon start/restart/proxy/stop all verified working 09-04 (DF-009/DF-011 fixed).
 10. Bunker fresh-install leg (09-04): docs assume Go 1.26.6+ is already installed; a bare Debian agent needs a manual Go toolchain install first. Also mind the per-agent size budget: deleting the downloaded Go tarball before `make build-cli` avoids a transient "no space left on device" at link time.
+11. **NEW 09-25 (DF-031): any strict MCP client (official Python SDK, Claude Desktop) crashes on connect** until DF-031 is fixed — hand-rolled JSON-RPC probes hide it because they never send `notifications/initialized`. If your client dies in pydantic union validation right after initialize, that's muster, not your client.
+12. **NEW 09-25 (DF-034): MCP tool args are flat** — path params + body fields all top-level in `arguments`; `{"task_id": N, "priority": "high"}` works, `{"task_id": N, "body": "…"}` silently does nothing (proven live). The path params are NOT in the advertised schema — pass them anyway.
+13. **NEW 09-25 (DF-035): never build from a git-init'd tarball** — `make build-cli` dies at link time (`Branch=HEAD unknown` in ldflags). Zero-commit `git init` triggers it; either build the pure tree (no .git) or commit first.
 
 ## References
 
