@@ -7,12 +7,15 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/wojons/muster/pkg/log"
 	"github.com/wojons/muster/pkg/request"
+	"gopkg.in/yaml.v3"
 )
 
 // Loader reconstructs commands from stored metadata
@@ -120,6 +123,14 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 
 	// Add flags
 	for _, flagMeta := range meta.Flags {
+		// DF-016: --raw is a presentation flag the loader registers itself
+		// (below). Older stores persisted it as regular metadata (the
+		// generate-time skip list only omitted output/namespace/debug), so
+		// re-registering it here would panic with "flag redefined", and
+		// forwarding it as a query-kind flag is exactly the ?raw=true leak.
+		if flagMeta.Name == "raw" {
+			continue
+		}
 		switch flagMeta.Type {
 		case "string":
 			defaultVal := flagMeta.Default
@@ -159,6 +170,11 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 
 	// Add output flag
 	cmd.Flags().StringP("output", "o", "table", "Output format (json, yaml, table)")
+
+	// DF-016: register --raw so pflag consumes it locally instead of
+	// forwarding it as a `?raw=true` query parameter, matching the
+	// generated path (pkg/generator).
+	cmd.Flags().BoolP("raw", "r", false, "Output raw API response")
 
 	// Set up the run handler to execute the HTTP request
 	cmd.RunE = l.createRunHandler(meta, baseURL)
@@ -235,6 +251,11 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 		var fileFlagPath string
 
 		for _, flagMeta := range meta.Flags {
+			// DF-016: --raw is a presentation flag consumed in
+			// executeAndReadResponse; never classify it as a query parameter.
+			if flagMeta.Name == "raw" {
+				continue
+			}
 			switch flagMeta.Kind {
 			case FlagKindBody:
 				bodyFlags = append(bodyFlags, flagMeta)
@@ -358,6 +379,10 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 }
 
 // executeAndReadResponse sends the request and prints the response.
+// DF-016: honors --raw and --output (json/yaml/table) on the reloaded path,
+// mirroring the in-session generated path (pkg/generator.executeAndPrint):
+// --raw dumps the body untouched; otherwise a JSON body is rendered per
+// --output (default table), and non-JSON bodies fall back to the raw dump.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/cmdstore/loader.go
 func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx context.Context) error {
 	resp, err := builder.Execute(ctx)
@@ -371,21 +396,167 @@ func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx co
 		return fmt.Errorf("read response body: %w", err)
 	}
 
-	if len(body) > 0 {
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(body))
+	out := cmd.OutOrStdout()
+
+	// --raw flag: dump the body untouched regardless of format.
+	raw, _ := cmd.Flags().GetBool("raw")
+	if raw || len(body) == 0 {
+		if len(body) > 0 {
+			_, _ = fmt.Fprintln(out, string(body))
+		}
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("HTTP error: %s", resp.Status)
+		}
+		logResponse(ctx, resp)
+		return nil
+	}
+
+	// --output flag: format (default "table"; the loader registers the flag
+	// with that default so it is always present).
+	format, _ := cmd.Flags().GetString("output")
+	if format == "" {
+		format = "table"
+	}
+
+	// Try to parse the body as JSON. If it's not valid JSON, dump raw
+	// regardless of the requested format (same behavior as the generated
+	// path).
+	var data interface{}
+	if err := json.Unmarshal(body, &data); err != nil {
+		_, _ = fmt.Fprintln(out, string(body))
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("HTTP error: %s", resp.Status)
+		}
+		logResponse(ctx, resp)
+		return nil
+	}
+
+	// Render the output in the requested format.
+	switch format {
+	case "table":
+		printTableOutput(out, data)
+	case "json":
+		pretty, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return fmt.Errorf("format JSON: %w", err)
+		}
+		_, _ = fmt.Fprintln(out, string(pretty))
+	case "yaml":
+		yamlBytes, err := yaml.Marshal(data)
+		if err != nil {
+			// Fall back to indented JSON if YAML marshalling fails.
+			pretty, _ := json.MarshalIndent(data, "", "  ")
+			_, _ = fmt.Fprintln(out, string(pretty))
+		} else {
+			_, _ = fmt.Fprint(out, string(yamlBytes))
+		}
+	default:
+		return fmt.Errorf("unsupported output format %q: supported formats are table, json, yaml", format)
 	}
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
+	logResponse(ctx, resp)
+	return nil
+}
+
+// logResponse emits the structured log entry for a completed HTTP response.
+func logResponse(ctx context.Context, resp *http.Response) {
 	logger := log.FromContext(ctx)
 	logger.Info().
 		Int("status_code", resp.StatusCode).
 		Str("status", resp.Status).
 		Msg("HTTP response received")
+}
 
-	return nil
+// printTableOutput renders JSON data as an aligned table using tabwriter.
+// Arrays of objects become rows with key headers; single objects become
+// key/value rows; other types are printed as-is. Mirrors
+// pkg/generator.printTableOutput so the reloaded path renders identically.
+func printTableOutput(out io.Writer, data interface{}) {
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+
+	switch v := data.(type) {
+	case map[string]interface{}:
+		for key, val := range v {
+			_, _ = fmt.Fprintf(w, "%s	%v	\n", key, tableFormatValue(val))
+		}
+	case []interface{}:
+		if len(v) == 0 {
+			_, _ = fmt.Fprintln(out, "(empty)")
+			return
+		}
+		keys := tableCollectKeys(v)
+		_, _ = fmt.Fprintf(w, "%s	\n", strings.Join(keys, "	"))
+		for _, item := range v {
+			if m, ok := item.(map[string]interface{}); ok {
+				var row []string
+				for _, k := range keys {
+					row = append(row, tableFormatValue(m[k]))
+				}
+				_, _ = fmt.Fprintf(w, "%s	\n", strings.Join(row, "	"))
+			}
+		}
+	default:
+		_, _ = fmt.Fprintf(w, "%v	\n", v)
+	}
+	_ = w.Flush()
+}
+
+// tableCollectKeys returns the ordered list of unique keys across all objects
+// in the array.
+func tableCollectKeys(items []interface{}) []string {
+	seen := make(map[string]bool)
+	var keys []string
+	for _, item := range items {
+		if m, ok := item.(map[string]interface{}); ok {
+			for k := range m {
+				if !seen[k] {
+					seen[k] = true
+					keys = append(keys, k)
+				}
+			}
+		}
+	}
+	return keys
+}
+
+// tableFormatValue converts a value to a display string for table rendering.
+func tableFormatValue(v interface{}) string {
+	if v == nil {
+		return "-"
+	}
+	// Render non-scalar values (maps/slices) as compact JSON instead of Go %v syntax.
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Map, reflect.Slice, reflect.Array:
+		b, err := json.Marshal(v)
+		if err != nil {
+			// Fallback to %v if JSON marshalling fails.
+			break
+		}
+		s := string(b)
+		if len(s) > 80 {
+			return s[:77] + "..."
+		}
+		return s
+	}
+	// Render float64 without scientific notation so large integer IDs
+	// (e.g. 90010011) display as whole numbers, not 9.0010011e+07.
+	if f, ok := v.(float64); ok {
+		s := strconv.FormatFloat(f, 'f', -1, 64)
+		if len(s) > 80 {
+			return s[:77] + "..."
+		}
+		return s
+	}
+	s := fmt.Sprintf("%v", v)
+	if len(s) > 80 {
+		return s[:77] + "..."
+	}
+	return s
 }
 
 // getFlagValue retrieves a flag value by its type
