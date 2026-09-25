@@ -17,8 +17,10 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/version"
+	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/mcp"
 	"github.com/wojons/muster/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/protocol/jsonrpc"
 )
 
 type MCPServerConfig struct {
@@ -34,6 +36,7 @@ type MCPServerConfig struct {
 	EnableTools           bool
 	EnableResources       bool
 	EnablePrompts         bool
+	OpenRPCDocPath        string // Path or URL to an OpenRPC discovery document (JSON-RPC tools)
 }
 
 var (
@@ -43,6 +46,7 @@ var (
 	logOutputFlag  = flag.String("log-output", "stderr", "Log output destination")
 	auditFlag      = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
 	wasmPluginFlag = flag.String("wasm-plugin", "", "Path to WASM plugin for response transformation")
+	openrpcDocFlag = flag.String("openrpc-doc", "", "Path or http(s) URL to an OpenRPC 1.x discovery document; registers discovered JSON-RPC methods as MCP tools")
 	versionFlag    = flag.Bool("version", false, "Print version information and exit")
 )
 
@@ -68,6 +72,7 @@ func loadConfig() *MCPServerConfig {
 		SpecPath:              *specPathFlag,
 		BaseURL:               resolveBaseURL(),
 		WasmPlugin:            *wasmPluginFlag,
+		OpenRPCDocPath:        *openrpcDocFlag,
 	}
 }
 
@@ -108,6 +113,15 @@ func runMCPServer(config *MCPServerConfig, server *mcp.Server) error {
 	if config.SpecPath != "" {
 		if err := loadAndRegisterTools(server, config); err != nil {
 			return fmt.Errorf("failed to load spec: %w", err)
+		}
+	}
+
+	// If an OpenRPC document is provided, register its methods as JSON-RPC
+	// tools (PROTO-004). Additive to the OpenAPI path: both tool sets can
+	// coexist on one server.
+	if config.OpenRPCDocPath != "" {
+		if err := loadAndRegisterJSONRPCTools(server, config); err != nil {
+			return fmt.Errorf("failed to load OpenRPC document: %w", err)
 		}
 	}
 
@@ -205,6 +219,50 @@ func RegisterHandler(server *mcp.Server, handler handlers.Handler) {
 	if server != nil {
 		server.RegisterHandler(handler)
 	}
+}
+
+// loadAndRegisterJSONRPCTools loads an OpenRPC discovery document (file path
+// or http(s) URL) and registers its methods as MCP tools backed by the
+// JSON-RPC 2.0 adapter (PROTO-004). The endpoint is the document's
+// servers[0].url unless overridden by --base-url / MUSTER_BASE_URL.
+func loadAndRegisterJSONRPCTools(server *mcp.Server, config *MCPServerConfig) error {
+	ctx := context.Background()
+
+	httpClient := client.NewClient()
+	discoverer := jsonrpc.NewClient("http://127.0.0.1", jsonrpc.WithHTTPClient(httpClient))
+
+	ops, err := discoverer.Discover(ctx, config.OpenRPCDocPath)
+	if err != nil {
+		return fmt.Errorf("discover OpenRPC methods: %w", err)
+	}
+
+	// Executor endpoint: explicit override wins, else the document's
+	// servers[0].url stamped on the operations.
+	endpoint := config.BaseURL
+	if endpoint == "" {
+		for _, op := range ops {
+			if ep := op.Source["server"]; ep != "" {
+				endpoint = ep
+				break
+			}
+		}
+	}
+	if endpoint == "" {
+		return fmt.Errorf("no JSON-RPC endpoint: pass --base-url (or MUSTER_BASE_URL) or add servers[] to the OpenRPC document")
+	}
+
+	executor := jsonrpc.NewClient(endpoint,
+		jsonrpc.WithHTTPClient(httpClient),
+		jsonrpc.WithTimeout(config.CommandTimeout),
+	)
+
+	if err := jsonrpc.RegisterWithServer(server, ops, executor); err != nil {
+		return fmt.Errorf("register JSON-RPC tools: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Loaded OpenRPC document: %s (%d JSON-RPC tools, endpoint %s)\n",
+		config.OpenRPCDocPath, len(ops), endpoint)
+	return nil
 }
 
 // effectiveToolBaseURL reports the base URL the converted tools will actually
