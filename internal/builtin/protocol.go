@@ -61,34 +61,56 @@ func newProtocolJSONRPCCommand() *cobra.Command {
 		Long: `Discover JSON-RPC 2.0 methods from an OpenRPC discovery document and
 execute them over HTTP POST.
 
-Discovery (no --method): fetches the OpenRPC document from --doc (a local
-file path or an http(s) URL) and prints each method as a neutral operation.
+Discovery (--doc, no --method): fetches the OpenRPC document from --doc (a
+local file path or an http(s) URL) and prints each method as a neutral
+operation.
 
-Call (--method): executes one method against --endpoint with the given JSON
-arguments and prints the decoded result. JSON-RPC batches are not
-implemented (optional in JSON-RPC 2.0); every call is a single request.`,
+Call (--doc with --method): executes one method against --endpoint (default:
+the document's servers[0].url) with the given JSON arguments and prints the
+decoded result.
+
+Call-only (--endpoint with --method, no --doc): sends the JSON-RPC 2.0
+request straight to --endpoint with no discovery document fetch and no method
+lookup. This is the integration path for a caller that already knows the
+method name and its parameters; --method is required in this mode.
+
+JSON-RPC batches are not implemented (optional in JSON-RPC 2.0); every call is
+a single request.`,
 	}
 
-	cmd.Flags().StringVar(&docURI, "doc", "", "OpenRPC discovery document (file path or http(s) URL)")
-	cmd.Flags().StringVar(&endpoint, "endpoint", "", "JSON-RPC endpoint URL (default: the document's servers[0].url)")
-	cmd.Flags().StringVar(&method, "method", "", "method to execute (omit to only list discovered operations)")
+	cmd.Flags().StringVar(&docURI, "doc", "", "OpenRPC discovery document (file path or http(s) URL); enables discovery and document-backed calls")
+	cmd.Flags().StringVar(&endpoint, "endpoint", "", "JSON-RPC endpoint URL (default: the document's servers[0].url); required for a call with no --doc")
+	cmd.Flags().StringVar(&method, "method", "", "method to execute; with --endpoint and no --doc it calls directly (omit to only list discovered operations)")
 	cmd.Flags().StringVar(&argsJSON, "args", "{}", "method arguments as a JSON object")
 	cmd.Flags().DurationVar(&callTimeout, "timeout", jsonrpcDefaultTimeout, "per-call timeout (applies only when the call has no other deadline)")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if strings.TrimSpace(docURI) == "" {
-			return fmt.Errorf("--doc is required (OpenRPC discovery document)")
-		}
-
 		ctx := cmd.Context()
 		if ctx == nil {
 			ctx = context.Background()
 		}
 
-		// The discoverer client's endpoint is irrelevant (the document names
-		// the RPC endpoint); the execution client binds to the resolved
-		// endpoint. Both share one HTTP client per §3.1.
+		// One HTTP client per invocation (§3.1): discovery and execution share
+		// it in --doc mode.
 		httpClient := client.NewClient()
+
+		// No --doc: endpoint-only (call-only) mode. The method name and
+		// arguments are taken as given and no discovery document is fetched
+		// (DF-025). Usage errors name the missing flag.
+		if strings.TrimSpace(docURI) == "" {
+			return runJSONRPCEndpointOnly(cmd, runJSONRPCEndpointOnlyParams{
+				endpoint:   endpoint,
+				method:     method,
+				argsJSON:   argsJSON,
+				timeout:    callTimeout,
+				httpClient: httpClient,
+			})
+		}
+
+		// --doc mode: discovery first, then the same request path. The
+		// discoverer client's endpoint is irrelevant (the document names
+		// the RPC endpoint); the execution client binds to the resolved
+		// endpoint.
 		discoverer := jsonrpc.NewClient("http://127.0.0.1",
 			jsonrpc.WithHTTPClient(httpClient),
 		)
@@ -113,6 +135,35 @@ implemented (optional in JSON-RPC 2.0); every call is a single request.`,
 	}
 
 	return cmd
+}
+
+// runJSONRPCEndpointOnlyParams carries the validated endpoint-only inputs.
+type runJSONRPCEndpointOnlyParams struct {
+	endpoint   string
+	method     string
+	argsJSON   string
+	timeout    time.Duration
+	httpClient *client.Client
+}
+
+// runJSONRPCEndpointOnly executes one method against --endpoint without
+// fetching an OpenRPC discovery document (DF-025). Because there is no
+// document to look the method up in, both call inputs are mandatory: a
+// missing one is reported as a usage error naming the flag that is absent.
+func runJSONRPCEndpointOnly(cmd *cobra.Command, p runJSONRPCEndpointOnlyParams) error {
+	endpoint := strings.TrimSpace(p.endpoint)
+	method := strings.TrimSpace(p.method)
+
+	switch {
+	case endpoint == "" && method == "":
+		return fmt.Errorf("--doc is required to discover operations; for a call without a discovery document pass --endpoint <url> and --method <name>")
+	case endpoint == "":
+		return fmt.Errorf("--endpoint is required when --doc is omitted (endpoint-only call of method %q)", method)
+	case method == "":
+		return fmt.Errorf("--method is required when --doc is omitted (endpoint-only call to %s); pass --method <name> or --doc <discovery document>", endpoint)
+	}
+
+	return runJSONRPCRequest(cmd, endpoint, method, p.argsJSON, p.timeout, p.httpClient)
 }
 
 // runJSONRPCCallParams carries the validated call inputs.
@@ -150,23 +201,32 @@ func runJSONRPCCall(cmd *cobra.Command, p runJSONRPCCallParams) error {
 		return fmt.Errorf("no endpoint: pass --endpoint or add servers[] to the OpenRPC document")
 	}
 
+	return runJSONRPCRequest(cmd, endpoint, target.ID, p.argsJSON, p.timeout, p.httpClient)
+}
+
+// runJSONRPCRequest executes one JSON-RPC 2.0 method against endpoint and
+// prints the decoded result. Both invocation modes (document-backed and
+// endpoint-only) funnel through here: the request build and the response
+// decode live in pkg/protocol/jsonrpc, which reuses the pkg/mcp codec, so this
+// function only decodes the caller's JSON arguments and renders the result.
+func runJSONRPCRequest(cmd *cobra.Command, endpoint, method, argsJSON string, timeout time.Duration, httpClient *client.Client) error {
 	var callArgs map[string]interface{}
-	if strings.TrimSpace(p.argsJSON) != "" {
-		if err := json.Unmarshal([]byte(p.argsJSON), &callArgs); err != nil {
+	if strings.TrimSpace(argsJSON) != "" {
+		if err := json.Unmarshal([]byte(argsJSON), &callArgs); err != nil {
 			return fmt.Errorf("invalid --args JSON object: %w", err)
 		}
 	}
 
 	executor := jsonrpc.NewClient(endpoint,
-		jsonrpc.WithHTTPClient(p.httpClient),
-		jsonrpc.WithTimeout(p.timeout),
+		jsonrpc.WithHTTPClient(httpClient),
+		jsonrpc.WithTimeout(timeout),
 	)
 
 	ctx := cmd.Context()
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	result, err := executor.Execute(ctx, target.ID, callArgs)
+	result, err := executor.Execute(ctx, method, callArgs)
 	if err != nil {
 		return err
 	}

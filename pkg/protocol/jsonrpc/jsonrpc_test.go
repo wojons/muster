@@ -306,6 +306,72 @@ func TestExecute_Echo_RoundTrip(t *testing.T) {
 	assert.Equal(t, "hello", sent["msg"])
 }
 
+// ── endpoint-only execution: no discovery document in play (DF-025) ──────
+//
+// Execute is endpoint-bound: an endpoint string plus a method name is already
+// a complete call. These tests pin that contract (the CLI's call-only mode
+// depends on it) by executing methods that appear in no document, never
+// calling Discover, and asserting exactly one spec-shaped HTTP request.
+
+func TestExecute_EndpointOnly_NoDiscoverySingleRequest(t *testing.T) {
+	type recordedCall struct {
+		method      string
+		path        string
+		contentType string
+		body        []byte
+	}
+	var (
+		mu    sync.Mutex
+		calls []recordedCall
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		calls = append(calls, recordedCall{
+			method:      r.Method,
+			path:        r.URL.Path,
+			contentType: r.Header.Get("Content-Type"),
+			body:        body,
+		})
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":42,"result":{"sum":42}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	// The client is built from an endpoint alone; no Discover call ever runs.
+	c := newClientFor(srv.URL)
+
+	result, err := c.Execute(context.Background(), "add", map[string]interface{}{"a": float64(2), "b": float64(40)})
+	require.NoError(t, err)
+
+	mu.Lock()
+	got := append([]recordedCall(nil), calls...)
+	mu.Unlock()
+
+	require.Len(t, got, 1, "endpoint-only execution must be a single request (no discovery fetch)")
+	assert.Equal(t, http.MethodPost, got[0].method)
+	assert.Equal(t, "application/json", got[0].contentType)
+	assert.JSONEq(t, `{"jsonrpc":"2.0","id":42,"method":"add","params":{"a":2,"b":40}}`, string(got[0].body))
+
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok, "result must decode as a JSON object")
+	assert.Equal(t, float64(42), m["sum"])
+}
+
+func TestExecute_EndpointOnly_NilArgsSendEmptyParamsObject(t *testing.T) {
+	srv := newRecordingServer(t, nil)
+	c := newClientFor(srv.URL)
+
+	_, err := c.Execute(context.Background(), "echo", nil)
+	require.NoError(t, err)
+
+	// params must be an object even with no arguments, so a strictly-shaped
+	// endpoint never sees a missing member.
+	body, _ := srv.lastRequest()
+	assert.Contains(t, string(body), `"params":{}`)
+}
+
 func TestExecute_MethodNotFound_MapsToAppError(t *testing.T) {
 	srv := newRecordingServer(t, nil)
 	c := newClientFor(srv.URL)
