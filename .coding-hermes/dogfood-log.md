@@ -119,3 +119,38 @@ enabled; rows surface at the next natural tick.
 
 **No PERF rows filed:** nothing user-noticeable is slow (sub-40ms warm CLI,
 sub-1s cold generate); install time recorded above as a number.
+
+## 2026-09-25 (2nd run, same day) — management-plane surface
+
+**Promise statement:** "Muster's management plane works as documented: config
+profiles, keychain-backed credentials, multi-tenant context, shell completion,
+spec inventories, audit logging, webhook subscriptions, mTLS."
+
+**What was done (real use, not tests):** angle change per the skill (prior runs
+covered CLI CRUD/MCP/daemon/Go-lib/Docker/WASM/DSL/reload + install). Isolated
+HOME (/tmp/df-muster-3-home), live task-forge mock (:9801) and the repo's own
+auth-service mock (:9803, bearer). Worked the surface a real user works after
+the first successful request: `init` → config show → tenant set/switch/list/
+current → config profile (docs example 'production') → hand-edited profiles +
+aliases per configuration.md → auth add (api-key + bearer) → request vs auth-
+protected endpoint → inventory add/list → webhook create/list/test/delete →
+audit with MUSTER_AUDIT_ENABLED=1 → completion bash → auth mtls generate/info.
+READ SOURCE when stuck (allowed): located the tenant-validation bug at
+internal/builtin/extended.go:322-329.
+
+**Findings written to board:** DF-021 (P1, profile definition bricks tenant
+switching), DF-022 (P2, profile switch persists nothing; --profile flag and
+MUSTER_PROFILE env nonexistent/ignored), DF-023 (P2, stored credentials never
+attached to requests; troubleshooting 401 path dead-ends on nonexistent
+`config show auth`), DF-024 (P3, drift bundle: aliases, config
+validate/check/hierarchy, webhook name-vs-id, audit writes zero events, mtls
+key material in CWD). Works as promised: init, config show, inventory,
+webhook lifecycle, auth add/list storage, completion (1627-line bash script
+loads), mTLS cert generation.
+
+**Install leg:** not re-run — same-day run on the same HEAD; installability
+proven ~15h ago (commit 466f0d1f/5f24a1af, manual fresh-agent leg PASS).
+No new install surface changed since.
+
+**No PERF rows filed:** tenant/config-store command 31.9ms ± 21.3ms warm,
+27.9ms cold — nothing a user would notice.

@@ -11,6 +11,18 @@ Promise: "Turn any OpenAPI spec into a CLI, an MCP server, and a Go library — 
 
 Measured: `hyperfine --warmup 3 --runs 20 './bin/openapi-cli get-project 1'` → 35.1 ms ± 16.4 ms (min 16.3, max 75.9); discover/generate cold ≈ 0.03-0.04 s; `make build-cli` warm 5.4 s local / 51 s cold bunker. Nothing user-noticeable is slow — no PERF rows filed.
 
+## Dogfood Findings (2026-09-25) — management-plane surface (same day, angle change per skill)
+
+Verdict: PROMISING-BUT-ROUGH (the data-plane CLI remains solid; the ENTIRE management plane — profiles, credentials, tenants, audit — is largely cosmetic, and the documented recovery paths dead-end)
+Promise: "config profiles, keychain-backed credentials, multi-tenant context, completion, inventories, audit, webhooks, mTLS work as documented." Reality: inventory add/list and webhook create/list/delete/test work; auth add/list stores credentials; completion loads; BUT profile switch persists nothing, credentials are never attached to requests, and defining one profile bricks tenant switching.
+
+- [P1] DF-021 — defining ANY config profile bricks every existing tenant: `tenant set`/`tenant switch` fail with `unknown tenant "<id>"` for tenants `tenant list` still shows. internal/builtin/extended.go:322-329 validates against cfg.Profiles only once len(Profiles)>0; list reads tenants.json. Repro: fresh HOME → `tenant set acme` (ok) → add a `profiles:` block per configuration.md → `tenant set acme` → exit 1. Recovery = delete the profiles block. Fix + acceptance in board row.
+- [P2] DF-022 — `config profile switch development` prints success but persists NOTHING (no file mtime changes, `config show` still `Default Profile: `); the documented global `--profile` flag does not exist (`unknown flag`, exit 1) and `MUSTER_PROFILE` is ignored. Profiles are write-only config — no activation path exists at all.
+- [P2] DF-023 — stored credentials are never USED: `auth add` → 401 on the same request with no way to attach them (no flag/env/auto-wiring on `request` or generated commands; only manual `-H` works). docs troubleshooting 401 remedy loop dead-ends on nonexistent `config show auth`. Proven against the repo's own demo auth-service (:9803, bearer) and task-forge (:9801, X-API-Key).
+- [P3] DF-024 — management-plane drift bundle: documented `aliases:` never resolve (`unknown command`); `config validate/check/hierarchy` print generic help (subcommands don't exist); `webhook delete/test` reject the NAME that create/list accept (ID-only); `MUSTER_AUDIT_ENABLED=1` produces zero events (audit.jsonl never created); `auth mtls generate` drops cert.pem+key.pem into CWD — from a repo root that is key material untracked and NOT gitignored (cleaned up this run).
+
+Measured (perf Step 2b): `hyperfine --warmup 3 --runs 20 './bin/openapi-cli tenant current'` (reads config+tenants store) → 31.9 ms ± 21.3 ms warm; 27.9 ms ± 25.4 ms cold fresh-HOME. Nothing user-noticeable is slow — no PERF rows filed (3rd consecutive run with this result).
+
 ## Dogfood Findings (2026-09-04)
 Verdict: SHIPPABLE (first run to earn it — all 7 surfaces verified working on HEAD; 3 new findings below, all tests/infra/docs, none break the product)
 Promise: "Turn any OpenAPI spec into a CLI, an MCP server, and a Go library — instantly." Reality: holds. `./demo/run-all.sh` passed 23/23 checks in ~163s; full CLI CRUD round-trip vs live task-forge mock; MCP tools/list 22/22; daemon start/proxy/restart/status/stop all verified.
