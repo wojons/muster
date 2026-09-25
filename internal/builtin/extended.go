@@ -317,18 +317,40 @@ func deriveTier(cfg *config.Config, id string, entry *tenantEntry) string {
 	return "free"
 }
 
+// tenantKnown reports whether id names a tenant this CLI knows about: either a
+// declared config profile or an entry in the persisted tenant store. That
+// union is exactly what 'tenant list' renders, so the two commands can never
+// disagree about which ids are acceptable.
+func tenantKnown(cfg *config.Config, entries []tenantEntry, id string) bool {
+	if cfg != nil {
+		if _, ok := cfg.Profiles[id]; ok {
+			return true
+		}
+	}
+	return findTenantEntry(entries, id) != nil
+}
+
 // setActiveTenant validates the tenant, persists the active marker to the
 // tenants store, and updates the in-memory default profile.
 func setActiveTenant(cfg *config.Config, id string) error {
 	if cfg == nil {
 		return fmt.Errorf("config not initialized")
 	}
-	if _, ok := cfg.Profiles[id]; !ok && len(cfg.Profiles) > 0 {
-		return fmt.Errorf("unknown tenant %q — use 'tenant list'", id)
-	}
 	entries, err := loadTenants(cfg)
 	if err != nil {
 		return err
+	}
+	// Validate against the union of config profiles and persisted tenants —
+	// the same source 'tenant list' reads. Gating on cfg.Profiles alone meant
+	// that defining ANY profile (as docs/guides/configuration.md instructs)
+	// rejected every persisted tenant the user could still see listed
+	// (DF-021). When nothing is known yet, the id bootstraps a new tenant so
+	// `tenant set <id>` keeps working on a fresh install; ids absent from
+	// both sources are still rejected.
+	if len(cfg.Profiles) > 0 || len(entries) > 0 {
+		if !tenantKnown(cfg, entries, id) {
+			return fmt.Errorf("unknown tenant %q — use 'tenant list'", id)
+		}
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	upserted := false

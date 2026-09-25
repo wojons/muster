@@ -272,6 +272,121 @@ func TestTenantCommand_SetUnknownTenant(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestTenantCommand_PersistedTenantSurvivesProfileAddition is the DF-021
+// regression: once a `profiles:` block exists in config.yaml (as
+// docs/guides/configuration.md instructs), tenants persisted earlier must
+// remain selectable. It walks the real flow — isolated HOME, `tenant set` on a
+// fresh install, then a profiles block loaded through the config loader — so
+// the validation source and the store are exercised together.
+func TestTenantCommand_PersistedTenantSurvivesProfileAddition(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configDir := filepath.Join(home, ".config", "muster")
+
+	// Fresh HOME: no profiles declared, no tenants store yet.
+	fresh, err := config.NewLoader().Load()
+	require.NoError(t, err)
+	require.Empty(t, fresh.Profiles)
+	require.Equal(t, configDir, fresh.ConfigDir)
+
+	cmd := newTenantCommand(fresh)
+	cmd.SetArgs([]string{"set", "a"})
+	require.NoError(t, cmd.Execute())
+	require.Equal(t, "a", fresh.DefaultProfile)
+
+	// The user now follows docs/guides/configuration.md and adds profiles.
+	require.NoError(t, os.MkdirAll(configDir, 0700))
+	cfgFile := filepath.Join(configDir, "config.yaml")
+	require.NoError(t, os.WriteFile(cfgFile, []byte(`profiles:
+  b:
+    spec:
+      base_url: https://b.example.com/v1
+`), 0600))
+
+	loader := config.NewLoader()
+	loader.SetConfigFile(cfgFile)
+	reloaded, err := loader.Load()
+	require.NoError(t, err)
+	require.NotEmpty(t, reloaded.Profiles, "profiles block must be loaded for this test to be meaningful")
+	require.Equal(t, configDir, reloaded.ConfigDir)
+	_, profileOnly := reloaded.Profiles["a"]
+	require.False(t, profileOnly, "tenant a must not exist as a profile")
+
+	// 'tenant list' still shows the persisted tenant ...
+	out, err := captureStdout(func() error {
+		l := newTenantCommand(reloaded)
+		l.SetArgs([]string{"list"})
+		return l.Execute()
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "a")
+
+	// ... and switching back to it must succeed (DF-021).
+	sw := newTenantCommand(reloaded)
+	sw.SetArgs([]string{"switch", "a"})
+	require.NoError(t, sw.Execute())
+	assert.Equal(t, "a", reloaded.DefaultProfile)
+}
+
+// TestTenantCommand_ListAndValidationAgree verifies the union contract:
+// every id 'tenant list' shows — whether it comes from a config profile or
+// from the persisted store — is accepted by 'tenant set'/'tenant switch',
+// while an id in neither source is still rejected.
+func TestTenantCommand_ListAndValidationAgree(t *testing.T) {
+	// Fresh install: no profiles, no tenants store.
+	cfg := &config.Config{ConfigDir: t.TempDir()}
+
+	// A tenant persisted with no matching profile.
+	cmd := newTenantCommand(cfg)
+	cmd.SetArgs([]string{"set", "persisted-only"})
+	require.NoError(t, cmd.Execute())
+
+	// A config profile appears afterwards (the union now has two sources).
+	cfg.Profiles = map[string]config.Profile{
+		"profile-only": {BaseURL: "https://profile.example"},
+	}
+
+	out, err := captureStdout(func() error {
+		l := newTenantCommand(cfg)
+		l.SetArgs([]string{"list"})
+		return l.Execute()
+	})
+	require.NoError(t, err)
+	require.Contains(t, out, "profile-only")
+	require.Contains(t, out, "persisted-only")
+
+	var listed []string
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if fields[0] == "*" {
+			listed = append(listed, fields[1])
+			continue
+		}
+		listed = append(listed, fields[0])
+	}
+	require.ElementsMatch(t, []string{"persisted-only", "profile-only"}, listed)
+
+	for _, id := range listed {
+		for _, sub := range []string{"set", "switch"} {
+			c := newTenantCommand(cfg)
+			c.SetArgs([]string{sub, id})
+			require.NoErrorf(t, c.Execute(), "tenant list shows %q but `tenant %s %s` rejected it", id, sub, id)
+		}
+	}
+
+	// Ids in neither tenants.json nor profiles are still rejected.
+	for _, sub := range []string{"set", "switch"} {
+		c := newTenantCommand(cfg)
+		c.SetArgs([]string{sub, "ghost"})
+		err := c.Execute()
+		require.Errorf(t, err, "`tenant %s ghost` must fail", sub)
+		assert.Contains(t, err.Error(), "unknown tenant")
+	}
+}
+
 // TestTenantCommand_Current verifies current shows name, tier, timestamp.
 func TestTenantCommand_Current(t *testing.T) {
 	cfg := &config.Config{
