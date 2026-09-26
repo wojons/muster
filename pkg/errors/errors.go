@@ -22,6 +22,11 @@ const (
 	CodeInternal     Code = "INTERNAL_ERROR"
 	CodeTimeout      Code = "TIMEOUT"
 	CodeRateLimit    Code = "RATE_LIMITED"
+	// CodeProtocolMismatch reports that a required HTTP transport version
+	// could not be used (specs/PROTOCOLS.md §4.7 N5/N8). It is used only for
+	// a version the policy required, and never in place of a fallback that
+	// succeeded; the details carry requested, observed and reason.
+	CodeProtocolMismatch Code = "PROTOCOL_MISMATCH"
 )
 
 // Severity indicates the seriousness of an error.

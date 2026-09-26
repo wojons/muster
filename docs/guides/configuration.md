@@ -557,6 +557,37 @@ rate_limit:
   algorithm: token_bucket
 ```
 
+### HTTP Transport Version
+
+```yaml
+request:
+  http_version: auto   # auto (default) | 1.1 | 2 | 3
+```
+
+`request.http_version` selects the HTTP transport version policy for outbound
+requests (`MUSTER_HTTP_VERSION` overrides it; the `request` verb's
+`--http-version` flag overrides both):
+
+- `auto` (default) — negotiate opportunistically. Over TLS the client uses
+  HTTP/2 when the peer offers it; cleartext is HTTP/1.1 by construction (the
+  stdlib has no h2c). `auto` never fails on version.
+- `1.1` / `2` — the named version is REQUIRED. A peer that settles for another
+  one fails with `PROTOCOL_MISMATCH`, whose details carry `requested`,
+  `observed` and `reason` (`server-offered-http/1.1`, `plaintext-endpoint`).
+- `3` — HTTP/3 preferred. This build has no HTTP/3 transport yet, so it fails
+  loudly with `http3-transport-not-installed` rather than silently using HTTP/2.
+
+`openapi-cli request … -v` reports the version the request actually used on
+stderr, alongside `Request:` and `Status:`:
+
+```
+HTTP: HTTP/2.0 (wire, requested auto)
+```
+
+The version is read from the exchange that reached the network — never from the
+response object, which the response cache rebuilds, and never from the
+configuration, so what is printed is what was used.
+
 ## Configuration Validation
 
 There is no separate `config validate` / `config check` / `config hierarchy`

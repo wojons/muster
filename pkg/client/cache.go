@@ -22,9 +22,19 @@ import (
 //
 // Zero-value is not usable; use NewCacheRoundTripper.
 type CacheRoundTripper struct {
-	inner http.RoundTripper
-	cache cache.Cache
-	ttl   time.Duration
+	inner    http.RoundTripper
+	cache    cache.Cache
+	ttl      time.Duration
+	observer *ProtocolRecorder
+}
+
+// SetProtocolRecorder points the cache at the client's protocol recorder so a
+// cache-served response is reported as source "cache" with the version stored
+// with the entry (PROTOCOLS.md §4.7 N3). It is optional: a directly
+// constructed cache round tripper without one still caches, it just reports
+// nothing.
+func (r *CacheRoundTripper) SetProtocolRecorder(rec *ProtocolRecorder) {
+	r.observer = rec
 }
 
 // NewCacheRoundTripper creates a caching round tripper that wraps the given
@@ -63,6 +73,11 @@ func (r *CacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	// Check cache
 	if data, found, err := r.cache.Get(ctx, cacheKey); err == nil && found {
 		contentType := r.getCachedContentType(ctx, cacheKey)
+		// The version the entry was written with — empty for an entry written
+		// before version recording existed, which is reported as no version at
+		// all rather than as HTTP/1.1 (PROTOCOLS.md §4.7 N3).
+		version := r.getCachedHTTPVersion(ctx, cacheKey)
+		r.observe(req, SourceCache, version)
 		return r.buildCachedResponse(data, contentType, req), nil
 	}
 
@@ -91,16 +106,49 @@ func (r *CacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 			_ = r.cache.Set(ctx, headerKey, []byte(ct), r.ttl)
 		}
 
+		// Cache the wire version the response arrived on, so a later hit can
+		// report it without a network exchange. resp.Proto is truthful at this
+		// layer: the inner transport is the exchange that produced it.
+		if resp.Proto != "" {
+			_ = r.cache.Set(ctx, versionKey(cacheKey), []byte(resp.Proto), r.ttl)
+		}
+
+		// A miss is served from the wire, so the exchange recorded below
+		// stands: the cache does not overwrite it with a cache-sourced record.
 		return r.buildCachedResponse(body, resp.Header.Get("Content-Type"), req), nil
 	}
 
 	return resp, nil
 }
 
+// observe reports a response the cache served without a network exchange.
+func (r *CacheRoundTripper) observe(req *http.Request, source, version string) {
+	if r.observer == nil {
+		return
+	}
+	r.observer.note(req.Method, req.URL.String(), source, version)
+}
+
 // getCachedContentType retrieves the cached Content-Type header value.
 func (r *CacheRoundTripper) getCachedContentType(ctx context.Context, cacheKey string) string {
 	headerKey := "HEADER:" + cacheKey + ":Content-Type"
 	if data, found, err := r.cache.Get(ctx, headerKey); err == nil && found {
+		return string(data)
+	}
+	return ""
+}
+
+// versionKey is the cache key under which the wire version of a cached
+// response is stored, alongside the body and the Content-Type header.
+func versionKey(cacheKey string) string {
+	return "HEADER:" + cacheKey + ":HTTP-Version"
+}
+
+// getCachedHTTPVersion retrieves the wire version a cached entry was written
+// with. An entry written before version recording existed has none, and the
+// empty string is returned — never a default of HTTP/1.1 (PROTOCOLS.md §4.7 N3).
+func (r *CacheRoundTripper) getCachedHTTPVersion(ctx context.Context, cacheKey string) string {
+	if data, found, err := r.cache.Get(ctx, versionKey(cacheKey)); err == nil && found {
 		return string(data)
 	}
 	return ""
@@ -132,6 +180,12 @@ func (r *CacheRoundTripper) buildCachedResponse(body []byte, contentType string,
 // When c is nil, the option is a no-op and caching is disabled — existing
 // client behavior is unchanged.
 //
+// The cache also records the wire version of each entry and reports a
+// cache-served response to the client's ProtocolRecorder (source "cache"), so
+// a caller reading the recorder learns which version carried the original
+// exchange even though the rebuilt response object does not say (PROTOCOLS.md
+// §4.7 N1/N3).
+//
 // The caller retains ownership of the cache and is responsible for calling
 // Close on it when no longer needed.
 //
@@ -149,6 +203,8 @@ func WithCache(c cache.Cache, ttl time.Duration) ClientOption {
 		if transport == nil {
 			transport = http.DefaultTransport
 		}
-		cl.httpClient.Transport = NewCacheRoundTripper(transport, c, ttl)
+		cacheRT := NewCacheRoundTripper(transport, c, ttl)
+		cacheRT.SetProtocolRecorder(cl.protocol)
+		cl.httpClient.Transport = cacheRT
 	}
 }

@@ -18,8 +18,17 @@ import (
 //
 // Zero-value is not usable; use NewRateLimitRoundTripper.
 type RateLimitRoundTripper struct {
-	inner   http.RoundTripper
-	limiter *rate.TokenBucket
+	inner    http.RoundTripper
+	limiter  *rate.TokenBucket
+	observer *ProtocolRecorder
+}
+
+// SetProtocolRecorder points the rate limiter at the client's protocol
+// recorder so a locally refused request is reported as source "local" with no
+// version (PROTOCOLS.md §4.7 N3): no exchange took place, so there is no
+// negotiated version to claim.
+func (r *RateLimitRoundTripper) SetProtocolRecorder(rec *ProtocolRecorder) {
+	r.observer = rec
 }
 
 // NewRateLimitRoundTripper creates a rate-limiting round tripper that wraps
@@ -49,6 +58,14 @@ func NewRateLimitRoundTripper(inner http.RoundTripper, ratePerSec, burst int) *R
 // and a Content-Length header. The caller must call resp.Body.Close().
 func (r *RateLimitRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if !r.limiter.Allow() {
+		// Report the refusal before synthesizing the response: no exchange
+		// happened, so this request has no negotiated version. The Proto field
+		// below is the response object's local framing metadata (req.Proto),
+		// not an observed version — it must never be read as one (PROTOCOLS.md
+		// §4.7 N1/N3; DF-041 covers the response-object fidelity fix).
+		if r.observer != nil {
+			r.observer.note(req.Method, req.URL.String(), SourceLocal, "")
+		}
 		body := "rate limit exceeded\n"
 		return &http.Response{
 			Status:        "429 Too Many Requests",
@@ -92,6 +109,8 @@ func WithRateLimiter(ratePerSec, burst int) ClientOption {
 		if transport == nil {
 			transport = http.DefaultTransport
 		}
-		c.httpClient.Transport = NewRateLimitRoundTripper(transport, ratePerSec, burst)
+		limitRT := NewRateLimitRoundTripper(transport, ratePerSec, burst)
+		limitRT.SetProtocolRecorder(c.protocol)
+		c.httpClient.Transport = limitRT
 	}
 }

@@ -21,14 +21,15 @@ import (
 
 func newRequestCommand(cfg *config.Config) *cobra.Command {
 	var (
-		headers    []string
-		params     []string
-		output     string
-		verbose    bool
-		timeout    time.Duration
-		httpBody   string
-		wasmPlugin string
-		authName   string
+		headers     []string
+		params      []string
+		output      string
+		verbose     bool
+		timeout     time.Duration
+		httpBody    string
+		wasmPlugin  string
+		authName    string
+		httpVersion string
 	)
 
 	cmd := &cobra.Command{
@@ -37,9 +38,16 @@ func newRequestCommand(cfg *config.Config) *cobra.Command {
 		Long: `Send HTTP requests with support for various methods, headers, and output formats.
 
 Attach a stored credential (see 'auth add') with --auth NAME: bearer
-credentials are sent as an 'Authorization: Bearer SECRET' header, api-key
-credentials as an 'X-API-Key: SECRET' header. An explicit -H header with
-the same name takes precedence over the stored credential.`,
+credentials are sent as an 'Authorization: Bearer ***' header, api-key
+credentials as an 'X-API-Key: *** header. An explicit -H header with
+the same name takes precedence over the stored credential.
+
+--http-version selects the HTTP transport version policy: 'auto' (default)
+negotiates opportunistically, '1.1' and '2' require the named version, and '3'
+prefers HTTP/3 (needs an HTTP/3 transport). With -v the version the request
+actually used is reported on stderr as an 'HTTP: <version>' line; a required
+version that could not be used fails with PROTOCOL_MISMATCH instead of
+silently using another one.`,
 		Args: cobra.ExactArgs(2),
 		// SilenceUsage prevents the full usage block from being dumped when a
 		// runtime error occurs (e.g. a 4xx/5xx HTTP response). Flag/arg misuse
@@ -49,6 +57,13 @@ the same name takes precedence over the stored credential.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			method := strings.ToUpper(args[0])
 			targetURL := args[1]
+
+			// The flag is the invocation-level override of the configured
+			// request.http_version policy (PROTOCOLS.md §4.7 N4). Resolve it
+			// onto the in-memory config so the handler reads one source.
+			if httpVersion != "" && cfg != nil {
+				cfg.Request.HTTPVersion = httpVersion
+			}
 
 			return handleRequest(cfg, method, targetURL, headers, params, output, verbose, timeout, httpBody, wasmPlugin, authName)
 		},
@@ -78,6 +93,7 @@ the same name takes precedence over the stored credential.`,
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "Request timeout")
 	cmd.Flags().StringVarP(&httpBody, "body", "b", "", "Request body for POST/PUT requests")
 	cmd.Flags().StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
+	cmd.Flags().StringVar(&httpVersion, "http-version", "", "HTTP transport version policy: auto (default), 1.1, 2 or 3 (overrides request.http_version)")
 
 	return cmd
 }
@@ -151,9 +167,20 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 		return fmt.Errorf("build request: %w", err)
 	}
 
-	// Build client options
+	// Resolve the HTTP transport version policy (PROTOCOLS.md §4.7 N4) before
+	// anything is sent: an unknown value is a validation error naming the
+	// accepted set, never a silent fallback to "auto".
+	version, err := client.NormalizeHTTPVersion(requestHTTPVersion(cfg))
+	if err != nil {
+		return err
+	}
+
+	// Build client options. WithHTTPVersion installs the base transport and
+	// must precede the wrapper options, which wrap whatever transport exists
+	// when they run (PROTOCOLS.md §4.7 N2).
 	var clientOpts []client.ClientOption
 	clientOpts = append(clientOpts, client.WithTimeout(timeout))
+	clientOpts = append(clientOpts, client.WithHTTPVersion(version))
 	if cfg != nil && cfg.RateLimit.Enabled {
 		clientOpts = append(clientOpts, client.WithRateLimiter(cfg.RateLimit.RatePerSec, cfg.RateLimit.Burst))
 	}
@@ -195,6 +222,11 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Request: %s %s\n", method, targetURL)
 		fmt.Fprintf(os.Stderr, "Status: %d %s\n", resp.StatusCode, resp.Status)
+		// PROTOCOLS.md §4.7 N7: report the version the request actually used
+		// on stderr (never stdout, whose payload fidelity is frozen). The
+		// value comes from the client's ProtocolRecorder, not from
+		// resp.Proto, which the cache and a local refusal rebuild.
+		fmt.Fprintf(os.Stderr, "HTTP: %s\n", formatHTTPVersion(httpClient.Protocol()))
 		// DF-023: report the attached credential MASKED — the secret is
 		// never echoed in verbose output ("Authorization: Bearer ***").
 		if attachedCred != nil {
@@ -233,6 +265,32 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 	}
 
 	return nil
+}
+
+// requestHTTPVersion returns the HTTP transport version policy in force for a
+// request: the configured value (request.http_version, PROTOCOLS.md §4.7 N4)
+// or the library default when there is no configuration.
+func requestHTTPVersion(cfg *config.Config) string {
+	if cfg == nil {
+		return client.HTTPVersionAuto
+	}
+	return cfg.Request.HTTPVersion
+}
+
+// formatHTTPVersion renders a protocol record for the verbose diagnostic line:
+// the version the exchange used and where the response came from, plus the
+// policy that was in force. It never invents a version — a response with no
+// wire exchange renders as "unknown".
+func formatHTTPVersion(rec client.ProtocolRecord) string {
+	observed := rec.Observed
+	if observed == "" {
+		observed = "unknown"
+	}
+	source := rec.Source
+	if source == "" {
+		source = "unobserved"
+	}
+	return fmt.Sprintf("%s (%s, requested %s)", observed, source, rec.Requested)
 }
 
 // maskAuthHeaderValue renders an Authorization/X-API-Key header value safe

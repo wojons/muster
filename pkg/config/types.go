@@ -24,6 +24,7 @@ type Config struct {
 
 	// Sub-configs
 	Cache     CacheConfig     `mapstructure:"cache"`
+	Request   RequestConfig   `mapstructure:"request"`
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
 	Auth      AuthConfig      `mapstructure:"auth"`
 	Daemon    DaemonConfig    `mapstructure:"daemon"`
@@ -75,6 +76,18 @@ type RateLimitConfig struct {
 	Enabled    bool `mapstructure:"enabled"`
 	RatePerSec int  `mapstructure:"rate_per_sec"` // tokens added per second
 	Burst      int  `mapstructure:"burst"`        // max accumulated tokens
+}
+
+// RequestConfig represents outbound HTTP request behaviour.
+type RequestConfig struct {
+	// HTTPVersion is the HTTP transport version policy
+	// (specs/PROTOCOLS.md §4.7 N4): "auto" (default — negotiate
+	// opportunistically, currently HTTP/2 over TLS), "1.1" or "2" (the named
+	// version is required; a peer that offers another one fails with
+	// CodeProtocolMismatch), or "3" (HTTP/3 preferred; requires an HTTP/3
+	// transport, PROTO-015). The `request` verb's --http-version flag
+	// overrides this value per invocation.
+	HTTPVersion string `mapstructure:"http_version"`
 }
 
 // RedisConfig represents Redis connection configuration

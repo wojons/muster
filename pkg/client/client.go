@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/wojons/muster/internal/telemetry"
+	"github.com/wojons/muster/pkg/errors"
 	"github.com/wojons/muster/pkg/retry"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -47,6 +48,16 @@ type Client struct {
 	retrier    *retry.Retrier
 	baseURL    string
 	headers    map[string]string
+
+	// protocol records the HTTP transport version every exchange used, and
+	// httpVersion is the policy in force (PROTOCOLS.md §4.7). baseTransport is
+	// the value that performs the exchange; transportExplicit is true once a
+	// caller supplied one (WithTransport), which is what lets a "3" policy
+	// rely on the caller installing an HTTP/3 transport (PROTO-015).
+	protocol          *ProtocolRecorder
+	baseTransport     http.RoundTripper
+	transportExplicit bool
+	httpVersion       string
 }
 
 // ClientOption configures a Client.
@@ -92,17 +103,31 @@ func WithRetryConfig(config retry.RetryConfig) ClientOption {
 
 // NewClient creates a new HTTP client with tracing support.
 //
+// The client always installs a base transport and a protocol recorder
+// (PROTOCOLS.md §4.7 N2): the default transport is HTTP/2-capable by
+// construction rather than by relying on the nil-transport fallback to
+// http.DefaultTransport, and the recorder sits below any wrapper option so it
+// observes what the network actually did. Use WithTransport to install another
+// transport and WithHTTPVersion to select a version policy.
+//
 // Example:
 //
 //	client := client.NewClient()
 //	resp, err := client.Get(ctx, "https://api.example.com/data")
 func NewClient(opts ...ClientOption) *Client {
+	rec := NewProtocolRecorder()
+	base := DefaultTransport()
 	c := &Client{
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: newProtocolTransport(base, rec),
 		},
-		headers: make(map[string]string),
+		headers:       make(map[string]string),
+		protocol:      rec,
+		baseTransport: base,
+		httpVersion:   HTTPVersionAuto,
 	}
+	rec.SetPolicy(HTTPVersionAuto)
 
 	for _, opt := range opts {
 		opt(c)
@@ -129,12 +154,134 @@ func (c *Client) SetTracer(tracer *telemetry.Tracer) {
 }
 
 // Do executes an HTTP request with tracing and optional retry logic.
+//
+// The transport version policy is enforced here, once per request: a policy
+// this build cannot honour is rejected before the exchange, and a required
+// version the peer did not use is reported as CodeProtocolMismatch after it
+// (PROTOCOLS.md §4.7 N5). The check runs after the retry loop so a version
+// mismatch — which is deterministic — is never retried.
 func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
-	// If retrier is configured, use retry logic
-	if c.retrier != nil {
-		return c.doWithRetry(ctx, req)
+	if err := c.protocolPreflight(); err != nil {
+		return nil, err
 	}
-	return c.doOnce(ctx, req)
+
+	var (
+		resp *http.Response
+		err  error
+	)
+	if c.retrier != nil {
+		resp, err = c.doWithRetry(ctx, req)
+	} else {
+		resp, err = c.doOnce(ctx, req)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if mismatch := c.protocolOutcome(req); mismatch != nil {
+		// The exchange happened; the caller gets the coded failure instead of
+		// a response that silently used another version.
+		_ = resp.Body.Close()
+		return nil, mismatch
+	}
+
+	return resp, nil
+}
+
+// protocolPreflight rejects a policy this build cannot honour, before any
+// request goes out: an unknown version (CodeValidation) and policy "3" without
+// an HTTP/3 transport (CodeProtocolMismatch, N5/N8). It never rejects a policy
+// the caller did not require.
+func (c *Client) protocolPreflight() error {
+	version := c.httpVersion
+	switch version {
+	case "", HTTPVersionAuto, HTTPVersion11, HTTPVersion2:
+		return nil
+	case HTTPVersion3:
+		if c.transportExplicit {
+			// The caller installed the transport (PROTO-015 installs
+			// http3.Transport this way), so the policy is theirs to satisfy;
+			// satisfaction is reported per request and a fallback, when one
+			// happens, is reported by the fallback code that performed it.
+			return nil
+		}
+		return protocolMismatch(HTTPVersion3, "", ReasonHTTP3TransportMissing)
+	default:
+		return errors.New(errors.CodeValidation,
+			fmt.Sprintf("invalid http version %q: want auto, 1.1, 2 or 3", version)).
+			WithDetail("value", version)
+	}
+}
+
+// protocolOutcome reports the required-version failure for the exchange just
+// performed, or nil when there is nothing to report. "auto" never fails on
+// version; policy "3" never fails here either, because a version other than
+// HTTP/3 under a "3" preference is a fallback (PROTO-015), not a mismatch. A
+// request that never reached the wire (a local refusal such as the rate
+// limiter's 429, or a cache-served response) used no version, so there is no
+// downgrade to report — the record says source local/cache with no version.
+func (c *Client) protocolOutcome(req *http.Request) error {
+	if c.protocol == nil {
+		return nil
+	}
+	rec := c.protocol.Last()
+	if rec.Method != req.Method || req.URL == nil || rec.URL != req.URL.String() {
+		// No observation for this request: nothing to report. (This is the
+		// shape left by SetHTTPClient, which discards the recorder with the
+		// rest of the option-installed chain — forbidden for version
+		// selection, defect DF-042.)
+		return nil
+	}
+	switch rec.Requested {
+	case HTTPVersion11, HTTPVersion2:
+	default:
+		return nil
+	}
+	if rec.Observed == "" || rec.Satisfied {
+		return nil
+	}
+
+	reason := serverOfferedReason(rec.Observed)
+	if req.URL != nil && req.URL.Scheme == "http" && rec.Observed == WireVersionHTTP11 {
+		// Cleartext has no h2c in the stdlib and QUIC requires TLS 1.3, so a
+		// plaintext endpoint can never satisfy a required 2 or 3 (N5).
+		reason = ReasonPlaintextEndpoint
+	}
+	return protocolMismatch(rec.Requested, rec.Observed, reason)
+}
+
+// Protocol returns the record for the exchange this client performed most
+// recently (PROTOCOLS.md §4.7 N3), including the policy in force. It is the
+// surface product code reads instead of http.Response.Proto, which the cache
+// and the local rate-limit refusal rebuild. On a cache-served response the
+// record reports source "cache" with the version stored with the cache entry;
+// a response with no wire exchange reports no version at all, never a default
+// of HTTP/1.1.
+func (c *Client) Protocol() ProtocolRecord {
+	if c == nil || c.protocol == nil {
+		return ProtocolRecord{}
+	}
+	return c.protocol.Last()
+}
+
+// ProtocolRecorder returns the recorder that collects this client's
+// observations, for callers that need a per-request lookup
+// (ProtocolRecorder.For) rather than the most recent exchange.
+func (c *Client) ProtocolRecorder() *ProtocolRecorder {
+	if c == nil {
+		return nil
+	}
+	return c.protocol
+}
+
+// BaseTransport returns the transport that performs the exchange, below the
+// protocol recorder and every wrapper option. It is nil only for a Client not
+// built by NewClient.
+func (c *Client) BaseTransport() http.RoundTripper {
+	if c == nil {
+		return nil
+	}
+	return c.baseTransport
 }
 
 // doOnce executes a single HTTP request with tracing.

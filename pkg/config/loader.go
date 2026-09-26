@@ -54,6 +54,7 @@ func (l *Loader) Load() (*Config, error) {
 		if err := l.loadFile(l.configFile, cfg); err != nil {
 			return nil, fmt.Errorf("load config file %s: %w", l.configFile, err)
 		}
+		applyRequestDefaults(cfg)
 		return cfg, nil
 	}
 
@@ -77,7 +78,21 @@ func (l *Loader) Load() (*Config, error) {
 	// Apply env vars as top-priority overrides (after files, before CLI flags)
 	l.applyEnvOverrides(cfg)
 
+	// Defaults are applied after every file source: loadFile replaces the
+	// whole struct with the parsed document, so a default set before loading
+	// would be wiped by any config file that does not carry the key.
+	applyRequestDefaults(cfg)
+
 	return cfg, nil
+}
+
+// applyRequestDefaults fills in the request settings that have a default and
+// are absent from the loaded document (specs/PROTOCOLS.md §4.7 N4: the HTTP
+// version policy defaults to "auto").
+func applyRequestDefaults(cfg *Config) {
+	if cfg.Request.HTTPVersion == "" {
+		cfg.Request.HTTPVersion = "auto"
+	}
 }
 
 // loadFile reads a single config file and merges it into cfg.
@@ -203,6 +218,11 @@ func (l *Loader) applyEnvOverrides(cfg *Config) {
 	// MUSTER_AUDIT_ENABLED
 	if v := os.Getenv("MUSTER_AUDIT_ENABLED"); v == "1" || v == "true" {
 		cfg.AuditEnabled = true
+	}
+	// MUSTER_HTTP_VERSION overrides the HTTP transport version policy
+	// (specs/PROTOCOLS.md §4.7 N4).
+	if v := os.Getenv("MUSTER_HTTP_VERSION"); v != "" {
+		cfg.Request.HTTPVersion = v
 	}
 }
 
