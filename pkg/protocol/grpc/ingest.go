@@ -15,10 +15,13 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/jhump/protoreflect/desc"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 
 	"github.com/wojons/muster/pkg/errors"
@@ -210,11 +213,28 @@ func loadDescriptorSet(path string) ([]*desc.FileDescriptor, error) {
 
 // decodeDescriptorSet decodes raw FileDescriptorSet bytes into linked
 // descriptors (protoreflect handles both raw sets and ones built by protoc).
+//
+// A descriptor set is a DISCOVERY SOURCE (specs/PROTOCOLS.md §3.1): discovery
+// returns the union of the operations declared by every file the set contains,
+// so to restrict discovery to one file's services, pass that file's .proto
+// source instead of a set that also carries its dependencies.
+//
+// A set built without `protoc --include_imports` references its imports but
+// does not contain them. desc.CreateFileDescriptors resolves imports ONLY from
+// the supplied set, so such a set is closed here first: dependencies the
+// protobuf runtime registry knows (the well-known types the binary links in)
+// are synthesized into the set, which makes the descriptor-set path behave like
+// the .proto-source path for the same file. Anything still missing fails early,
+// before any operation is produced, naming the file and the remedy.
 func decodeDescriptorSet(data []byte, name string) ([]*desc.FileDescriptor, error) {
 	var set descriptorpb.FileDescriptorSet
 	if err := proto.Unmarshal(data, &set); err != nil {
 		return nil, errors.Wrap(err, errors.CodeValidation,
 			"decode FileDescriptorSet from "+name+" (not a compiled descriptor set?)")
+	}
+	unresolved := closeDescriptorSetDependencies(&set)
+	if len(unresolved) > 0 {
+		return nil, errors.New(errors.CodeValidation, nonSelfContainedMessage(name, unresolved))
 	}
 	fds, err := desc.CreateFileDescriptors(set.GetFile())
 	if err != nil {
@@ -228,6 +248,80 @@ func decodeDescriptorSet(data []byte, name string) ([]*desc.FileDescriptor, erro
 	// Deterministic order for downstream ID stability.
 	sort.Slice(out, func(i, j int) bool { return out[i].GetName() < out[j].GetName() })
 	return out, nil
+}
+
+// closeDescriptorSetDependencies makes a descriptor set self-contained by
+// appending the FileDescriptorProto of every transitively imported file the set
+// does not contain but the Go protobuf runtime registry knows (the generated
+// well-known-type packages register their files at init). It returns the names
+// it could not resolve, in first-seen order; nil means the set is now closed.
+//
+// Not one new dependency: google.golang.org/protobuf is already direct
+// (go.mod), and the registry lookup is the same runtime the adapter uses to
+// build request messages.
+func closeDescriptorSetDependencies(set *descriptorpb.FileDescriptorSet) []string {
+	present := make(map[string]bool, len(set.File))
+	for _, f := range set.File {
+		present[f.GetName()] = true
+	}
+	for {
+		missing := missingDependencyNames(set, present)
+		if len(missing) == 0 {
+			return nil
+		}
+		var unresolved []string
+		progress := false
+		for _, dep := range missing {
+			fd, err := protoregistry.GlobalFiles.FindFileByPath(dep)
+			if err != nil {
+				unresolved = append(unresolved, dep)
+				continue
+			}
+			fdp := protodesc.ToFileDescriptorProto(fd)
+			if present[fdp.GetName()] {
+				continue
+			}
+			set.File = append(set.File, fdp)
+			present[fdp.GetName()] = true
+			progress = true
+		}
+		if !progress {
+			return unresolved
+		}
+	}
+}
+
+// missingDependencyNames lists the imports referenced by the set's files that
+// the set itself does not contain: deduplicated, first-seen order.
+func missingDependencyNames(set *descriptorpb.FileDescriptorSet, present map[string]bool) []string {
+	var missing []string
+	seen := make(map[string]bool)
+	for _, f := range set.File {
+		for _, dep := range f.GetDependency() {
+			if present[dep] || seen[dep] {
+				continue
+			}
+			seen[dep] = true
+			missing = append(missing, dep)
+		}
+	}
+	return missing
+}
+
+// nonSelfContainedMessage is the operator-facing remedy for a descriptor set
+// whose imports cannot be resolved, naming every missing file and both fixes
+// (PROTO-013 §3.2, branch 2).
+func nonSelfContainedMessage(name string, unresolved []string) string {
+	quoted := make([]string, 0, len(unresolved))
+	for _, dep := range unresolved {
+		quoted = append(quoted, strconv.Quote(dep))
+	}
+	return "descriptor set " + name + " is not self-contained: it imports " +
+		strings.Join(quoted, ", ") + ", which it does not contain and which are not " +
+		"well-known types the protobuf runtime resolves. " +
+		"Fix: rebuild the set with `protoc --include_imports` (or the equivalent of the tool " +
+		"that produced it) so the imported files travel inside the set, or supply the missing " +
+		"file(s) as .proto sources / as an import-path URI of the form \"dir1:dir2=a.proto,b.proto\"."
 }
 
 // descriptorSetBytes compiles linked file descriptors into FileDescriptorSet

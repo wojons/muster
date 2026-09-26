@@ -1,0 +1,8 @@
+// Dependency of main.proto. A set built from main.proto WITHOUT
+// --include_imports references this file but does not contain it, and it is
+// NOT a well-known type, so it cannot be resolved from the protobuf runtime
+// registry — the fixtures/main_nodeps.pb fail-early branch.
+syntax = "proto3";
+package dep;
+message PingRequest { string id = 1; }
+service Extra { rpc Ping(PingRequest) returns (PingRequest); }

@@ -1,0 +1,20 @@
+// The rich fixture behind PROTO-013's G-SCHEMA gate: one service whose input
+// message exercises nested/repeated/map/enum/WKT/oneof/optional, importing a
+// well-known type that is NOT resolved from an include path on disk (the
+// parser's built-in standard imports provide it; see protosource.go).
+syntax = "proto3";
+package schema;
+import "google/protobuf/timestamp.proto";
+enum Color { COLOR_UNSPECIFIED = 0; RED = 1; }
+message Inner { string a = 1; }
+message Outer {
+  string id = 1;
+  Inner inner = 2;
+  repeated Inner list = 3;
+  map<string,string> attrs = 4;
+  Color color = 5;
+  google.protobuf.Timestamp created = 6;
+  oneof choice { string x = 7; int32 y = 8; }
+  optional string opt = 9;
+}
+service Desc { rpc Do(Outer) returns (Outer); }

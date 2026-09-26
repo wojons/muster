@@ -1,0 +1,10 @@
+// The importing file of the union/unresolvable-dependency fixtures. With
+// --include_imports the set holds dep.proto too (union over both files); with
+// a bare --descriptor_set_out the set references dep.proto and does not
+// contain it.
+syntax = "proto3";
+package mainpkg;
+import "dep.proto";
+message DoRequest { string id = 1; }
+message DoResponse { string ok = 1; }
+service Main { rpc Do(DoRequest) returns (DoResponse); }

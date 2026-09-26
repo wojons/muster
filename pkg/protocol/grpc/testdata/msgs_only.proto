@@ -1,0 +1,8 @@
+// Service-less fixture: 3 messages + 1 enum, no `service` declaration. It
+// yields 0 operations (extraction is services-only) and 4 schema types — the
+// two numbers PROTO-013's gate G-SCHEMA asserts as distinct.
+syntax = "proto3";
+package only;
+message Thing { string id = 1; int64 n = 2; }
+message Other { string name = 1; }
+enum Flavor { FLAVOR_UNSPECIFIED = 0; SWEET = 1; }
