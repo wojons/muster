@@ -46,9 +46,13 @@ const (
 
 // Reasons carried in the details of a CodeProtocolMismatch / fallback report.
 const (
-	// ReasonHTTP3TransportMissing is reported for policy "3" in a build that
-	// has no HTTP/3 transport installed. PROTO-015 installs one; until then
-	// asking for HTTP/3 fails loudly instead of silently using HTTP/2.
+	// ReasonHTTP3TransportMissing is reported for policy "3" when the
+	// installed transport cannot attempt HTTP/3 — a caller replaced the
+	// HTTP/3 transport policy "3" installs with one that is not HTTP/3
+	// capable. Asking for HTTP/3 fails loudly instead of quietly using
+	// HTTP/2, which is the one outcome the policy exists to prevent. The
+	// connection-layer classes a *reported fallback* carries are the
+	// ReasonQUIC* constants in http3.go.
 	ReasonHTTP3TransportMissing = "http3-transport-not-installed"
 	// ReasonPlaintextEndpoint is reported when a required version cannot be
 	// met because the URL is cleartext http://: the stdlib has no h2c and
@@ -83,8 +87,13 @@ func protocolMismatch(requested, observed, reason string) *errors.AppError {
 
 // ProtocolFallback records that a preferred version was attempted and another
 // carried the request (PROTOCOLS.md §4.7 N3). Only explicit fallback code sets
-// it: no transport falls back on its own (N6), and the HTTP/3 → HTTP/2 fallback
-// is PROTO-015's.
+// it: no transport falls back on its own (N6). The policy-"3" fallback
+// (HTTP3FallbackTransport in http3.go) is what fills it today.
+//
+// To is the version the successful attempt actually reported — read from its
+// response, never assumed to be HTTP/2.0 because that was the intent. Reason
+// is one of the connection-layer classes (ReasonQUIC*), by definition: an
+// HTTP status is never a fallback reason.
 type ProtocolFallback struct {
 	From   string `json:"from"`
 	To     string `json:"to"`
@@ -99,6 +108,13 @@ type ProtocolFallback struct {
 //
 // Observed is never guessed: it is empty when no exchange took place, and for
 // a cache-served response it is the version stored with the cache entry.
+//
+// Satisfied reports whether the policy's preferred version was the one used.
+// A policy-"3" request that fell back to HTTP/2 therefore succeeds with
+// Satisfied false *and* Fallback set — the two together say "carried, over the
+// other version, and here is why" (N4/N5). A policy "3" failure is never
+// reported as a fallback, and a fallback is never reported as success with no
+// signal.
 type ProtocolRecord struct {
 	Observed  string            `json:"observed"`
 	Source    string            `json:"source"`
@@ -124,6 +140,11 @@ type ProtocolRecorder struct {
 	sequence  uint64
 	last      ProtocolRecord
 	byRequest map[string]ProtocolRecord
+	// pending is a fallback a transport performed and has not yet been able
+	// to attach: the version that carried the request can only be recorded by
+	// the layer directly above the transfer that performed it, which runs
+	// after the fallback transport returns. note() consumes it.
+	pending *ProtocolFallback
 }
 
 // NewProtocolRecorder creates an empty recorder with the default policy.
@@ -181,6 +202,10 @@ func (r *ProtocolRecorder) For(method, url string) (ProtocolRecord, bool) {
 // note records one observation. observed is the wire version the response was
 // carried on, or "" when no exchange took place. source is one of SourceWire,
 // SourceCache or SourceLocal.
+//
+// A fallback a transport reported since the last observation is attached to
+// this record and cleared: it belongs to the exchange being recorded, which is
+// the one that reached the peer (PROTOCOLS.md §4.7 N3/N5).
 func (r *ProtocolRecorder) note(method, url, source, observed string) ProtocolRecord {
 	if r == nil {
 		return ProtocolRecord{}
@@ -193,13 +218,34 @@ func (r *ProtocolRecorder) note(method, url, source, observed string) ProtocolRe
 		Source:    source,
 		Requested: r.policy,
 		Satisfied: policySatisfied(r.policy, source, observed),
+		Fallback:  r.pending,
 		Method:    method,
 		URL:       url,
 		Sequence:  r.sequence,
 	}
+	r.pending = nil
 	r.last = rec
 	r.byRequest[requestKey(method, url)] = rec
 	return rec
+}
+
+// noteFallback records that a preferred version was attempted, failed at the
+// connection layer, and another version carried the request (PROTOCOLS.md
+// §4.7 N3/N5). The fallback is attached to the next observation recorded —
+// the exchange that actually happened — so a transport calls this after the
+// fallback response came back and before returning it.
+//
+// A client's recorder follows its most recent exchange unless the caller keeps
+// a per-request lookup (ProtocolRecorder.For), which is why the CLI and MCP
+// build one client per request (§4.7 N3); a long-lived client multiplexing
+// versions concurrently would need the context-carried shape §8 O4 defers.
+func (r *ProtocolRecorder) noteFallback(from, to, reason string) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.pending = &ProtocolFallback{From: from, To: to, Reason: reason}
 }
 
 // requestKey is the lookup key of the per-request record map. Method and URL

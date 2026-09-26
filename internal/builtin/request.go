@@ -44,8 +44,9 @@ the same name takes precedence over the stored credential.
 
 --http-version selects the HTTP transport version policy: 'auto' (default)
 negotiates opportunistically, '1.1' and '2' require the named version, and '3'
-prefers HTTP/3 (needs an HTTP/3 transport). With -v the version the request
-actually used is reported on stderr as an 'HTTP: <version>' line; a required
+prefers HTTP/3, falling back to HTTP/2 when the peer cannot be reached over
+QUIC. With -v the version the request actually used is reported on stderr as an
+'HTTP: <version>' line, together with any fallback that happened; a required
 version that could not be used fails with PROTOCOL_MISMATCH instead of
 silently using another one.`,
 		Args: cobra.ExactArgs(2),
@@ -279,8 +280,10 @@ func requestHTTPVersion(cfg *config.Config) string {
 
 // formatHTTPVersion renders a protocol record for the verbose diagnostic line:
 // the version the exchange used and where the response came from, plus the
-// policy that was in force. It never invents a version — a response with no
-// wire exchange renders as "unknown".
+// policy that was in force — and, when the policy preferred a version the peer
+// could not carry, the fallback that happened (PROTOCOLS.md §4.7 N5/N7). It
+// never invents a version — a response with no wire exchange renders as
+// "unknown" and a report with no fallback says nothing about one.
 func formatHTTPVersion(rec client.ProtocolRecord) string {
 	observed := rec.Observed
 	if observed == "" {
@@ -290,7 +293,15 @@ func formatHTTPVersion(rec client.ProtocolRecord) string {
 	if source == "" {
 		source = "unobserved"
 	}
-	return fmt.Sprintf("%s (%s, requested %s)", observed, source, rec.Requested)
+	report := fmt.Sprintf("%s (%s, requested %s", observed, source, rec.Requested)
+	if rec.Fallback != nil {
+		// An HTTP/3 request carried over HTTP/2 is a reported fact, not a
+		// silent downgrade: the line names both versions and the class of
+		// failure that forced it.
+		report += fmt.Sprintf(", fallback %s→%s: %s",
+			rec.Fallback.From, rec.Fallback.To, rec.Fallback.Reason)
+	}
+	return report + ")"
 }
 
 // maskAuthHeaderValue renders an Authorization/X-API-Key header value safe

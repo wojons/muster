@@ -32,8 +32,10 @@ require (
 	github.com/bytecodealliance/wasmtime-go/v8 v8.0.0
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/godbus/dbus/v5 v5.2.2
+	github.com/golang/protobuf v1.5.4
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/prometheus/client_golang v1.24.1
+	github.com/quic-go/quic-go v0.63.0
 	github.com/rs/zerolog v1.35.1
 	github.com/seccomp/libseccomp-golang v0.12.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.44.0
@@ -47,9 +49,9 @@ require (
 )
 
 require (
-	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/jhump/protoreflect/v2 v2.0.0-beta.1 // indirect
 	github.com/petermattis/goid v0.0.0-20260113132338-7c7de50cc741 // indirect
+	github.com/quic-go/qpack v0.6.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5 // indirect

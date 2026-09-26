@@ -186,7 +186,7 @@ func TestProtocol_DefaultClientNegotiatesHTTP2(t *testing.T) {
 	assert.Equal(t, SourceWire, rec.Source)
 	assert.Equal(t, HTTPVersionAuto, rec.Requested)
 	assert.True(t, rec.Satisfied, "auto is satisfied by an observed wire version")
-	assert.Nil(t, rec.Fallback, "no cross-version fallback exists in this build")
+	assert.Nil(t, rec.Fallback, "\"auto\" attempts no other version, so there is nothing to fall back from")
 	assert.Equal(t, WireVersionHTTP2, probe.lastProto(), "the server must have seen HTTP/2.0")
 	assert.Equal(t, WireVersionHTTP2, resp.Proto, "with no wrapper the response agrees")
 
@@ -320,14 +320,55 @@ func TestProtocol_Policy11ForcesHTTP11AgainstAnH2Peer(t *testing.T) {
 	assert.Equal(t, WireVersionHTTP11, probe.lastProto(), "the h2-capable peer must have served 1.1")
 }
 
-// TestProtocol_Policy3WithoutHTTP3TransportFails pins the boundary PROTO-015
-// takes over: asking for HTTP/3 in a build without an HTTP/3 transport fails
-// loudly and sends nothing.
-func TestProtocol_Policy3WithoutHTTP3TransportFails(t *testing.T) {
-	s, probe := newH2Server(t)
-	stubDefaultTransport(t, s)
+// TestProtocol_Policy3UsesHTTP3AndReportsAFallback is the boundary PROTO-014
+// left open, now closed: policy "3" attempts real HTTP/3, and when QUIC cannot
+// be reached it completes over HTTP/2 *with the fallback reported* — never as
+// a silent downgrade. (PROTO-014 asserted the opposite here, that the
+// transport was missing; that assertion is gone because the transport is not.)
+func TestProtocol_Policy3UsesHTTP3AndReportsAFallback(t *testing.T) {
+	// (a) The peer speaks HTTP/3: that is what carries the request.
+	h3Probe := &wireProbe{}
+	h3 := newH3Fixture(t, h3Probe.handler())
+	stubGlobalTransport(t, loopbackTLS(h3.pool))
 
-	c := NewClient(WithHTTPVersion(HTTPVersion3))
+	overH3 := NewClient(WithHTTPVersion(HTTPVersion3))
+	resp := doRequest(t, overH3, http.MethodGet, h3.url+"/x", nil)
+	_ = resp.Body.Close()
+
+	rec := overH3.Protocol()
+	assert.Equal(t, WireVersionHTTP3, rec.Observed)
+	assert.Equal(t, HTTPVersion3, rec.Requested)
+	assert.True(t, rec.Satisfied)
+	assert.Nil(t, rec.Fallback, "HTTP/3 was available, so nothing fell back")
+	assert.Equal(t, WireVersionHTTP3, h3Probe.lastProto(), "the server must agree it was HTTP/3")
+	closeBaseTransport(t, overH3)
+
+	// (b) The peer is TCP-only: the request is carried over HTTP/2 and the
+	// record carries the fallback, its direction and its connection-layer
+	// class — the caller can see that the preference was not met.
+	s, probe := newH2Server(t)
+	stubGlobalTransport(t, trustTLS(t, s))
+
+	withFallback := NewClient(
+		WithHTTPVersion(HTTPVersion3),
+		WithHTTP3Options(WithHTTP3QUICConfig(shortHandshakeQUIC())),
+	)
+	served := doRequest(t, withFallback, http.MethodGet, s.URL+"/x", nil)
+	defer func() { _ = served.Body.Close() }()
+
+	rec = withFallback.Protocol()
+	assert.Equal(t, WireVersionHTTP2, rec.Observed)
+	assert.Equal(t, WireVersionHTTP2, probe.lastProto())
+	assert.False(t, rec.Satisfied, "the preferred version was not the one used")
+	require.NotNil(t, rec.Fallback, "a fallback must be reported")
+	assert.Equal(t, WireVersionHTTP3, rec.Fallback.From)
+	assert.Equal(t, WireVersionHTTP2, rec.Fallback.To)
+	assertConnectionLayerReason(t, rec.Fallback.Reason)
+
+	// The old assertion still holds where it is still true: a transport that
+	// cannot attempt HTTP/3 under the "3" policy is a loud failure, not a
+	// quiet HTTP/2 request.
+	c := NewClient(WithHTTPVersion(HTTPVersion3), WithTransport(&http.Transport{TLSClientConfig: trustTLS(t, s)}))
 	_, err := c.Do(t.Context(), mustRequest(t, http.MethodGet, s.URL+"/x"))
 
 	var appErr *errors.AppError
@@ -335,7 +376,7 @@ func TestProtocol_Policy3WithoutHTTP3TransportFails(t *testing.T) {
 	assert.Equal(t, errors.CodeProtocolMismatch, appErr.Code())
 	assert.Equal(t, HTTPVersion3, appErr.Details()["requested"])
 	assert.Equal(t, ReasonHTTP3TransportMissing, appErr.Details()["reason"])
-	assert.Equal(t, int64(0), probe.hits.Load(), "no request may be sent when the transport is missing")
+	assert.Equal(t, int64(1), probe.hits.Load(), "only the cell above may have reached the peer, and the refusal must send nothing")
 }
 
 // TestProtocol_CacheHitReportsStoredWireVersion is gate 9(f): with the cache

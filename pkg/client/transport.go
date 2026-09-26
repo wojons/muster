@@ -71,8 +71,18 @@ func HTTP11Transport() *http.Transport {
 //	HTTPVersion2             — require HTTP/2; a peer that offers only HTTP/1.1
 //	                           is reported as CodeProtocolMismatch after the
 //	                           exchange (auto never fails)
-//	HTTPVersion3             — requires an HTTP/3 transport (PROTO-015); without
-//	                           one the request fails loudly rather than using h2
+//	HTTPVersion3             — prefer HTTP/3, fall back to HTTP/2 with the
+//	                           fallback always reported
+//
+// Policy "3" installs an HTTP/3 transport (HTTP3FallbackTransport): the
+// request is attempted over QUIC and, when the peer cannot be reached that
+// way, retried over HTTP/2 — the record then carries
+// fallback{from,to,reason} and Satisfied is false, so the caller can always
+// see that the preference was not met. The result is never a silent HTTP/2
+// request. A caller that wants HTTP/3 with no fallback installs
+// HTTP3Transport() with WithTransport; a caller that installs a transport
+// which cannot attempt HTTP/3 at all gets a loud failure rather than a quiet
+// downgrade.
 //
 // Apply it BEFORE WithRateLimiter/WithCache: those options wrap whatever
 // transport exists when they run, so a later WithHTTPVersion discards them.
@@ -92,11 +102,35 @@ func WithHTTPVersion(version string) ClientOption {
 		case HTTPVersion11:
 			c.installTransport(HTTP11Transport())
 		case HTTPVersion3:
-			// PROTO-015 installs an HTTP/3 transport (WithTransport) and takes
-			// this branch over; until then protocolPreflight reports the
-			// missing transport instead of quietly using HTTP/2.
+			// The opt-in HTTP/3 transport, plus the HTTP/2 fallback its
+			// policy promises (N4/N5). HTTP3Options let a caller tune the
+			// QUIC parameters; WithHTTP3Options re-installs it when they
+			// arrive after this option.
+			c.installTransport(HTTP3FallbackTransport(c.protocol, c.http3Options...))
 		default:
 			c.installTransport(DefaultTransport())
+		}
+	}
+}
+
+// WithHTTP3Options tunes the HTTP/3 transport the "3" policy installs
+// (PROTOCOLS.md §4.7 N4): a TLS configuration for a private CA or a client
+// certificate, or QUIC parameters such as a shorter handshake timeout on a
+// path known to drop UDP. The options are the same ones HTTP3Transport and
+// HTTP3FallbackTransport take, and they are recorded on the client, so they
+// can be given before or after WithHTTPVersion("3") — the policy's transport
+// is (re-)installed with them either way.
+//
+// It is a no-op for every other policy, which installs a transport that cannot
+// attempt HTTP/3.
+func WithHTTP3Options(opts ...HTTP3Option) ClientOption {
+	return func(c *Client) {
+		if len(opts) == 0 {
+			return
+		}
+		c.http3Options = append(c.http3Options, opts...)
+		if c.httpVersion == HTTPVersion3 {
+			c.installTransport(HTTP3FallbackTransport(c.protocol, c.http3Options...))
 		}
 	}
 }
@@ -108,6 +142,13 @@ func WithHTTPVersion(version string) ClientOption {
 //
 // Apply it BEFORE WithRateLimiter/WithCache for the same reason as
 // WithHTTPVersion. A nil rt is a no-op and keeps the default transport.
+//
+// Under the "3" policy the installed transport has to be able to attempt
+// HTTP/3 (an HTTP3FallbackTransport, an http3.Transport, or anything
+// implementing HTTP3Capable); replacing policy "3"'s transport with one that
+// cannot is refused before the exchange, because carrying an HTTP/3 request
+// over another version with nothing to report is exactly the silent downgrade
+// the policy forbids.
 func WithTransport(rt http.RoundTripper) ClientOption {
 	return func(c *Client) {
 		if rt == nil {
@@ -119,10 +160,12 @@ func WithTransport(rt http.RoundTripper) ClientOption {
 
 // installTransport makes rt the exchange-performing transport and re-wraps it
 // with the protocol recorder, so the recorder is always directly above whatever
-// performs the exchange.
+// performs the exchange. The transport's HTTP/3 capability is recorded here
+// because it is a property of the value that was installed (PROTOCOLS.md §4.7
+// N5).
 func (c *Client) installTransport(rt http.RoundTripper) {
 	c.baseTransport = rt
-	c.transportExplicit = true
+	c.h3Capable = SupportsHTTP3(rt)
 	if c.httpClient != nil {
 		c.httpClient.Transport = newProtocolTransport(rt, c.protocol)
 	}

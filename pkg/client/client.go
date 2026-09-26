@@ -30,6 +30,7 @@ package client
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,13 +52,15 @@ type Client struct {
 
 	// protocol records the HTTP transport version every exchange used, and
 	// httpVersion is the policy in force (PROTOCOLS.md §4.7). baseTransport is
-	// the value that performs the exchange; transportExplicit is true once a
-	// caller supplied one (WithTransport), which is what lets a "3" policy
-	// rely on the caller installing an HTTP/3 transport (PROTO-015).
-	protocol          *ProtocolRecorder
-	baseTransport     http.RoundTripper
-	transportExplicit bool
-	httpVersion       string
+	// the value that performs the exchange; h3Capable is true when that value
+	// can attempt HTTP/3 (WithHTTPVersion("3") installs one), which is what
+	// makes the "3" policy satisfiable; http3Options are the settings the
+	// policy's HTTP/3 transport is (re-)built with.
+	protocol      *ProtocolRecorder
+	baseTransport http.RoundTripper
+	h3Capable     bool
+	httpVersion   string
+	http3Options  []HTTP3Option
 }
 
 // ClientOption configures a Client.
@@ -160,6 +163,10 @@ func (c *Client) SetTracer(tracer *telemetry.Tracer) {
 // version the peer did not use is reported as CodeProtocolMismatch after it
 // (PROTOCOLS.md §4.7 N5). The check runs after the retry loop so a version
 // mismatch — which is deterministic — is never retried.
+//
+// A transport-level failure that carries a coded meaning is translated here
+// too: an HTTP/3 policy on a cleartext endpoint is a CodeProtocolMismatch with
+// reason "plaintext-endpoint", and a transport timeout is CodeTimeout (§4.2).
 func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
 	if err := c.protocolPreflight(); err != nil {
 		return nil, err
@@ -175,6 +182,9 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 		resp, err = c.doOnce(ctx, req)
 	}
 	if err != nil {
+		if mapped := c.transportError(err); mapped != nil {
+			return nil, mapped
+		}
 		return nil, err
 	}
 
@@ -188,21 +198,43 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	return resp, nil
 }
 
+// transportError translates the transport failures that have a coded meaning
+// into the AppError the contract names (PROTOCOLS.md §4.2/§4.7 N5), or returns
+// nil when the error passes through untouched:
+//
+//   - policy "3" against a cleartext endpoint: QUIC mandates TLS 1.3 and the
+//     stdlib has no h2c, so no permitted version can carry the request —
+//     CodeProtocolMismatch with reason "plaintext-endpoint" (rather than the
+//     HTTP/3 transport's own "unsupported protocol scheme").
+//   - a context deadline: CodeTimeout, per §4.2's "any transport timeout"
+//     row. Cancellation is not a timeout and is left as it is.
+func (c *Client) transportError(err error) error {
+	switch {
+	case stderrors.Is(err, ErrHTTP3RequiresTLS):
+		return protocolMismatch(HTTPVersion3, "", ReasonPlaintextEndpoint)
+	case stderrors.Is(err, context.DeadlineExceeded):
+		return errors.Wrap(err, errors.CodeTimeout, "http: request timed out").
+			WithDetail("requested", c.httpVersion)
+	}
+	return nil
+}
+
 // protocolPreflight rejects a policy this build cannot honour, before any
 // request goes out: an unknown version (CodeValidation) and policy "3" without
-// an HTTP/3 transport (CodeProtocolMismatch, N5/N8). It never rejects a policy
-// the caller did not require.
+// an HTTP/3-capable transport (CodeProtocolMismatch, N5/N8). It never rejects a
+// policy the caller did not require.
 func (c *Client) protocolPreflight() error {
 	version := c.httpVersion
 	switch version {
 	case "", HTTPVersionAuto, HTTPVersion11, HTTPVersion2:
 		return nil
 	case HTTPVersion3:
-		if c.transportExplicit {
-			// The caller installed the transport (PROTO-015 installs
-			// http3.Transport this way), so the policy is theirs to satisfy;
-			// satisfaction is reported per request and a fallback, when one
-			// happens, is reported by the fallback code that performed it.
+		if c.h3Capable {
+			// The installed transport can attempt HTTP/3 (WithHTTPVersion("3")
+			// installs HTTP3FallbackTransport; a caller may install one, or a
+			// bare http3.Transport, itself). Satisfaction is reported per
+			// request, and a fallback, when it happens, is reported by the
+			// transport that performed it.
 			return nil
 		}
 		return protocolMismatch(HTTPVersion3, "", ReasonHTTP3TransportMissing)

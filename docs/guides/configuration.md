@@ -574,14 +574,24 @@ requests (`MUSTER_HTTP_VERSION` overrides it; the `request` verb's
 - `1.1` / `2` — the named version is REQUIRED. A peer that settles for another
   one fails with `PROTOCOL_MISMATCH`, whose details carry `requested`,
   `observed` and `reason` (`server-offered-http/1.1`, `plaintext-endpoint`).
-- `3` — HTTP/3 preferred. This build has no HTTP/3 transport yet, so it fails
-  loudly with `http3-transport-not-installed` rather than silently using HTTP/2.
+- `3` — HTTP/3 preferred. The request is attempted over QUIC and, when the peer
+  cannot be reached that way — no QUIC listener, a middlebox that drops UDP, a
+  peer that will not do TLS 1.3 — it is retried over HTTP/2 **and the fallback
+  is reported** (on the verbose line below, and as `fallback{from,to,reason}` on
+  the library's protocol record). A cleartext `http://` endpoint can satisfy
+  policy `3` with no fallback at all (QUIC mandates TLS 1.3 and the stdlib has
+  no h2c), so it fails with `PROTOCOL_MISMATCH` (`plaintext-endpoint`).
+  HTTP/3 here is a version, not a speed claim: measured on loopback it is not
+  faster than HTTP/2, and nothing depends on it being so.
 
 `openapi-cli request … -v` reports the version the request actually used on
-stderr, alongside `Request:` and `Status:`:
+stderr, alongside `Request:` and `Status:`, and names the fallback when one
+happened:
 
 ```
 HTTP: HTTP/2.0 (wire, requested auto)
+HTTP: HTTP/3.0 (wire, requested 3)
+HTTP: HTTP/2.0 (wire, requested 3, fallback HTTP/3.0→HTTP/2.0: idle-timeout)
 ```
 
 The version is read from the exchange that reached the network — never from the

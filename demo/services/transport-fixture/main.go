@@ -1,16 +1,21 @@
 // Command transport-fixture is the loopback HTTP fixture the transport demo
-// legs use (demo/demos/19-http2-transport.sh; the HTTP/3 leg of PROTO-015 will
-// reuse it).
+// legs use (demo/demos/19-http2-transport.sh and 20-http3-transport.sh).
 //
-// It serves two loopback TLS endpoints with one self-signed certificate:
+// It serves three loopback endpoints with one self-signed certificate:
 //
-//	H2 — advertises h2 and http/1.1 in ALPN
-//	H1 — advertises http/1.1 only
+//	H2 — advertises h2 and http/1.1 in ALPN (TCP)
+//	H1 — advertises http/1.1 only (TCP)
+//	H3 — HTTP/3 over QUIC (UDP); QUIC mandates TLS 1.3, so this endpoint is
+//	     UDP-only and has no TCP listener beside it
 //
-// Both echo the request's version, method, path and body length as JSON, which
-// is the server-side oracle the demo compares the client's own report against:
-// a client claim that the server does not agree with is a forgery, not a
-// measurement.
+// The TCP endpoints deliberately have no QUIC listener on their port, which is
+// what the reported-fallback leg needs: policy "3" against H2 cannot complete
+// over HTTP/3 and must say so.
+//
+// Every endpoint echoes the request's version, method, path and body length as
+// JSON, which is the server-side oracle the demos compare the client's own
+// report against: a client claim that the server does not agree with is a
+// forgery, not a measurement.
 //
 // The certificate is written next to the addresses so the caller can trust it
 // (the CLI reads SSL_CERT_FILE). Addresses and the certificate path are printed
@@ -37,6 +42,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/quic-go/quic-go/http3"
 )
 
 func main() {
@@ -67,18 +74,23 @@ func main() {
 		log.Fatalf("transport-fixture: write %s: %v", keyPath, err)
 	}
 
-	h2URL, err := serve(certPath, keyPath, []string{"h2", "http/1.1"})
+	h2URL, h2Port, err := serve(certPath, keyPath, []string{"h2", "http/1.1"})
 	if err != nil {
 		log.Fatalf("transport-fixture: start the h2 endpoint: %v", err)
 	}
-	h1URL, err := serve(certPath, keyPath, []string{"http/1.1"})
+	h1URL, h1Port, err := serve(certPath, keyPath, []string{"http/1.1"})
 	if err != nil {
 		log.Fatalf("transport-fixture: start the http/1.1 endpoint: %v", err)
+	}
+	h3URL, err := serveH3(certPath, keyPath, []int{h2Port, h1Port})
+	if err != nil {
+		log.Fatalf("transport-fixture: start the HTTP/3 endpoint: %v", err)
 	}
 
 	fmt.Printf("CERT %s\n", certPath)
 	fmt.Printf("H2 %s\n", h2URL)
 	fmt.Printf("H1 %s\n", h1URL)
+	fmt.Printf("H3 %s\n", h3URL)
 	fmt.Println("READY")
 
 	// Serve until the caller kills the process.
@@ -86,12 +98,13 @@ func main() {
 }
 
 // serve starts a loopback TLS server whose ALPN list is nextProtos and returns
-// its base URL. ServeTLS installs HTTP/2 support whenever the ALPN list offers
-// h2, so the endpoint's version capability is exactly what nextProtos says.
-func serve(certPath, keyPath string, nextProtos []string) (string, error) {
+// its base URL and port. ServeTLS installs HTTP/2 support whenever the ALPN
+// list offers h2, so the endpoint's version capability is exactly what
+// nextProtos says.
+func serve(certPath, keyPath string, nextProtos []string) (url string, port int, err error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	srv := &http.Server{
@@ -109,7 +122,54 @@ func serve(certPath, keyPath string, nextProtos []string) (string, error) {
 		}
 	}()
 
-	return "https://" + ln.Addr().String(), nil
+	return "https://" + ln.Addr().String(), ln.Addr().(*net.TCPAddr).Port, nil
+}
+
+// serveH3 starts an HTTP/3 endpoint on a UDP loopback socket and returns its
+// base URL. avoid lists port numbers the socket must not take, so the TCP
+// endpoints never end up with a QUIC listener beside them — that is the
+// condition the reported-fallback leg exercises.
+func serveH3(certPath, keyPath string, avoid []int) (string, error) {
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return "", err
+	}
+	srv := &http3.Server{
+		Handler: http.HandlerFunc(echoHandler),
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS13,
+		},
+	}
+
+	for attempt := 0; attempt < 50; attempt++ {
+		pc, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+		if err != nil {
+			return "", err
+		}
+		addr := pc.LocalAddr().String()
+		if containsPort(avoid, pc.LocalAddr().(*net.UDPAddr).Port) {
+			_ = pc.Close()
+			continue
+		}
+		go func() {
+			if serveErr := srv.Serve(pc); serveErr != nil {
+				log.Printf("transport-fixture: serve h3: %v", serveErr)
+			}
+		}()
+		return "https://" + addr, nil
+	}
+	return "", errors.New("no UDP port free of the TCP endpoints")
+}
+
+// containsPort reports whether port is in ports.
+func containsPort(ports []int, port int) bool {
+	for _, p := range ports {
+		if p == port {
+			return true
+		}
+	}
+	return false
 }
 
 // echoHandler reports what the server actually saw.

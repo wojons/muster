@@ -119,17 +119,25 @@ esac
 grep -q 'HTTP: HTTP/1.1 (wire, requested 1.1)' "$WORK/force11.err" || fail "the report must say HTTP/1.1 with the policy in force: $(cat "$WORK/force11.err")"
 pass "--http-version 1.1 vs the h2-capable peer → served over HTTP/1.1 (version selection is transport selection)"
 
-# ── 7. Policy leg: HTTP/3 without an HTTP/3 transport is loud, not silent ───
+# ── 7. Policy leg: an unreachable HTTP/3 is reported, not silent ────────────
+# The h2 fixture is TCP-only, so there is no QUIC on its port: policy "3" must
+# complete over HTTP/2 *and* say so on the diagnostic surface. (PROTO-014
+# asserted here that --http-version 3 failed outright, because HTTP/3 did not
+# exist yet; what replaced it is the reported fallback.)
 set +e
-OUT=$("$BIN" request GET "$URL_H2/probe" --http-version 3 2>&1)
+OUT=$("$BIN" request GET "$URL_H2/probe" --http-version 3 -v 2>&1)
 RC=$?
 set -e
-[ "$RC" -ne 0 ] || fail "--http-version 3 must fail in a build with no HTTP/3 transport"
+[ "$RC" -eq 0 ] || fail "--http-version 3 must complete over HTTP/2 when QUIC is unreachable: $OUT"
 case "$OUT" in
-  *http3-transport-not-installed*) ;;
-  *) fail "the failure must name the missing transport: $OUT" ;;
+  *'HTTP: HTTP/2.0 (wire, requested 3, fallback HTTP/3.0→HTTP/2.0:'*) ;;
+  *) fail "the fallback must be reported on stderr: $OUT" ;;
 esac
-pass "--http-version 3 → exit $RC, http3-transport-not-installed (PROTO-015 installs the transport)"
+case "$OUT" in
+  *'"server_proto":"HTTP/2.0"'*) ;;
+  *) fail "the h2 endpoint must have carried the request: $OUT" ;;
+esac
+pass "--http-version 3 vs a TCP-only peer → exit $RC, served over HTTP/2.0, fallback HTTP/3.0→HTTP/2.0 reported"
 
 # ── 8. An unrecognised policy value is rejected, never silently 'auto' ──────
 set +e
