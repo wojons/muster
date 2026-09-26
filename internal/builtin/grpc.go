@@ -64,13 +64,19 @@ const (
 func newGrpcCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "grpc",
-		Short: "gRPC operations (discover, call) — unary and streaming",
+		Short: "gRPC operations (discover, schema, call) — unary and streaming",
 		Long: `gRPC protocol adapter (specs/PROTOCOLS.md, matrix rows 2 and 3).
 
 Discovery sources: .proto files ("dir1:dir2=file.proto" — a relative file
 resolves against dir1, then cwd; dir1:dir2 are the import paths for its
 includes), compiled descriptor sets (any non-.proto file), or server
 reflection ("grpc://host:port").
+
+'grpc discover' lists OPERATIONS (RPCs), so a file with no service lists none;
+'grpc schema' lists the TYPES a source declares, so the same file is still
+fully described. A descriptor set built without 'protoc --include_imports' is
+closed from the protobuf runtime's well-known types when possible, and
+otherwise fails with a message that names the missing file and the remedy.
 
 Invocation covers all four RPC kinds: unary, server-streaming,
 client-streaming, and bidirectional streaming. Every streaming call returns a
@@ -79,6 +85,7 @@ the contract, the bound flags, and the truncation markers.`,
 	}
 
 	cmd.AddCommand(newGrpcDiscoverCommand())
+	cmd.AddCommand(newGrpcSchemaCommand())
 	cmd.AddCommand(newGrpcCallCommand())
 	return cmd
 }
@@ -123,6 +130,100 @@ func newGrpcDiscoverCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// newGrpcSchemaCommand builds `grpc schema <uri>`: ingest a source and list the
+// protobuf type graph it declares — messages, enums and their depth-1 field
+// facts — from any of the three discovery inputs. It is the second stage-1
+// producer over the same loaders (specs/PROTOCOLS.md §3.2, PROTO-013 §2.6 S3):
+// the schema surface answers "what types does this source declare?", which is a
+// different question from "which RPCs does it expose?", so a service-less
+// .proto has no operations and still has a schema.
+func newGrpcSchemaCommand() *cobra.Command {
+	var format string
+	cmd := &cobra.Command{
+		Use:   "schema <uri>",
+		Short: "List the protobuf type graph a discovery source declares",
+		Long: `Ingest a discovery source and print the types it declares.
+
+<uri> accepts the same three forms as 'grpc discover': a .proto file
+("dir1:dir2=file.proto"), a compiled FileDescriptorSet, or grpc://host:port
+for live server reflection.
+
+The listing is one line per type (kind, fully-qualified name, field or value
+count) plus a total. Unlike 'grpc discover', a source with no service is still
+fully described: message and enum declarations are the schema surface, while
+operations are RPCs.
+
+Output
+  -o text   the type listing (default)
+  -o json   the whole schema set as JSON: types keyed by fully-qualified name,
+            each with its fields (type, format, ref, repeated/map details,
+            enum values, oneof group) and the source stamps
+
+Examples:
+  openapi-cli grpc schema schema.proto
+  openapi-cli grpc schema msgs_only.proto -o json
+  openapi-cli grpc schema grpc://localhost:9000`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			adapter := grpcadapter.NewAdapter()
+			defer func() { _ = adapter.Close() }()
+
+			set, err := adapter.Schema(ctx, args[0])
+			if err != nil {
+				return err
+			}
+			return printGrpcSchema(cmd, set, format)
+		},
+	}
+	cmd.Flags().StringVarP(&format, "output", "o", "text", "Output format (text, json)")
+	return cmd
+}
+
+// printGrpcSchema renders a schema set: a stable text listing, or the set
+// itself as JSON (§4.4 — the output layer formats, the adapter never prints).
+func printGrpcSchema(cmd *cobra.Command, set *protocol.SchemaSet, format string) error {
+	out := cmd.OutOrStdout()
+	switch format {
+	case "json":
+		pretty, err := json.MarshalIndent(set, "", "  ")
+		if err != nil {
+			return fmt.Errorf("format schema: %w", err)
+		}
+		_, _ = fmt.Fprintln(out, string(pretty))
+		return nil
+	case "text":
+		names := set.Names()
+		if len(names) == 0 {
+			fmt.Fprintln(out, "No types found.")
+			return nil
+		}
+		for _, name := range names {
+			typ, _ := set.Type(name)
+			detail := fmt.Sprintf("%d %s", len(typ.Fields), plural(len(typ.Fields), "field", "fields"))
+			if typ.Kind == protocol.SchemaTypeEnum {
+				detail = fmt.Sprintf("%d %s", len(typ.EnumValues), plural(len(typ.EnumValues), "value", "values"))
+			}
+			fmt.Fprintf(out, "%-8s %-40s %s\n", typ.Kind, name, detail)
+		}
+		fmt.Fprintf(out, "%d %s\n", len(names), plural(len(names), "type", "types"))
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format %q: supported formats are text, json", format)
+	}
+}
+
+// plural picks the singular or plural noun for a count.
+func plural(n int, singular, pluralForm string) string {
+	if n == 1 {
+		return singular
+	}
+	return pluralForm
 }
 
 // grpcKindLabel renders an OperationKind for the discover listing.

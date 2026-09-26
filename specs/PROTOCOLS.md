@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Muster today is an OpenAPI-3.x-only engine: `pkg/openapi` parses OpenAPI 3.x documents (kin-openapi v0.148.0), `pkg/generator` turns them into cobra commands, `pkg/mcp` turns them into MCP tools, and `pkg/client` executes HTTP. There is zero gRPC, GraphQL, JSON-RPC (client-side), AsyncAPI, or SOAP code in the tree, and `google.golang.org/protobuf` is only an indirect dependency.
+Muster today is an OpenAPI-3.x-only engine: `pkg/openapi` parses OpenAPI 3.x documents (kin-openapi v0.148.0), `pkg/generator` turns them into cobra commands, `pkg/mcp` turns them into MCP tools, and `pkg/client` executes HTTP. gRPC has since landed as the first non-OpenAPI adapter (`pkg/protocol/grpc`, PROTO-002 unary + PROTO-003 streaming), and `google.golang.org/protobuf` is a **direct** dependency of it (go.mod carries no `// indirect` marker; `go list -m` → `direct=true`; `go mod why` → `pkg/protocol/grpc` → `encoding/protojson`). GraphQL, JSON-RPC (client-side), AsyncAPI and SOAP client code are still absent.
 
 This spec makes **OpenAPI the first adapter, not the engine**. It defines:
 
@@ -54,7 +54,7 @@ Every protocol adapter fills the same four stages. Stages are decoupled: an adap
 |---|---|
 | OpenAPI 3.x | spec file/URL (existing `internal/builtin/discover.go` fetch path) |
 | Swagger/OpenAPI 2.0 | spec file/URL, converted (see §2) |
-| gRPC | `.proto` source, compiled `FileDescriptorSet`, or server reflection (PROTO-002) |
+| gRPC | `.proto` source, compiled `FileDescriptorSet`, or server reflection (PROTO-002). A descriptor set is a source of the **union** of the operations declared by every file it contains; a set built without `protoc --include_imports` is closed from the protobuf runtime's well-known types before linking, and otherwise fails naming the missing file and the remedy (PROTO-016, §3.1) |
 | JSON-RPC 2.0 | OpenRPC document; bare JSON-RPC endpoint with a hand-written manifest otherwise |
 | GraphQL | introspection query result or SDL document |
 | AsyncAPI 3.x | AsyncAPI document (channels/bindings) |
@@ -241,11 +241,33 @@ Verdicts: **ADOPT** (build, in the order of §6), **DEFER** (re-evaluate later, 
 - Input is a URI (file path, URL, or protocol-specific handle). HTTP(S) fetches go through the existing `pkg/client.Client` (proxy, TLS, tracing) — adapters do not open their own HTTP clients for discovery.
 - Discovery MUST be read-only and side-effect free (no registration, no writes to the target service beyond what discovery inherently requires, e.g. a gRPC reflection RPC or a GraphQL introspection query).
 - Output is `[]*protocol.Operation` with unique `ID`s within the adapter. IDs seed command names (§3.3) and MCP tool names (§3.4); adapters MUST produce IDs that survive the naming normalization in `pkg/generator` (`normalizeName`, `normalizeOperationID`).
+- **A descriptor set must be self-contained** (PROTO-016, decision D5). `desc.CreateFileDescriptors` resolves imports only from the supplied set, so a set built without `protoc --include_imports` used to fail with a library-level error and no remedy. The gRPC adapter now (a) closes a set by synthesizing the missing imports the protobuf runtime registry knows — the well-known types, which makes the descriptor-set path symmetric with the `.proto`-source path, where `protoparse` carries them built in — and (b) otherwise fails EARLY with `CodeValidation`, before any operation is produced, naming every missing file and the remedy (`protoc --include_imports`, or supplying the missing files as `.proto` sources / an import-path URI of the form `dir1:dir2=a.proto,b.proto`).
+- **A descriptor set is a union source** (PROTO-016, decision D6). Discovery returns the union of the operations declared by *every* file in the set, including files the operator did not name; to restrict discovery to one file's services, pass that file's `.proto` source instead.
+- **A schema source is a second, non-operation producer** (PROTO-016, §3.2.1). Stage 1 has two producer shapes: adapters that produce `[]*protocol.Operation`, and *schema ingesters* that produce a `*protocol.SchemaSet` type graph. A `.proto` with no `service` declares no operations — that is correct, not a failure — and is still fully described by the schema surface (`openapi-cli grpc schema <uri>`).
 
 ### 3.2 Operation model (stage 2)
 
 - Mapping is per-adapter and lives in the adapter's package (e.g. future `pkg/grpc` maps proto methods → `protocol.Operation`; `pkg/openapi` gains one mapping file). The neutral types (`protocol.Operation`, `protocol.Parameter`, `protocol.RequestBodyProperty`) are the ONLY cross-adapter contract.
 - `Operation.Source` carries transport ground truth (paths, methods, descriptor indices). Stage-3 consumers never read `Source`; only the adapter's Executor does. This is the same ground-truth-on-the-command principle the generator already applies with its `muster/*` cobra annotations.
+- **`RequestBodyProperty` carries depth-1 fidelity facts, additively** (PROTO-016, decision D4). A flat name/type pair could not express what a descriptor graph knows, and the loss was agent-facing: `pkg/mcp` builds MCP input schemas from the flat list. The additive fields are `Ref` (fully-qualified name of the referenced message type), `Format` (JSON form of a well-known type), `ItemType`/`ItemRef` (element of a repeated field), `Repeated`, `Map`, `MapKeyType`/`MapValueType`/`MapValueRef`, and `Oneof` (membership in a user-declared oneof group; a proto3 `optional` field's synthetic oneof is NOT reported). `Enum` — which existed but was never populated — now carries enum value **names**. An adapter with nothing to say leaves them zero, so this is additive for every existing consumer.
+
+#### 3.2.1 The schema model (stage 2, second producer) — PROTO-016, decisions D1/D3
+
+The operation model is operation-shaped and stays that way: a `.proto` with no `service` declares no operations and must not grow pseudo-operations. A schema surface answers a different question and gets its own neutral types, in `pkg/protocol`:
+
+| Type | Shape |
+|---|---|
+| `protocol.SchemaSet` | `Types map[string]SchemaType` keyed by fully-qualified name, plus `Extensions []SchemaField` and `Source map[string]string` (the same `descriptors`/`host` vocabulary operations are stamped with) |
+| `protocol.SchemaType` | `Name`, `Kind` (`message` \| `enum`), `Description`, `Fields []SchemaField`, `EnumValues []string` |
+| `protocol.SchemaField` | the same depth-1 facts `RequestBodyProperty` carries, in the graph's own terms |
+
+Rules:
+
+- **FQN references, not recursion.** `Operation`'s shape is frozen for existing consumers, and `RequestBodyProperty` carries a `Ref` (an FQN), never a nested tree. A consumer resolves a `Ref` through a `SchemaSet`; `SchemaField.Ref` follows the same rule.
+- **Producer.** The gRPC adapter's schema ingester reuses the *existing* loaders unchanged (`.proto` source, descriptor set, reflection) and walks `GetMessageTypes()`/`GetEnumTypes()` plus the files' extensions in addition to the services-only operation walk. No new dependency, no `protoc`, no second parser.
+- **Optional consumer wiring.** `pkg/mcp.NewGRPCRegistry` gained the additive option `WithSchemaSet(*protocol.SchemaSet)`: with a set supplied, a nested field resolves through `$defs`; **without one, a nested field renders exactly as before** (`{"type":"object"}`), so no existing caller's schemas change silently.
+- **No Executor.** A schema set is rendered, validated or emitted — never called. There is deliberately no `Executor` for it, which is why it is not a matrix row (§2's maintenance rule): it is not a protocol.
+- **Not a new `Protocol` constant.** The set is a protobuf descriptor artifact of the same family as the gRPC adapter, so no matrix event is triggered.
 
 ### 3.3 Command generation (stage 3a — `pkg/generator`)
 
@@ -313,6 +335,7 @@ Rule: adapters map errors AT THE TRANSPORT BOUNDARY (one mapping function per ad
 
 - `Execute` returns JSON-serializable data (`map[string]interface{}`, `[]interface{}`, scalars). Rendering is shared, not per-adapter: the existing formats (`table`, `json`, `yaml` — `generator.Config.SupportedFormats`, `printTableOutput` tabwriter path, and `internal/builtin/request.go` `-o` handling) render whatever `Execute` returns.
 - Streaming ops return the bounded transcript (§4.5) — rendering applies to the transcript object, not a live stream.
+- A **schema document** (`*protocol.SchemaSet`, §3.2.1) is another payload for the same path: the adapter never prints it, the output layer formats it (the `grpc schema` verb renders text by default and the set as JSON with `-o json`).
 - Rule: adding a protocol NEVER adds a new output format, and an adapter never writes to stdout directly.
 
 ### 4.5 MCP agent safety (unbounded / streaming / bidi operations)
@@ -408,6 +431,7 @@ Classification: a **QUIC connection-layer failure** (dial refused, handshake tim
 - **Keep the binary names.** `openapi-cli` stays the binary name for v1. Renaming binaries breaks every doc, script, packaging file (`debian/`, `systemd/`, `Dockerfile`, `demo/run-all.sh` builds `bin/openapi-cli`), and user muscle memory for zero functional gain. The binary is the product; the protocol is a subcommand concern.
 - **The protocol is a SUBCOMMAND NAMESPACE, not a binary.** OpenAPI operations stay at the root exactly as today (root verbs: `discover`, `generate`, `request`, `auth`, `config`, `daemon`, `dsl`, `modules`, `webhook`, `tenant`, `audit`, `inventory`, `version`, `completion`, `init`). New protocols mount under a protocol group: `openapi-cli grpc <api> <method> …`, `openapi-cli graphql <endpoint> <query> …`, etc. This keeps the OpenAPI UX byte-for-byte compatible and makes "which protocol" explicit where it is new.
 - **Binary rename (to `muster` etc.) is a separate, future decision** — tracked on the board if ever filed, NOT bundled into protocol work. When it happens, old names become permanent aliases (see alias policy below).
+- **A protocol group's verb set grows additively** and the verb name is free until taken. The `grpc` group today holds three verbs — `discover <uri>`, `schema <uri>` (PROTO-016: the type graph, including for a source with no service) and `call <service-method>` — all mounted under the existing group with no new binary. A new *capability* of the same protocol is a new verb in the group, not a new group and not a change to a frozen signature (`Discoverer.Discover` is frozen at §1.3, which is why types travel through `schema`, not through `discover --types`).
 
 ### 5.2 Alias policy
 
@@ -432,6 +456,8 @@ Each ADOPT row lands behind a gate. A gate is a concrete, runnable check — gre
 | 0 | OpenAPI refit as Adapter (part of PROTO-002's seam landing) | Existing full suite green + `demo/run-all.sh` green + a new unit test proving `openapi → protocol.Operation → GenerateCommandsFromOps` produces byte-identical commands to today's path on the petstore demo spec |
 | 1 | gRPC unary (PROTO-002) | In-process: `.proto` with ≥2 unary methods served over `bufconn`; (a) discover via descriptor-set finds all methods; (b) discover via reflection on the in-process server finds the same set; (c) invoke each method via CLI flag-parsed args; (d) MCP tool call returns the same payload; (e) error mapping: injected `InvalidArgument` → `CodeBadRequest`, `DeadlineExceeded` → `CodeTimeout`; (f) grpcurl conformance: same invocation returns same result |
 | 2 | gRPC streaming (PROTO-003) | Gate of 1 green + all four stream kinds exercised over `bufconn` with the §4.5 transcript envelope; truncation proof (cap < stream length → `items_truncated: true`); MCP exposure of bidi requires explicit opt-in config (negative test: without opt-in, bidi op is absent from tool list) |
+| 2a | **Descriptor-set closure (PROTO-016, G-CLOSURE)** — a gate of the gRPC adapter, not a new protocol | `schema_nodeps.pb` (bare `--descriptor_set_out` over a file importing a well-known type; failed with exit 1 before PROTO-016) discovers the same operation set as `schema_all.pb`; source ↔ `--include_imports` set ↔ bare set parity; a set whose import is NOT a well-known type (`main_nodeps.pb`) fails with `CodeValidation` naming the missing file **and** the remedy and returns **0** operations; no-import and `--include_imports` sets unchanged. Runnable: `go test -short ./pkg/protocol/grpc/` |
+| 2b | **The `.proto` schema surface (PROTO-016, G-SCHEMA; test row PROTO-018)** — also a gate of the gRPC adapter | The service-less fixture yields **0** operations **and** **4** types in one test (the two surfaces are distinct); depth-1 fidelity against the measured baseline (nested `Ref` resolves in the set, `repeated` item type + ref, map key/value, **2** enum value names where the baseline was **0**, the two oneof members reported as one group, a well-known type mapped to its JSON form); the MCP input schema for a nested/enum input is not a bare `"type":"object"` and carries the enum values (with no schema set supplied, the previous rendering is retained); the three discovery inputs (source, `--include_imports` set, reflection over `bufconn`) agree; negative controls keep `VALIDATION_ERROR`/exit 1. Runnable: `go test -short ./pkg/protocol/grpc/ ./pkg/mcp/ ./internal/builtin/` |
 | 3 | JSON-RPC 2.0 / OpenRPC (PROTO-004) | OpenRPC doc → operations → commands/tools; invoke over `httptest` loopback server; JSON-RPC error object → AppError code mapping table test; conformance vs a reference JSON-RPC client |
 | 4 | GraphQL queries/mutations (PROTO-005) | Introspection AND SDL ingestion paths each produce operations; invoke against in-process `httptest` GraphQL server; error-path mapping (`errors` array in response); conformance vs reference client query bytes |
 | 5 | GraphQL subscriptions | Gate of 4 green + bounded-collect subscription over in-process WS server per §4.5(4) |
@@ -456,6 +482,8 @@ When PROTO-002 lands, the demo gains:
 - A new numbered demo script `demo/demos/11-grpc-unary.sh` (follows the existing `[0-9]*.sh` convention `run-all.sh` globs automatically) that: discovers methods from a descriptor set → invokes method 1 via `openapi-cli grpc …` → invokes method 2 via the MCP tool path → asserts both payloads and exercises one injected error mapped to the expected `AppError` code.
 - `demo/run-all.sh` picks it up with zero script changes (the glob handles it).
 
+**Landed since (PROTO-016): `demo/demos/11-proto-schema.sh`.** The gRPC unary demo leg above is still missing, so the next free number was taken by the `.proto` support demo instead of `11-grpc-unary.sh`: it serves gates 2a/2b of §6 and runs entirely off committed fixtures (`pkg/protocol/grpc/testdata/`) — no network, no `protoc` at run time. It asserts: `grpc discover` on a service-less `.proto` → 0 operations while `grpc schema` on the same file → 4 types; `grpc discover` on a bare `--descriptor_set_out` set equals the `--include_imports` result; an unresolvable-dependency set exits non-zero naming the file and the remedy; and `grpc schema -o json` carries FQN refs, well-known-type JSON forms and enum values. `12-grpc-unary.sh` (or a re-numbered unary leg) remains owed.
+
 **Later**: each adopted protocol adds one numbered demo script in implementation order (`12-grpc-streaming.sh`, `13-jsonrpc.sh`, …), so `run-all.sh` output shows the protocol matrix growing check by check. The `make demo` integration target stays as-is (informational, not a green gate).
 
 **Transport-version gate (order 9/10, PROTO-012's demo-plan entry).** A gate's demo script takes ordinal `11 + (order − 1)` on an **append-only** queue — landed scripts are never renumbered, and the ordinal is re-derived at landing time from `ls demo/demos/` (10 scripts today). Orders 4–8 therefore own 14–18, and this transport's scripts are:
@@ -471,3 +499,5 @@ Two scripts for orders 9/10, not one: order 9's gate must be demonstrable at the
 - No protocol implementation code, no new dependencies added to `go.mod` by this spec itself. The third-party modules named in §2 are verified-available recommendations for the implementing rows; the one exception is the HTTP/3 pin (`github.com/quic-go/quic-go` **v0.63.0**), which v1.1.0 **decides** (§2 row 16, §4.7) and PROTO-015 lands in `go.mod` — measured cost and alternatives are in [implementation/PROTO-012-http2-http3-transport.md](implementation/PROTO-012-http2-http3-transport.md) §4.
 - No binary renaming (§5.1 decision: keep current names).
 - No changes to board files, `.coding-hermes`, or `.gitreins` state from this spec.
+
+**Ruled out — `.proto` as the description format of an HTTP surface (PROTO-013 §4, measured by PROTO-011 §5b).** Describing WebDAV (or any HTTP surface) in `.proto` was considered and **declined**, not deferred: (i) there is no WebDAV code in this repo to describe — Muster is the *consumer* side, an HTTP request/version-negotiation question (PROTO-010/012/014/015), not a protobuf one; (ii) `.proto` has no HTTP verb/path vocabulary of its own — the only mechanism is the `google.api.http` option family, and the in-tree parser cannot resolve `google/api/annotations.proto` on this box (measured: exit 1, `not found (searched [.])`), with nothing in the repo shipping or fetching the googleapis include tree; (iii) even with the includes present the extractor reads services and never method options, so such a file still yields 0 operations; and (iv) the format this repo already ingests for HTTP — OpenAPI — is the right carrier. protobuf is a payload encoding there, which the gRPC adapter covers for gRPC backends. This note belongs in PROTO-012's spec when that row is written (per PROTO-013 §4); it is recorded here so the ruling is readable until then.

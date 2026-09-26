@@ -107,23 +107,140 @@ func MapFileDescriptors(fds []*desc.FileDescriptor) []*protocol.Operation {
 	return ops
 }
 
-// mapMessageFields flattens a protobuf message type into request-body
-// properties. Scalar/enum fields map by name; nested messages are surfaced
-// as "object" (agents pass JSON objects; dynamicproto converts them).
+// mapMessageFields maps a protobuf message type into request-body properties.
+// Each property carries the depth-1 fidelity facts the descriptor graph knows
+// (PROTO-013 §2.5, decision D4): a nested message is referenced by FQN, a
+// repeated field carries its element type, a map carries key and value types, an
+// enum carries its value names, a oneof member carries its group name, and a
+// well-known type carries the JSON form the wire actually uses.
 func mapMessageFields(msg *desc.MessageDescriptor) []protocol.RequestBodyProperty {
-	var props []protocol.RequestBodyProperty
 	if msg == nil {
-		return props
+		return nil
 	}
-	for _, f := range msg.GetFields() {
-		props = append(props, protocol.RequestBodyProperty{
-			Name:        f.GetName(),
-			Type:        protoFieldJSONType(f),
-			Description: strings.TrimSpace(fieldComment(f)),
-			Required:    f.HasPresence() && !f.IsRepeated() && f.GetOneOf() == nil && isRequiredByRule(f),
-		})
+	fields := msg.GetFields()
+	props := make([]protocol.RequestBodyProperty, 0, len(fields))
+	for _, f := range fields {
+		props = append(props, protoFieldProperty(f))
 	}
 	return props
+}
+
+// protoFieldProperty maps one field to a neutral request-body property.
+func protoFieldProperty(f *desc.FieldDescriptor) protocol.RequestBodyProperty {
+	prop := protocol.RequestBodyProperty{
+		Name:        f.GetName(),
+		Type:        protoFieldJSONType(f),
+		Description: strings.TrimSpace(fieldComment(f)),
+		Required:    f.HasPresence() && !f.IsRepeated() && f.GetOneOf() == nil && isRequiredByRule(f),
+		Repeated:    f.IsRepeated(),
+		Map:         f.IsMap(),
+		Enum:        enumValueNames(f.GetEnumType()),
+	}
+	switch {
+	case f.IsMap():
+		// A map field is a repeated synthetic entry message on the wire and a
+		// JSON object in the proto3 JSON mapping: the neutral model carries
+		// the KEY and VALUE types rather than the entry type.
+		key := classifyProtoFieldType(f.GetMapKeyType())
+		val := classifyProtoFieldType(f.GetMapValueType())
+		prop.MapKeyType = key.JSONType
+		prop.MapValueType = val.JSONType
+		prop.MapValueRef = val.Ref
+	case f.IsRepeated():
+		item := classifyProtoFieldType(f)
+		prop.ItemType = item.JSONType
+		prop.ItemRef = item.Ref
+	default:
+		declared := classifyProtoFieldType(f)
+		prop.Type = declared.JSONType
+		prop.Format = declared.Format
+		prop.Ref = declared.Ref
+	}
+	// A proto3 `optional` field is carried in a SYNTHETIC oneof; that is a
+	// presence mechanism, not a user-declared group, so it is not reported.
+	if oo := f.GetOneOf(); oo != nil && !oo.IsSynthetic() {
+		prop.Oneof = oo.GetName()
+	}
+	return prop
+}
+
+// protoFieldType is the JSON shape of a proto field's declared type: the type
+// string a consumer renders, the JSON-schema-style format when the wire form
+// has one, and the FQN reference when the JSON is an object of a named type.
+type protoFieldType struct {
+	JSONType string
+	Format   string
+	Ref      string
+}
+
+// classifyProtoFieldType classifies a field's DECLARED type (ignoring repeated
+// cardinality: for a repeated field it describes the element).
+func classifyProtoFieldType(f *desc.FieldDescriptor) protoFieldType {
+	if f == nil {
+		return protoFieldType{JSONType: "string"}
+	}
+	switch f.GetType() {
+	case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_TYPE_GROUP:
+		if mt := f.GetMessageType(); mt != nil {
+			if wkt, ok := wellKnownJSONForm(mt.GetFullyQualifiedName()); ok {
+				return wkt
+			}
+			return protoFieldType{JSONType: "object", Ref: mt.GetFullyQualifiedName()}
+		}
+		return protoFieldType{JSONType: "object"}
+	default:
+		return protoFieldType{JSONType: protoFieldJSONType(f)}
+	}
+}
+
+// wellKnownJSONForm maps a google.protobuf well-known type to the JSON shape its
+// wire JSON takes: a Timestamp is an RFC 3339 string, a Duration a string, a
+// FieldMask a string — not an object of the descriptor's own type. A well-known
+// type therefore carries NO Ref: there is no object to dereference.
+func wellKnownJSONForm(fqn string) (protoFieldType, bool) {
+	switch fqn {
+	case "google.protobuf.Timestamp":
+		return protoFieldType{JSONType: "string", Format: "date-time"}, true
+	case "google.protobuf.Duration":
+		return protoFieldType{JSONType: "string", Format: "duration"}, true
+	case "google.protobuf.FieldMask":
+		return protoFieldType{JSONType: "string", Format: "field-mask"}, true
+	case "google.protobuf.ListValue":
+		return protoFieldType{JSONType: "array"}, true
+	case "google.protobuf.Any", "google.protobuf.Struct", "google.protobuf.Value",
+		"google.protobuf.Empty":
+		return protoFieldType{JSONType: "object"}, true
+	case "google.protobuf.DoubleValue", "google.protobuf.FloatValue":
+		return protoFieldType{JSONType: "number"}, true
+	case "google.protobuf.Int64Value", "google.protobuf.UInt64Value":
+		return protoFieldType{JSONType: "string"}, true
+	case "google.protobuf.Int32Value", "google.protobuf.UInt32Value":
+		return protoFieldType{JSONType: "integer"}, true
+	case "google.protobuf.BoolValue":
+		return protoFieldType{JSONType: "boolean"}, true
+	case "google.protobuf.StringValue", "google.protobuf.BytesValue":
+		return protoFieldType{JSONType: "string"}, true
+	default:
+		return protoFieldType{}, false
+	}
+}
+
+// enumValueNames returns an enum type's value names in declaration order — the
+// values RequestBodyProperty.Enum carries (it existed but was never populated
+// before PROTO-016, so an agent saw "string" with no enum array).
+func enumValueNames(ed *desc.EnumDescriptor) []interface{} {
+	if ed == nil {
+		return nil
+	}
+	values := ed.GetValues()
+	if len(values) == 0 {
+		return nil
+	}
+	names := make([]interface{}, 0, len(values))
+	for _, v := range values {
+		names = append(names, v.GetName())
+	}
+	return names
 }
 
 // isRequiredByRule reports whether a field should be surfaced as required in

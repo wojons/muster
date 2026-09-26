@@ -5,4 +5,5 @@ syntax = "proto3";
 package only;
 message Thing { string id = 1; int64 n = 2; }
 message Other { string name = 1; }
+message Third { bool flag = 1; }
 enum Flavor { FLAVOR_UNSPECIFIED = 0; SWEET = 1; }
