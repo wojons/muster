@@ -208,4 +208,5 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 **Time-to-first-success:** < 2 min (init → first successful request).
 
 | 2026-09-25 (run 4) | PROMISING-BUT-ROUGH | install_seconds=3 (tarball path, warm deps; 96s cold incl. toolchain+modules; DF-035 breaks the git-init'd-tarball variant) | bunker=bunker-mvp agent=b430959d | smoke=ok | t2fs ~3min (build→discover→typed request; MCP client connect works pre-SDK-crash-fix only for lenient clients) | friction 6 | 5 rows (DF-031, DF-032, DF-033, DF-034, DF-035) |
+| 2026-09-26 (run 11) | PROMISING-BUT-ROUGH | CLI chain vs LIVE consensus proven end-to-end (discover→generate→auth→201/200/404/401); MCP+DSL cannot reach authed APIs at all | ~2min (clean HOME → first 201 create-session) | 1. DF-036 P1 openapi-mcp has no auth surface — every authed tools/call 401s. 2. DF-037 P2 DSL http builtins carry no headers — authed workflow impossible. 3. DF-038 P2 MCP errors are flat isError text blobs. | friction 3 | 5 rows (DF-036..040); install leg SKIPPED-install-bunker (all bunkers down/activating; install surface drifted via d9d38a9b) |
 
