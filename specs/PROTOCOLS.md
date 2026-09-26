@@ -1,10 +1,11 @@
 # Protocol Adapters: Design Authority
 
 **Status**: 🚧 DRAFT — design only, no protocol code landed  
-**Version**: 1.0.0  
-**Last Updated**: 2026-09-24  
+**Version**: 1.1.0  
+**Last Updated**: 2026-09-26  
 **Component**: Architecture (all protocols)  
-**Addresses**: PROTO-001 (board: protocol support roadmap PROTO-001..008)  
+**Addresses**: PROTO-001 (board: protocol support roadmap PROTO-001..008), PROTO-012 (HTTP/2 + HTTP/3 client transports — §2 rows 15–17, §4.7, §6 orders 9–11)  
+**Delta history**: 1.1.0 — HTTP transport version dimension added by PROTO-012 from PROTO-010's measurements (`docs/investigation/PROTO-010-http2-http3-client.md`); see [implementation/PROTO-012-http2-http3-transport.md](implementation/PROTO-012-http2-http3-transport.md) for the reasoning, the measurement log and the open decisions.  
 **Related specs**: [CANONICAL-INTERFACES.md](CANONICAL-INTERFACES.md), [CANONICAL-INTERFACES.md §5 inventory](CANONICAL-INTERFACES.md), [MCP-PROTOCOL.md](MCP-PROTOCOL.md), [ERROR-HANDLING.md](implementation/ERROR-HANDLING.md), [RATE-LIMITING.md](RATE-LIMITING.md), [RELIABILITY-RETRY.md](RELIABILITY-RETRY.md), [RELIABILITY-TIMEOUT.md](RELIABILITY-TIMEOUT.md), [CLI-COMMAND-STRUCTURE.md](CLI-COMMAND-STRUCTURE.md), [TOOL-REGISTRATION.md](TOOL-REGISTRATION.md)
 
 ## Executive Summary
@@ -18,6 +19,7 @@ This spec makes **OpenAPI the first adapter, not the engine**. It defines:
 3. The **cross-cutting contract** all adapters must satisfy: auth mapping, error mapping to `pkg/errors.AppError`, timeout/retry/rate-limit reuse, output rendering, MCP agent safety, and network-free testing (§4).
 4. The **naming / back-compat decision** for binaries and subcommands once `openapi-cli` becomes a misnomer (§5).
 5. The **implementation order**, per-protocol acceptance gates, and the first protocol gate the `demo/run-all.sh` end-to-end gate will exercise (§6, §7).
+6. The **HTTP transport version dimension** — HTTP/1.1 / HTTP/2 / HTTP/3 as stage-4 transport variants, not adapters (§1.2, §1.4, §3.5, rows 15–17), with the negotiation & observability contract that makes the version a reported fact rather than a silent downgrade (§4.7 N1–N8), gates at orders 9–11 (§6) and their demo legs (§7). Added in v1.1.0 from PROTO-010's measurements; reasoning in [implementation/PROTO-012-http2-http3-transport.md](implementation/PROTO-012-http2-http3-transport.md).
 
 **Governing rule**: no protocol implementation row may start before its adapter satisfies this spec's pipeline and cross-cutting contracts on paper. Specs are the design authority BEFORE the wave.
 
@@ -59,6 +61,8 @@ Every protocol adapter fills the same four stages. Stages are decoupled: an adap
 | SOAP | WSDL 1.1 or 2.0 document |
 
 **Stage 2 — Operation model** (protocol-neutral; new, shared). **Stage 3 — Generation** (existing shared packages, extended). **Stage 4 — Transport executor** (per protocol).
+
+**A protocol VERSION is a stage-4 property, not a protocol family.** HTTP/1.1, HTTP/2 and HTTP/3 are versions of one protocol: they produce no new operations, so they add no `Discoverer`, no `Protocol` constant and no adapter — `Registry.Register` rejects a second adapter for one `Protocol` (`pkg/protocol/registry.go:33-35`) and a version would re-emit a duplicate copy of every operation for no discovery gain. A version is selected by the transport installed on the shared `pkg/client.Client` (§4.7), which is also why version support never creates a second client or a second call path. The HTTP-family rows that add a version dimension are §2 rows 15–17.
 
 ### 1.3 Exact interface signatures (the contract)
 
@@ -191,7 +195,7 @@ Stage reuse table — **no new generation pipeline**:
 | 2 Model | `pkg/openapi` types as the mapping source | `openapi.Operation{ID, Tags, Path, Method, Summary, Description, Parameters, RequestBody, ServerURL}` → `protocol.Operation` with `Source{"path","method","server"}`; `openapi.Parameter` → `protocol.Parameter` field-for-field. |
 | 3 CLI commands | `pkg/generator` (existing `Config`, `NewGenerator`, `GenerateCommands`) | Extended to accept `[]*protocol.Operation` via a new method; the existing `GenerateCommands(spec *openapi3.T)` stays as-is (§5.2). |
 | 3 MCP tools | `pkg/mcp` (`OpenAPITool`, `ToolRegistry`, `Converter.ConvertToTools`) | Same pattern: existing OpenAPI entry points preserved, new entry point accepts the neutral model. |
-| 4 Transport | `pkg/client` (HTTP-family adapters incl. SOAP/JSON-RPC-over-HTTP/GraphQL-over-HTTP), `pkg/auth` (`TokenManager`, `Token`), `pkg/rate` (`NewTokenBucket`), `pkg/retry` (`Retrier`), `pkg/request.Builder` | Non-HTTP transports (gRPC, Kafka/AMQP/MQTT/NATS) get their own dialers but reuse the same auth/rate/retry composition rules (§4.2–4.4). |
+| 4 Transport | `pkg/client` (HTTP-family adapters incl. SOAP/JSON-RPC-over-HTTP/GraphQL-over-HTTP), `pkg/auth` (`TokenManager`, `Token`), `pkg/rate` (`NewTokenBucket`), `pkg/retry` (`Retrier`), `pkg/request.Builder` | Non-HTTP transports (gRPC, Kafka/AMQP/MQTT/NATS) get their own dialers but reuse the same auth/rate/retry composition rules (§4.2–4.4). HTTP-family adapters inherit the **HTTP version** from the shared `pkg/client.Client`: changing the version MUST NOT create a second client, a second call path, or a new adapter (§4.7) — the version is transport selection, not discovery. |
 
 ### 1.5 Back-compat guarantee for the seam
 
@@ -224,6 +228,9 @@ Verdicts: **ADOPT** (build, in the order of §6), **DEFER** (re-evaluate later, 
 | 12 | **Cap'n Proto** | DEFER | — | No standard IDL-based discovery story usable for command generation (schema language exists, but no reflection/discovery convention comparable to gRPC reflection or OpenRPC); object-capability model conflicts with the stateless CLI command shape. |
 | 13 | **FlatBuffers** | DEFER | — | A wire format, not an RPC protocol — no operation discovery surface of its own; it appears inside other protocols (e.g. gRPC with FlatBuffers payloads) which the gRPC adapter already covers at the transport level. |
 | 14 | **tRPC** | DEFER | — | TypeScript-centric; its contract surface is a TS router, not a machine-readable discovery document. Clients can already be exposed through the JSON-RPC adapter if a tRPC server enables it. Re-evaluate if a discovery-document convention emerges. |
+| 15 | **HTTP/2 client transport (h2)** | ADOPT — **no new dependency** (configuration + observability, not protocol code) | 9 | Already negotiated today, by accident: `pkg/client.NewClient` builds `&http.Client{Timeout: 30 * time.Second}` with a nil `Transport` (`pkg/client/client.go:101-103`), so requests land on `http.DefaultTransport`, whose `ForceAttemptHTTP2` is `true` — measured HTTP/2.0 on client and server (PROTO-010 `C1`, re-measured at PROTO-012), zero modules added; `golang.org/x/net/http2` is already in the CLI build closure (516 packages). The row exists because the negotiation is accidental: a hand-built `&http.Transport{}` drops to HTTP/1.1 against a server that offers h2 (PROTO-010 `C2`, re-measured), and there are **0** non-test `http.Transport` constructions in the tree today — the first one anyone adds silently removes h2. Cleartext is HTTP/1.1 regardless (no h2c). Gate: order 9; the version is read from the wire, never from configuration. |
+| 16 | **HTTP/3 client transport (QUIC/h3)** | ADOPT — opt-in, **one new dependency** (`github.com/quic-go/quic-go` v0.63.0) | 10 | No stdlib HTTP/3 and no importable `x/net` HTTP/3 (`golang.org/x/net@v0.58.0`'s `http3/` is a `//go:linkname` shim to `net/http_test` with three unexported functions and no client `RoundTripper`). `http3.Transport` **is** an `http.RoundTripper` and was measured driving GET/PUT/PROPFIND/DELETE unchanged through the unmodified `pkg/client`. Measured cost at PROTO-012: module graph 173 → 178 (+5, of which exactly **2** compile — `quic-go`, `qpack`), binary +306,802 B default / **+143,360 B** stripped, module cache 3,594,997 B, MIT, `govulncheck` 0 reachable, `CGO_ENABLED=0` cross-compiles; no existing dependency version moves. Opt-in with h2 retained: **version selection is transport selection** and neither transport falls back to the other (measured both directions), so any fallback is explicit client code that reports itself (§4.7). |
+| 17 | **WebDAV (RFC 4918) as an HTTP application profile** | ADOPT — as an **application profile**, not an adapter: it reuses rows 15/16 and the HTTP-family stage-4 path | 11 | Muster is the named WebDAV **consumer** of bunker's surface (bunker BFS-004), and the repo has no WebDAV content at all (`grep -ril "webdav\|propfind"` → 0 in `specs/`, 0 in `.memory-bank/`, 0 in any `.go` file, 0 in any markdown outside the two PROTO-010/011 investigation docs). RFC 4918's method set is a closed vocabulary with no discovery document, so stage 1 for this profile is a **built-in operation manifest** (a discovery document would be a second protocol engine; a hand-written per-endpoint manifest remains the fallback for non-RFC extensions). Measured gap it must close: `openapi-cli request PROPFIND <url> -b <propfind>` reaches the wire with **bodyLen=0** (`internal/builtin/request.go:144-146` attaches a body only for `POST`/`PUT`/`PATCH`) while `PUT` sends its 7 bytes — LOCK/PROPFIND bodies are silently dropped today. Gate: order 11. |
 
 **Matrix maintenance rule**: adding a protocol row to this table requires (a) a written verdict + reason, (b) a board row with acceptance criteria, and (c) — if ADOPT — a gate definition per §6 before implementation starts.
 
@@ -254,6 +261,7 @@ Verdicts: **ADOPT** (build, in the order of §6), **DEFER** (re-evaluate later, 
 
 - One Executor per adapter implementing `protocol.Executor.Execute(ctx, opID, args) (interface{}, error)`.
 - HTTP-family transports (SOAP, JSON-RPC-over-HTTP, GraphQL) MUST compose `pkg/client.Client` (retry via `WithRetryConfig(retry.RetryConfig)`), `pkg/request.Builder` for request assembly, and `pkg/response.Handler` where the response is plain HTTP.
+- **Version selection is the transport's, never the adapter's.** An HTTP-family adapter MUST NOT negotiate an HTTP version, set ALPN preferences, or retry across versions on its own; it executes through the shared `pkg/client.Client`, whose `http.RoundTripper` carries the version policy and reports the version actually used per §4.7. This is the same rule as §3.1's "adapters do not open their own HTTP clients", one layer down.
 - Non-HTTP transports (gRPC, brokers) own their dialers but MUST apply the same cross-cutting composition (§4).
 
 ## 4. Cross-Cutting Contract (every adapter MUST satisfy)
@@ -287,6 +295,7 @@ Every adapter error surfaces as an `*errors.AppError` (so `pkg/cli.ErrorFormatte
 | Target not found (404, gRPC `NotFound`) | `CodeNotFound` | |
 | Schema/argument validation failures at the client | `CodeValidation` | before any bytes hit the wire |
 | Protocol-internal decode/serialization failures | `CodeInternal` | includes protobuf/JSON/XML decode errors |
+| A **required** HTTP transport version could not be used (client-side, after the wire attempt — §4.7 N5) | `CodeProtocolMismatch` (new constant) | details `requested`, `observed`, `reason`; never used for a version the policy did not require, and never as a substitute for a fallback that succeeded |
 | Everything else | `CodeGeneric` | default; adapter MAY add `WithDetail("protocol", …)` |
 
 Adding new codes is additive-safe today: the only `switch` over error codes in the tree is HTTP-status-based in `pkg/client/client.go` (`switch statusCode`), and `pkg/cli.ErrorFormatter.Format` prints the code string without enumerating it. New protocol codes (if ever needed) MUST be added to `pkg/errors` as new `Code` constants — never by string-matching in adapters.
@@ -341,12 +350,54 @@ Every adapter lands with, at minimum:
 1. **In-process protocol servers** — real protocol, no real network:
    - gRPC: server on `bufconn` (`google.golang.org/grpc/test/bufconn` — listener over an in-memory buffer; dialer `grpc.WithContextDialer`). This is the canonical Go in-process gRPC test pattern.
    - HTTP-family (SOAP, JSON-RPC, GraphQL): `net/http/httptest.Server` bound to `127.0.0.1` (loopback only, no external network).
+   - HTTP/3: an in-process `http3.Server` on a **UDP loopback** socket plus an `http3.Transport` is the h3 analogue of `httptest`. QUIC mandates TLS 1.3, so the fixture needs a real (self-signed) certificate — a bare listener cannot work — and the **negative cells** (an h2 transport against an h3-only endpoint, and the reverse) belong to the pattern, because nothing in either transport falls back to the other (§4.7 N6).
    - WebSocket: `httptest` server doing the upgrade locally.
    - AsyncAPI transports: in-process brokers where Go natives exist (e.g. in-memory NATS server `github.com/nats-io/nats-server/v2` `natsserver.Run`, embedded Kafka via testcontainers is CI-heavy — the AsyncAPI gate (PROTO-007) decides per-transport; loopback brokers are the default).
 2. **One conformance comparison per protocol against a reference client** — proves our client speaks the same wire protocol as the ecosystem tool, not just that our client agrees with our server:
    - gRPC: `github.com/fullstorydev/grpcurl` v1.9.4 used as a LIBRARY (`github.com/fullstorydev/grpcurl` package APIs) or as a binary in tests that run it against the same in-process `bufconn`-served listener via a local port, comparing its result to our executor's result for the same call. (Network-free: the server is in-process; grpcurl connects over loopback.)
    - SOAP/JSON-RPC/GraphQL: golden-file comparison of our request bytes against a reference implementation's request bytes (e.g. recorded curl/known-good client output), plus response-byte decode comparison.
 3. **The three-test rule from AGENTS.md** applies per adapter: unit (mapping functions), integration (adapter + shared stages wired in-process), e2e (`demo/test-suites/` scenario over loopback).
+
+### 4.7 HTTP transport version negotiation & observability (HTTP/1.1 / HTTP/2 / HTTP/3)
+
+Applies to the HTTP-family adapters (matrix rows 1, 4, 5, 8, 15, 16, 17). Non-HTTP transports are unaffected. The reasoning, the measurement log and the open decisions live in [implementation/PROTO-012-http2-http3-transport.md](implementation/PROTO-012-http2-http3-transport.md); this section is the binding contract.
+
+**N1 — Truth source.** The negotiated HTTP version is the version the response was actually carried on, recorded from the response returned by the **base `http.RoundTripper`** — the one that performs the exchange — at the moment it returns, before any wrapper may rebuild the response. `http.Response.Proto` as seen through `pkg/client` is **not** a truth source today: the response cache rebuilds 2xx GET responses with `Proto: req.Proto` and a header set holding only `Content-Type` (`pkg/client/cache.go:110-126`, called at `:66`/`:94`), and the rate limiter synthesizes a local `429` the same way (`pkg/client/ratelimit.go:50-64`). `req.Proto` is `"HTTP/1.1"` for an outgoing request by construction (measured), so both sites fabricate `HTTP/1.1` regardless of what the network did; the cache's forgery is also verb-dependent (non-GET verbs pass through untouched, `cache.go:56-58`). Product surfaces MUST read the recorded value, never the wrapper-built response. DF-041 must still be fixed for response-object and header fidelity — no rule in this section may be weakened to depend on it.
+
+**N2 — Attachment.** A version is selected by installing a transport on the one shared client: `WithTransport(rt http.RoundTripper)` applies the base transport **inside** the option pipeline, and the version recorder wraps that base, i.e. below `WithRateLimiter`/`WithCache`, so every exchange that reaches the network is recorded. Callers MUST NOT change the version via `Client.SetHTTPClient`: it replaces the whole `*http.Client` and discards the wrapper chain the options installed (measured: `WithCache`+`WithRateLimiter` then `SetHTTPClient` takes wire hits from 1 → 2 and turns `*client.CacheRoundTripper` back into `*http.Transport`; defect row DF-042).
+
+**N3 — Reported record.** Every HTTP-family execution reports (library: the recorder; CLI: the verbose diagnostic surface; MCP: the error details of N5):
+
+| Field | Values | Meaning |
+|---|---|---|
+| `observed` | `HTTP/1.1` \| `HTTP/2.0` \| `HTTP/3.0` \| `""` | the wire version; **empty** when no exchange took place |
+| `source` | `wire` \| `cache` \| `local` | where the response came from |
+| `requested` | `auto` \| `1.1` \| `2` \| `3` | the policy in force (N4) |
+| `satisfied` | bool | the policy was met (`auto` is satisfied by any `observed` value from the wire) |
+| `fallback` | `{from, to, reason}` or absent | present only when a preferred/required version was attempted and another was used |
+
+`observed` is never guessed: a cache-served response reports `source: cache` plus the version stored with the cache entry, or `""` when the entry carries none — **never a default of `HTTP/1.1`**; a locally refused request reports `source: local` with `observed: ""`. A synthesizing wrapper MUST NOT stamp `req.Proto` as an observed version.
+
+**N4 — Policy.** `request.http_version` (config; the `--http-version` flag overrides) takes `auto` (**default** — today's behaviour), `1.1`, `2`, `3`. `auto` never fails on version. `1.1`/`2` REQUIRE the named version. `3` prefers HTTP/3 and MAY fall back to HTTP/2 — the fallback is always reported.
+
+**N5 — A version that cannot be used is a reported fact, never a silent downgrade.**
+
+| Server offers | Policy | Outcome |
+|---|---|---|
+| `http/1.1` only | `auto` (default) | succeeds; `observed=HTTP/1.1`, `satisfied=true`; the fact is reported — older clients keep working, and the caller is told which version carried the request |
+| `http/1.1` only | `2` or `3` | FAILS: `CodeProtocolMismatch` with `requested`, `observed`, `reason="server-offered-http/1.1"` |
+| h2 over TLS | `auto` / `2` | succeeds; `observed=HTTP/2.0` |
+| h3 reachable | `3` | succeeds; `observed=HTTP/3.0` |
+| h3 unreachable (UDP dropped, no QUIC, peer TCP-only) | `3` | succeeds over h2 with `fallback{from:HTTP/3.0, to:HTTP/2.0, reason:<connection-layer class>}` — the fallback is explicit client code and its occurrence is the report |
+| plaintext `http://` | any | `observed=HTTP/1.1` by construction (no h2c in the stdlib; QUIC requires TLS 1.3); policy `2`/`3` FAILS with `reason="plaintext-endpoint"` |
+
+Classification: a **QUIC connection-layer failure** (dial refused, handshake timeout, `CRYPTO_ERROR`) is a fallback reason; an **HTTP status** is never one. `fallback` means another version carried the request; `CodeProtocolMismatch` means no permitted version could — the two are never interchanged.
+
+**N6 — No negotiation inside a transport, and Alt-Svc is out of band.** Neither `http.Transport` nor `http3.Transport` falls back to the other (measured in both directions: `dial tcp …: connection refused` and `timeout: no recent network activity`), and **nothing consumes `Alt-Svc`** — neither the stdlib nor quic-go's client (which only sets it server-side). Cross-version behaviour is therefore client code (N4/N5), and h3 selection is explicit configuration, never automatic discovery.
+
+**N7 — Surfaces.** Library: the recorder. CLI: an `HTTP: <version>` line on **stderr**, alongside the existing `Request:`/`Status:` diagnostics (`internal/builtin/request.go:195-213`) — never stdout, whose payload fidelity is frozen (§4.4, §5.3) — plus the `--http-version` flag. MCP: the result payload stays the decoded body (§4.4); a required-version failure is an `AppError` carrying the N3 record, so an agent never receives a silent downgrade.
+
+**N8 — Error code.** `CodeProtocolMismatch`, a new additive `pkg/errors` `Code` constant, means "a required HTTP transport version could not be used" and carries `requested`/`observed`/`reason`; it is mapped at the transport boundary like every other adapter error (§4.2) and is never used for a version the policy did not require.
 
 ## 5. Naming & Back-Compat
 
@@ -387,6 +438,9 @@ Each ADOPT row lands behind a gate. A gate is a concrete, runnable check — gre
 | 6 | AsyncAPI 3.x (PROTO-007) | **Spec gate first**: AsyncAPI ingestion spec lands and is reviewed BEFORE implementation; then ONE transport end-to-end over an in-process broker with §4.5(4) bounded-collect semantics; remaining transports follow one at a time |
 | 7 | SOAP/WSDL (PROTO-008) | WSDL 1.1 doc → operations; envelope bytes golden-compared against reference; SOAP Fault → AppError mapping test; loopback `httptest` server round-trip |
 | 8 | OpenAPI 2.0 conversion (PROTO-006) | Measure-and-document current `Parser.Parse` behavior on 2.0 docs (named in PROTO-006 evidence) → then `openapi2conv` path with a conversion parity test (2.0 doc converted → operations equal to hand-upgraded 3.x doc's operations) |
+| 9 | HTTP/2 client transport (PROTO-014) | In-process `httptest` TLS server, `EnableHTTP2 = true`, ALPN offering `h2`, loopback only. (a) the version recorded per §4.7 N1 — **not** read from a wrapper-built response — equals `HTTP/2.0` on both sides for GET and for `PROPFIND`; (b) a 1 MiB PUT arrives intact (server-observed length 1048576); (c) **reporting control**: a server offering only `http/1.1` still serves the request and the recorded version is `HTTP/1.1` with `satisfied: true` under `auto` — the version comes from the wire, never from configuration; (d) **negative cell**: a hand-built `&http.Transport{}` without `ForceAttemptHTTP2` records `HTTP/1.1`, so the assertion can actually fail (measured — this is the anti-gaming cell); (e) **policy cell**: `--http-version 2` against the h1.1-only server fails with `CodeProtocolMismatch` carrying `requested`/`observed`/`reason`; (f) **cache cell**: with `WithCache` enabled, the recorded version for a 2xx GET is still the wire version (today that path's `resp.Proto` is `HTTP/1.1` — DF-041 — so the cell proves the contract does not depend on it). |
+| 10 | HTTP/3 client transport (PROTO-015) | In-process `http3.Server` on a **UDP loopback** socket with an in-process self-signed certificate (QUIC mandates TLS 1.3). (a) `HTTP/3.0` recorded on both sides for GET/PUT/PROPFIND/DELETE; (b) context deadline → `CodeTimeout`; (c) **negative cells (measured)**: an h2 transport against an h3-only endpoint fails (dial refused) and an h3 transport against a TCP-only endpoint fails (`timeout: no recent network activity`) — the proof that no cross-version fallback exists inside either transport; (d) **fallback cell**: policy `3` with QUIC unreachable completes over h2 **and reports** `fallback{from,to,reason}` classified as a connection-layer failure, never as a silent success; (e) a TLS-1.2-capped config fails with `CRYPTO_ERROR 0x150` rather than hanging; (f) a plaintext URL can never satisfy policy `3`. |
+| 11 | WebDAV application profile (matrix row 17) | In-process `httptest` WebDAV fixture. A `PROPFIND` carrying a `<propfind>` body reaches the wire with a **non-zero** body (today measured `bodyLen=0`, `internal/builtin/request.go:144-146` attaches a body only for POST/PUT/PATCH), likewise a `LOCK` body; a `Depth` header is sent when requested; operations are produced from the built-in manifest with stable IDs; a peer extension refusal surfaces with the peer's own vocabulary preserved in the error details (cross-repo contract, bunker BFS-004). |
 
 Rules: gates run in CI as Go tests (`go test -short ./...` covers them via the standard suite; no special harness). No gate, no implementation. A gate that cannot run network-free fails review.
 
@@ -404,8 +458,16 @@ When PROTO-002 lands, the demo gains:
 
 **Later**: each adopted protocol adds one numbered demo script in implementation order (`12-grpc-streaming.sh`, `13-jsonrpc.sh`, …), so `run-all.sh` output shows the protocol matrix growing check by check. The `make demo` integration target stays as-is (informational, not a green gate).
 
+**Transport-version gate (order 9/10, PROTO-012's demo-plan entry).** A gate's demo script takes ordinal `11 + (order − 1)` on an **append-only** queue — landed scripts are never renumbered, and the ordinal is re-derived at landing time from `ls demo/demos/` (10 scripts today). Orders 4–8 therefore own 14–18, and this transport's scripts are:
+
+- `demo/demos/19-http2-transport.sh` (order 9): start a loopback TLS fixture offering `h2`; run one GET and one `PROPFIND` asserting the **reported** version is `HTTP/2.0`; then against an `http/1.1`-only fixture assert the request still succeeds and the report says `HTTP/1.1` (a reporting leg, not a failure leg).
+- `demo/demos/20-http3-transport.sh` (order 10): the same fixture over UDP/h3 asserting `HTTP/3.0`, plus the reported-fallback leg of gate 10(d).
+- `demo/demos/21-webdav-surface.sh` (order 11): the WebDAV profile gate of §6 row 11.
+
+Two scripts for orders 9/10, not one: order 9's gate must be demonstrable at the moment h2 lands, and a combined script would make it depend on order 10's code. **Fixture ownership:** each script builds and starts its own small Go fixture from `demo/services/transport-fixture/` on a loopback port with a self-signed certificate and tears it down on exit. `run-all.sh` starts services from an **explicit list** (`demo/run-all.sh:43-47`), and the demo stack's Python services cannot serve h2/h3 (the stdlib server is HTTP/1.1-only), so owning the fixture inside the script keeps `run-all.sh` unchanged — the `demos/*.sh` glob picks the new legs up as §7 intends.
+
 ## 8. Out of Scope for This Spec
 
-- No protocol implementation code, no new dependencies added to `go.mod` by this spec itself (the third-party modules named above are verified-available recommendations for the implementing rows, pinned at PROTO-002 review time, not now).
+- No protocol implementation code, no new dependencies added to `go.mod` by this spec itself. The third-party modules named in §2 are verified-available recommendations for the implementing rows; the one exception is the HTTP/3 pin (`github.com/quic-go/quic-go` **v0.63.0**), which v1.1.0 **decides** (§2 row 16, §4.7) and PROTO-015 lands in `go.mod` — measured cost and alternatives are in [implementation/PROTO-012-http2-http3-transport.md](implementation/PROTO-012-http2-http3-transport.md) §4.
 - No binary renaming (§5.1 decision: keep current names).
 - No changes to board files, `.coding-hermes`, or `.gitreins` state from this spec.
