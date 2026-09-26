@@ -119,6 +119,9 @@ type SchemaField struct {
 	MapValueType string   `json:"map_value_type,omitempty"`
 	MapValueRef  string   `json:"map_value_ref,omitempty"`
 	Oneof        string   `json:"oneof,omitempty"` // oneof group name; empty when not a member
+	// ExtendedType is the FQN of the message an EXTENSION field extends
+	// (SchemaSet.Extensions only); empty for ordinary fields.
+	ExtendedType string `json:"extends,omitempty"`
 }
 
 // SchemaType is one named declaration in a SchemaSet.

@@ -86,7 +86,15 @@ func addFileToSchema(fd *desc.FileDescriptor, set *protocol.SchemaSet) {
 		addEnumToSchema(enum, set)
 	}
 	for _, ext := range fd.GetExtensions() {
-		set.Extensions = append(set.Extensions, schemaFieldFromProperty(protoFieldProperty(ext)))
+		// An extension field is NOT a member of the message it extends, so it
+		// is listed on the set rather than mixed into that type's fields; the
+		// extendee is carried as ExtendedType (its own message type, when it
+		// has one, stays in Ref).
+		field := schemaFieldFromProperty(protoFieldProperty(ext))
+		if owner := ext.GetOwner(); owner != nil {
+			field.ExtendedType = owner.GetFullyQualifiedName()
+		}
+		set.Extensions = append(set.Extensions, field)
 	}
 }
 

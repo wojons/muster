@@ -265,6 +265,57 @@ func TestSchema_NegativeControlsKeepTheirClass(t *testing.T) {
 	}
 }
 
+// TestSchema_ExtensionFieldsAreCarriedWithTheirExtendee covers the extension part
+// of the schema walk (PROTO-013 §2.4 D3): an extension field is not a member of
+// the message it extends, so it is listed on the set with the extendee named and
+// its own message type in Ref.
+func TestSchema_ExtensionFieldsAreCarriedWithTheirExtendee(t *testing.T) {
+	adapter := NewAdapter()
+	defer func() { _ = adapter.Close() }()
+
+	set, err := adapter.Schema(context.Background(), "testdata/extension.proto")
+	if err != nil {
+		t.Fatalf("schema of proto2 extension fixture: %v", err)
+	}
+	if len(set.Extensions) != 2 {
+		t.Fatalf("extensions = %+v, want the two file-level extensions", set.Extensions)
+	}
+	byName := map[string]protocol.SchemaField{}
+	for _, ext := range set.Extensions {
+		byName[ext.Name] = ext
+	}
+	note, ok := byName["note"]
+	if !ok {
+		t.Fatalf("extension note missing from %+v", set.Extensions)
+	}
+	if note.ExtendedType != "ext.Base" {
+		t.Errorf("note extends %q, want ext.Base", note.ExtendedType)
+	}
+	if note.Type != "string" {
+		t.Errorf("note type = %q, want string", note.Type)
+	}
+	extra, ok := byName["extra"]
+	if !ok {
+		t.Fatalf("extension extra missing from %+v", set.Extensions)
+	}
+	if extra.Ref != "ext.Extra" || extra.ExtendedType != "ext.Base" {
+		t.Errorf("extra = %+v, want extendee ext.Base and ref ext.Extra", extra)
+	}
+	// An extension must NOT leak into the extended message's own fields.
+	base, ok := set.Type("ext.Base")
+	if !ok {
+		t.Fatalf("ext.Base missing: %v", set.Names())
+	}
+	for _, f := range base.Fields {
+		if f.Name == "note" || f.Name == "extra" {
+			t.Errorf("extension %s leaked into ext.Base.Fields", f.Name)
+		}
+	}
+	if len(base.Fields) != 1 || base.Fields[0].Name != "id" {
+		t.Errorf("ext.Base fields = %+v, want only id", base.Fields)
+	}
+}
+
 // schemaOf discovers a schema set from a URI and fails the test on error.
 func schemaOf(t *testing.T, adapter *Adapter, uri string) *protocol.SchemaSet {
 	t.Helper()

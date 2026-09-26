@@ -1,0 +1,17 @@
+// proto2 fixture: file-level EXTENSION fields, so the schema surface's
+// extension walk has something real to carry. Extensions only exist in proto2
+// (proto3 reserves `extend` for custom options), and an extension field is not a
+// member of the message it extends — which is why the schema set lists it under
+// Extensions with the extendee named, rather than inside Base's fields.
+syntax = "proto2";
+package ext;
+message Base {
+  optional string id = 1;
+  extensions 100 to 200;
+}
+extend Base {
+  optional string note = 100;
+  optional Extra extra = 101;
+}
+message Extra { optional int32 n = 1; }
+message Holder { optional Base base = 1; }
