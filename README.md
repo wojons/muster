@@ -189,7 +189,7 @@ doc, _ := parser.Parse(ctx, specBytes, openapi.DefaultParseOptions())
 c := client.NewClient(client.WithBaseURL("https://api.example.com"), client.WithTimeout(30*time.Second))
 ```
 
-22 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
+28 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
 
 ## Build from source
 
@@ -242,7 +242,7 @@ Also requires a C compiler for CGO (SQLite) — see [Prerequisites](#prerequisit
 cmd/openapi-cli/     # CLI entry point
 cmd/mcp-server/      # MCP server entry point
 cmd/daemon/          # Daemon entry point
-pkg/                 # 22 public packages (importable)
+pkg/                 # 28 public packages (importable)
   openapi/           # OpenAPI spec parsing
   mcp/               # MCP protocol implementation
   client/            # HTTP client with auth, rate limiting, retry
