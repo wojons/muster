@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"go.starlark.net/starlark"
@@ -127,6 +128,75 @@ func TestHttpGetBuiltin_MissingArg(t *testing.T) {
 	}
 }
 
+// TestHttpGetBuiltin_WithHeaders verifies that httpGetBuiltin forwards an
+// optional headers dict to the outgoing request (auth use case).
+func TestHttpGetBuiltin_WithHeaders(t *testing.T) {
+	var gotAuth, gotCustom string
+	srv := startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotCustom = r.Header.Get("X-Test")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
+	thread := makeStarlarkThread("test")
+	headers := starlark.NewDict(2)
+	if err := headers.SetKey(starlark.String("Authorization"), starlark.String("Bearer tok123")); err != nil {
+		t.Fatalf("failed to build headers dict: %v", err)
+	}
+	if err := headers.SetKey(starlark.String("X-Test"), starlark.String("yes")); err != nil {
+		t.Fatalf("failed to build headers dict: %v", err)
+	}
+	args := starlark.Tuple{starlark.String(srv.URL + "/secure"), headers}
+
+	result, err := httpGetBuiltin(thread, nil, args, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tuple := result.(starlark.Tuple)
+	code, _ := tuple[0].(starlark.Int).Int64()
+	if code != 200 {
+		t.Errorf("expected 200, got %d", code)
+	}
+	if gotAuth != "Bearer tok123" {
+		t.Errorf("expected Authorization header 'Bearer tok123', got %q", gotAuth)
+	}
+	if gotCustom != "yes" {
+		t.Errorf("expected X-Test header 'yes', got %q", gotCustom)
+	}
+}
+
+// TestHttpGetBuiltin_HeadersNone verifies that an explicit headers=None is
+// accepted and sends no extra headers (backward compatibility).
+func TestHttpGetBuiltin_HeadersNone(t *testing.T) {
+	var gotAuth string
+	srv := startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	thread := makeStarlarkThread("test")
+	args := starlark.Tuple{starlark.String(srv.URL), starlark.None}
+
+	if _, err := httpGetBuiltin(thread, nil, args, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotAuth != "" {
+		t.Errorf("expected no Authorization header, got %q", gotAuth)
+	}
+}
+
+// TestHttpGetBuiltin_HeadersInvalidType verifies that a non-dict headers value
+// is rejected with an error.
+func TestHttpGetBuiltin_HeadersInvalidType(t *testing.T) {
+	thread := makeStarlarkThread("test")
+	args := starlark.Tuple{starlark.String("http://invalid.example.invalid"), starlark.String("not-a-dict")}
+
+	if _, err := httpGetBuiltin(thread, nil, args, nil); err == nil {
+		t.Fatal("expected error for non-dict headers, got nil")
+	}
+}
+
 // =============================================================================
 // httpPostBuiltin
 // =============================================================================
@@ -181,6 +251,166 @@ func TestHttpPostBuiltin_NoBody(t *testing.T) {
 	code, _ := tuple[0].(starlark.Int).Int64()
 	if code != 200 {
 		t.Errorf("expected 200, got %d", code)
+	}
+}
+
+// TestHttpPostBuiltin_WithHeaders verifies that httpPostBuiltin forwards an
+// optional headers dict, enabling bearer-auth POSTs that previously failed
+// with the upstream 401 echoed as body text (DF-037 repro shape).
+func TestHttpPostBuiltin_WithHeaders(t *testing.T) {
+	srv := startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer tok123" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"UNAUTHENTICATED"}`))
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"id":7}`))
+	})
+
+	thread := makeStarlarkThread("test")
+	headers := starlark.NewDict(1)
+	if err := headers.SetKey(starlark.String("Authorization"), starlark.String("Bearer tok123")); err != nil {
+		t.Fatalf("failed to build headers dict: %v", err)
+	}
+	args := starlark.Tuple{starlark.String(srv.URL + "/sessions"), starlark.String(`{"prompt":"hi"}`), headers}
+
+	result, err := httpPostBuiltin(thread, nil, args, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tuple := result.(starlark.Tuple)
+	code, _ := tuple[0].(starlark.Int).Int64()
+	if code != 201 {
+		t.Errorf("expected 201 with auth header, got %d (body %q)", code, string(tuple[1].(starlark.String)))
+	}
+}
+
+// TestHttpPostBuiltin_HeadersContentTypeOverride verifies a headers-supplied
+// Content-Type wins over the builtin default.
+func TestHttpPostBuiltin_HeadersContentTypeOverride(t *testing.T) {
+	var gotCT string
+	srv := startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotCT = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	thread := makeStarlarkThread("test")
+	headers := starlark.NewDict(1)
+	if err := headers.SetKey(starlark.String("Content-Type"), starlark.String("text/plain")); err != nil {
+		t.Fatalf("failed to build headers dict: %v", err)
+	}
+	args := starlark.Tuple{starlark.String(srv.URL), starlark.String("plain"), headers}
+
+	if _, err := httpPostBuiltin(thread, nil, args, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotCT != "text/plain" {
+		t.Errorf("expected Content-Type override 'text/plain', got %q", gotCT)
+	}
+}
+
+// TestHttpPutBuiltin_WithHeaders verifies that httpPutBuiltin forwards an
+// optional headers dict to the outgoing request.
+func TestHttpPutBuiltin_WithHeaders(t *testing.T) {
+	var gotAuth string
+	srv := startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("updated"))
+	})
+
+	thread := makeStarlarkThread("test")
+	headers := starlark.NewDict(1)
+	if err := headers.SetKey(starlark.String("Authorization"), starlark.String("Bearer tok123")); err != nil {
+		t.Fatalf("failed to build headers dict: %v", err)
+	}
+	args := starlark.Tuple{starlark.String(srv.URL + "/update"), starlark.String(`{"a":1}`), headers}
+
+	result, err := httpPutBuiltin(thread, nil, args, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tuple := result.(starlark.Tuple)
+	code, _ := tuple[0].(starlark.Int).Int64()
+	if code != 200 {
+		t.Errorf("expected 200, got %d", code)
+	}
+	if gotAuth != "Bearer tok123" {
+		t.Errorf("expected Authorization header 'Bearer tok123', got %q", gotAuth)
+	}
+}
+
+// TestHttpDeleteBuiltin_WithHeaders verifies that httpDeleteBuiltin forwards
+// an optional headers dict to the outgoing request.
+func TestHttpDeleteBuiltin_WithHeaders(t *testing.T) {
+	var gotAuth string
+	srv := startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	thread := makeStarlarkThread("test")
+	headers := starlark.NewDict(1)
+	if err := headers.SetKey(starlark.String("Authorization"), starlark.String("Bearer tok123")); err != nil {
+		t.Fatalf("failed to build headers dict: %v", err)
+	}
+	args := starlark.Tuple{starlark.String(srv.URL + "/resource/1"), headers}
+
+	if _, err := httpDeleteBuiltin(thread, nil, args, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotAuth != "Bearer tok123" {
+		t.Errorf("expected Authorization header 'Bearer tok123', got %q", gotAuth)
+	}
+}
+
+// TestRunDsl_HttpAuthedWorkflow verifies an authed 3-step workflow
+// (create -> message -> poll) end to end through runDsl, the exact scenario
+// DF-037 found impossible before headers support.
+func TestRunDsl_HttpAuthedWorkflow(t *testing.T) {
+	type captured struct {
+		auth   string
+		hasKey bool
+	}
+	var steps [3]captured
+	mu := &sync.Mutex{}
+	n := 0
+	srv := startTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		i := n
+		n++
+		mu.Unlock()
+		if i < len(steps) {
+			steps[i] = captured{auth: r.Header.Get("Authorization"), hasKey: r.Header.Get("X-Api-Key") != ""}
+		}
+		if r.Header.Get("Authorization") != "Bearer tok123" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"UNAUTHENTICATED"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"ok":true}`))
+	})
+
+	scriptDir := t.TempDir()
+	scriptPath := filepath.Join(scriptDir, "authed_workflow.star")
+	scriptContent := "auth = {'Authorization': 'Bearer tok123', 'X-Api-Key': 'k-123'}\n" +
+		"code1, body1 = http_post('" + srv.URL + "/sessions', '{}', auth)\n" +
+		"code2, body2 = http_post('" + srv.URL + "/messages', '{\"text\":\"hi\"}', auth)\n" +
+		"code3, body3 = http_get('" + srv.URL + "/poll', auth)\n" +
+		"result = str(code1) + ',' + str(code2) + ',' + str(code3)\n"
+	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0644); err != nil {
+		t.Fatalf("failed to write script: %v", err)
+	}
+
+	if err := runDsl(nil, []string{"dsl", scriptPath}, false); err != nil {
+		t.Fatalf("runDsl authed workflow failed: %v", err)
+	}
+	for i, s := range steps {
+		if s.auth != "Bearer tok123" || !s.hasKey {
+			t.Errorf("step %d: expected both headers, got auth=%q hasKey=%v", i+1, s.auth, s.hasKey)
+		}
 	}
 }
 
