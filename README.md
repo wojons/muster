@@ -117,7 +117,9 @@ openapi-cli request POST https://api.example.com/users -H "Content-Type: applica
 
 # Auth
 export MUSTER_AUTH_TOKEN="your-token"
-openapi-cli request GET https://api.example.com/admin --header "Authorization: Bearer $MUSTER_AUTH_TOKEN"
+openapi-cli request GET https://api.example.com/admin --header "Authorization: Bearer $MUSTER_AUTH_TOKEN}"
+# Or attach a stored credential created via 'openapi-cli auth add':
+openapi-cli request GET https://api.example.com/admin --auth myapi
 
 # WASM transformation
 openapi-cli request GET https://api.example.com/data --wasm-plugin ./transform.wasm
