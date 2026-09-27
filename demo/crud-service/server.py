@@ -1,6 +1,17 @@
-"""Demo CRUD service for Muster acceptance testing — port 9800."""
+"""Demo CRUD service for Muster acceptance testing — default port 9800.
+
+Port resolution order (matches the other demo services):
+  1. argv[1]
+  2. PORT environment variable
+  3. default 9800
+
+An invalid or extra argument exits with status 2 and a usage line.
+"""
 from flask import Flask, request, jsonify
+import os
 import sys
+
+DEFAULT_PORT = 9800
 
 app = Flask(__name__)
 tasks = []
@@ -46,5 +57,16 @@ def delete_task(task_id):
     return '', 204
 
 if __name__ == '__main__':
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 9800
+    usage = "usage: server.py [port]   (default: 9800; PORT environment variable also honored)"
+    if len(sys.argv) > 2:
+        sys.stderr.write(f"error: unexpected arguments {' '.join(sys.argv[2:])}\n{usage}\n")
+        raise SystemExit(2)
+    if len(sys.argv) == 2:
+        try:
+            port = int(sys.argv[1])
+        except ValueError:
+            sys.stderr.write(f"error: invalid port {sys.argv[1]!r}\n{usage}\n")
+            raise SystemExit(2)
+    else:
+        port = int(os.environ.get('PORT', DEFAULT_PORT))
     app.run(host='0.0.0.0', port=port, debug=False)

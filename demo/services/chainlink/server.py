@@ -3,6 +3,7 @@
 
 import json
 import os
+import sys
 import uuid
 import time
 import threading
@@ -356,6 +357,17 @@ def webhook_handler(webhook_id):
 # ── Main ─────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 9805))
+    usage = "usage: server.py [port]   (default: 9805; PORT environment variable also honored)"
+    if len(sys.argv) > 2:
+        sys.stderr.write(f"error: unexpected arguments {' '.join(sys.argv[2:])}\n{usage}\n")
+        raise SystemExit(2)
+    if len(sys.argv) == 2:
+        try:
+            port = int(sys.argv[1])
+        except ValueError:
+            sys.stderr.write(f"error: invalid port {sys.argv[1]!r}\n{usage}\n")
+            raise SystemExit(2)
+    else:
+        port = int(os.environ.get("PORT", 9805))
     print(f"ChainLink starting on :{port}")
     app.run(host="0.0.0.0", port=port, debug=False)
