@@ -689,3 +689,7 @@
 {"id":723,"timestamp":"2026-09-27 09:49:46.99769","event_type":"task_updated","task_id":"DF-037","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
 {"id":724,"timestamp":"2026-09-27 09:49:47.023969","event_type":"task_updated","task_id":"DF-040","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
 {"id":725,"timestamp":"2026-09-27 09:49:47.050874","event_type":"task_updated","task_id":"FLK-001","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+{"id":726,"timestamp":"2026-09-27 10:22:47.198559","event_type":"task_completed","task_id":"DF-036","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":727,"timestamp":"2026-09-27 10:22:47.273697","event_type":"task_completed","task_id":"DF-037","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":728,"timestamp":"2026-09-27 10:22:47.328136","event_type":"task_completed","task_id":"DF-040","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":729,"timestamp":"2026-09-27 10:22:47.393512","event_type":"task_completed","task_id":"FLK-001","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
