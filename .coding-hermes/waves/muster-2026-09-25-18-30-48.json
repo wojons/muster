@@ -49,5 +49,34 @@
     "serial_followon": "DF-027 (config profile create) + DF-018 (README bootstrap prereqs) after merge if tick budget allows"
   },
   "tick_number": 6019,
-  "wave_budget_source": "scheduler tick prompt WAVE_BUDGET=11"
+  "wave_budget_source": "scheduler tick prompt WAVE_BUDGET=11",
+  "finished_at": "2026-09-25T22:16:00Z",
+  "recovered_by_tick": "muster-2026-09-27-05-26-34",
+  "outcomes": [
+    {
+      "task_id": "DF-024",
+      "branch": "wt/DF-024",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "DF-025",
+      "branch": "wt/DF-025",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "DF-026",
+      "branch": "wt/DF-026",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "GAP-045",
+      "branch": "wt/GAP-045",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    }
+  ],
+  "recovery_evidence": "all four rows status=complete at HEAD; merged before this tick"
 }

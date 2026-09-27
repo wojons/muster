@@ -7,16 +7,105 @@
   "tick_number": 6020,
   "wave_budget_source": "scheduler tick prompt WAVE_BUDGET=8",
   "workers": [
-    {"task_id": "DF-028", "worktree": "wt/DF-028", "branch": "wt/DF-028", "base_sha": "2420b236", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m6020_brief_DF-028.md"},
-    {"task_id": "AUD-001", "worktree": "wt/AUD-001", "branch": "wt/AUD-001", "base_sha": "2420b236", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m6020_brief_AUD-001.md"},
-    {"task_id": "PROTO-003", "worktree": "wt/PROTO-003", "branch": "wt/PROTO-003", "base_sha": "2420b236", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m6020_brief_PROTO-003.md"},
-    {"task_id": "PROTO-005", "worktree": "wt/PROTO-005", "branch": "wt/PROTO-005", "base_sha": "2420b236", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m6020_brief_PROTO-005.md"},
-    {"task_id": "DEPS-004", "worktree": "wt/DEPS-004", "branch": "wt/DEPS-004", "base_sha": "2420b236", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m6020_brief_DEPS-004.md"},
-    {"task_id": "DF-018", "worktree": "wt/DF-018", "branch": "wt/DF-018", "base_sha": "2420b236", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m6020_brief_DF-018.md"}
+    {
+      "task_id": "DF-028",
+      "worktree": "wt/DF-028",
+      "branch": "wt/DF-028",
+      "base_sha": "2420b236",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6020_brief_DF-028.md"
+    },
+    {
+      "task_id": "AUD-001",
+      "worktree": "wt/AUD-001",
+      "branch": "wt/AUD-001",
+      "base_sha": "2420b236",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6020_brief_AUD-001.md"
+    },
+    {
+      "task_id": "PROTO-003",
+      "worktree": "wt/PROTO-003",
+      "branch": "wt/PROTO-003",
+      "base_sha": "2420b236",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6020_brief_PROTO-003.md"
+    },
+    {
+      "task_id": "PROTO-005",
+      "worktree": "wt/PROTO-005",
+      "branch": "wt/PROTO-005",
+      "base_sha": "2420b236",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6020_brief_PROTO-005.md"
+    },
+    {
+      "task_id": "DEPS-004",
+      "worktree": "wt/DEPS-004",
+      "branch": "wt/DEPS-004",
+      "base_sha": "2420b236",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6020_brief_DEPS-004.md"
+    },
+    {
+      "task_id": "DF-018",
+      "worktree": "wt/DF-018",
+      "branch": "wt/DF-018",
+      "base_sha": "2420b236",
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek-foreman",
+      "brief": "/tmp/m6020_brief_DF-018.md"
+    }
   ],
   "independence": {
     "checked": "no depends_on edges among the six rows (verified from tasks.jsonl; PROTO-003's prerequisite PROTO-002 is complete at HEAD); disjoint file sets verified live at HEAD 2420b236 — DF-028: internal/builtin/generate_test.go only; AUD-001: internal/audit/ (+ optional shared sink helper, extended.go emitAuditEvent call site); PROTO-003: internal/builtin/grpc.go + pkg/protocol/grpc/ streaming; PROTO-005: internal/builtin/graphql.go + pkg/protocol/graphql/ (both new); DEPS-004: go.mod + go.sum only; DF-018: README.md + docs/guides/installation.md docs only",
     "excluded": "GAP-032/CI-BILLING-002/INT-CI-001/SKIPPED-install-bunker/DF-014 external or owner-decision blocks (standing, never dispatch); CI-016/CI-016-class CI rows are the org billing wall (steps=0, no code fix); CONSENSUS-INT-001 deferred (long-tail live-harness E2E, needs a running consensus server — serial lane when budget allows); PROTO-006/007/008 lower-priority protocol rows left for later ticks (PROTO-005+003 take the P2 slots); CLN-1 vague P3 cleanup row — needs scoping before dispatch; QA-HARNESS-DF-020 is harness work outside the muster repo",
     "merge_plan": "serial merge DF-018 (docs) -> DEPS-004 (go.mod/go.sum) -> DF-028 (test file) -> AUD-001 (audit pkg) -> PROTO-003 (grpc) -> PROTO-005 (graphql, biggest surface last), gitreins guard + short suite gate each merge, post-merge hygiene per t615 (merge-base --is-ancestor before worktree remove + branch -d)"
-  }
+  },
+  "finished_at": "2026-09-25T23:30:00Z",
+  "recovered_by_tick": "muster-2026-09-27-05-26-34",
+  "outcomes": [
+    {
+      "task_id": "DF-028",
+      "branch": "wt/DF-028",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "AUD-001",
+      "branch": "wt/AUD-001",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "PROTO-003",
+      "branch": "wt/PROTO-003",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "PROTO-005",
+      "branch": "wt/PROTO-005",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "DEPS-004",
+      "branch": "wt/DEPS-004",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "DF-018",
+      "branch": "wt/DF-018",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    }
+  ],
+  "recovery_evidence": "all six rows status=complete at HEAD (the 6020 wave recorded in E2E-001 worker_summary); merged before this tick"
 }

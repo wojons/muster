@@ -47,5 +47,34 @@
     "merge_plan": "serial merge DF-022 -> DF-023 -> PROTO-002 -> PROTO-004, gate each merge, post-merge worktree hygiene per t615 (merge-base --is-ancestor check before worktree remove + branch -d)"
   },
   "tick_number": 6018,
-  "wave_budget_source": "scheduler tick prompt WAVE_BUDGET=9"
+  "wave_budget_source": "scheduler tick prompt WAVE_BUDGET=9",
+  "finished_at": "2026-09-25T20:59:21Z",
+  "recovered_by_tick": "muster-2026-09-27-05-26-34",
+  "outcomes": [
+    {
+      "task_id": "DF-022",
+      "branch": "wt/DF-022",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "DF-023",
+      "branch": "wt/DF-023",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "PROTO-002",
+      "branch": "wt/PROTO-002",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    },
+    {
+      "task_id": "PROTO-004",
+      "branch": "wt/PROTO-004",
+      "judge": "complete",
+      "merge": "merged earlier; row complete"
+    }
+  ],
+  "recovery_evidence": "all four rows status=complete at HEAD; commit SHAs not recorded on the rows (pre-DOCS-002 convention); branches were merged long before this tick"
 }

@@ -4,9 +4,60 @@
   "base": "e18c6076132f8765ff3f48634f4028a053ee7f36",
   "wave_budget": 9,
   "tasks": [
-    {"id":"DF-029","worktree":"~/worktrees/muster-DF-029","branch":"wt/DF-029","base_sha":"e18c6076","brief":"/tmp/muster-muster-2026-09-27-03-12-17-DF-029-brief.txt"},
-    {"id":"DF-030","worktree":"~/worktrees/muster-DF-030","branch":"wt/DF-030","base_sha":"e18c6076","brief":"/tmp/muster-muster-2026-09-27-03-12-17-DF-030-brief.txt"},
-    {"id":"DOCS-002","worktree":"~/worktrees/muster-DOCS-002","branch":"wt/DOCS-002","base_sha":"e18c6076","brief":"/tmp/muster-muster-2026-09-27-03-12-17-DOCS-002-brief.txt"}
+    {
+      "id": "DF-029",
+      "worktree": "~/worktrees/muster-DF-029",
+      "branch": "wt/DF-029",
+      "base_sha": "e18c6076",
+      "brief": "/tmp/muster-muster-2026-09-27-03-12-17-DF-029-brief.txt"
+    },
+    {
+      "id": "DF-030",
+      "worktree": "~/worktrees/muster-DF-030",
+      "branch": "wt/DF-030",
+      "base_sha": "e18c6076",
+      "brief": "/tmp/muster-muster-2026-09-27-03-12-17-DF-030-brief.txt"
+    },
+    {
+      "id": "DOCS-002",
+      "worktree": "~/worktrees/muster-DOCS-002",
+      "branch": "wt/DOCS-002",
+      "base_sha": "e18c6076",
+      "brief": "/tmp/muster-muster-2026-09-27-03-12-17-DOCS-002-brief.txt"
+    }
   ],
-  "status":"dispatched"
+  "status": "dispatched",
+  "wave": "muster-2026-09-27-03-12-17",
+  "finished_at": "2026-09-27T05:50:00Z",
+  "recovered_by_tick": "muster-2026-09-27-05-26-34",
+  "outcomes": [
+    {
+      "task_id": "DF-029",
+      "branch": "wt/DF-029",
+      "commit_sha": "586ea5fb",
+      "judge": "PASS (DF-029-R3, verdict commit f03802c5)",
+      "merge": "merged 8cf56e09; gates re-run on merged tree 2026-09-27"
+    },
+    {
+      "task_id": "DF-030",
+      "branch": "wt/DF-030",
+      "commit_sha": "c4da27e9",
+      "judge": "doc row, grep judge exception",
+      "merge": "merged a8c9a3b1"
+    },
+    {
+      "task_id": "DOCS-002",
+      "branch": "wt/DOCS-002",
+      "commit_sha": "bc5a5673",
+      "judge": "doc row, grep judge exception",
+      "merge": "merged 4819f84c"
+    }
+  ],
+  "recovery_evidence": {
+    "ancestry": "all three commits are ancestors of HEAD",
+    "gitreins": "DF-029/DF-030/DOCS-002 all status=complete in .gitreins/tasks.yaml",
+    "board": "all three rows status=complete worker_status=complete",
+    "gates_merged_tree": "gofmt clean; go build ok; go vet ok; go test -short -p 1 -count=1 ./... 51 ok 0 FAIL (rerun)",
+    "branch_hygiene": "wt/DF-029 deleted after merge; worktrees already reaped"
+  }
 }

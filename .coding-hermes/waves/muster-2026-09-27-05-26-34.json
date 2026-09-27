@@ -1,0 +1,36 @@
+{
+  "tick_id": "muster-2026-09-27-05-26-34",
+  "project": "muster",
+  "started_at": "2026-09-27T05:26:34Z",
+  "finished_at": "2026-09-27T06:25:00Z",
+  "base": "b983fa6d",
+  "wave_budget_source": "scheduler tick prompt WAVE_BUDGET=11",
+  "budget": 11,
+  "status": "complete",
+  "workers": [
+    {"task_id": "DOC-7", "worktree": "~/worktrees/muster-DOC-7", "branch": "wt/DOC-7", "base_sha": "b983fa6d", "commit_sha": "88327f0e", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m_6022_brief_DOC-7.md", "judge": "PASS (verdict 30ec4ca8)", "merge": "merged a6cd1290"},
+    {"task_id": "DOC-8", "worktree": "~/worktrees/muster-DOC-8", "branch": "wt/DOC-8", "base_sha": "b983fa6d", "commit_sha": "fb07276b", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m_6022_brief_DOC-8.md", "judge": "PASS (verdict 45f90ecb)", "merge": "merged a6cd1290"},
+    {"task_id": "DOC-9", "worktree": "~/worktrees/muster-DOC-9", "branch": "wt/DOC-9", "base_sha": "b983fa6d", "commit_sha": "fb7ab536", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m_6022_brief_DOC-9.md", "judge": "PASS (verdict a0c9be44)", "merge": "merged d3900481"},
+    {"task_id": "DOC-11", "worktree": "~/worktrees/muster-DOC-11", "branch": "wt/DOC-11", "base_sha": "b983fa6d", "commit_sha": "c2180a15", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m_6022_brief_DOC-11.md", "judge": "PASS (verdict 65e4c94f)", "merge": "merged b829b469"},
+    {"task_id": "DF-035", "worktree": "~/worktrees/muster-DF-035", "branch": "wt/DF-035", "base_sha": "b983fa6d", "commit_sha": "ccfb0992", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m_6022_brief_DF-035.md", "judge": "re-dispatched async job-00190e2b8782401d9064d83d49c124a8 (first tier-2 run killed by the tool window; task flipped complete, verdict pending)", "merge": "merged 7e434e2f"},
+    {"task_id": "PROTO-019", "worktree": "~/worktrees/muster-PROTO-019", "branch": "wt/PROTO-019", "base_sha": "b983fa6d", "commit_sha": "d8764293", "model": "deepseek-v4-flash", "provider": "deepseek-foreman", "brief": "/tmp/m_6022_brief_PROTO-019.md", "judge": "PASS (verdict 925b80eb)", "merge": "merged a8888039"}
+  ],
+  "independence": {
+    "checked": "no depends_on edges among the six rows (verified from tasks.jsonl at b983fa6d; PROTO-019's prerequisite PROTO-016 is complete). Disjoint file sets: DOC-7 docs/api/rest-api.md; DOC-8 docs/README.md; DOC-9 docs/api/mcp-protocol.md; DOC-11 docs/guides/configuration.md; DF-035 Makefile only; PROTO-019 internal/builtin/request.go. README-041..045 excluded (all five rewrite README.md = same file, not wave-eligible together); DOC-10/DOC-12 excluded (new-page rows, serial follow-on); DF-031/032/034/036/038 excluded (all pkg/mcp = same band); DF-041/DF-042 excluded (both pkg/client); CI-016/INT-CI-001/CI-BILLING-002/GAP-032/MSTR-REV-003 are the wojons-org billing + private-repo external blocks (standing, never dispatch).",
+    "merge_plan": "serial merge DOC-8 -> DOC-9 -> DOC-11 -> DOC-7 -> DF-035 -> PROTO-019, --no-ff, gofmt + go build + go vet re-run after EVERY merge (all clean), then guard + full short suite on the final tree"
+  },
+  "outcomes": [
+    {"task_id": "DOC-7", "commit_sha": "88327f0e", "judge": "PASS", "merge": "merged a6cd1290", "ci": "RED (billing)"},
+    {"task_id": "DOC-8", "commit_sha": "fb07276b", "judge": "PASS", "merge": "merged a6cd1290", "ci": "RED (billing)"},
+    {"task_id": "DOC-9", "commit_sha": "fb7ab536", "judge": "PASS", "merge": "merged d3900481", "ci": "RED (billing)"},
+    {"task_id": "DOC-11", "commit_sha": "c2180a15", "judge": "PASS", "merge": "merged b829b469", "ci": "RED (billing)"},
+    {"task_id": "DF-035", "commit_sha": "ccfb0992", "judge": "async job-00190e2b8782401d9064d83d49c124a8", "merge": "merged 7e434e2f", "ci": "RED (billing)"},
+    {"task_id": "PROTO-019", "commit_sha": "d8764293", "judge": "PASS", "merge": "merged a8888039", "ci": "RED (billing)"}
+  ],
+  "recovery_evidence": {
+    "wave": "muster-2026-09-27-03-12-17",
+    "verification": "all three worker commits (586ea5fb/c4da27e9/bc5a5673) are ancestors of the recovery base; gitreins tasks complete; board rows complete; merged-tree gates green (gofmt/build/vet, guard 4/4, short suite 51 ok 0 FAIL); wat/DF-029 branch deleted, 0 worktrees remain",
+    "recovered_by_tick": "muster-2026-09-27-05-26-34"
+  },
+  "pushed": "a8888039 -> origin/main, 0 unpushed"
+}
