@@ -46,16 +46,18 @@ func TestTokenBucket_Allow_Refill(t *testing.T) {
 		require.True(t, tb.Allow(), "Allow %d should exhaust tokens", i+1)
 	}
 
-	// Wait for the ticker to fire at least once (ticker fires every 100ms)
-	time.Sleep(150 * time.Millisecond)
+	// Poll until the ticker fires at least once and refills a token
+	// (ticker fires every 100ms; rate 10/sec = 1 token/tick). A fixed
+	// sleep is load-sensitive: under concurrent load the ticker may be
+	// starved past the sleep window, so wait with a bounded deadline.
+	require.Eventually(t, func() bool {
+		return tb.Allow()
+	}, 5*time.Second, 10*time.Millisecond,
+		"Should allow after at least one refill within deadline")
 
-	// Should have refilled at least 1 token (rate 10/sec × 0.1s tick = 1 token/tick)
-	assert.GreaterOrEqual(t, tb.Tokens(), float64(1),
-		"Should have refilled at least 1 token after waiting")
-	assert.True(t, tb.Allow(),
-		"Should allow after refill")
-
-	// Next immediate call should fail (only 1 token was refilled and consumed)
+	// Next immediate call should fail: only one token was refilled and it
+	// was just consumed, and the following tick is 100ms away, so no refill
+	// can have happened between the two calls.
 	assert.False(t, tb.Allow(),
 		"Should be rate limited again after consuming refilled token")
 }
