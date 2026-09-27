@@ -92,7 +92,7 @@ silently using another one.`,
 	cmd.Flags().StringVarP(&output, "output", "o", "table", "Output format (json, yaml, table)")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
 	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "Request timeout")
-	cmd.Flags().StringVarP(&httpBody, "body", "b", "", "Request body for POST/PUT requests")
+	cmd.Flags().StringVarP(&httpBody, "body", "b", "", "Request body to send, for any method (empty sends no body; pass -H 'Content-Type: ...' when the API requires one)")
 	cmd.Flags().StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 	cmd.Flags().StringVar(&httpVersion, "http-version", "", "HTTP transport version policy: auto (default), 1.1, 2 or 3 (overrides request.http_version)")
 
@@ -158,7 +158,22 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 		}
 	}
 
-	if httpBody != "" && (method == "POST" || method == "PUT" || method == "PATCH") {
+	// PROTO-019: the body is attached for ANY method, not only POST/PUT/PATCH.
+	// Gating on the three verbs silently dropped the body for every other
+	// body-bearing verb — WebDAV PROPFIND/REPORT/PROPPATCH/LOCK (RFC 4918
+	// defines them as body-bearing), a DELETE carrying a body, an extension
+	// verb like MKCALENDAR — so a caller that named a body sent none, and the
+	// failure was invisible (no error, HTTP status from the server).
+	//
+	// The builder already sets the verb verbatim (request.NewBuilder), and
+	// http.NewRequest derives Content-Length from the attached reader, so no
+	// per-verb default is needed here: an empty --body/-b still means "send no
+	// body" (request.Body stays nil). A Content-Type is deliberately NOT
+	// defaulted — that is unchanged from the previous POST/PUT/PATCH behaviour,
+	// and the WebDAV profile accepts a body without one (measured: the x/net
+	// webdav handler parses a <propfind> document sent with no Content-Type);
+	// callers that need one pass -H 'Content-Type: ...'.
+	if httpBody != "" {
 		builder.JSONBody(httpBody)
 	}
 
