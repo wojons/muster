@@ -1,0 +1,12 @@
+{
+  "tick_id": "muster-2026-09-27-03-12-17",
+  "project": "muster",
+  "base": "e18c6076132f8765ff3f48634f4028a053ee7f36",
+  "wave_budget": 9,
+  "tasks": [
+    {"id":"DF-029","worktree":"~/worktrees/muster-DF-029","branch":"wt/DF-029","base_sha":"e18c6076","brief":"/tmp/muster-muster-2026-09-27-03-12-17-DF-029-brief.txt"},
+    {"id":"DF-030","worktree":"~/worktrees/muster-DF-030","branch":"wt/DF-030","base_sha":"e18c6076","brief":"/tmp/muster-muster-2026-09-27-03-12-17-DF-030-brief.txt"},
+    {"id":"DOCS-002","worktree":"~/worktrees/muster-DOCS-002","branch":"wt/DOCS-002","base_sha":"e18c6076","brief":"/tmp/muster-muster-2026-09-27-03-12-17-DOCS-002-brief.txt"}
+  ],
+  "status":"dispatched"
+}
