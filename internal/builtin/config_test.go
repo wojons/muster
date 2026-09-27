@@ -292,6 +292,7 @@ func TestNewProfileCommand_RunShow(t *testing.T) {
 func TestNewProfileCommand_RunSwitch(t *testing.T) {
 	t.Run("switch to valid profile", func(t *testing.T) {
 		cfg := &config.Config{
+			ConfigFile: t.TempDir() + "/config.yaml",
 			Profiles: map[string]config.Profile{
 				"production": {BaseURL: "https://api.example.com"},
 				"staging":    {BaseURL: "https://staging.example.com"},
@@ -339,6 +340,7 @@ func TestNewProfileCommand_RunSwitch(t *testing.T) {
 func TestNewProfileCommand_RunDelete(t *testing.T) {
 	t.Run("delete existing profile", func(t *testing.T) {
 		cfg := &config.Config{
+			ConfigFile: t.TempDir() + "/config.yaml",
 			Profiles: map[string]config.Profile{
 				"staging":    {BaseURL: "https://staging.example.com"},
 				"production": {BaseURL: "https://api.example.com"},
