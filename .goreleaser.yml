@@ -21,11 +21,11 @@ builds:
     binary: muster
     ldflags:
       - -s -w
-      - -X github.com/anomalyco/muster/internal/version.Version={{.Version}}
-      - -X github.com/anomalyco/muster/internal/version.Commit={{.Commit}}
-      - -X github.com/anomalyco/muster/internal/version.BuildDate={{.Date}}
-      - -X github.com/anomalyco/muster/internal/version.Branch={{.Branch}}
-      - -X github.com/anomalyco/muster/internal/version.GoVersion={{.Env.GOVERSION}}
+      - -X github.com/wojons/muster/internal/version.Version={{.Version}}
+      - -X github.com/wojons/muster/internal/version.Commit={{.Commit}}
+      - -X github.com/wojons/muster/internal/version.BuildDate={{.Date}}
+      - -X github.com/wojons/muster/internal/version.Branch={{.Branch}}
+      - -X github.com/wojons/muster/internal/version.GoVersion={{.Env.GOVERSION}}
 
 archives:
   - format: tar.gz
@@ -60,7 +60,7 @@ release:
 
 brews:
   - name: muster
-    homepage: https://github.com/anomalyco/muster
+    homepage: https://github.com/wojons/muster
     description: "OpenAPI CLI + MCP Server - Unified tool for API interaction"
     license: MIT
     commit_author:
@@ -76,7 +76,7 @@ brews:
 
 scoops:
   - name: muster
-    homepage: https://github.com/anomalyco/muster
+    homepage: https://github.com/wojons/muster
     description: "OpenAPI CLI + MCP Server"
     license: MIT
     commit_author:
