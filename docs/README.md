@@ -35,7 +35,6 @@ Welcome to the comprehensive documentation for **Muster** - a modern CLI tool fo
 
 ### Technical Documentation
 - [Technical Specifications](../specs/) - Formal requirements
-- [Design Goals](contributing/design-goals.md) - Architecture decisions
 
 ## Getting Started
 
@@ -53,7 +52,8 @@ prerequisites, all platforms, and troubleshooting):
 git clone https://github.com/wojons/muster.git
 cd muster
 make build-cli                 # requires Go 1.26.6+ and a C compiler (CGO)
-export PATH="$PWD/bin:$PATH"   # binary lands at bin/openapi-cli
+make build-mcp                 # optional: MCP server -> bin/openapi-mcp
+export PATH="$PWD/bin:$PATH"   # binaries land in bin/
 ```
 
 ### First Steps
@@ -65,11 +65,8 @@ openapi-cli --version
 # Explore available commands
 openapi-cli --help
 
-# Run as MCP server  
-openapi-cli mcp-server
-
-# Generate API documentation
-openapi-cli docs generate openapi.yaml
+# Run the MCP server (separate binary; build it with `make build-mcp`)
+openapi-mcp --spec openapi.yaml
 ```
 
 ## Key Features
