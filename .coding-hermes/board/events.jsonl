@@ -693,3 +693,4 @@
 {"id":727,"timestamp":"2026-09-27 10:22:47.273697","event_type":"task_completed","task_id":"DF-037","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":728,"timestamp":"2026-09-27 10:22:47.328136","event_type":"task_completed","task_id":"DF-040","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":729,"timestamp":"2026-09-27 10:22:47.393512","event_type":"task_completed","task_id":"FLK-001","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":730,"timestamp":"2026-09-27 10:26:47.774315","event_type":"task_created","task_id":"INT-CI-002","actor":"foreman","detail":"{\"id\":\"INT-CI-002\",\"status\":\"pending\"}","tick_number":null}
