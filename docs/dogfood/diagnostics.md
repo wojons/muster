@@ -370,3 +370,43 @@ finding stands on the protocol, not on one client's parser:
    took 3 attempts to learn; (c) spawn on 0.1.4 did not install a local ssh
    key — pull /etc/bunkerd/ssh/<id> from the daemon host (root alias) and
    never put the API key into notes or artifacts.
+
+
+## Run 12 (2026-09-27) — fix verification + the two-renderers trap
+
+HEAD 5ea95bde. Angle: foreman merged DF-036/037/039/040/042 fixes overnight;
+this run verified them as a user, plus the twice-SKIPPED install leg.
+
+1. DF-036 (MCP auth) — the big wall is gone. A 90-line stdio JSON-RPC client
+   (what Claude Desktop does) proved all four arms against the repo's own
+   inkwell bearer demo: no cred -> upstream 401 as typed tool error;
+   -auth-token-file -> 201 real post; MUSTER_AUTH_TOKEN env -> 201 real
+   post; missing required field -> client-side validation BEFORE any HTTP.
+   Same session verified DF-031 (notifications get zero replies).
+2. DF-039 taught the run's sharpest lesson: THE FIX EXISTED and the defect
+   survived anyway, because the mask was wired at ONE call site
+   (pkg/generator/generator.go:1375) while a SECOND, duplicated renderer
+   (pkg/cmdstore/loader.go:499) serves the persisted-reload path every user
+   hits after `generate`. Verified with a scratch API returning cs_sk_* and
+   FILE-based ground truth: full secret in table and -o json on the reload
+   path; --raw intended. Two traps while verifying: (a) the terminal harness
+   sanitizer abbreviated cs_* values in my VIEW, so wire-truth came from
+   od -c and grep -c on output files — never trust a rendered credential in
+   a terminal, capture to files; (b) this is the same two-renderers family
+   as DF-016/017 — a fix that passes its own tests is only as wide as the
+   call site the tests exercise.
+3. DF-042 verified via a real external consumer (own go.mod, replace
+   directive, public API only): cache frozen across SetHTTPClient, miss path
+   intact. My first harness printed DF-042-BROKEN with data proving the
+   opposite — I computed the assertion AFTER the deliberate miss bumped the
+   counter. Read your own numbers before your verdict line.
+4. DF-037 verified with 201/401/401 contrast arms through the headers param;
+   DF-040's new integration-guide §8 re-proved against three backends.
+5. Install leg PROVEN on sibling bunker-mvp (las-03 ssh-dead, SKIPPED row
+   filed): GitHub clone dead-ends for a credential-less fresh agent (private
+   repo — by design; filed DF-045, no access widened), so the tree moved as
+   a git bundle over ssh and the agent cloned from the bundle. Documented
+   path from there: README's go-dev-dl bootstrap (~90s, go.mod 1.26.6 floor
+   enforced) + make build-cli = 120s cold; --version and discover smoke rc=0.
+   Two harness notes for the next run: demo server.py files take a PORT env,
+   not argv (silent ignore — DF-044), and PIPESTATUS, not $?, after a pipe.

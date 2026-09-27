@@ -72,3 +72,20 @@ Promise: {"entry_point":"CLI binary bin/openapi-cli (cmd/openapi-cli); companion
 - [P1] Advertised validation gate `make validate` is red — Fails at the lint gate with 8 errcheck issues (unchecked Fprintln/Fprintf/Close in cmd/daemon/main.go and internal/builtin/commands.go). A project that ships a `make validate` gate must be green on HEAD — shipping a red gate breaks the trust contract for contributors.
 - [P1] README quick-start is a dead end in two places — `request GET .../pet/1 -o json` returns no data — petstore3.swagger.io 500s server-side (verified via direct curl) despite the README claiming /pet/1 'is stable' — and the documented example command `list-pets` does not exist for the documented spec (real commands: get-pet-by-id, find-pets-by-status). The CLI also prints the error twice. First-run flow fails for reasons the README neither predicts nor explains.
 - [P2] 11 frictions from undocumented conventions and API shapes — Typed commands reject -b/--body (body fields become individual flags, path params positional, --help shows only body flags); typed commands generated from the demo spec-provider 404 because the stub spec advertises its own URL as the API server; demo spec-provider takes port as argv[1] (default 9801 collides with Task Forge), not PORT env; Go pkg API shapes undocumented — judge guessed ParseResult.Info/.Paths and []byte body; real API is ParseResult.Document (*openapi3.T) and std *http.Response. All surfaces otherwise functional.
+
+## Dogfood Findings (2026-09-27) — run 12: fix verification of DF-036/037/039/040/042
+
+Verdict: SHIPPABLE — the run-11 walls are down: MCP outbound auth works (real 201s via
+`-auth-token-file` AND `MUSTER_AUTH_TOKEN`; no-cred calls surface the upstream 401 as a
+typed tool error), Starlark builtins take headers (authed 201 / 401 / 401 contrast arms),
+integration-guide §8 re-proved on 3 backends, and `SetHTTPClient` preserves cache/rate-limit
+middleware (external Go consumer). Install leg PROVEN on sibling bunker-mvp after las-03
+ssh-dead (bundle→clone→README bootstrap→`make build-cli` = 120s cold; discover smoke rc=0).
+
+- [P1] DF-043 — DF-039 credential masking is wired on only ONE of two render paths: persisted (reloaded) typed commands print cs_* session keys and Bearer tokens in FULL via table AND `-o json` (`pkg/cmdstore/loader.go:499` never calls `maskCredentialValues`; the mask lives at `pkg/generator/generator.go:1375` in-session only). Ground truth from files: full `cs_sk_9f2a4c8e11d3SECRETVALUE` rendered both formats; `--raw` is the intended dump. Every user who runs `generate` then invokes the command hits the unmasked path. Fix: single source of truth for masking + regression test rendering a cs_* response through BOTH paths.
+- [P3] DF-044 — demo services silently ignore a CLI-arg port (`PORT` env only; inkwell bound its :9803 default while I believed argv), demo READMEs list no service→port→auth mapping, and Flask exists only in the repo `.venv` (system python3 fails `ModuleNotFoundError`).
+- [P3] DF-045 — README quickstart `git clone https://github.com/wojons/muster.git` dead-ends for any user without wojons credentials (private repo; verified on a fresh bunker agent). State the audience / supported acquisition path.
+- [P2] SKIPPED-install-bunker — designated host bunker-las-03: ssh connect timeout to its tailnet name (2026-09-27, pre-run probe + per skill). Substitution per skill: sibling bunker-mvp online → install leg executed and PASSED there; las-03 stays flagged for infra follow-up.
+
+No PERF rows: typed command 10.9 ms ± 0.7 ms warm / 35.5 ms cold first-run (hyperfine) —
+4th consecutive dogfood run finding nothing user-noticeable.

@@ -5,8 +5,9 @@ description: >-
   system: CLI, MCP server, daemon, Go library, Docker, WASM, Starlark DSL.
   Load this skill before building on, demoing, testing, or dogfooding Muster.
   Verified by real use on 2026-08-07, 2026-08-17, 2026-09-04, and 2026-09-25
-  (fixes + protocol seams; see docs/dogfood/).
-version: 1.3.0
+  (fixes + protocol seams; see docs/dogfood/). Run 12 (09-27): MCP auth, DSL
+  headers, middleware survival all verified working.
+version: 1.4.0
 category: software-development
 ---
 
@@ -15,6 +16,8 @@ category: software-development
 Muster turns any OpenAPI 3.x spec into seven surfaces from one Go codebase:
 CLI, MCP server, Unix-socket proxy daemon, Go library, Docker image, WASM
 plugins, Starlark DSL. **No codegen** — it parses the spec at runtime.
+Verified by real use on 2026-08-07, 2026-08-17, 2026-09-04, 2026-09-25/26,
+and 2026-09-27 (fix verification; see docs/dogfood/).
 
 ## Entry points (all verified 2026-08-17)
 
@@ -114,6 +117,13 @@ printf '%s\n' \
 ```
 - `-base-url` is REQUIRED when the spec has a relative `servers[].url` (e.g. petstore's `/api/v3`); without it calls fail `unsupported protocol scheme ""`.
 - CRUD verified: create → get → delete → list round-trip; backend 404s surface as tool errors.
+- **AUTH (fixed 2026-09-27, DF-036 verified run 12):** outbound requests carry one
+  global bearer credential — `-auth-token-file <file>` (wins) or the `MUSTER_AUTH_TOKEN`
+  env var. No-credential calls surface the upstream 401 as
+  a typed tool error; a valid token produced real 201s against the inkwell demo.
+  There is no per-credential keychain wiring on this surface (CLI-only) — fine for
+  one API, documented in integration-guide §8.5.
+- DF-031 fixed (09-27): notifications get zero replies — official SDK clients connect cleanly (verified run 12).
 
 ### Daemon — lifecycle + proxying ALL WORK (verified 2026-09-04, HEAD 01849718)
 ```bash
@@ -179,18 +189,24 @@ not a `body` wrapper).
 4. Repo is private: use `replace` for Go consumers, GOPRIVATE for go get.
 5. OperationId-less specs generate cleanly since the DF-007/DF-008 fixes (verified 09-04); MCP remains the most complete typed surface (22/22 tools).
 6. Generated `--help` Examples reference non-existent `projects`/`tasks` groups (DF-010); path params are positional and undocumented.
-7. DSL: no `import`; 4 builtins only (`http_get/post/put/delete` returning `(code, body)`).
+7. DSL: no `import`; 4 builtins (`http_get/post/put/delete` returning `(code, body)`) — **each takes an optional trailing headers dict since DF-037 (verified 09-27)**: `http_post(url, body, {"Authorization": "Bearer " + token})` → real 201; omission preserves old behavior.
 8. Public petstore endpoints `findByStatus`/`store/inventory` return 500 server-side (swagger.io issue, not Muster) — use `GET /pet/1`, `GET /store/order/1`, or local demo services.
 9. Daemon start/restart/proxy/stop all verified working 09-04 (DF-009/DF-011 fixed).
 10. Bunker fresh-install leg (09-04): docs assume Go 1.26.6+ is already installed; a bare Debian agent needs a manual Go toolchain install first. Also mind the per-agent size budget: deleting the downloaded Go tarball before `make build-cli` avoids a transient "no space left on device" at link time.
 11. **NEW 09-25 (DF-031): any strict MCP client (official Python SDK, Claude Desktop) crashes on connect** until DF-031 is fixed — hand-rolled JSON-RPC probes hide it because they never send `notifications/initialized`. If your client dies in pydantic union validation right after initialize, that's muster, not your client.
 12. **NEW 09-25 (DF-034): MCP tool args are flat** — path params + body fields all top-level in `arguments`; `{"task_id": N, "priority": "high"}` works, `{"task_id": N, "body": "…"}` silently does nothing (proven live). The path params are NOT in the advertised schema — pass them anyway.
 13. **NEW 09-25 (DF-035): never build from a git-init'd tarball** — `make build-cli` dies at link time (`Branch=HEAD unknown` in ldflags). Zero-commit `git init` triggers it; either build the pure tree (no .git) or commit first.
+14. **NEW 09-27 (DF-043): reloaded typed commands do NOT mask credentials** — the DF-039 mask lives only on the in-session render path (`pkg/generator/generator.go:1375`); `pkg/cmdstore/loader.go:499` (the path every user hits after `generate`) renders cs_* keys and Bearer values in FULL in table AND `-o json`. `--raw` is the intended full dump. Treat any reloaded-command output as credential-bearing until DF-043 lands.
+15. **NEW 09-27 (DF-044): demo `server.py` files take a `PORT` env, not argv** — `server.py 9803` silently binds the PORT default instead; run-all.sh passes PORT env. Flask also comes only from the repo `.venv`. Demo docs don't list service→port→auth mapping (filed DF-044).
+16. **NEW 09-27 (DF-045): the README quickstart's `git clone` dead-ends for anyone without wojons credentials** (private repo). Move trees to fresh boxes as a git bundle over ssh, or use whatever artifact path applies to you.
+17. **NEW 09-27: verify a fix at the SAME call site a user hits, not the one the tests hit** — DF-039 passed its own tests while the second renderer stayed unmasked (DF-043).
 
 ## References
 
 - docs/integration-guide.md — runnable examples for all 7 surfaces (mostly trustworthy; §1 examples use petstore which has operationIds)
-- docs/dogfood/2026-09-04-integration.md — 2026-09-04 fix-verification + bunker install-leg record (this run)
+- docs/dogfood/2026-09-27-fix-verification.md — run 12: DF-036/037/040/042 verified FIXED; DF-039 partial → DF-043; install leg on bunker-mvp (las-03 SKIPPED)
+- docs/integration-guide.md §8 — the "bring your own live API" recipe (DF-040, verified 09-27)
+- docs/dogfood/2026-09-04-integration.md — 2026-09-04 fix-verification + bunker install-leg record
 - docs/dogfood/2026-08-17-integration.md — 2026-08-17 deep-run record
 - docs/dogfood/2026-08-07-integration.md — 2026-08-07 deep-run record
 - docs/dogfood/diagnostics.md — root causes, error table, "right way"
