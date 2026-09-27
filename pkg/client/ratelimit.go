@@ -112,5 +112,6 @@ func WithRateLimiter(ratePerSec, burst int) ClientOption {
 		limitRT := NewRateLimitRoundTripper(transport, ratePerSec, burst)
 		limitRT.SetProtocolRecorder(c.protocol)
 		c.httpClient.Transport = limitRT
+		c.chain = limitRT // the option-installed chain now tops at the limiter (DF-042)
 	}
 }

@@ -162,12 +162,15 @@ func WithTransport(rt http.RoundTripper) ClientOption {
 // with the protocol recorder, so the recorder is always directly above whatever
 // performs the exchange. The transport's HTTP/3 capability is recorded here
 // because it is a property of the value that was installed (PROTOCOLS.md §4.7
-// N5).
+// N5). Any wrapper options that ran earlier are dropped by design — transport
+// options must precede wrapper options (§4.7 N2) — so the chain tops at the
+// recorder link afterwards.
 func (c *Client) installTransport(rt http.RoundTripper) {
 	c.baseTransport = rt
 	c.h3Capable = SupportsHTTP3(rt)
 	if c.httpClient != nil {
 		c.httpClient.Transport = newProtocolTransport(rt, c.protocol)
+		c.chain = c.httpClient.Transport
 	}
 }
 
