@@ -13,11 +13,26 @@ BUILD_DIR := bin
 DIST_DIR := dist
 CMD_DIR := cmd
 
-# Version information (injected at build time)
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+# Version information (injected at build time).
+#
+# These stamps must be TOTAL: their value must never be able to carry
+# whitespace, because LDFLAGS below is one quoted argument that the Go linker
+# re-splits on spaces. `cmd 2>/dev/null || echo "unknown"` is NOT total — a git
+# command can print to stdout AND exit non-zero, and then BOTH outputs are
+# captured. The concrete case (DF-035): in a zero-commit repo (a tarball/ZIP
+# extraction that happened to `git init`), `git rev-parse --abbrev-ref HEAD`
+# prints the literal token `HEAD` to stdout and exits 128, so the fallback also
+# fired and BRANCH became the two-token string `HEAD unknown`. That stray token
+# split -ldflags, the linker printed its usage, and `make build-cli` died rc=2
+# after a full module download.
+# `grep -vx HEAD` drops only a line that is exactly the token `HEAD` (never a
+# real ref/sha/tag), so the fallback fires on its own and yields a sane value.
+# If git is absent or not a repo, grep sees empty input, exits 1, and the
+# fallback still applies — same as before.
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | grep -vx HEAD || echo "dev")
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null | grep -vx HEAD || echo "unknown")
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | grep -vx HEAD || echo "unknown")
 
 # Go configuration
 GOPATH := $(shell go env GOPATH)
