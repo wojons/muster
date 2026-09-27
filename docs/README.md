@@ -39,17 +39,21 @@ Welcome to the comprehensive documentation for **Muster** - a modern CLI tool fo
 
 ## Getting Started
 
-### Quick Install
+### Install
+
+Muster has no published Homebrew taps, package repositories, or pre-built
+release binaries — the only supported installation is **build from source**.
+The repository is currently private, so you need read access to
+`github.com/wojons/muster` first.
+
+Quick path (see the [Installation Guide](guides/installation.md) for
+prerequisites, all platforms, and troubleshooting):
 
 ```bash
-# macOS (Homebrew)
-brew install wojons/muster/openapi-cli
-
-# Linux
-curl -fsSL https://raw.githubusercontent.com/wojons/muster/main/scripts/install.sh | bash
-
-# Windows (PowerShell)
-# Download the latest release from https://github.com/wojons/muster/releases
+git clone https://github.com/wojons/muster.git
+cd muster
+make build-cli                 # requires Go 1.26.6+ and a C compiler (CGO)
+export PATH="$PWD/bin:$PATH"   # binary lands at bin/openapi-cli
 ```
 
 ### First Steps
