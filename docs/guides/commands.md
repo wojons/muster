@@ -33,6 +33,11 @@ openapi-cli discover http://localhost:9800/openapi.json
 ### `generate`
 
 Generate CLI commands dynamically from an OpenAPI 3.0 or 3.1 specification.
+Swagger 2.0 documents are also accepted: they are converted to the
+OpenAPI 3.x model on ingest (`openapi-cli discover` prints a
+"converted from Swagger/OpenAPI 2.0" note; a document that parses but
+declares no operations is refused instead of persisting an empty command
+store).
 The generator parses the spec and creates Cobra commands for each API operation.
 Accepts either a local file path or a remote URL (http/https).
 

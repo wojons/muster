@@ -1,4 +1,7 @@
-// Package openapi provides parsing and extraction of operations from OpenAPI 3.x specifications.
+// Package openapi provides parsing and extraction of operations from
+// OpenAPI 3.x specifications, plus transparent ingestion of Swagger 2.0
+// documents (converted to the 3.x model with kin-openapi's openapi2conv;
+// ParseResult.ConvertedFromSwagger2 reports when that happened).
 package openapi
 
 import (
@@ -49,10 +52,38 @@ type ParseResult struct {
 	// Document.Info for metadata and Document.Paths for operations — the
 	// result does not expose .Info/.Paths fields of its own.
 	Document *openapi3.T
+
+	// ConvertedFromSwagger2 is true when the parsed document did not
+	// arrive as OpenAPI 3.x: it was a Swagger 2.0 document that Parse
+	// converted to the 3.x model (via kin-openapi's openapi2conv) before
+	// parsing. Consumers use it to state the conversion explicitly in
+	// their output. A false value (the zero value) means the document was
+	// 3.x and every existing behavior is unchanged.
+	ConvertedFromSwagger2 bool
 }
 
 // Parse parses an OpenAPI document from raw bytes.
+//
+// Swagger 2.0 documents are also accepted: a document whose root carries
+// "swagger": "2.0" is converted to the OpenAPI 3.x model with kin-openapi's
+// openapi2conv before parsing, and the returned ParseResult reports the
+// conversion through ConvertedFromSwagger2 (PROTO-006).
 func (p *Parser) Parse(ctx context.Context, data []byte, opts ParseOptions) (*ParseResult, error) {
+	if isSwagger2Document(data) {
+		doc, err := convertSwagger2ToV3(ctx, data)
+		if err != nil {
+			return nil, err
+		}
+		if doc.Info == nil {
+			return nil, fmt.Errorf("not a valid OpenAPI document: missing info section")
+		}
+		return &ParseResult{
+			Version:               doc.Info.Version,
+			Document:              doc,
+			ConvertedFromSwagger2: true,
+		}, nil
+	}
+
 	loader := openapi3.NewLoader()
 	doc, err := loader.LoadFromData(data)
 	if err != nil {

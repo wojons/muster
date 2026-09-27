@@ -26,6 +26,9 @@ func newDiscoverCommand() *cobra.Command {
 		Long: `Read an OpenAPI 3.x specification and display all operations
 grouped by tag, with method, path, and operationId.
 
+Swagger 2.0 documents are also accepted and converted to the
+OpenAPI 3.x model before parsing (the output notes the conversion).
+
 Accepts either a local file path or a remote URL (http/https).
 No commands are persisted.
 
@@ -105,6 +108,11 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 	w := cmd.OutOrStdout()
 	_, _ = fmt.Fprintf(w, "API: %s (v%s)\n", title, version)
 	_, _ = fmt.Fprintf(w, "Base URL: %s\n", displayBaseURL(result.Document, input))
+	// PROTO-006: state the conversion explicitly — a Swagger 2.0 document
+	// was transparently upgraded to the OpenAPI 3.x model before parsing.
+	if result.ConvertedFromSwagger2 {
+		_, _ = fmt.Fprintln(w, "Note: converted from Swagger/OpenAPI 2.0 to OpenAPI 3.x")
+	}
 
 	if len(operations) == 0 {
 		_, _ = fmt.Fprintln(w, "\nNo operations found in the spec.")
