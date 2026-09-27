@@ -95,6 +95,223 @@ openapi-cli inventory list
 openapi-cli inventory remove --host https://api.example.com
 ```
 
+## gRPC Commands
+
+The `grpc` group talks to gRPC servers through the protocol adapter seam
+described in [specs/PROTOCOLS.md](../../specs/PROTOCOLS.md). One discovery
+source model feeds all three verbs; invocation covers all four RPC kinds
+(unary, server-streaming, client-streaming, bidirectional). Implementation:
+`internal/builtin/grpc.go` (commands) and `pkg/protocol/grpc` (adapter).
+
+Discovery source `<uri>` forms (accepted by `discover`, `schema`, and
+`call --source`):
+
+| Form | Meaning |
+|------|---------|
+| `file.proto` | .proto source, resolved against the current directory |
+| `dir1:dir2=file.proto` | .proto file resolved against `dir1` (then cwd); `dir1:dir2` are the import paths for its includes |
+| `file.pb` (any non-`.proto` file) | compiled `FileDescriptorSet` (descriptor set) |
+| `grpc://host:port` | live server reflection |
+
+Every verb also accepts `-h, --help` and the global `--profile` flag.
+
+### `grpc discover`
+
+Ingest a source and list the operations (RPCs) it exposes: one entry per
+operation with its kind, operation ID, and full method path, sorted by ID.
+A source with no `service` declaration lists no operations — operations are
+RPCs; the types themselves are the `grpc schema` surface.
+
+```bash
+openapi-cli grpc discover <uri>
+```
+
+**Examples** (using fixtures shipped in this repository, so they are runnable
+as soon as the CLI is built or installed):
+
+```bash
+openapi-cli grpc discover "pkg/protocol/grpc/testdata:pkg/protocol/grpc/testdata=main.proto"
+openapi-cli grpc discover pkg/protocol/grpc/testdata/multi_all.pb
+openapi-cli grpc discover grpc://localhost:9000
+```
+
+The first prints, for example:
+
+```text
+unary            mainpkg.Main-Do
+         /mainpkg.Main/Do
+```
+
+A descriptor set built without `protoc --include_imports` is not
+self-contained: the CLI fails early with a message naming the missing import
+and the remedy (rebuild the set with `--include_imports`, or supply the
+missing files as `.proto` sources / an import-path URI).
+
+### `grpc schema`
+
+Ingest a source and list the protobuf type graph it declares: one line per
+type (kind, fully-qualified name, field or enum-value count) plus a total.
+Unlike `discover`, a source with no service is still fully described —
+message and enum declarations are the schema surface.
+
+```bash
+openapi-cli grpc schema <uri> [flags]
+```
+
+**Options**:
+- `-o, --output <format>` - `text` (default) prints the type listing; `json` prints the whole schema set as JSON (types keyed by fully-qualified name, each with its fields — type, format, ref, repeated/map details — enum values, oneof group, and source stamps)
+
+**Examples**:
+
+```bash
+openapi-cli grpc schema pkg/protocol/grpc/testdata/msgs_only.proto
+openapi-cli grpc schema msgs_only.proto -o json
+openapi-cli grpc schema grpc://localhost:9000
+```
+
+The first prints:
+
+```text
+enum     only.Flavor                              2 values
+message  only.Other                               1 field
+message  only.Thing                               2 fields
+message  only.Third                               1 field
+4 types
+```
+
+### `grpc call`
+
+Invoke one gRPC method end-to-end: unary, server-streaming,
+client-streaming, or bidirectional. The operation ID uses the
+`service-method` form printed by `grpc discover` (e.g. `kv.KeyValue-Get`).
+
+```bash
+openapi-cli grpc call <service-method> [flags]
+```
+
+**Options**:
+- `--source <uri>` - Discovery source (required; same forms as `grpc discover`). A `grpc://host:port` source also supplies the invocation target
+- `--target <host:port>` - Invocation target. Optional when `--source grpc://host:port`; otherwise required — the call errors with `no invocation target` if neither names one
+- `--arg <key=value>` - Request message field for unary/server-streaming methods (repeatable; values are strings, `true`/`false` parse as bools)
+- `--messages <json|@file|@->` - Request message STREAM for client-streaming/bidi methods: an inline JSON array of objects, `@file.json`, or `@-` for stdin
+- `--max-messages <n>` - Streaming bound: stop after this many response items (default 1000; `0` selects the default). There is no unbounded setting
+- `--timeout <duration>` - Wall-clock bound for one streaming call, sending included (default 30s; `0` selects the default); also the request deadline for unary calls
+- `--token <token>` - Bearer token attached as the standard `authorization` metadata header
+- `--header <key:value>` - Raw metadata header (repeatable)
+- `-o, --output <format>` - `json` (default, pretty-printed) or `raw` (compact JSON)
+
+**Rules**:
+- `--arg` and `--messages` are mutually exclusive (rejected as ambiguous). A method that takes one request message rejects `--messages`.
+- On a client-streaming/bidi method, `--arg` seeds a ONE-message request stream and no flags at all sends an empty stream; the CLI prints a stderr note saying which it is doing.
+
+**Examples**:
+
+```bash
+# Unary against a .proto source:
+openapi-cli grpc call kv.KeyValue-Get --source kv.proto --target localhost:9000 --arg key=demo
+# Unary via reflection (the source names the target, no --target needed):
+openapi-cli grpc call kv.KeyValue-Get --source grpc://localhost:9000 --arg key=demo
+# Server-streaming, capped at 5 items:
+openapi-cli grpc call kv.KeyValue-Watch --source kv.proto --target localhost:9000 --arg prefix=k --max-messages 5
+# Client-streaming / bidi: the request stream as a JSON array (@file.json and @- also work):
+openapi-cli grpc call kv.KeyValue-Upload --source kv.proto --target localhost:9000 --messages '[{"key":"a"},{"key":"b"}]'
+```
+
+Every streaming call returns a **bounded transcript envelope**, never a live
+stream (the bound flags above; specs/PROTOCOLS.md §4.5):
+
+```json
+{
+  "kind": "server-stream",
+  "status": "complete",
+  "items": [],
+  "items_truncated": false,
+  "trailer": {"received": 3, "messages_sent": 3, "max_messages": 1000,
+              "duration_ms": 12, "limit_reason": "", "metadata": {}}
+}
+```
+
+Hitting `--max-messages` or `--timeout` is a clean stop: status
+`"truncated"`, `items_truncated` true, `trailer.limit_reason` naming the
+bound, exit code 0. A caller cancellation or deadline ends the stream
+immediately with status `"cancelled"` and a non-zero exit; a mid-stream
+server error prints the partial transcript, then fails with the mapped error
+code.
+
+For the full contract text (cancellation, backpressure, trailer metadata),
+run `openapi-cli grpc call --help`.
+
+## Protocol Commands
+
+Protocol families other than OpenAPI and gRPC mount under the `protocol`
+group (specs/PROTOCOLS.md §5.1; root OpenAPI verbs stay at the top level).
+The GraphQL adapter is covered in the
+[GraphQL Adapter guide](graphql-adapter.md); the JSON-RPC adapter is
+documented below. Implementation: `internal/builtin/protocol.go`.
+
+### `protocol jsonrpc`
+
+Discover JSON-RPC 2.0 methods from an OpenRPC discovery document and execute
+them over HTTP POST. One command, three modes:
+
+| Mode | Flags | Behavior |
+|------|-------|----------|
+| Discovery | `--doc` | Fetch the OpenRPC document (local file path or http(s) URL) and print each method as a neutral operation (JSON list) |
+| Document-backed call | `--doc --method` | Look the method up in the document and execute it against `--endpoint`, defaulting to the document's `servers[0].url` |
+| Endpoint-only call | `--endpoint --method` (no `--doc`) | Send the JSON-RPC 2.0 request straight to `--endpoint` — no document fetch, no method lookup; both flags are required in this mode |
+
+```bash
+openapi-cli protocol jsonrpc [flags]
+```
+
+**Options**:
+- `--doc <path-or-url>` - OpenRPC discovery document (file path or http(s) URL); enables discovery and document-backed calls
+- `--endpoint <url>` - JSON-RPC endpoint URL (default: the document's `servers[0].url`); required for a call with no `--doc`
+- `--method <name>` - Method to execute; omit it (with `--doc`) to only list discovered operations
+- `--args <json>` - Method arguments as a JSON object (default `{}`)
+- `--timeout <duration>` - Per-call timeout, default 30s (applies only when the call has no other deadline)
+
+Batches are not implemented (optional in JSON-RPC 2.0); every call is a
+single request.
+
+**Examples** (verified against a local OpenRPC document naming
+`servers[0].url = http://127.0.0.1:9999` and a trivial echo server):
+
+```bash
+# Discovery — lists methods with id, kind, parameters, and source stamps:
+openapi-cli protocol jsonrpc --doc ./openrpc.json
+# Document-backed call — --endpoint defaults to servers[0].url:
+openapi-cli protocol jsonrpc --doc ./openrpc.json --method echo --args '{"msg":"hi"}'
+# Endpoint-only call — no discovery document involved:
+openapi-cli protocol jsonrpc --endpoint http://127.0.0.1:9999 --method echo --args '{"msg":"direct"}'
+```
+
+Discovery output is a JSON array; one entry looks like:
+
+```json
+[
+  {
+    "id": "echo",
+    "kind": "unary",
+    "summary": "Echo the message",
+    "parameters": [
+      {"name": "msg", "in": "payload", "type": "string", "required": true, "description": ""}
+    ],
+    "source": {"full_method": "echo", "server": "http://127.0.0.1:9999"}
+  }
+]
+```
+
+Calls print the decoded `result` as pretty-printed JSON
+(`{"msg": "hi"}` for the examples above).
+
+Usage errors name the missing flag — for example, an endpoint-only
+invocation without `--method` fails with
+`--method is required when --doc is omitted (...)`, and a `--doc`-backed
+call with an unknown method lists the methods that were discovered.
+
+Run `openapi-cli protocol jsonrpc --help` for the full mode contract.
+
 ## API Interaction Commands
 
 ### `request`
