@@ -654,3 +654,9 @@
 {"id":688,"timestamp":"2026-09-27 03:24:51.201181","event_type":"task_updated","task_id":"DF-029","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
 {"id":689,"timestamp":"2026-09-27 03:24:51.235814","event_type":"task_updated","task_id":"DF-030","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
 {"id":690,"timestamp":"2026-09-27 03:24:51.270409","event_type":"task_updated","task_id":"DOCS-002","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+{"id":691,"timestamp":"2026-09-27 04:02:49.988526","event_type":"task_completed","task_id":"DF-029","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":692,"timestamp":"2026-09-27 04:02:50.331774","event_type":"task_completed","task_id":"DF-030","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":693,"timestamp":"2026-09-27 04:02:50.639669","event_type":"task_completed","task_id":"DOCS-002","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":694,"timestamp":"2026-09-27 04:02:50.859917","event_type":"task_completed","task_id":"DF-029","actor":"foreman","detail":"{\"commit\":\"586ea5fb\",\"guard\":\"PASS\",\"tests\":\"go build ./...; go vet ./...; go test -short -count=1 ./internal/builtin\",\"judge\":\"DF-029-R3 complete\"}","tick_number":6021}
+{"id":695,"timestamp":"2026-09-27 04:02:51.062292","event_type":"task_completed","task_id":"DF-030","actor":"foreman","detail":"{\"commit\":\"c4da27e9\",\"guard\":\"SKIP\",\"verification\":\"manual grep + git diff --check\",\"ci\":\"billing block\"}","tick_number":6021}
+{"id":696,"timestamp":"2026-09-27 04:02:51.196349","event_type":"task_completed","task_id":"DOCS-002","actor":"foreman","detail":"{\"commit\":\"bc5a5673\",\"guard\":\"SKIP\",\"verification\":\"manual grep + git diff --check\",\"ci\":\"billing block\"}","tick_number":6021}
