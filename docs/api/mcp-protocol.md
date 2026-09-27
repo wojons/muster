@@ -10,13 +10,28 @@ OpenAPI CLI implements MCP (Model Context Protocol) to enable seamless integrati
 
 ### Running the MCP Server
 
-```bash
-# Start MCP server with stdio transport (default)
-./bin/openapi-mcp --spec openapi.yaml
+`openapi-mcp` speaks MCP over **stdio**: JSON-RPC 2.0 requests are read from
+stdin, responses are written to stdout, and diagnostics go to stderr.
 
-# Start with HTTP transport for debugging
-./bin/openapi-mcp --spec openapi.yaml --port 8080
+```bash
+# Start the MCP server over stdio — the only transport this binary implements
+./bin/openapi-mcp --spec openapi.yaml
 ```
+
+There is **no HTTP/TCP transport flag in this binary**. It registers no
+`net/http` listener, and its flag set (see [Command-line
+Flags](#command-line-flags)) contains neither a port nor a host option. Passing
+one is a flag-parsing failure: the process exits with status 2 and prints
+`flag provided but not defined` plus the usage block, before any spec is read.
+Any HTTP-facing surface has to come from an MCP host or proxy sitting in front
+of the stdio process — the binary itself only speaks stdio.
+
+To drive the server by hand, pipe requests into stdin (see [Manual
+Testing](#manual-testing)); to use it from an assistant, point the MCP client at
+the binary (see [Claude Desktop Configuration](#claude-desktop-configuration)).
+
+Go's `flag` package prints flags with a single dash, but both spellings are
+accepted: `-spec` and `--spec` are equivalent.
 
 ### Claude Desktop Configuration
 
@@ -36,6 +51,23 @@ Configure in Claude Desktop settings:
 `--base-url` (or the `MUSTER_BASE_URL` env var) is an optional override: by
 default the server targets the spec's own `servers[].url`, so `--spec` alone
 works whenever the spec declares an absolute server URL.
+
+### Command-line Flags
+
+`./bin/openapi-mcp --help` prints the complete flag set. The table below mirrors
+it, with each flag's default and its actual effect taken from the usage string
+in `cmd/mcp-server/main.go`:
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--spec` | `""` (none) | OpenAPI 3.x document to expose as MCP tools — either a local file path or an `http(s)://` URL. With neither `--spec` nor `--openrpc-doc` the server starts and registers no tools. |
+| `--base-url` | `""` (none) | Overrides the base URL the generated tools call. The flag wins over the `MUSTER_BASE_URL` env var, which in turn wins over the spec's `servers[].url`. |
+| `--openrpc-doc` | `""` (none) | Path or `http(s)://` URL of an OpenRPC 1.x discovery document; the JSON-RPC methods it discovers are registered as MCP tools alongside the OpenAPI tools. Calls go to `--base-url` / `MUSTER_BASE_URL` when set, otherwise to the document's `servers[0].url`. |
+| `--audit` | `false` | Enables audit logging, exactly like `MUSTER_AUDIT_ENABLED=1` (or `true`). Events are appended as JSON lines to `$MUSTER_AUDIT_LOG`, or to `<config dir>/muster/audit.jsonl` when that variable is unset (`$XDG_CONFIG_HOME`, or `$HOME/.config` on Unix). |
+| `--wasm-plugin` | `""` (none) | Path to a WASM plugin for response transformation. The value is accepted and stored in the server config; no code in `cmd/mcp-server` reads it at this revision, so it does not change behaviour yet. |
+| `--log-level` | `"info"` | Log level. Accepted and stored in the server config; not consumed by `cmd/mcp-server` at this revision (diagnostics go to stderr unconditionally). |
+| `--log-output` | `"stderr"` | Log output destination. Accepted and stored in the server config; not consumed at this revision. |
+| `--version` | `false` | Prints the build version and exits without starting the server, e.g. `v0.1.1-195-gb983fa6d (b983fa6d)`. |
 
 ### Manual Testing
 
@@ -329,22 +361,28 @@ Check for specification changes since last request.
 
 ### MCP Auth Flow
 
-The MCP server supports authentication via configuration:
+`openapi-mcp` has **no authentication flags and reads no config file**. It is
+configured only by the flags in [Command-line Flags](#command-line-flags), none
+of which carries credential material. On the request side, the tool executor
+(`pkg/mcp`) builds each outbound call from the operation's path and the
+resolved base URL and sets no authentication header — credentials are therefore
+an upstream concern.
 
-```bash
-./bin/openapi-mcp --spec openapi.yaml \
-  --auth.type oauth2 \
-  --auth.token your-access-token
-```
+Because the server speaks stdio and is started by the MCP client, access
+control is a property of how the process is launched:
 
-Config file approach:
+1. **Process access** — the client that launches the stdio process is the only
+   caller; there is no network listener to expose or protect.
+2. **Upstream calls** — put credential handling in the layer that calls the
+   upstream API (for example a gateway in front of it). There is no server-side
+   token flag to set.
+3. **Secrets in the environment** — where an option has both a flag and an
+   environment form (`--base-url`/`MUSTER_BASE_URL`,
+   `--audit`/`MUSTER_AUDIT_ENABLED`), prefer the environment variable so secret
+   material stays out of process listings and shell history.
 
-```yaml
-mcp:
-  auth:
-    type: oauth2
-    token: ${OAUTH_TOKEN}
-```
+See [Configuration](../guides/configuration.md) for the environment variables
+the project as a whole understands.
 
 ## Error Handling
 
@@ -584,14 +622,29 @@ mcp:
 ### Integration Testing
 
 ```bash
-# Full MCP integration test
-./bin/openapi-mcp --spec test-openapi.yaml --port 8080
-
-# Send requests via HTTP or stdio
-curl -X POST http://localhost:8080 \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+# Full MCP integration test — drive the stdio server with piped requests
+printf '%s\n' \
+  '{"jsonrpc":"2.0","method":"initialize","id":1}' \
+  '{"jsonrpc":"2.0","method":"tools/list","id":2}' \
+  | ./bin/openapi-mcp --spec demo/openapi-specs/petstore.yaml
 ```
+
+One JSON-RPC response line is written to stdout per request. Response ordering
+is not guaranteed — handlers run concurrently, so responses can come back in a
+different order than the requests went in:
+
+```console
+$ printf '%s\n' \
+    '{"jsonrpc":"2.0","method":"initialize","id":1}' \
+    '{"jsonrpc":"2.0","method":"tools/list","id":2}' \
+    | ./bin/openapi-mcp --spec demo/openapi-specs/petstore.yaml 2>/dev/null
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{},"serverInfo":{"name":"openapi-mcp","version":"1.0.0"}}}
+{"jsonrpc":"2.0","id":2,"result":{"tools":[{...5 tools...}]}}
+```
+
+Diagnostics (`Loaded spec: …`, `Generated N MCP tools`, `Using base URL: …`) go
+to stderr, which is why the transcript above redirects it away with `2>/dev/null`
+when only the protocol stream is wanted.
 
 ## Troubleshooting
 
@@ -615,10 +668,15 @@ openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json  # See ava
 
 ### Debug Mode
 
-Enable debug logging:
+There is no debug-logging switch in this binary: diagnostics always go to
+stderr, and `--log-level` is accepted but not consumed at this revision (see
+[Command-line Flags](#command-line-flags)). To inspect a session, capture stderr
+and leave stdout as the protocol stream:
 
 ```bash
-./bin/openapi-mcp --spec openapi.yaml
+./bin/openapi-mcp --spec openapi.yaml 2>mcp-server.log
+# stdout: JSON-RPC responses only
+# mcp-server.log: "Loaded spec: …", "Generated N MCP tools", "Using base URL: …"
 ```
 
 ## Related Documentation
