@@ -25,11 +25,13 @@ import (
 
 type MCPServerConfig struct {
 	// Pointer-containing fields first (reduces GC scan area)
-	LogLevel   string
-	LogOutput  string
-	SpecPath   string // Path to OpenAPI spec file
-	BaseURL    string // Base URL for API operations
-	WasmPlugin string // Path to WASM plugin for response transformation
+	LogLevel      string
+	LogOutput     string
+	SpecPath      string // Path to OpenAPI spec file
+	BaseURL       string // Base URL for API operations
+	WasmPlugin    string // Path to WASM plugin for response transformation
+	AuthToken     string // Bearer credential; never logged or serialized
+	AuthTokenFile string // Optional file containing the bearer credential
 	// Non-pointer fields
 	MaxConcurrentCommands int
 	CommandTimeout        time.Duration
@@ -40,14 +42,15 @@ type MCPServerConfig struct {
 }
 
 var (
-	specPathFlag   = flag.String("spec", "", "Path to OpenAPI specification file")
-	baseURLFlag    = flag.String("base-url", "", "Base URL for API operations (overrides the spec's servers[] URL; env: MUSTER_BASE_URL)")
-	logLevelFlag   = flag.String("log-level", "info", "Log level")
-	logOutputFlag  = flag.String("log-output", "stderr", "Log output destination")
-	auditFlag      = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
-	wasmPluginFlag = flag.String("wasm-plugin", "", "Path to WASM plugin for response transformation")
-	openrpcDocFlag = flag.String("openrpc-doc", "", "Path or http(s) URL to an OpenRPC 1.x discovery document; registers discovered JSON-RPC methods as MCP tools")
-	versionFlag    = flag.Bool("version", false, "Print version information and exit")
+	specPathFlag      = flag.String("spec", "", "Path to OpenAPI specification file")
+	baseURLFlag       = flag.String("base-url", "", "Base URL for API operations (overrides the spec's servers[] URL; env: MUSTER_BASE_URL)")
+	authTokenFileFlag = flag.String("auth-token-file", "", "Path to a file containing the outbound bearer token (overrides MUSTER_AUTH_TOKEN)")
+	logLevelFlag      = flag.String("log-level", "info", "Log level")
+	logOutputFlag     = flag.String("log-output", "stderr", "Log output destination")
+	auditFlag         = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
+	wasmPluginFlag    = flag.String("wasm-plugin", "", "Path to WASM plugin for response transformation")
+	openrpcDocFlag    = flag.String("openrpc-doc", "", "Path or http(s) URL to an OpenRPC 1.x discovery document; registers discovered JSON-RPC methods as MCP tools")
+	versionFlag       = flag.Bool("version", false, "Print version information and exit")
 )
 
 // resolveBaseURL resolves the explicit base-URL override for the MCP server:
@@ -72,8 +75,30 @@ func loadConfig() *MCPServerConfig {
 		SpecPath:              *specPathFlag,
 		BaseURL:               resolveBaseURL(),
 		WasmPlugin:            *wasmPluginFlag,
+		AuthToken:             os.Getenv("MUSTER_AUTH_TOKEN"),
+		AuthTokenFile:         *authTokenFileFlag,
 		OpenRPCDocPath:        *openrpcDocFlag,
 	}
+}
+
+// resolveAuthToken loads an explicitly configured token file once at startup.
+// File input takes precedence over MUSTER_AUTH_TOKEN without exposing either
+// credential in process arguments or error messages.
+func resolveAuthToken(config *MCPServerConfig) error {
+	if config.AuthTokenFile == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(config.AuthTokenFile)
+	if err != nil {
+		return fmt.Errorf("read auth token file %q: %w", config.AuthTokenFile, err)
+	}
+	token := strings.TrimRight(string(data), "\r\n")
+	if token == "" {
+		return fmt.Errorf("auth token file %q is empty", config.AuthTokenFile)
+	}
+	config.AuthToken = token
+	return nil
 }
 
 func setupStdio() (io.Reader, io.Writer, io.Writer) {
@@ -109,6 +134,10 @@ func setupSignalHandling() (context.Context, context.CancelFunc) {
 }
 
 func runMCPServer(config *MCPServerConfig, server *mcp.Server) error {
+	if err := resolveAuthToken(config); err != nil {
+		return fmt.Errorf("configure outbound authentication: %w", err)
+	}
+
 	// If spec is provided, load and register tools
 	if config.SpecPath != "" {
 		if err := loadAndRegisterTools(server, config); err != nil {
@@ -200,9 +229,11 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
 		fmt.Fprintf(os.Stderr, "No base URL available: spec has no absolute servers[] URL and no override given (--base-url / MUSTER_BASE_URL)\n")
 	}
 
-	// Create registry and executor
+	// Create registry and executor. Authentication is applied by the executor
+	// after generated header arguments, so every outbound tool request carries
+	// the process-level bearer credential when configured.
 	registry := mcp.NewOpenAPIRegistry(tools, configs)
-	executor := mcp.NewOpenAPIExecutor(configs)
+	executor := mcp.NewOpenAPIExecutor(configs, mcp.WithBearerToken(config.AuthToken))
 
 	// Register tool handlers
 	listHandler := handlers.NewListToolsHandler(registry)
@@ -221,6 +252,16 @@ func RegisterHandler(server *mcp.Server, handler handlers.Handler) {
 	}
 }
 
+// newMCPHTTPClient creates the shared client used for OpenRPC discovery and
+// JSON-RPC execution. A configured bearer credential therefore reaches every
+// outbound request on that MCP path as well.
+func newMCPHTTPClient(authToken string) *client.Client {
+	if authToken == "" {
+		return client.NewClient()
+	}
+	return client.NewClient(client.WithHeader("Authorization", "Bearer "+authToken))
+}
+
 // loadAndRegisterJSONRPCTools loads an OpenRPC discovery document (file path
 // or http(s) URL) and registers its methods as MCP tools backed by the
 // JSON-RPC 2.0 adapter (PROTO-004). The endpoint is the document's
@@ -228,7 +269,7 @@ func RegisterHandler(server *mcp.Server, handler handlers.Handler) {
 func loadAndRegisterJSONRPCTools(server *mcp.Server, config *MCPServerConfig) error {
 	ctx := context.Background()
 
-	httpClient := client.NewClient()
+	httpClient := newMCPHTTPClient(config.AuthToken)
 	discoverer := jsonrpc.NewClient("http://127.0.0.1", jsonrpc.WithHTTPClient(httpClient))
 
 	ops, err := discoverer.Discover(ctx, config.OpenRPCDocPath)

@@ -145,16 +145,31 @@ func (r *ToolRegistry) GetCommand(name string) *handlers.Command {
 	}
 }
 
-// ToolExecutor implements handlers.CommandExecutor using request builder
+// ToolExecutor implements handlers.CommandExecutor using request builder.
 type ToolExecutor struct {
-	configs map[string]ExecutionConfig
+	configs     map[string]ExecutionConfig
+	bearerToken string
 }
 
-// NewOpenAPIExecutor creates a new executor
-func NewOpenAPIExecutor(configs map[string]ExecutionConfig) *ToolExecutor {
-	return &ToolExecutor{
+// ToolExecutorOption configures a ToolExecutor.
+type ToolExecutorOption func(*ToolExecutor)
+
+// WithBearerToken attaches a bearer credential to every outbound tool request.
+func WithBearerToken(token string) ToolExecutorOption {
+	return func(executor *ToolExecutor) {
+		executor.bearerToken = token
+	}
+}
+
+// NewOpenAPIExecutor creates a new executor.
+func NewOpenAPIExecutor(configs map[string]ExecutionConfig, opts ...ToolExecutorOption) *ToolExecutor {
+	executor := &ToolExecutor{
 		configs: configs,
 	}
+	for _, opt := range opts {
+		opt(executor)
+	}
+	return executor
 }
 
 // validateArgs validates tool arguments against JSON Schema
@@ -248,6 +263,13 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 		}
 		builder.JSONBody(string(bodyJSON))
 		builder.SetHeader("Content-Type", "application/json")
+	}
+
+	// Process-level authentication is authoritative and applies to every tool
+	// request. Set it after tool arguments so a generated header parameter
+	// cannot replace the configured credential.
+	if e.bearerToken != "" {
+		builder.SetHeader("Authorization", "Bearer "+e.bearerToken)
 	}
 
 	// Execute request
