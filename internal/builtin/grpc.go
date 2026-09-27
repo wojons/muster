@@ -119,13 +119,13 @@ func newGrpcDiscoverCommand() *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			if len(ops) == 0 {
-				fmt.Fprintln(out, "No operations found.")
+				_, _ = fmt.Fprintln(out, "No operations found.")
 				return nil
 			}
 			sort.Slice(ops, func(i, j int) bool { return ops[i].ID < ops[j].ID })
 			for _, op := range ops {
-				fmt.Fprintf(out, "%-16s %s\n", grpcKindLabel(op.Kind), op.ID)
-				fmt.Fprintf(out, "         %s\n", op.Source[grpcadapter.SourceFullMethod])
+				_, _ = fmt.Fprintf(out, "%-16s %s\n", grpcKindLabel(op.Kind), op.ID)
+				_, _ = fmt.Fprintf(out, "         %s\n", op.Source[grpcadapter.SourceFullMethod])
 			}
 			return nil
 		},
@@ -200,7 +200,7 @@ func printGrpcSchema(cmd *cobra.Command, set *protocol.SchemaSet, format string)
 	case "text":
 		names := set.Names()
 		if len(names) == 0 {
-			fmt.Fprintln(out, "No types found.")
+			_, _ = fmt.Fprintln(out, "No types found.")
 			return nil
 		}
 		for _, name := range names {
@@ -209,9 +209,9 @@ func printGrpcSchema(cmd *cobra.Command, set *protocol.SchemaSet, format string)
 			if typ.Kind == protocol.SchemaTypeEnum {
 				detail = fmt.Sprintf("%d %s", len(typ.EnumValues), plural(len(typ.EnumValues), "value", "values"))
 			}
-			fmt.Fprintf(out, "%-8s %-40s %s\n", typ.Kind, name, detail)
+			_, _ = fmt.Fprintf(out, "%-8s %-40s %s\n", typ.Kind, name, detail)
 		}
-		fmt.Fprintf(out, "%d %s\n", len(names), plural(len(names), "type", "types"))
+		_, _ = fmt.Fprintf(out, "%d %s\n", len(names), plural(len(names), "type", "types"))
 		return nil
 	default:
 		return fmt.Errorf("unsupported output format %q: supported formats are text, json", format)

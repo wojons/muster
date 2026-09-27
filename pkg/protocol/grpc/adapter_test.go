@@ -221,16 +221,13 @@ func TestExecute_UnaryRoundTrip_Reflection(t *testing.T) {
 	if _, err := adapter.Discover(context.Background(), "grpc://bufnet"); err != nil {
 		t.Fatalf("discover: %v", err)
 	}
-	res, err := adapter.Execute(context.Background(), "kv.KeyValue-Get", map[string]interface{}{
-		"key": "missing",
-	})
 	// Round-trip proof comes via Set+Get; do Set first through reflection-only path.
 	if _, err := adapter.Execute(context.Background(), "kv.KeyValue-Set", map[string]interface{}{
 		"key": "r2", "value": "v2",
 	}); err != nil {
 		t.Fatalf("execute Set (reflection): %v", err)
 	}
-	res, err = adapter.Execute(context.Background(), "kv.KeyValue-Get", map[string]interface{}{
+	res, err := adapter.Execute(context.Background(), "kv.KeyValue-Get", map[string]interface{}{
 		"key": "r2",
 	})
 	if err != nil {
@@ -240,7 +237,6 @@ func TestExecute_UnaryRoundTrip_Reflection(t *testing.T) {
 	if got["value"] != "v2" {
 		t.Fatalf("Get (reflection) result = %#v, want value=v2", res)
 	}
-	_ = res
 }
 
 // TestExecute_ErrorMapping: gate (e) — injected InvalidArgument →

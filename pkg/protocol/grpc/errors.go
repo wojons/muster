@@ -70,12 +70,12 @@ func mapTransportError(err error, fullMethod string) *errors.AppError {
 	code := mapCode(err)
 	wrapped := errors.Wrap(err, code, "gRPC call "+fullMethod+" failed")
 	if st, ok := status.FromError(err); ok && st.Code() != codes.OK {
-		wrapped.WithDetail("grpc_code", st.Code().String())
+		wrapped = wrapped.WithDetail("grpc_code", st.Code().String())
 		switch st.Code() {
 		case codes.PermissionDenied:
-			wrapped.WithDetail("reason", "permission denied (distinct from unauthenticated)")
+			wrapped = wrapped.WithDetail("reason", "permission denied (distinct from unauthenticated)")
 		case codes.ResourceExhausted:
-			wrapped.WithDetail("server_message", st.Message())
+			wrapped = wrapped.WithDetail("server_message", st.Message())
 		}
 	}
 	return wrapped
