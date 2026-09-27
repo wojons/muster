@@ -437,6 +437,169 @@ func TestServer_Run_HandlerReturnsError(t *testing.T) {
 	<-done
 }
 
+func TestServer_Run_NotificationGetsNoResponse(t *testing.T) {
+	stdinR, stdinW := io.Pipe()
+	stdoutR, stdoutW := io.Pipe()
+	stderr := &bytes.Buffer{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s := NewServer(stdinR, stdoutW, stderr)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- s.Run(ctx)
+	}()
+
+	// notifications/initialized is a JSON-RPC notification: it carries no id
+	// and must not be answered on stdout.
+	notif := JSONRPCRequest{
+		JSONRPC: "2.0",
+		Method:  "notifications/initialized",
+	}
+	data, _ := json.Marshal(notif)
+	stdinW.Write(data)
+	stdinW.Write([]byte("\n"))
+
+	// Run waits for in-flight request goroutines before returning, so any
+	// response the server would write for the notification is either already
+	// written (and readable below) or the writer is parked on the pipe.
+	if line, got := readStdoutWithTimeout(t, stdoutR, 500*time.Millisecond); got {
+		t.Fatalf("notification produced a stdout response: %q", line)
+	}
+
+	stdinW.Close()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run did not return after notification")
+	}
+
+	stdoutR.Close()
+}
+
+func TestServer_Run_UnknownMethodNotificationGetsNoResponse(t *testing.T) {
+	stdinR, stdinW := io.Pipe()
+	stdoutR, stdoutW := io.Pipe()
+	stderr := &bytes.Buffer{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s := NewServer(stdinR, stdoutW, stderr)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- s.Run(ctx)
+	}()
+
+	// An unregistered method sent as a notification (no id) must also stay
+	// silent: JSON-RPC 2.0 forbids any reply to a notification, including
+	// method-not-found errors.
+	notif := JSONRPCRequest{
+		JSONRPC: "2.0",
+		Method:  "test/unregistered-notification",
+	}
+	data, _ := json.Marshal(notif)
+	stdinW.Write(data)
+	stdinW.Write([]byte("\n"))
+
+	if line, got := readStdoutWithTimeout(t, stdoutR, 500*time.Millisecond); got {
+		t.Fatalf("unknown-method notification produced a stdout response: %q", line)
+	}
+
+	stdinW.Close()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run did not return after notification")
+	}
+
+	stdoutR.Close()
+}
+
+func TestServer_Run_NotificationThenRequestStillAnswered(t *testing.T) {
+	stdinR, stdinW := io.Pipe()
+	stdoutR, stdoutW := io.Pipe()
+	stderr := &bytes.Buffer{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s := NewServer(stdinR, stdoutW, stderr)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- s.Run(ctx)
+	}()
+
+	notif := JSONRPCRequest{
+		JSONRPC: "2.0",
+		Method:  "notifications/initialized",
+	}
+	data, _ := json.Marshal(notif)
+	stdinW.Write(data)
+	stdinW.Write([]byte("\n"))
+
+	// An ordinary id-bearing request must still receive a response.
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "initialize",
+		Params:  json.RawMessage(`{}`),
+	}
+	data, _ = json.Marshal(req)
+	stdinW.Write(data)
+	stdinW.Write([]byte("\n"))
+
+	var resp JSONRPCResponse
+	decoder := json.NewDecoder(stdoutR)
+	if err := decoder.Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if id, ok := resp.ID.(float64); !ok || id != 1 {
+		t.Errorf("response id = %v, want 1 (a notification must not be answered)", resp.ID)
+	}
+	if resp.Error != nil {
+		t.Errorf("unexpected error: code=%d msg=%s", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result == nil {
+		t.Error("result should not be nil for initialize")
+	}
+
+	stdinW.Close()
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run did not return")
+	}
+
+	stdoutR.Close()
+}
+
+// readStdoutWithTimeout reads from r and reports whether any bytes arrived
+// within d. The reader goroutine is unblocked when the caller closes r.
+func readStdoutWithTimeout(t *testing.T, r io.Reader, d time.Duration) ([]byte, bool) {
+	t.Helper()
+	type readResult struct {
+		data []byte
+		err  error
+	}
+	ch := make(chan readResult, 1)
+	go func() {
+		buf := make([]byte, 1024)
+		n, err := r.Read(buf)
+		ch <- readResult{buf[:n], err}
+	}()
+	select {
+	case res := <-ch:
+		return res.data, true
+	case <-time.After(d):
+		return nil, false
+	}
+}
+
 func TestMustMarshal(t *testing.T) {
 	t.Run("valid struct", func(t *testing.T) {
 		result := mustMarshal(map[string]string{"key": "value"})
