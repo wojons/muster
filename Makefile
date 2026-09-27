@@ -88,6 +88,10 @@ build: ## Build all binaries for current platform
 	@echo "Building $(BINARY_NAME) $(VERSION) for current platform..."
 	@$(MAKE) build-all
 
+.PHONY: hooks
+hooks: ## Install repo pre-commit guard (sets local core.hooksPath; run once per clone)
+	@./scripts/hooks-install.sh
+
 .PHONY: build-cli
 build-cli: ## Build CLI only
 	@echo "Building CLI $(VERSION)..."

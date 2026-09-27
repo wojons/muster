@@ -407,10 +407,13 @@ should not mutate the board). Each is evidence-backed and independently checkabl
 5. **`specs/PROTOCOLS.md:12` is stale** (protobuf dependency class) and `:214` overstates
    protocompile's role (§3).
 6. **`.proto` discovery output is text-only** while JSON-RPC's discovery prints JSON (§6.6).
-7. **Ops observation, not a `.proto` finding**: this repo's `core.hooksPath` is set to `.githooks`,
-   which does **not** exist in the main tree or in this worktree, and is not tracked by git
+7. **Ops observation, not a `.proto` finding**: this repo's `core.hooksPath` was set to `.githooks`,
+   which did **not** exist in the main tree or in this worktree, and was not tracked by git
    (`git ls-files .githooks` → 0; `ls .githooks` → No such file). The pre-commit guard therefore
-   never runs on a commit in this configuration — a commit prints no guard banner. This affects the
+   never ran on a commit in that configuration — a commit printed no guard banner. **FIXED by
+   HOOK-001**: `.githooks/pre-commit` is now tracked and `make hooks` re-arms the guard locally
+   (see CONTRIBUTING.md Setup). Until `make hooks` runs in a given clone, commits still print no
+   guard banner — that is the documented bootstrap step, not a defect. This affects the
    evidentiary weight of *any* commit here, including this document's; it was recorded by running
    the guard out-of-band on the staged change set (see the row's completion report).
 
