@@ -128,7 +128,7 @@ this table has no effect. "Default" is the behavior when the variable is unset.
 |----------|--------|---------|
 | `MUSTER_AUDIT_ENABLED` | `1` or `true` enables audit logging (commands and mutations are recorded) | Audit disabled |
 | `MUSTER_AUDIT_LOG` | Path of the audit sink (JSON lines) used by every writer and by the `audit log` / `audit show` / `audit info` commands | `<config dir>/muster/audit.jsonl` |
-| `MUSTER_AUTH_TOKEN` | Sends `Authorization: Bearer <token>` on generated commands; also overrides the `auth_token` configuration value | No token |
+| `MUSTER_AUTH_TOKEN` | Sends `Authorization: Bearer <token>` on generated commands and on every outbound request made by `mcp-server` (each tool call and OpenRPC/JSON-RPC request); also overrides the `auth_token` configuration value. `--auth-token-file` (mcp-server) supersedes it | No token |
 | `MUSTER_BASE_URL` | Base URL used for API operations (`--base-url` wins; the spec's `servers[]` URL is used when neither is set) | From spec |
 | `MUSTER_CONFIG` | Additional config file to load, above the user and project files, and the file the `config profile` commands read and write | Unset (source skipped) |
 | `MUSTER_CONFIG_FILE` | Same role as `MUSTER_CONFIG`; consulted after it when resolving the file the profile commands write to | Unset |
