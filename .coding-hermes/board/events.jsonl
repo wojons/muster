@@ -648,3 +648,9 @@
 {"id":682,"timestamp":"2026-09-26 22:16:48.291626","event_type":"task_created","task_id":"DOC-10","actor":"foreman","detail":"{\"source\": \"docs-audit-lane 2026-09-27\", \"tick\": 0}","tick_number":0}
 {"id":683,"timestamp":"2026-09-26 22:16:48.291626","event_type":"task_created","task_id":"DOC-11","actor":"foreman","detail":"{\"source\": \"docs-audit-lane 2026-09-27\", \"tick\": 0}","tick_number":0}
 {"id":684,"timestamp":"2026-09-26 22:16:48.291626","event_type":"task_created","task_id":"DOC-12","actor":"foreman","detail":"{\"source\": \"docs-audit-lane 2026-09-27\", \"tick\": 0}","tick_number":0}
+{"id":685,"timestamp":"2026-09-27 03:21:37.148522","event_type":"task_updated","task_id":"DF-029","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+{"id":686,"timestamp":"2026-09-27 03:21:37.174748","event_type":"task_updated","task_id":"DF-030","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+{"id":687,"timestamp":"2026-09-27 03:21:37.19979","event_type":"task_updated","task_id":"DOCS-002","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+{"id":688,"timestamp":"2026-09-27 03:24:51.201181","event_type":"task_updated","task_id":"DF-029","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+{"id":689,"timestamp":"2026-09-27 03:24:51.235814","event_type":"task_updated","task_id":"DF-030","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
+{"id":690,"timestamp":"2026-09-27 03:24:51.270409","event_type":"task_updated","task_id":"DOCS-002","actor":"foreman","detail":"{\"status\":\"in_progress\"}","tick_number":null}
