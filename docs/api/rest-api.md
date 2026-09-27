@@ -1,917 +1,283 @@
-# REST API Reference
+# Daemon HTTP API Reference
 
-Complete REST API reference for OpenAPI CLI.
+Reference for the HTTP surface served by `openapi-daemon` (source: `cmd/daemon/`, `pkg/daemon/`).
+
+> **Note on this document's history.** The previous revision of this file documented a ~20-endpoint
+> REST API (a TCP base URL, spec/command/config/cache/auth/webhook endpoints, API-key auth, CORS and
+> rate-limit configuration blocks). None of it existed. That revision has been replaced by the surface
+> actually registered in `pkg/daemon/` and `cmd/daemon/`; the removed rows are listed under
+> [Not implemented](#not-implemented).
 
 ## Overview
 
-OpenAPI CLI provides a REST API for programmatic access to all CLI functionality through HTTP endpoints. The REST API is useful for:
-- Building custom integrations
-- Automating workflows via webhooks
-- Creating custom UIs
-- Service-to-service communication
+`openapi-daemon` is a single-user daemon. It is **not** a REST service, and it is not a TCP listener:
+it binds an **HTTP/1.1 server to a Unix domain socket** (`net.Listen("unix", ...)`,
+`pkg/daemon/proxy.go:397`) and serves one of three handler sets:
 
-## Base URL
+| Mode | Invocation | What the socket serves |
+|------|-----------|------------------------|
+| Status only | `openapi-daemon start` | A canned handler: root info + the health routes (`cmd/daemon/main.go:309`) |
+| Proxy with local health | `openapi-daemon start --backend-url <url>` | Local `/health*` routes, everything else reverse-proxied (`cmd/daemon/main.go:342`) |
+| Pure proxy | `openapi-daemon proxy --backend-url <url>` | Every path, `/health` included, is forwarded to the backend (`cmd/daemon/main.go:354`) |
 
-Default: `http://localhost:8080`
+`openapi-daemon proxy` without `--backend-url` exits 1 with
+`Error: handler is required; use --backend-url to specify the backend URL` (`cmd/daemon/main.go:365`).
 
-Configurable via configuration:
+There is no `--port`/`--host` flag and no TCP listener anywhere in `cmd/` or `pkg/daemon/` — the only
+listener call in the daemon package is the Unix-socket one cited above.
 
-```yaml
-mcp:
-  enabled: true
-  port: 8080
-  host: 0.0.0.0
+## Transport
+
+| Property | Value | Source |
+|----------|-------|--------|
+| Transport | Unix domain socket (HTTP/1.1 over it) | `pkg/daemon/proxy.go:397` |
+| Default socket path | `/tmp/openapi-cli.sock` | `cmd/daemon/main.go:24` |
+| Socket file mode | `0600` (owner only) | `pkg/daemon/proxy.go:403` |
+| Default PID file | `<socket-path>.pid` | `cmd/daemon/main.go:110` |
+| Server read / write timeout | `10s` / `10s` | `pkg/daemon/proxy.go:412` |
+| Backend client timeout (proxy mode) | `30s` | `pkg/daemon/proxy.go:525` |
+
+Requests are made with `curl --unix-socket`:
+
+```bash
+curl --unix-socket /tmp/openapi-cli.sock http://localhost/health
 ```
+
+The `http://localhost/...` here is a placeholder host for curl's benefit — nothing is listening on a
+TCP port; the socket path is what selects the server.
 
 ## Authentication
 
-The REST API supports multiple authentication methods.
+The daemon package contains a token middleware and a token-file path, but the shipped CLI does **not**
+install the middleware. Both facts, with sources:
+
+| Item | Detail | Source |
+|------|--------|--------|
+| Header shape (if middleware installed) | `Authorization: Bearer <token>` (prefix literal at the cited line) | `pkg/daemon/token_manager.go:44` |
+| Token file path | `<socket-path>.token` (derived, and printed by `start`/`proxy`) | `pkg/daemon/proxy.go:71`, `cmd/daemon/main.go:201` |
+| Health routes exempt from auth | `/health`, `/health/live`, `/health/ready`, `/health/startup` | `pkg/daemon/proxy.go:368`, `pkg/daemon/proxy.go:373` |
+| Middleware | `withTokenAuth` | `pkg/daemon/proxy.go:328` |
+| Only caller of the middleware | `NewAuthenticatedProxyServer` — no non-test caller in the repo | `pkg/daemon/proxy.go:310` |
+| Token registration | `TokenManager.AddToken` is called only from tests | `pkg/daemon/token_manager.go:22` |
 
-### API Key Authentication
+**Measured:** the running daemon answered a non-health path with no `Authorization` header present at
+all (see the `/not-a-route` probe below, and the `/hello.txt` probe in proxy mode). The daemon also
+never writes the token file it advertises — after `start`, only the socket and PID file exist on disk:
 
-```bash
-curl -H "X-API-Key: your-secret-key" http://localhost:8080/spec/validate
+```text
+$ ls -l /tmp/muster-daemon.sock*
+srw------- 1 kara kara 0 Sep 27 00:57 /tmp/muster-daemon.sock
+-rw-r--r-- 1 kara kara 8 Sep 27 00:57 /tmp/muster-daemon.sock.pid
 ```
 
-Configuration:
-
-```yaml
-auth:
-  type: apikey
-  apikey:
-    header: X-API-Key
-    value: ${API_KEY}
-```
-
-### OAuth2 Bearer Token
-
-```bash
-curl -H "Authorization: Bearer <token>" http://localhost:8080/spec/validate
-```
-
-Configuration:
-
-```yaml
-auth:
-  type: oauth2
-  oauth2:
-    token_url: https://auth.example.com/oauth/token
-    scopes:
-      - read
-      - write
-```
-
-## API Endpoints
-
-### Root Endpoint
-
-Get API information.
-
-```http
-GET /
-```
-
-**Response**:
-```json
-{
-  "name": "openapi-cli",
-  "version": "1.0.0",
-  "endpoints": ["/spec", "/commands", "/api"],
-  "documentation": "/docs"
-}
-```
-
-## Specification Endpoints
-
-### Validate OpenAPI Spec
-
-Validate an OpenAPI specification.
-
-```http
-POST /spec/validate
-```
-
-**Request Body**:
-```json
-{
-  "spec": "<OpenAPI spec content>",
-  "strict": false
-}
-```
-
-**Response**:
-```json
-{
-  "valid": true,
-  "errors": []
-}
-```
-
-**Example**:
-```bash
-curl -X POST http://localhost:8080/spec/validate \
-  -H "Content-Type: application/json" \
-  -d '{"spec":"openapi: 3.0.3\ninfo:\n  title: Test\npaths: {}"}'
-```
-
-### Get Spec Info
-
-Get information about an OpenAPI specification.
-
-```http
-GET /spec/info?spec=<spec-path>
-```
-
-**Response**:
-```json
-{
-  "title": "PetStore API",
-  "version": "1.0.0",
-  "description": "Sample PetStore API",
-  "endpoints": 20,
-  "paths": {
-    "/pet": ["GET", "POST"],
-    "/pet/{petId}": ["GET", "PUT", "DELETE"]
-  }
-}
-```
-
-### Convert Spec Format
-
-Convert between OpenAPI formats.
-
-```http
-POST /spec/convert
-```
-
-**Request Body**:
-```json
-{
-  "spec": "<spec content>",
-  "fromFormat": "json",
-  "toFormat": "yaml"
-}
-```
-
-**Response**:
-```json
-{
-  "spec": "<converted spec>",
-  "format": "yaml"
-}
-```
-
-## CLI Command Endpoints
-
-### List Commands
-
-List all available CLI commands.
-
-```http
-GET /commands
-```
-
-**Response**:
-```json
-{
-  "commands": [
-    {
-      "name": "generate",
-      "description": "Generate CLI commands from spec",
-      "usage": "openapi-cli generate <spec-path-or-url>"
-    },
-    {
-      "name": "inventory list",
-      "description": "List configured inventories",
-      "usage": "openapi-cli inventory list"
-    }
-  ]
-}
-```
-
-### Execute Command
-
-Execute a CLI command via REST API.
-
-```http
-POST /commands/execute
-```
-
-**Request Body**:
-```json
-{
-  "command": "generate",
-  "args": ["petstore.json"],
-  "options": {
-    "baseUrl": "https://api.example.com",
-    "verbose": true
-  }
-}
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "exitCode": 0,
-  "stdout": "Commands generated from petstore.json",
-  "stderr": ""
-}
-```
-
-**Example**:
-```bash
-curl -X POST http://localhost:8080/commands/execute \
-  -H "Content-Type: application/json" \
-  -d '{
-    "command": "inventory list",
-    "args": [],
-    "options": {"format": "json"}
-  }'
-```
-
-## API Request Endpoints
-
-### Make API Request
-
-Make a request to the target API.
-
-```http
-POST /api/request
-```
-
-**Request Body**:
-```json
-{
-  "method": "GET",
-  "path": "/pet/1",
-  "baseUrl": "https://api.example.com/v1",
-  "headers": {
-    "Authorization": "Bearer token"
-  },
-  "query": {
-    "fields": "id,name"
-  }
-}
-```
-
-**Response**:
-```json
-{
-  "status": 200,
-  "headers": {
-    "Content-Type": "application/json"
-  },
-  "body": {
-    "id": 1,
-    "name": "Fluffy"
-  }
-}
-```
-
-### Batch Requests
-
-Make multiple API requests in parallel.
-
-```http
-POST /api/batch
-```
-
-**Request Body**:
-```json
-{
-  "requests": [
-    {
-      "method": "GET",
-      "path": "/pet/1"
-    },
-    {
-      "method": "GET",
-      "path": "/pet/2"
-    }
-  ]
-}
-```
-
-**Response**:
-```json
-{
-  "results": [
-    {
-      "status": 200,
-      "body": {"id": 1, "name": "Fluffy"}
-    },
-    {
-      "status": 200,
-      "body": {"id": 2, "name": "Rex"}
-    }
-  ]
-}
-```
-
-## Documentation Endpoints
-
-### Generate Documentation
-
-Generate API documentation.
-
-```http
-POST /docs/generate
-```
-
-**Request Body**:
-```json
-{
-  "spec": "<OpenAPI spec>",
-  "format": "markdown",
-  "output": "/path/to/docs"
-}
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "files": [
-    "/path/to/docs/index.md",
-    "/path/to/docs/api.md"
-  ]
-}
-```
+So, as shipped: the socket is protected by its `0600` permissions and by the fact that it is a
+local-only Unix socket. The bearer token and the `.token` file are library capabilities, not a
+requirement of the CLI daemon. If the middleware is ever wired in, its refusal payloads are
+`{"error":"Unauthorized","message":"Missing authorization header"}` and
+`{"error":"Unauthorized","message":"Invalid or expired token"}` with status 401
+(`pkg/daemon/proxy.go:345`, `pkg/daemon/proxy.go:357`).
 
-### Serve Documentation
+## Endpoint reference
 
-Serve documentation files.
+Method is listed as "any" where the handler is registered with `mux.HandleFunc(path, ...)` and does not
+check `r.Method` — a `POST` to such a route behaves exactly like a `GET` (verified for `/health`).
 
-```http
-GET /docs/{path}
-```
-
-**Example**:
-```bash
-curl http://localhost:8080/docs/index.md
-```
-
-## Configuration Endpoints
-
-### Get Configuration
-
-Get current configuration.
-
-```http
-GET /config
-```
-
-**Response**:
-```json
-{
-  "spec": {
-    "path": "openapi.json",
-    "baseUrl": "https://api.example.com/v1"
-  },
-  "http": {
-    "timeout": "30s",
-    "verifySsl": true
-  },
-  "output": {
-    "format": "table"
-  }
-}
-```
-
-### Update Configuration
-
-Update configuration values.
-
-```http
-PUT /config
-```
-
-**Request Body**:
-```json
-{
-  "http": {
-    "timeout": "60s"
-  },
-  "output": {
-    "format": "json"
-  }
-}
-```
-
-**Response**:
-```json
-{
-  "success": true
-}
-```
-
-### Validate Configuration
-
-Validate current configuration.
-
-```http
-POST /config/validate
-```
-
-**Response**:
-```json
-{
-  "valid": true,
-  "errors": []
-}
-```
-
-## Cache Endpoints
-
-### Get Cache Stats
-
-Get cache statistics.
-
-```http
-GET /cache/stats
-```
-
-**Response**:
-```json
-{
-  "hits": 150,
-  "misses": 30,
-  "size": "100MB",
-  "items": 500
-}
-```
-
-### Clear Cache
-
-Clear the cache.
-
-```http
-DELETE /cache
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "cleared": 500
-}
-```
-
-## Authentication Endpoints
-
-### Get Auth Status
-
-Check authentication status.
+### Status-only mode (`openapi-daemon start`)
 
-```http
-GET /auth/status
-```
-
-**Response**:
-```json
-{
-  "authenticated": true,
-  "provider": "oauth2",
-  "expires": "2026-03-03T10:00:00Z"
-}
-```
-
-### Login
-
-Authenticate with OAuth2.
-
-```http
-POST /auth/login
-```
-
-**Request Body**:
-```json
-{
-  "provider": "google",
-  "clientId": "your-client-id",
-  "scopes": ["read", "write"]
-}
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "token": "access_token"
-}
-```
-
-### Logout
-
-Logout and clear credentials.
-
-```http
-POST /auth/logout
-```
-
-**Response**:
-```json
-{
-  "success": true
-}
-```
-
-## Health Endpoint
-
-Check service health.
-
-```http
-GET /health
-```
+| Path | Method | Registered at | Response body |
+|------|--------|---------------|---------------|
+| `/` | any | `cmd/daemon/main.go:311` (also `pkg/daemon/proxy.go:479`) | `{"status":"ok","message":"Muster daemon is running"}` |
+| `/health` | any | `cmd/daemon/main.go:316` (also `pkg/daemon/proxy.go:485`) | `{"status":"healthy"}` |
+| `/health/live` | any | `cmd/daemon/main.go:321` (also `pkg/daemon/proxy.go:491`) | `{"status":"alive","timestamp":"<RFC3339 UTC>"}` |
+| `/health/ready` | any | `cmd/daemon/main.go:326` (also `pkg/daemon/proxy.go:497`) | `{"status":"ready","timestamp":"<RFC3339 UTC>"}` |
+| `/health/startup` | any | `pkg/daemon/proxy.go:503` (library handler only — see below) | `{"status":"started","timestamp":"<RFC3339 UTC>"}` |
+| every other path | any | the `/` entry above; `/` is a `net/http` subtree match | `{"status":"ok","message":"Muster daemon is running"}` |
 
-**Response**:
-```json
-{
-  "status": "healthy",
-  "version": "1.0.0",
-  "uptime": "3600s"
-}
-```
+Two behaviours worth knowing:
 
-## Error Responses
-
-All endpoints return errors in this format:
-
-```json
-{
-  "error": {
-    "code": "INVALID_SPEC",
-    "message": "OpenAPI specification is invalid",
-    "details": {
-      "line": 10,
-      "column": 5,
-      "error": "Missing required field"
-    }
-  }
-}
-```
+* **`/health/startup` is not registered by the CLI handler.** `cmd/daemon/main.go:309`
+  (`createDaemonHandler`) registers `/`, `/health`, `/health/live` and `/health/ready` — no
+  `/health/startup`. The route exists in the library's default handler
+  (`pkg/daemon/proxy.go:503`), which the CLI does not use for `start`. The request therefore falls to
+  the `/` catch-all and returns the root payload, as the transcript below shows.
+* **The `/` catch-all means a missing route is not a 404.** Any unknown path returns HTTP 200 with the
+  root payload. Verified with `/not-a-route`.
 
-### Error Codes
-
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| INVALID_SPEC | 400 | Invalid OpenAPI specification |
-| AUTH_FAILED | 401 | Authentication failed |
-| NOT_FOUND | 404 | Resource not found |
-| VALIDATION_ERROR | 422 | Request validation failed |
-| TIMEOUT | 408 | Request timeout |
-| SERVER_ERROR | 500 | Internal server error |
-
-## Rate Limiting
-
-The REST API includes rate limiting to prevent abuse:
-
-**Default Configuration**:
-```yaml
-rate_limit:
-  enabled: true
-  requests_per_second: 10
-  burst: 100
-  algorithm: token_bucket
-```
+### Proxy modes (`--backend-url`)
 
-### Rate Limit Headers
+| Path | Mode | Behaviour |
+|------|------|-----------|
+| `/health`, `/health/live`, `/health/ready` | `start --backend-url` | Served locally by the daemon (`cmd/daemon/main.go:342`, `:348`) so health checks keep working while the backend is down |
+| `/health/startup`, `/health/` | `start --backend-url` | Also handled locally (the `/health/` subtree at `cmd/daemon/main.go:349` captures them) but the CLI handler registers no `/health/startup`, so both answer with the root payload |
+| every other path | `start --backend-url` | Forwarded to the backend (`pkg/daemon/proxy.go:569`) |
+| every path, `/health` included | `proxy --backend-url` | Forwarded to the backend — `proxy` composes no local routes (`cmd/daemon/main.go:354`) |
 
-```http
-HTTP/1.1 429 Too Many Requests
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1648867200
-```
+Measured for the second row (backend log shows neither request reached the backend):
 
-### Rate Limit Response
-
-```json
-{
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Rate limit exceeded. Please retry later."
-  }
-}
-```
+```text
+$ curl -sS --unix-socket /tmp/muster-daemon-p5.sock http://localhost/health/startup
+{"status":"ok","message":"Muster daemon is running"}
 
-## CORS Support
-
-Configure CORS for cross-origin requests:
-
-```yaml
-mcp:
-  cors:
-    enabled: true
-    allowed_origins:
-      - "http://localhost:3000"
-      - "https://yourdomain.com"
-    allowed_methods:
-      - GET
-      - POST
-      - PUT
-      - DELETE
-    allowed_headers:
-      - Content-Type
-      - Authorization
-    max_age: 3600
+$ curl -sS --unix-socket /tmp/muster-daemon-p5.sock http://localhost/health/
+{"status":"ok","message":"Muster daemon is running"}
 ```
-
-## Webhooks
 
-Configure webhooks for event notifications.
-
-### Register Webhook
-
-```http
-POST /webhooks
-```
+Proxy behaviour, from `pkg/daemon/proxy.go` (`ProxyHandler.ServeHTTP` at `:569`): the path is
+sanitised (`:670`, rejecting traversal and control characters), the target keeps the backend's scheme
+and host (`:608`), the query string is forwarded (`:592`), hop-by-hop headers are dropped (`:714`) and
+`X-Forwarded-For` is added (`:637`). A backend that cannot be reached yields 502
+(`:645`); an empty or rejected path yields 400 (`:580`). The transcript below exercises the 200 and
+404 passthrough cases; the 502/400 paths are source-derived, not exercised here.
 
-**Request Body**:
-```json
-{
-  "url": "https://yourdomain.com/webhook",
-  "events": [
-    "api.request",
-    "api.error"
-  ],
-  "secret": "webhook-secret"
-}
-```
+## Verified transcript
 
-**Response**:
-```json
-{
-  "webhookId": "wh_12345",
-  "status": "active"
-}
-```
+Built in this worktree with `CGO_ENABLED=1 go build -o bin/openapi-daemon ./cmd/daemon`.
+Every line below was executed; the command is printed above its output.
 
-### Webhook Events
-
-| Event | Description |
-|-------|-------------|
-| `api.request` | API request made |
-| `api.response` | API response received |
-| `api.error` | API error occurred |
-| `spec.loaded` | Specification loaded |
-| `command.executed` | CLI command executed |
-
-### Webhook Payload
-
-```json
-{
-  "event": "api.request",
-  "timestamp": "2026-03-02T10:00:00Z",
-  "data": {
-    "method": "GET",
-    "path": "/pet/1",
-    "headers": {}
-  }
-}
-```
+**Mode A — `start` (no backend):**
 
-## WebSocket Support
+```text
+$ ./bin/openapi-daemon start --socket-path /tmp/muster-daemon.sock
+Daemon started successfully
+PID file: /tmp/muster-daemon.sock.pid
+Socket: /tmp/muster-daemon.sock
+Token file: /tmp/muster-daemon.sock.token
 
-Real-time event streaming via WebSocket.
+$ curl -sS --unix-socket /tmp/muster-daemon.sock http://localhost/health
+{"status":"healthy"}
 
-### Connect to WebSocket
+$ curl -sS --unix-socket /tmp/muster-daemon.sock http://localhost/
+{"status":"ok","message":"Muster daemon is running"}
 
-```javascript
-const ws = new WebSocket('ws://localhost:8080/events');
+$ curl -sS --unix-socket /tmp/muster-daemon.sock http://localhost/health/live
+{"status":"alive","timestamp":"2026-09-27T05:57:38Z"}
 
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Event:', data.event, data);
-};
+$ curl -sS --unix-socket /tmp/muster-daemon.sock http://localhost/health/ready
+{"status":"ready","timestamp":"2026-09-27T05:57:38Z"}
 
-// Subscribe to events
-ws.send(JSON.stringify({
-  action: 'subscribe',
-  events: ['api.request', 'api.response']
-}));
-```
+$ curl -sS --unix-socket /tmp/muster-daemon.sock http://localhost/health/startup
+{"status":"ok","message":"Muster daemon is running"}
 
-## Examples
+$ curl -sS --unix-socket /tmp/muster-daemon.sock -X POST http://localhost/health
+{"status":"healthy"}
 
-### Example 1: Validate Spec
+$ curl -sS --unix-socket /tmp/muster-daemon.sock -o /dev/null -w '%{http_code}\n' http://localhost/not-a-route
+200
 
-```bash
-# Validate OpenAPI spec
-curl -X POST http://localhost:8080/spec/validate \
-  -H "Content-Type: application/json" \
-  -d @spec.json
-```
+$ curl -sS --unix-socket /tmp/muster-daemon.sock http://localhost/not-a-route
+{"status":"ok","message":"Muster daemon is running"}
 
-### Example 2: Get Inventory
-
-```bash
-# List API resources
-curl -X POST http://localhost:8080/commands/execute \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-secret" \
-  -d '{
-    "command": "inventory list",
-    "args": [],
-    "options": {"format": "json"}
-  }'
+$ ./bin/openapi-daemon stop --socket-path /tmp/muster-daemon.sock
+Daemon stopped successfully
 ```
 
-### Example 3: Make API Request
-
-```bash
-# Make a single API request
-curl -X POST http://localhost:8080/api/request \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-secret" \
-  -d '{
-    "method": "GET",
-    "path": "/pet/1",
-    "baseUrl": "https://petstore.swagger.io/v2"
-  }'
-```
+**Mode B — `start --backend-url` in front of a local file server:**
 
-### Example 4: Batch Requests
-
-```bash
-# Make multiple API requests
-curl -X POST http://localhost:8080/api/batch \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-secret" \
-  -d '{
-    "requests": [
-      {"method": "GET", "path": "/pet/1"},
-      {"method": "GET", "path": "/pet/2"},
-      {"method": "GET", "path": "/pet/3"}
-    ]
-  }'
-```
+```text
+$ ./bin/openapi-daemon start --socket-path /tmp/muster-daemon-proxy.sock --backend-url http://127.0.0.1:18989
+Proxying requests to: http://127.0.0.1:18989
+Daemon started successfully
+PID file: /tmp/muster-daemon-proxy.sock.pid
+Socket: /tmp/muster-daemon-proxy.sock
+Token file: /tmp/muster-daemon-proxy.sock.token
 
-### Example 5: Get Configuration
+$ curl -sS --unix-socket /tmp/muster-daemon-proxy.sock http://localhost/health
+{"status":"healthy"}
 
-```bash
-# Get current configuration
-curl http://localhost:8080/config \
-  -H "X-API-Key: your-secret"
-```
+$ curl -sS --unix-socket /tmp/muster-daemon-proxy.sock http://localhost/hello.txt
+hello from the backend
 
-### Example 6: Update Configuration
-
-```bash
-# Update timeout setting
-curl -X PUT http://localhost:8080/config \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your-secret" \
-  -d '{"http": {"timeout": "60s"}}'
-```
+$ curl -sS --unix-socket /tmp/muster-daemon-proxy.sock -o /dev/null -w '%{http_code}\n' http://localhost/missing.txt
+404
 
-### Example 7: Health Check
+$ cat /tmp/doc7-final-backend.log
+Serving HTTP on 127.0.0.1 port 18989 (http://127.0.0.1:18989/) ...
+127.0.0.1 - - [27/Sep/2026 00:57:40] "GET /hello.txt HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 00:57:40] code 404, message File not found
+127.0.0.1 - - [27/Sep/2026 00:57:40] "GET /missing.txt HTTP/1.1" 404 -
 
-```bash
-# Check service health
-curl http://localhost:8080/health
+$ ./bin/openapi-daemon stop --socket-path /tmp/muster-daemon-proxy.sock
+Daemon stopped successfully
 ```
 
-### Example 8: Clear Cache
-
-```bash
-# Clear cache
-curl -X DELETE http://localhost:8080/cache \
-  -H "X-API-Key: your-secret"
-```
+The backend log is the proof that `/health` was answered locally: the `/health` request never reached
+the backend, while `/hello.txt` and `/missing.txt` did (with the backend's own status codes).
 
 ## Configuration
 
-### Enable REST API
+Everything the binary accepts, from its own `--help` (Go's `flag` package accepts both `-flag` and
+`--flag`):
 
-```yaml
-mcp:
-  enabled: true
-  port: 8080
-  host: 0.0.0.0
+```text
+$ ./bin/openapi-daemon --help
+Usage: ./bin/openapi-daemon [start|stop|status|restart|reload|proxy] [flags]
 
-rest:
-  enabled: true
-  cors:
-    enabled: true
-  rate_limit:
-    enabled: true
-    requests_per_second: 10
+Commands:
+  start
+  stop
+  status
+  restart
+  reload
+  proxy
+
+Flags:
+  -backend-url string
+    	Backend URL for proxy mode
+  -foreground start
+    	Run start in the foreground instead of daemonizing (default: daemonize)
+  -pid-file string
+    	Path for PID file (default: /tmp/openapi-cli.sock.pid)
+  -socket-path string
+    	Path for Unix domain socket (default "/tmp/openapi-cli.sock")
+  -version
+    	Print version information and exit
+  -wasm-plugin string
+    	Path to WASM plugin for response transformation
 ```
 
-### Authentication Settings
+| Flag | Default | Meaning | Source |
+|------|---------|---------|--------|
+| `--socket-path` | `/tmp/openapi-cli.sock` | Unix socket to bind | `cmd/daemon/main.go:24`, `:75` |
+| `--backend-url` | empty | Enables proxy mode; required by `proxy`, optional for `start` | `cmd/daemon/main.go:74` |
+| `--pid-file` | `<socket-path>.pid` | PID file used by `status`/`stop`/`restart` | `cmd/daemon/main.go:76`, `:110` |
+| `--foreground` | `false` | Run `start` without spawning the detached child | `cmd/daemon/main.go:79` |
+| `--version` | `false` | Print version and exit | `cmd/daemon/main.go:78` |
+| `--wasm-plugin` | empty | Declared and parsed but never read — no code path consumes it (`cmd/daemon/main.go:39`, `:77`); accepted for compatibility only | — |
 
-```yaml
-auth:
-  type: apikey
-  apikey:
-    header: X-API-Key
-    value: ${API_KEY}
-```
+`start` daemonizes by default: it re-executes itself with `MUSTER_DAEMON_CHILD=1` and returns once the
+socket and PID file are live (`cmd/daemon/main.go:228`, `:294`). `restart` and `reload` are the same
+action (`cmd/daemon/main.go:139`), and `restart` stops the old daemon before spawning the new one
+(`cmd/daemon/main.go:470`). Set `MUSTER_DAEMON_CHILD=1` to keep `start` in the foreground instead of
+using `--foreground`.
 
-## Security
+There are **no** YAML configuration keys for this surface. No `mcp:`/`rest:`/`auth:`/`rate_limit:`/
+`cors:` block configures the daemon — it takes flags only. `docs/api/mcp-protocol.md` covers the MCP
+server, which is a different binary (`openapi-mcp`), not this socket.
 
-### Recommendations
+## Not implemented
 
-1. **Use HTTPS** in production
-2. **Enable rate limiting** to prevent abuse
-3. **Use strong secrets** for API keys
-4. **Validate all inputs** before processing
-5. **Log all requests** for audit trails
-6. **Enable CORS** only for trusted origins
+The previous revision of this file invented the following surface. It is recorded here so a reader
+knows the removals were deliberate, not an accidental deletion of real documentation. None of these
+routes are registered anywhere in the repository:
 
-### Best Practices
+* **Transport / config it claimed:** a TCP base URL on port 8080, an API-key request header, an
+  `auth: {type: apikey}` / `auth: {type: oauth2}` block, an `mcp:` block with `port`/`host`, `rest:`
+  and `rate_limit:` blocks, CORS configuration, and WebSocket event streaming.
+* **Routes it claimed:** `/spec/*` (validate, info, convert), `/commands` and `/commands/execute`,
+  `/api/request` and `/api/batch`, `/docs/generate` and `/docs/*`, `/config` (GET and PUT) and
+  `/config/validate`, `/cache/stats` and `DELETE /cache`, `/auth/status`, `/auth/login`,
+  `/auth/logout`, `POST /webhooks`, and the `/events` WebSocket.
+* **Behaviour it claimed:** a structured `{"error":{"code":...,"message":...,"details":...}}` error
+  envelope with a code table, `X-RateLimit-*` headers, and webhook events
+  (`api.request`, `api.response`, `api.error`, `spec.loaded`, `command.executed`).
 
-- Store secrets in environment variables
-- Use short-lived tokens
-- Rotate credentials regularly
-- Audit webhook endpoints
-- Monitor for suspicious activity
+None of these exist. The one thing to understand about probing this daemon with that map in hand: the
+`/` catch-all answers *every* unregistered path with HTTP 200 and the root payload, so a request to
+one of the routes above looks like a success until you read the body. Check the body, or check the
+route table above.
 
-## Testing
+## Related documentation
 
-### Manual Testing
-
-```bash
-# Health check
-curl http://localhost:8080/health
-
-# Validate spec
-curl -X POST http://localhost:8080/spec/validate -d @spec.json
-
-# Make request
-curl -X POST http://localhost:8080/commands/execute \
-  -d '{"command": "inventory list", "args": []}'
-```
-
-### Automated Testing with curl
-
-```bash
-#!/bin/bash
-
-# Test suite
-echo "Testing REST API..."
-
-# Health check
-curl -f http://localhost:8080/health || exit 1
-
-# Validate spec
-curl -f -X POST http://localhost:8080/spec/validate \
-  -d @valid_spec.json || exit 1
-
-# Make request
-curl -f -X POST http://localhost:8080/commands/execute \
-  -H "X-API-Key: $API_KEY" \
-  -d '{"command": "version"}' || exit 1
-
-echo "All tests passed!"
-```
-
-## Troubleshooting
-
-### Connection Refused
-
-**Issue**: `curl: (7) Failed to connect to localhost port 8080`
-
-**Solution**: Ensure the REST API is enabled and running:
-
-```bash
-# Ensure the MCP server is built and running:
-make build
-./bin/openapi-mcp --port 8080
-```
-
-### Authentication Failed
-
-**Issue**: `{"error":{"code":"AUTH_FAILED"}}`
-
-**Solution**: Verify your API key:
-
-```bash
-# Set API key
-export API_KEY=your-secret
-
-# Make request
-curl -H "X-API-Key: $API_KEY" http://localhost:8080/health
-```
-
-### Rate Limit Exceeded
-
-**Issue**: `{"error":{"code":"RATE_LIMIT_EXCEEDED"}}`
-
-**Solution**: Wait and retry, or adjust rate limits:
-
-```yaml
-rate_limit:
-  requests_per_second: 20
-  burst: 200
-```
-
-## Related Documentation
-
-- [Configuration Guide](../guides/configuration.md) - API configuration
-- [Authentication](../guides/configuration.md#authentication-configuration) - Auth setup
-- [Command Reference](../guides/commands.md) - CLI commands
-- [MCP Protocol](mcp-protocol.md) - Model Context Protocol
-- [API Overview](README.md) - General API information
+* [MCP Protocol](mcp-protocol.md) — the `openapi-mcp` server (a separate binary and transport)
+* [API Overview](README.md) — index of the API documents
+* [Reference Card](reference-card.md) — condensed CLI/daemon reference
