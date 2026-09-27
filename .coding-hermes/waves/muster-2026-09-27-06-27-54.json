@@ -1,0 +1,40 @@
+{
+  "tick_id": "muster-2026-09-27-06-27-54",
+  "project": "muster",
+  "base_sha": "00e180f9",
+  "tasks": [
+    {
+      "id": "DOC-10",
+      "worktree": "~/worktrees/muster-DOC-10",
+      "branch": "wt/DOC-10",
+      "base_sha": "00e180f9"
+    },
+    {
+      "id": "DOC-12",
+      "worktree": "~/worktrees/muster-DOC-12",
+      "branch": "wt/DOC-12",
+      "base_sha": "00e180f9"
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "DOC-10",
+      "status": "complete",
+      "branch": "wt/DOC-10",
+      "worker_sha": "31ed9ff0",
+      "merge_sha": "c1d4c0b7",
+      "guard": "PASS",
+      "judge": "PASS 13a56aad"
+    },
+    {
+      "id": "DOC-12",
+      "status": "complete",
+      "branch": "wt/DOC-12",
+      "worker_sha": "ee603a81",
+      "merge_sha": "388c6535",
+      "guard": "PASS",
+      "judge": "PASS 8779563c"
+    }
+  ],
+  "finished_at": "2026-09-27T07:05:18.660394+00:00"
+}
