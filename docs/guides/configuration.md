@@ -111,27 +111,38 @@ EOF
 
 ### Environment Variables
 
-Override any configuration value with environment variables:
+These environment variables are read at startup — after the configuration files
+and before command-line flags, which win where the two disagree:
 
 ```bash
-# Format: MUSTER_<SECTION>_<KEY>
-export MUSTER_SPEC_PATH=/path/to/openapi.json
-export MUSTER_HTTP_TIMEOUT=60s
-export MUSTER_OUTPUT_FORMAT=table
+export MUSTER_BASE_URL=https://api.example.com/v1
+export MUSTER_HTTP_TIMEOUT=60
 export MUSTER_LOG_LEVEL=debug
+export MUSTER_AUDIT_ENABLED=1
 ```
 
-Common environment variables:
+This is the complete set the CLI reads; a `MUSTER_`-prefixed name that is not in
+this table has no effect. "Default" is the behavior when the variable is unset.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MUSTER_SPEC_PATH` | Path to OpenAPI spec file | `openapi.json` |
-| `MUSTER_BASE_URL` | API base URL | From spec |
-| `MUSTER_HTTP_TIMEOUT` | Request timeout | `30s` |
-| `MUSTER_OUTPUT_FORMAT` | Output format (json/table/yaml) | `table` |
-| `MUSTER_LOG_LEVEL` | Logging level | `info` |
-| `MUSTER_AUTH_APIKEY_VALUE` | API key value | - |
-| `MUSTER_DAEMON_SOCKET` | Unix socket path | `/tmp/openapi-cli.sock` |
+| Variable | Effect | Default |
+|----------|--------|---------|
+| `MUSTER_AUDIT_ENABLED` | `1` or `true` enables audit logging (commands and mutations are recorded) | Audit disabled |
+| `MUSTER_AUDIT_LOG` | Path of the audit sink (JSON lines) used by every writer and by the `audit log` / `audit show` / `audit info` commands | `<config dir>/muster/audit.jsonl` |
+| `MUSTER_AUTH_TOKEN` | Sends `Authorization: Bearer <token>` on generated commands; also overrides the `auth_token` configuration value | No token |
+| `MUSTER_BASE_URL` | Base URL used for API operations (`--base-url` wins; the spec's `servers[]` URL is used when neither is set) | From spec |
+| `MUSTER_CONFIG` | Additional config file to load, above the user and project files, and the file the `config profile` commands read and write | Unset (source skipped) |
+| `MUSTER_CONFIG_FILE` | Same role as `MUSTER_CONFIG`; consulted after it when resolving the file the profile commands write to | Unset |
+| `MUSTER_DAEMON_CHILD` | `1` makes `daemon start` serve in the foreground instead of spawning a detached child | Unset (`start` daemonizes) |
+| `MUSTER_DATABASE_URL` | Overrides the `database_url` configuration value | Unset |
+| `MUSTER_HOST` | Overrides the `host` configuration value | Unset |
+| `MUSTER_HTTP_TIMEOUT` | Timeout for generated API calls, in **seconds** | `30` (absent, unparseable or non-positive values fall back to 30s) |
+| `MUSTER_HTTP_VERSION` | Overrides `request.http_version` (`auto`, `1.1`, `2`, `3`); the `request` verb's `--http-version` flag overrides both | `auto` |
+| `MUSTER_LOG_FORMAT` | Overrides `log_format` (`json` or `text`) | Unset |
+| `MUSTER_LOG_LEVEL` | Overrides `log_level` (`debug`, `info`, `warn`, `error`) | Unset |
+| `MUSTER_MAX_RETRIES` | Overrides `max_retries` (integer; an unparseable value is ignored) | Unset |
+| `MUSTER_PROFILE` | Active configuration profile (`--profile` flag > `MUSTER_PROFILE` > persisted `default_profile`) | Unset (persisted default, or none) |
+| `MUSTER_TIMEOUT` | Overrides `timeout` (a duration such as `45s`; an unparseable value is ignored) | Unset |
+| `MUSTER_VERBOSE` | `1` or `true` turns verbose output on; any other value leaves it off | Unset |
 
 ## Configuration Commands
 
