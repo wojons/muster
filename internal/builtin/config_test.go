@@ -387,6 +387,7 @@ func TestNewProfileCommand_RunDelete(t *testing.T) {
 
 	t.Run("delete clears default profile", func(t *testing.T) {
 		cfg := &config.Config{
+			ConfigFile: t.TempDir() + "/config.yaml",
 			Profiles: map[string]config.Profile{
 				"production": {BaseURL: "https://api.example.com"},
 			},
