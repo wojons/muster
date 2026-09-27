@@ -206,5 +206,6 @@ func WithCache(c cache.Cache, ttl time.Duration) ClientOption {
 		cacheRT := NewCacheRoundTripper(transport, c, ttl)
 		cacheRT.SetProtocolRecorder(cl.protocol)
 		cl.httpClient.Transport = cacheRT
+		cl.chain = cacheRT // the option-installed chain now tops at the cache (DF-042)
 	}
 }

@@ -55,12 +55,17 @@ type Client struct {
 	// the value that performs the exchange; h3Capable is true when that value
 	// can attempt HTTP/3 (WithHTTPVersion("3") installs one), which is what
 	// makes the "3" policy satisfiable; http3Options are the settings the
-	// policy's HTTP/3 transport is (re-)built with.
+	// policy's HTTP/3 transport is (re-)built with. chain is the top of the
+	// transport chain the option pipeline assembled — wrapper options such as
+	// WithCache and WithRateLimiter above the recorder link — kept so
+	// SetHTTPClient can carry the whole chain onto a replacement client
+	// (DF-042).
 	protocol      *ProtocolRecorder
 	baseTransport http.RoundTripper
 	h3Capable     bool
 	httpVersion   string
 	http3Options  []HTTP3Option
+	chain         http.RoundTripper
 }
 
 // ClientOption configures a Client.
@@ -120,14 +125,16 @@ func WithRetryConfig(config retry.RetryConfig) ClientOption {
 func NewClient(opts ...ClientOption) *Client {
 	rec := NewProtocolRecorder()
 	base := DefaultTransport()
+	link := newProtocolTransport(base, rec)
 	c := &Client{
 		httpClient: &http.Client{
 			Timeout:   30 * time.Second,
-			Transport: newProtocolTransport(base, rec),
+			Transport: link,
 		},
 		headers:       make(map[string]string),
 		protocol:      rec,
 		baseTransport: base,
+		chain:         link,
 		httpVersion:   HTTPVersionAuto,
 	}
 	rec.SetPolicy(HTTPVersionAuto)
@@ -496,7 +503,65 @@ func (c *Client) HTTPClient() *http.Client {
 }
 
 // SetHTTPClient sets the underlying HTTP client.
+//
+// The transport chain the option pipeline built — the middleware the wrapper
+// options installed (WithCache, WithRateLimiter) above the protocol recorder
+// — is carried over: the replacement client's transport becomes the exchange
+// performer below the chain, so cache and rate limiting keep operating
+// exactly as before the swap (defect DF-042; PROTOCOLS.md §4.7 N2's "wrapper
+// options sit above the recorder"). A replacement with no transport dials
+// through http.DefaultTransport, the same fallback the wrapper options use.
+//
+// A nil httpClient strips the chain — wrappers and recorder alike — and the
+// client carries on with a bare default HTTP client. This is the only way to
+// remove installed middleware. A later SetHTTPClient gives the replacement a
+// fresh recorder-only chain.
 func (c *Client) SetHTTPClient(httpClient *http.Client) {
+	if httpClient == nil {
+		// A nil field itself would make the next Do panic, so the strip
+		// installs a bare client instead of no client.
+		c.httpClient = &http.Client{}
+		c.chain = nil
+		return
+	}
+	if c.chain == nil {
+		// The chain was stripped (or the Client was not built by NewClient):
+		// the replacement gets a fresh recorder-only chain instead of
+		// inheriting middleware that no longer exists.
+		c.chain = newProtocolTransport(httpClient.Transport, c.protocol)
+		httpClient.Transport = c.chain
+		c.httpClient = httpClient
+		return
+	}
+	if c.chain != httpClient.Transport {
+		// Re-bind the base of the carried chain to the replacement's
+		// transport, leaving every wrapper above it in place.
+		inner := httpClient.Transport
+		if inner == nil {
+			inner = http.DefaultTransport
+		}
+		base := c.chain
+		for {
+			if pt, ok := base.(*protocolTransport); ok {
+				pt.inner = inner
+				c.baseTransport = inner
+				break
+			}
+			switch w := base.(type) {
+			case *CacheRoundTripper:
+				base = w.inner
+			case *RateLimitRoundTripper:
+				base = w.inner
+			default:
+				// Reached the top without finding the recorder link: the
+				// chain is not one this client can carry, so the replacement
+				// keeps its own transport untouched.
+				c.httpClient = httpClient
+				return
+			}
+		}
+		httpClient.Transport = c.chain
+	}
 	c.httpClient = httpClient
 }
 
