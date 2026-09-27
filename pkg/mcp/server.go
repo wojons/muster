@@ -110,6 +110,13 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *JSONRPCRequest) {
+	// JSON-RPC 2.0 notifications carry no id and MUST NOT receive any
+	// response, not even an error. MCP clients send notifications/initialized
+	// this way; answering it corrupts the response stream.
+	if req.ID == nil {
+		return
+	}
+
 	handler := s.handlers.Get(req.Method)
 	if handler == nil {
 		s.sendError(req.ID, -32601, "Method not found")
