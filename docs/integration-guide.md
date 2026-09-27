@@ -477,6 +477,124 @@ Language guide and config (timeouts, imports, memory limits):
 
 ---
 
+## 8. Bring your own live API — the proven recipe
+
+This is the end-to-end recipe for pointing Muster at **any OpenAPI 3.x
+service you control** — a served `openapi.json`, a bundled spec file, or
+both. Every command below was executed against a live bearer-auth HTTP
+server on 2026-09-27 (HEAD `8efdb446`, CLI v0.1.1-223-g8efdb446) from a
+clean `HOME`. Substitute your own host, spec path, and credential — no
+example secret here is real.
+
+### 8.1 Discovery: served URL or bundled spec file
+
+`discover` reads an OpenAPI 3.x spec from a local file path or an
+http/https URL and lists every operation, grouped by tag. Nothing is
+persisted.
+
+```bash
+./bin/openapi-cli discover https://api.example.com/openapi.json
+./bin/openapi-cli discover /path/to/bundled.yaml
+```
+
+Both forms were verified against a live server serving its spec at
+`/openapi.json` **and** against the same document saved to a local file:
+identical operation listing. Use whichever your service provides — no
+separate "bundled spec" flag or command exists.
+
+### 8.2 Generate typed commands and pin the base URL
+
+```bash
+./bin/openapi-cli generate https://api.example.com/openapi.json \
+    --base-url https://api.example.com
+# ✓ Success! Commands registered and persisted
+```
+
+- The spec's `servers[].url` is used when you omit `--base-url`; if the
+  spec declares a **relative** server URL (e.g. `/api/v3`), you must pass
+  `--base-url` (or set `MUSTER_BASE_URL`) or every call fails with the
+  actionable `unsupported protocol scheme ""` hint (DF-015).
+- Generating from a local file without an absolute `servers[].url` also
+  needs `--base-url`.
+- `--base-url` is **sticky per invocation, overridable per call**: the
+  flag wins, then the `MUSTER_BASE_URL` env var, then the stored
+  generate-time URL.
+- Inspect or reset the persisted store with `generate --list` and
+  `generate --clear` (or just `--list` / `--clear` with no spec).
+
+### 8.3 Store a credential once
+
+```bash
+./bin/openapi-cli auth add --name myapi --type bearer
+# Secret value: (prompted if --value is omitted)
+# Stored credential "myapi" (type: bearer)
+```
+
+- Types: `api-key`, `bearer`, `basic` (`auth add --help`).
+- The secret lives in the OS keychain; only metadata is kept in config.
+  `auth list` shows names and types, never values; `auth remove <name>`
+  deletes one.
+- Wire format at request time: `bearer` → `Authorization: Bearer …`,
+  `api-key` → `X-API-Key: …`, `basic` → `Authorization: Basic …`.
+
+### 8.4 Attach auth per request
+
+Stored credentials attach with `--auth NAME` — on generated typed
+commands (DF-023) and on `request` alike:
+
+```bash
+./bin/openapi-cli list-things --auth myapi                    # 200
+./bin/openapi-cli get-thing t1 --auth myapi                   # 200
+./bin/openapi-cli request GET https://api.example.com/things --auth myapi
+```
+
+Precedence on generated commands and on `request`: an explicit `-H
+'Authorization: …'` header **wins over** the stored credential.
+
+### 8.5 Environment-variable path (script-friendly)
+
+| Env var | Effect |
+|---------|--------|
+| `MUSTER_BASE_URL` | Substitute for `--base-url` on generated commands, `request`, and the MCP server's `--base-url` |
+| `MUSTER_AUTH_TOKEN` | Attached as `Authorization: Bearer <token>` on generated (persisted) commands when `--auth` is not used |
+| `MUSTER_PROFILE` | Selects a config profile (the `--profile` flag overrides it) |
+| `MUSTER_HTTP_TIMEOUT` | Per-request timeout for generated calls, in seconds (default 30) |
+
+```bash
+export MUSTER_BASE_URL=https://api.example.com
+export MUSTER_AUTH_TOKEN=<your-token>
+./bin/openapi-cli list-things      # no flags needed — 200
+```
+
+The error paths behave predictably: a request with no credential gets the
+upstream `401` as a typed `unauthenticated` error (exit 1); an unknown
+resource gets `404 NOT_FOUND`.
+
+### 8.6 Honest caveats: MCP and DSL auth today
+
+- **`openapi-mcp` has no auth surface (DF-036, open P1).** It accepts
+  `--spec` and `--base-url` (or `MUSTER_BASE_URL`) and nothing
+  credential-related. `MUSTER_AUTH_TOKEN`, which the CLI path honors, is
+  **not** consulted by the MCP server. `initialize` and `tools/list`
+  work, but every authenticated `tools/call` against a bearer API
+  returns the upstream 401 as flat error text. Until DF-036 lands, use
+  the CLI surface (§8.4/§8.5) for authed APIs, or point MCP only at
+  unauthenticated endpoints.
+- **Starlark HTTP builtins carry no headers (DF-037, open P2).**
+  `http_get/post/put/delete` accept only url/body — verified live:
+  an unauthenticated call gets the upstream 401 as the response body,
+  and passing a headers dict is rejected (`got 2 arguments, want at
+  most 1`). An authed DSL workflow is currently impossible; use the
+  CLI, or `-H` on `request`.
+- MCP tool results are rendered as flat text with no structured
+  distinction between muster wiring errors and genuine upstream errors
+  (DF-038, open P2).
+- `create-session`-style table output can echo credential-shaped values
+  returned by the API in cleartext (DF-039, open P3) — review output
+  before sharing it.
+
+---
+
 ## Where to go next
 
 | Need | Doc |
