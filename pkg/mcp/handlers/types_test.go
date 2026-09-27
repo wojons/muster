@@ -128,6 +128,27 @@ func TestNewInitializeHandler(t *testing.T) {
 	require.NotNil(t, initResult.Capabilities)
 }
 
+// TestNewInitializeHandler_AdvertisesToolsCapability verifies the initialize
+// result advertises the tools capability (DF-032). An empty capabilities map
+// fails this test: clients would conclude the server serves no tools even
+// though tools/list and tools/call are registered.
+func TestNewInitializeHandler_AdvertisesToolsCapability(t *testing.T) {
+	h := NewInitializeHandler("test-server", "1.0.0")
+
+	result, err := h.Handle(context.Background(), nil)
+	require.NoError(t, err)
+
+	initResult, ok := result.(*InitializeResult)
+	require.True(t, ok)
+
+	caps, ok := initResult.Capabilities.(map[string]interface{})
+	require.True(t, ok, "capabilities should be a map[string]interface{}, got %T", initResult.Capabilities)
+
+	tools, ok := caps["tools"]
+	require.True(t, ok, "initialize must advertise the tools capability, got %v", caps)
+	require.IsType(t, map[string]interface{}{}, tools)
+}
+
 func TestNewInitializedHandler(t *testing.T) {
 	h := NewInitializedHandler()
 	require.Equal(t, "notifications/initialized", h.Method())
