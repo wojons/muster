@@ -12,6 +12,34 @@
 #   docker compose --profile prod up -d       # api, daemon, nginx, prometheus, grafana
 #   docker compose --profile full up -d       # everything
 #
+# Host port overrides: every published host port is owned by a MUSTER_*_PORT
+# environment variable and keeps its historical value as the default. On a
+# host that already runs postgres, redis, grafana or anything else on the
+# same port, remap the stack without editing this file:
+#
+#   MUSTER_DB_PORT=15432 MUSTER_REDIS_PORT=16379 docker compose up -d
+#
+# Or persist them in a `.env` file next to this compose file:
+#
+#   MUSTER_DB_PORT=15432
+#   MUSTER_REDIS_PORT=16379
+#
+# Full variable reference:
+#
+#   MUSTER_API_HTTP_PORT      (default 8080)   api HTTP listener
+#   MUSTER_API_METRICS_PORT   (default 9090)   api metrics listener
+#   MUSTER_DAEMON_PORT        (default 8081)   daemon HTTP listener
+#   MUSTER_DB_PORT            (default 5432)   postgres
+#   MUSTER_REDIS_PORT         (default 6379)   redis
+#   MUSTER_PROMETHEUS_PORT    (default 9091)   prometheus UI
+#   MUSTER_GRAFANA_PORT       (default 3000)   grafana UI
+#   MUSTER_NGINX_HTTP_PORT    (default 80)     nginx HTTP
+#   MUSTER_NGINX_HTTPS_PORT   (default 443)    nginx HTTPS
+#
+# Only the HOST side is remapped; container-side ports are fixed (services
+# reach each other over the muster-network by container port, and the
+# DATABASE_URL/REDIS_URL service URLs are unaffected by host-side overrides).
+#
 # Profile dependency note: any service whose depends_on targets are not active
 # under a profile alone makes that profile an invalid compose project, so every
 # profile here is dependency-closed (guarded by TestComposeProfileDependencyClosure).
@@ -27,8 +55,8 @@ services:
         BUILD_DATE: ${BUILD_DATE:-unknown}
     image: muster/api:${VERSION:-latest}
     ports:
-      - "8080:8080"
-      - "9090:9090"
+      - "${MUSTER_API_HTTP_PORT:-8080}:8080"
+      - "${MUSTER_API_METRICS_PORT:-9090}:9090"
     environment:
       - APP_ENV=production
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/muster
@@ -105,7 +133,7 @@ services:
     image: muster/daemon:${VERSION:-latest}
     container_name: muster-daemon
     ports:
-      - "8081:8080"
+      - "${MUSTER_DAEMON_PORT:-8081}:8080"
     volumes:
       - ~/.config/muster:/home/nonroot/.config/muster
     environment:
@@ -181,7 +209,7 @@ services:
       retries: 5
       start_period: 30s
     ports:
-      - "5432:5432"
+      - "${MUSTER_DB_PORT:-5432}:5432"
     networks:
       - muster-network
 
@@ -198,7 +226,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "6379:6379"
+      - "${MUSTER_REDIS_PORT:-6379}:6379"
     networks:
       - muster-network
 
@@ -217,7 +245,7 @@ services:
       - ./deployments/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "9091:9090"
+      - "${MUSTER_PROMETHEUS_PORT:-9091}:9090"
     depends_on:
       - api
     networks:
@@ -240,7 +268,7 @@ services:
       - ./deployments/docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "${MUSTER_GRAFANA_PORT:-3000}:3000"
     depends_on:
       - prometheus
     networks:
@@ -255,8 +283,8 @@ services:
     image: nginx:alpine
     container_name: muster-nginx
     ports:
-      - "80:80"
-      - "443:443"
+      - "${MUSTER_NGINX_HTTP_PORT:-80}:80"
+      - "${MUSTER_NGINX_HTTPS_PORT:-443}:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
