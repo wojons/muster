@@ -63,6 +63,8 @@
 !pkg/rate/tokenbucket.go
 !pkg/auth/keychain_secret_service_stub.go
 !pkg/auth/keychain_secret_service_linux.go
+!pkg/auth/credential.go
+!pkg/auth/credential_meta.go
 !internal/platform/linux/keyring_secret_service.go
 !internal/platform/linux/credential.go
 **/service-account*.json

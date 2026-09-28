@@ -30,27 +30,52 @@ RUN go mod download && go mod verify
 # Copy source code
 COPY . .
 
-# Extract build arguments
+# Extract build arguments.
+#
+# Stamp contract: VERSION is passed by the release pipeline
+# (.github/workflows/docker-build.yml passes the pushed v* tag). The commit,
+# build date and Go version are derived in-container unless the caller pins
+# them, so a bare `docker build` still produces a fully stamped binary.
+#
+# The -ldflags blocks below are DOUBLE-quoted on purpose: BuildKit only
+# expands ${VAR} inside double quotes. The previous single-quoted form passed
+# the literal token "${VERSION}" to the linker, so release images reported
+# "${VERSION} (unknown)" and empty-ARG builds reported " ()" — see
+# internal/version.Get, which normalizes empty stamps as a second layer.
 ARG VERSION
 ARG GIT_COMMIT
 ARG BUILD_DATE
 
 # Build openapi-cli binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags='-w -s -extldflags "-static" \
-    -X github.com/wojons/muster/internal/version.Version=${VERSION} \
-    -X github.com/wojons/muster/internal/version.Commit=${GIT_COMMIT} \
-    -X github.com/wojons/muster/internal/version.BuildDate=${BUILD_DATE}' \
+RUN STAMP_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)" \
+ && [ -n "${STAMP_COMMIT}" ] || STAMP_COMMIT="${GIT_COMMIT:-unknown}" \
+ && [ -n "${GIT_COMMIT}" ] && STAMP_COMMIT="${GIT_COMMIT}" || true \
+ && STAMP_DATE="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" \
+ && STAMP_GO="$(go version | awk '{print $3}')" \
+ && echo "Stamping version=${VERSION:-dev} commit=${STAMP_COMMIT} date=${STAMP_DATE} go=${STAMP_GO}" \
+ && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s -extldflags \"-static\" \
+    -X github.com/wojons/muster/internal/version.Version=${VERSION:-dev} \
+    -X github.com/wojons/muster/internal/version.Commit=${STAMP_COMMIT} \
+    -X github.com/wojons/muster/internal/version.BuildDate=${STAMP_DATE} \
+    -X github.com/wojons/muster/internal/version.GoVersion=${STAMP_GO}" \
     -a -installsuffix cgo \
     -o openapi-cli \
     ./cmd/openapi-cli
 
 # Build MCP server binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags='-w -s -extldflags "-static" \
-    -X github.com/wojons/muster/internal/version.Version=${VERSION} \
-    -X github.com/wojons/muster/internal/version.Commit=${GIT_COMMIT} \
-    -X github.com/wojons/muster/internal/version.BuildDate=${BUILD_DATE}' \
+RUN STAMP_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)" \
+ && [ -n "${STAMP_COMMIT}" ] || STAMP_COMMIT="${GIT_COMMIT:-unknown}" \
+ && [ -n "${GIT_COMMIT}" ] && STAMP_COMMIT="${GIT_COMMIT}" || true \
+ && STAMP_DATE="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" \
+ && STAMP_GO="$(go version | awk '{print $3}')" \
+ && echo "Stamping version=${VERSION:-dev} commit=${STAMP_COMMIT} date=${STAMP_DATE} go=${STAMP_GO}" \
+ && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s -extldflags \"-static\" \
+    -X github.com/wojons/muster/internal/version.Version=${VERSION:-dev} \
+    -X github.com/wojons/muster/internal/version.Commit=${STAMP_COMMIT} \
+    -X github.com/wojons/muster/internal/version.BuildDate=${STAMP_DATE} \
+    -X github.com/wojons/muster/internal/version.GoVersion=${STAMP_GO}" \
     -a -installsuffix cgo \
     -o openapi-mcp \
     ./cmd/mcp-server
