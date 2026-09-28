@@ -122,7 +122,12 @@ func serve(certPath, keyPath string, nextProtos []string) (url string, port int,
 		}
 	}()
 
-	return "https://" + ln.Addr().String(), ln.Addr().(*net.TCPAddr).Port, nil
+	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		_ = ln.Close()
+		return "", 0, fmt.Errorf("listener address is %T, want *net.TCPAddr", ln.Addr())
+	}
+	return "https://" + ln.Addr().String(), tcpAddr.Port, nil
 }
 
 // serveH3 starts an HTTP/3 endpoint on a UDP loopback socket and returns its
@@ -148,7 +153,12 @@ func serveH3(certPath, keyPath string, avoid []int) (string, error) {
 			return "", err
 		}
 		addr := pc.LocalAddr().String()
-		if containsPort(avoid, pc.LocalAddr().(*net.UDPAddr).Port) {
+		udpAddr, ok := pc.LocalAddr().(*net.UDPAddr)
+		if !ok {
+			_ = pc.Close()
+			return "", fmt.Errorf("udp listener address is %T, want *net.UDPAddr", pc.LocalAddr())
+		}
+		if containsPort(avoid, udpAddr.Port) {
 			_ = pc.Close()
 			continue
 		}

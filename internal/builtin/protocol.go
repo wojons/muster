@@ -236,14 +236,14 @@ func runJSONRPCRequest(cmd *cobra.Command, endpoint, method, argsJSON string, ti
 	if err != nil {
 		return fmt.Errorf("render result: %w", err)
 	}
-	fmt.Fprintln(cmd.OutOrStdout(), string(out))
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(out))
 	return nil
 }
 
 // printJSONRPCOperations writes the discovered operations as JSON.
 func printJSONRPCOperations(w io.Writer, ops []*protocol.Operation) error {
 	if len(ops) == 0 {
-		fmt.Fprintln(w, "[]")
+		_, _ = fmt.Fprintln(w, "[]")
 		return nil
 	}
 

@@ -169,7 +169,7 @@ Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 				if err != nil {
 					return err
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), req.Query)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), req.Query)
 				return nil
 			}
 
