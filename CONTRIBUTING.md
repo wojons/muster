@@ -7,8 +7,12 @@ Thanks for contributing. Here's how.
 ```bash
 git clone https://github.com/wojons/muster.git
 cd muster
-make build-cli        # -> bin/openapi-cli
+make hooks           # one-time: enables the repo's pre-commit guard (.githooks/pre-commit)
+make build-cli       # -> bin/openapi-cli
 ```
+
+`make hooks` sets `core.hooksPath` to `.githooks` in your LOCAL git config. Until you run it,
+commits print no guard banner (no secrets/build check) — that is expected, not a failure.
 
 ## Making changes
 

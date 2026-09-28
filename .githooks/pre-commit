@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# GitReins pre-commit hook — Muster (Go project)
+# Runs Tier 1 guards on STAGED changes only
+# Secrets: blocking | go vet: warn | go build: blocking
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+
+echo "━━━ GitReins Tier 1 ━━━"
+
+# 1. Secrets scan
+echo -n "  secrets... "
+SECRET_PATTERNS='sk-[a-zA-Z0-9_-]{20,}|ghp_[a-zA-Z0-9]{36}|-----BEGIN (RSA |EC |OPENSSH )PRIVATE KEY-----'
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACM)
+PASS=1
+while IFS= read -r file; do
+  [ ! -f "$file" ] && continue
+  if grep -Pn "$SECRET_PATTERNS" "$file" 2>/dev/null; then
+    echo "BLOCKED"
+    echo "SECRET DETECTED in $file — remove before committing." >&2
+    PASS=0
+  fi
+done <<< "$STAGED_ALL"
+[ $PASS -eq 0 ] && exit 1
+echo "PASS"
+
+# 2. go vet
+if [ -n "$STAGED" ]; then
+  echo -n "  go vet... "
+  PKGS=$(echo "$STAGED" | xargs -I{} dirname {} | sort -u | sed 's|^|./|')
+  VET_OUT=$(go vet $PKGS 2>&1) || true
+  if [ -z "$VET_OUT" ]; then
+    echo "PASS"
+  else
+    echo "WARN"
+    echo "$VET_OUT" | head -5
+  fi
+else
+  echo "  go vet... SKIP"
+fi
+
+# 3. Build check
+echo -n "  go build... "
+if go build ./... 2>&1; then
+  echo "PASS"
+else
+  echo "FAIL — commit blocked"
+  exit 1
+fi
+
+echo "Tier 1: PASS"
+exit 0
