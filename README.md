@@ -106,6 +106,21 @@ cd demo && ./run-all.sh
 # Builds binaries → starts 5 services → runs 10 demos → prints 23 pass/fail → cleans up
 ```
 
+## Testing
+
+```bash
+make test-short           # Quick pass: all tests in -short mode — skips the long-running stability soak
+make test-integration     # Integration-tagged tests (-tags=integration -run Integration) — proves components connect
+make test-e2e             # Builds the binaries, then runs the end-to-end suite in test/e2e
+make validate             # Full validation gate: unit tests + lint + vet + integration tests + security audit
+./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs the 10 demo scripts, 23+ checks
+```
+
+> **Note:** bare `go test ./...` runs the full suite, which includes a 30-minute
+> daemon stability soak test (`test/stability`) that exceeds Go's 10-minute
+> per-package timeout and fails with "panic: test timed out". Use
+> `make test-short` for a quick pass.
+
 ## CLI
 
 ```bash
