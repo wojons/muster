@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 )
 
@@ -128,6 +129,78 @@ func TestServer_Run_InitializeRequest(t *testing.T) {
 	}
 
 	// Wait for Run to finish
+	select {
+	case err := <-done:
+		if err != nil && err != io.EOF && err.Error() != "context canceled" {
+			t.Logf("Run returned: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run did not return")
+	}
+}
+
+// TestServer_Run_InitializeResultCapabilitiesAndVersion verifies over the
+// wire (DF-032) that the initialize result (a) advertises the tools
+// capability and (b) reports the runtime version value — not the old
+// hardcoded "1.0.0". Asserting version.Get().Version pins the response to
+// the same source the build stamps; in an unlinked test build that value is
+// "dev", so a regression back to the hardcoded "1.0.0" flips this to RED.
+func TestServer_Run_InitializeResultCapabilitiesAndVersion(t *testing.T) {
+	stdinR, stdinW := io.Pipe()
+	stdoutR, stdoutW := io.Pipe()
+	stderr := &bytes.Buffer{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s := NewServer(stdinR, stdoutW, stderr)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- s.Run(ctx)
+	}()
+
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      1,
+		Method:  "initialize",
+		Params:  json.RawMessage(`{}`),
+	}
+	data, _ := json.Marshal(req)
+	stdinW.Write(data)
+	stdinW.Write([]byte("\n"))
+	stdinW.Close()
+
+	var resp JSONRPCResponse
+	decoder := json.NewDecoder(stdoutR)
+	if err := decoder.Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: code=%d msg=%s", resp.Error.Code, resp.Error.Message)
+	}
+
+	var initResult handlers.InitializeResult
+	if err := json.Unmarshal(resp.Result, &initResult); err != nil {
+		t.Fatalf("failed to unmarshal initialize result: %v", err)
+	}
+
+	if initResult.Capabilities == nil {
+		t.Fatal("capabilities should not be nil")
+	}
+	caps, ok := initResult.Capabilities.(map[string]interface{})
+	if !ok {
+		t.Fatalf("capabilities should decode to an object, got %T", initResult.Capabilities)
+	}
+	if _, ok := caps["tools"]; !ok {
+		t.Errorf("initialize result must advertise the tools capability, got %v", caps)
+	}
+
+	wantVersion := version.Get().Version
+	if initResult.ServerInfo.Version != wantVersion {
+		t.Errorf("ServerInfo.Version = %q, want runtime version %q", initResult.ServerInfo.Version, wantVersion)
+	}
+
 	select {
 	case err := <-done:
 		if err != nil && err != io.EOF && err.Error() != "context canceled" {

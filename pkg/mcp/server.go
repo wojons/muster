@@ -8,6 +8,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 )
 
@@ -63,7 +64,9 @@ func NewServer(stdin io.Reader, stdout, stderr io.Writer) *Server {
 }
 
 func (s *Server) registerHandlers() {
-	s.handlers.Register(handlers.NewInitializeHandler("openapi-mcp", "1.0.0"))
+	// Advertise the build/runtime version (DF-032) instead of a hardcoded
+	// "1.0.0"; the ldflags-stamped value is the source of truth.
+	s.handlers.Register(handlers.NewInitializeHandler("openapi-mcp", version.Get().Version))
 	s.handlers.Register(handlers.NewInitializedHandler())
 }
 

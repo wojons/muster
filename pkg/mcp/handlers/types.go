@@ -212,13 +212,19 @@ func (h *baseHandler) Handle(ctx context.Context, params json.RawMessage) (inter
 }
 
 // NewInitializeHandler creates a handler for the initialize method.
+// The result advertises the tools capability: the server registers
+// tools/list and tools/call handlers (DF-032), so an empty capabilities
+// map would make MCP clients conclude no tools are served. The tools map
+// stays empty because the server has no listChanged notification support.
 func NewInitializeHandler(serverName, serverVersion string) Handler {
 	return &baseHandler{
 		method: "initialize",
 		fn: func(ctx context.Context, params json.RawMessage) (interface{}, error) {
 			return &InitializeResult{
 				ProtocolVersion: "2024-11-05",
-				Capabilities:    map[string]interface{}{},
+				Capabilities: map[string]interface{}{
+					"tools": map[string]interface{}{},
+				},
 				ServerInfo: ServerInfo{
 					Name:    serverName,
 					Version: serverVersion,
