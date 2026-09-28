@@ -91,10 +91,28 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 			openapi.ApplySourceURLToDocument(result.Document, specSourceURL)
 
 			fmt.Printf("✓ Parsed spec (version: %s)\n", result.Version)
+			// PROTO-006: state the conversion explicitly — a Swagger 2.0
+			// document was transparently upgraded to the OpenAPI 3.x model
+			// before parsing.
+			if result.ConvertedFromSwagger2 {
+				fmt.Println("✓ Converted from Swagger/OpenAPI 2.0 to OpenAPI 3.x")
+			}
 
 			baseURLPath := baseURL
 			if baseURLPath == "" {
 				baseURLPath = defaultBaseURLFromSpec(result.Document)
+			}
+			// PROTO-006: the generator must never return an empty command
+			// set for a document that parsed successfully. The one measured
+			// way a 2.0 document could produce zero commands was a missing
+			// paths section (openapi2conv drops the field when absent);
+			// refuse that loudly instead of persisting an empty store.
+			ops, err := parser.ExtractOperations(result.Document)
+			if err != nil {
+				return fmt.Errorf("extract operations: %w", err)
+			}
+			if len(ops) == 0 {
+				return fmt.Errorf("spec %q declares no operations (no paths section); nothing to generate", specPath)
 			}
 
 			genCfg := generator.Config{
