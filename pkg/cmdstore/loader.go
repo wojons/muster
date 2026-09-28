@@ -497,20 +497,25 @@ func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx co
 	}
 
 	// Render the output in the requested format.
+	// DF-043: mask credential-shaped values (cs_[a-z]{2}_… session keys,
+	// "Bearer <token>") before any formatted rendering, mirroring the
+	// DF-039 masking of the generated path. --raw above is the escape
+	// hatch that dumps the body untouched.
+	masked := maskCredentialValues(data)
 	switch format {
 	case "table":
-		printTableOutput(out, data)
+		printTableOutput(out, masked)
 	case "json":
-		pretty, err := json.MarshalIndent(data, "", "  ")
+		pretty, err := json.MarshalIndent(masked, "", "  ")
 		if err != nil {
 			return fmt.Errorf("format JSON: %w", err)
 		}
 		_, _ = fmt.Fprintln(out, string(pretty))
 	case "yaml":
-		yamlBytes, err := yaml.Marshal(data)
+		yamlBytes, err := yaml.Marshal(masked)
 		if err != nil {
 			// Fall back to indented JSON if YAML marshalling fails.
-			pretty, _ := json.MarshalIndent(data, "", "  ")
+			pretty, _ := json.MarshalIndent(masked, "", "  ")
 			_, _ = fmt.Fprintln(out, string(pretty))
 		} else {
 			_, _ = fmt.Fprint(out, string(yamlBytes))
