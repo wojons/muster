@@ -15,6 +15,7 @@ Muster reads an OpenAPI specification and generates executable commands — no c
 | **Docker** | `docker run` | Containerized deployment |
 | **WASM plugins** | `--wasm-plugin` flag | Sandboxed response transformation (wazero runtime) |
 | **Starlark DSL** | `dsl run script.star` | Multi-step API workflows with http_get/post/put/delete builtins |
+| **Protocol adapters** | `pkg/protocol` | gRPC, JSON-RPC/OpenRPC, and GraphQL surfaces — see [`specs/PROTOCOLS.md`](specs/PROTOCOLS.md) |
 
 Three deployment modes, one codebase. CLI for humans, MCP for AI agents, daemon for infrastructure. WASM for extensibility, Starlark for scripting. Import the Go packages directly for programmatic use.
 
@@ -245,6 +246,7 @@ cmd/daemon/          # Daemon entry point
 pkg/                 # 28 public packages (importable)
   openapi/           # OpenAPI spec parsing
   mcp/               # MCP protocol implementation
+  protocol/          # gRPC, JSON-RPC/OpenRPC, and GraphQL adapters
   client/            # HTTP client with auth, rate limiting, retry
   wasm/              # WASM runtime (wazero)
   dsl/               # Starlark DSL interpreter
