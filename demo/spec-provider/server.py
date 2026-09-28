@@ -10,26 +10,43 @@ and hit this provider — not a stale hardcoded port (DF-MUSTER-5).
 
 Port resolution order (matches the other demo services, which run-all.sh
 starts as `PORT=$PORT $PYTHON "$SCRIPT"`):
-  1. PORT environment variable
-  2. argv[1]
+  1. argv[1]
+  2. PORT environment variable
   3. default 9801
+
+An invalid or extra argument exits with status 2 and a usage line.
 """
 from flask import Flask, jsonify
 import os
 import sys
 
 DEFAULT_PORT = 9801
+USAGE = "usage: server.py [port]   (default: 9801; PORT environment variable also honored)"
 
 app = Flask(__name__)
 
 
 def resolve_port():
-    """Resolve the listen port: PORT env var, then argv[1], then 9801."""
+    """Resolve the listen port: argv[1], then the PORT env var, then 9801.
+
+    Exits with status 2 and a usage line on an invalid or extra argument.
+    Called at module import so the served spec can advertise the resolved
+    port in servers[0].url, and by __main__ for app.run().
+    """
+    if len(sys.argv) > 2:
+        sys.stderr.write(
+            f"error: unexpected arguments {' '.join(sys.argv[2:])}\n{USAGE}\n"
+        )
+        raise SystemExit(2)
+    if len(sys.argv) == 2:
+        try:
+            return int(sys.argv[1])
+        except ValueError:
+            sys.stderr.write(f"error: invalid port {sys.argv[1]!r}\n{USAGE}\n")
+            raise SystemExit(2)
     env_port = os.environ.get("PORT")
     if env_port:
         return int(env_port)
-    if len(sys.argv) > 1:
-        return int(sys.argv[1])
     return DEFAULT_PORT
 
 
