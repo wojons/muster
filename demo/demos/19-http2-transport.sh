@@ -63,6 +63,12 @@ grep -q 'HTTP: HTTP/2.0 (wire' "$WORK/get.err" || fail "the CLI must report HTTP
 pass "GET → server saw HTTP/2.0; CLI reported HTTP/2.0 (wire, requested auto)"
 
 # ── 2. PROPFIND, a WebDAV verb, is carried over h2 too ──────────────────────
+# Body contract: openapi-cli request attaches -b/--body for ANY method
+# (PROTO-019 removed the POST/PUT/PATCH allow-list; request.go), so a WebDAV
+# body would travel to the wire here too. This leg stays body-less on purpose —
+# the transport cells prove the verb is carried, not the body plumbing (the
+# body-over-PROPFIND cell lives in demo 20 and the unit suite; matrix row 17 /
+# gate order 11 owns the full WebDAV profile).
 BODY=$("$BIN" request PROPFIND "$URL_H2/dav" -v 2>"$WORK/propfind.err") || fail "PROPFIND over the h2 fixture failed"
 case "$BODY" in
   *'"server_proto":"HTTP/2.0"'*) ;;

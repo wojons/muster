@@ -75,16 +75,15 @@ case "$BODY" in
   *) fail "PROPFIND did not reach the server over HTTP/3: $BODY" ;;
 esac
 grep -q 'HTTP: HTTP/3.0 (wire, requested 3)' "$WORK/propfind.err" || fail "PROPFIND must be reported as HTTP/3.0: $(cat "$WORK/propfind.err")"
-# The body is NOT asserted here: openapi-cli request attaches a body only for
-# POST/PUT/PATCH (measured in PROTO-010 §8), so a PROPFIND body is dropped
-# before any transport sees it. That gap belongs to the WebDAV profile row
-# (matrix row 17, gate order 11), not to the transport — and this leg records
-# the current truth rather than implying the body travelled.
+# The body contract: openapi-cli request attaches -b/--body for ANY method
+# (PROTO-019 removed the POST/PUT/PATCH allow-list; request.go), so the 11-byte
+# WebDAV PROPFIND body travels to the wire and the fixture's byte count is the
+# oracle. (Matrix row 17 / gate order 11 owns the full WebDAV profile.)
 case "$BODY" in
-  *'"body_len":0'*) ;;
-  *) fail "the CLI's PROPFIND body handling changed: $(echo "$BODY" | head -c 200)" ;;
+  *'"body_len":11'*) ;;
+  *) fail "the 11-byte PROPFIND body must arrive intact over HTTP/3: $(echo "$BODY" | head -c 200)" ;;
 esac
-pass "PROPFIND over HTTP/3 → server saw HTTP/3.0 (body_len=0: the request verb drops WebDAV bodies — PROTO-010 §8, owned by order 11)"
+pass "PROPFIND over HTTP/3 → server saw HTTP/3.0 and the whole body (body_len=11: bodies attach for any method — PROTO-019)"
 
 # ── 3. A PUT body arrives intact over HTTP/3 ───────────────────────────────
 head -c 4096 /dev/zero | tr '\0' 'x' >"$WORK/blob.txt"
