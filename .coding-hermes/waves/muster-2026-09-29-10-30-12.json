@@ -1,0 +1,15 @@
+{
+  "tick_id": "muster-2026-09-29-10-30-12",
+  "project": "muster",
+  "base": "origin/main",
+  "base_sha": "edf51a63",
+  "max_concurrent": 1,
+  "tasks": [
+    {
+      "id": "DF-034",
+      "worktree": "/home/kara/worktrees/muster-DF-034",
+      "branch": "wt/DF-034",
+      "depends_on": []
+    }
+  ]
+}
