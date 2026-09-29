@@ -1,0 +1,27 @@
+{
+  "tick_id": "muster-2026-09-28-20-03-40",
+  "project": "muster",
+  "base": "origin/main",
+  "base_sha": "436cad0b41018dfa79c9454f7bfdcbe2d313befe",
+  "max_concurrent": 3,
+  "tasks": [
+    {
+      "id": "README-045",
+      "worktree": "/home/kara/worktrees/muster-README-045",
+      "branch": "wt/README-045",
+      "depends_on": []
+    },
+    {
+      "id": "REVIEW-MUSTER-1",
+      "worktree": "/home/kara/worktrees/muster-REVIEW-MUSTER-1",
+      "branch": "wt/REVIEW-MUSTER-1",
+      "depends_on": []
+    },
+    {
+      "id": "REVIEW-MUSTER-2",
+      "worktree": "/home/kara/worktrees/muster-REVIEW-MUSTER-2",
+      "branch": "wt/REVIEW-MUSTER-2",
+      "depends_on": []
+    }
+  ]
+}
