@@ -581,12 +581,13 @@ func TestNegotiatedProtocol_WrapperBuiltResponseIsNotAnObservation(t *testing.T)
 }
 
 // TestNegotiatedProtocol_CacheHitIsObservedThroughTheRecord runs the same
-// disagreement through the real cache rather than a synthetic wrapper: with the
+// question through the real cache rather than a synthetic wrapper: with the
 // cache enabled the second 2xx GET is served from the entry and the response
 // object is rebuilt. The version claim comes from the record — the wire version
-// stored with the entry (§4.7 N3) — while the rebuilt object is either agreed
-// with (once DF-041 is fixed) or marked unreliable, never read as an HTTP/1.1
-// observation.
+// stored with the entry (§4.7 N3) — and the rebuilt object carries that same
+// version, so the surfaces agree (DF-041 fixed). The cell still asserts on the
+// record first: the record is the truth source by construction, and a response
+// object that agreed by accident would not be one.
 func TestNegotiatedProtocol_CacheHitIsObservedThroughTheRecord(t *testing.T) {
 	s, probe := newH2Server(t)
 	stubDefaultTransport(t, s)
@@ -611,23 +612,21 @@ func TestNegotiatedProtocol_CacheHitIsObservedThroughTheRecord(t *testing.T) {
 	require.Equal(t, WireVersionHTTP2, rec.Observed, "the version stored with the entry is the observation")
 
 	obs := observeExchange(t, c, second, secondBody, http.MethodGet, requestURL)
-	if obs.ResponseProto.readable() {
-		assert.Equal(t, WireVersionHTTP2, obs.ResponseProto.Version,
-			"if the cache stops rebuilding Proto (DF-041) the surfaces must agree")
-	} else {
-		assert.Contains(t, obs.ResponseProto.Unreadable, "rebuilt")
-		assert.NotEqual(t, WireVersionHTTP2, obs.ResponseProto.Version,
-			"the rebuilt object's value is not the wire version, which is why it is not read as one")
-	}
+	require.True(t, obs.ResponseProto.readable(),
+		"the cache serves the version its entry recorded, so the response object is an observation again (DF-041)")
+	assert.Equal(t, WireVersionHTTP2, obs.ResponseProto.Version)
 	obs.assertVersion(t, WireVersionHTTP2)
 }
 
 // ── 5. Unobservable cells are classified and marked ──
 
 // TestNegotiatedProtocol_ObservationSurfacesAreClassified pins how the three
-// exchange classes are classified. Two of the three have NO observation of a
-// negotiated version, which is what makes the marking rule load-bearing: a cell
-// asking either of them for a version would be marked, not passed.
+// exchange classes are classified. One of the three — a locally refused request
+// — has NO observation of a negotiated version, which is what keeps the marking
+// rule load-bearing: a cell asking it for a version is marked, not passed. The
+// cache-served class is observable on every surface since DF-041 was fixed;
+// before it, the cache-rebuilt response object was the one surface that could
+// not be read.
 func TestNegotiatedProtocol_ObservationSurfacesAreClassified(t *testing.T) {
 	t.Run("wire-exchange-is-observable-on-every-surface", func(t *testing.T) {
 		s, _ := newH2Server(t)
@@ -645,7 +644,7 @@ func TestNegotiatedProtocol_ObservationSurfacesAreClassified(t *testing.T) {
 		assert.Empty(t, obs.unreliableReason(), "nothing needed to be marked on a bare wire exchange")
 	})
 
-	t.Run("cache-served-response-is-observable-through-the-record-only", func(t *testing.T) {
+	t.Run("cache-served-response-is-observable-on-every-surface", func(t *testing.T) {
 		s, probe := newH2Server(t)
 		stubDefaultTransport(t, s)
 
@@ -663,8 +662,15 @@ func TestNegotiatedProtocol_ObservationSurfacesAreClassified(t *testing.T) {
 		obs := observeExchange(t, c, resp, body, http.MethodGet, requestURL)
 		assert.True(t, obs.Record.readable(), "the version stored with the entry is an observation")
 		assert.Equal(t, WireVersionHTTP2, obs.Record.Version)
-		assert.False(t, obs.ResponseProto.readable(),
-			"the response object is rebuilt by the cache (DF-041) and is not an observation")
+		// DF-041 fixed: the cache no longer rebuilds a 2xx response with
+		// req.Proto, so a cache hit's response object agrees with the record
+		// instead of having to be marked unreliable. The rule that the record is
+		// the truth source is unchanged — this cell pins that the surfaces agree
+		// once the cache can tell the truth.
+		assert.True(t, obs.ResponseProto.readable(),
+			"the cache serves the version its entry was written with, and that is the version the wire used")
+		assert.Equal(t, WireVersionHTTP2, obs.ResponseProto.Version)
+		assert.Empty(t, obs.unreliableReason(), "no surface needs to be marked on a cache hit")
 		assert.Equal(t, WireVersionHTTP2, obs.version())
 	})
 
