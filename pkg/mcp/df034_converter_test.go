@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -52,7 +51,10 @@ func TestConvertToTools_PathItemLevelParamsAdvertised(t *testing.T) {
 	}
 	checked := 0
 	for _, tool := range tools {
-		if !strings.Contains(tool.Name, "{project_id}") {
+		// DF-033 sanitizes tool names, so a templated operation is selected by
+		// its path template (recorded on the tool) rather than by a "{"
+		// appearing in the name.
+		if len(extractPathParams(tool.Path)) == 0 {
 			continue
 		}
 		var schema struct {
