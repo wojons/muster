@@ -323,6 +323,16 @@ func ExecuteHTTP(baseURL, method, path string, args map[string]interface{}) ([]b
 	return json.MarshalIndent(result, "", "  ")
 }
 
+// containsString reports whether s is present in list.
+func containsString(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
 // extractPathParamsStr extracts {param} names from a path template string.
 func extractPathParamsStr(path string) []string {
 	var params []string
@@ -427,6 +437,22 @@ func (r *OpenAPIRegistry) ListTools() []handlers.Tool {
 			properties[param.Name] = propMap
 			if param.Required {
 				required = append(required, param.Name)
+			}
+		}
+
+		// DF-034: templated tool names embed path parameters ({task_id}, ...) —
+		// ensure every path template param is advertised in the schema even when the
+		// spec/parser did not surface it in op.Parameters (spec-validating clients
+		// reject calls otherwise). Path params are always required by the route.
+		for _, pathParam := range extractPathParamsStr(op.Path) {
+			if _, ok := properties[pathParam]; !ok {
+				properties[pathParam] = map[string]interface{}{
+					"type":        "string",
+					"description": fmt.Sprintf("Path parameter %s (from %s)", pathParam, op.Path),
+				}
+			}
+			if !containsString(required, pathParam) {
+				required = append(required, pathParam)
 			}
 		}
 
