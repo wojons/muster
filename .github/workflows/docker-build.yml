@@ -48,12 +48,25 @@ jobs:
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
 
+    - name: Derive build stamps
+      id: stamps
+      run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
     - name: Build and push
       uses: docker/build-push-action@v5
       with:
         context: .
         platforms: linux/amd64,linux/arm64
         push: ${{ github.event_name != 'pull_request' }}
+        # Stamp the binaries: without these the Dockerfile builds with empty
+        # ARGs and the version surface reports dev/unknown (or, before the
+        # double-quote fix, the literal token "${VERSION}") instead of the
+        # released version. VERSION = pushed tag (v*), GIT_COMMIT = the
+        # tagged commit, BUILD_DATE = RFC3339 UTC.
+        build-args: |
+          VERSION=${{ github.ref_name }}
+          GIT_COMMIT=${{ github.sha }}
+          BUILD_DATE=${{ steps.stamps.outputs.date }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha

@@ -117,6 +117,27 @@ func TestNewVersionCommand_JSONExplicitFalse(t *testing.T) {
 	assert.Contains(t, output, expected, "--output=false should print text, not JSON")
 }
 
+func TestNewVersionCommand_NeverPrintsEmptyVersion(t *testing.T) {
+	// Wiring-level contract: the version surface always carries a non-empty
+	// Version token — a stamped release value, or the documented bare-build
+	// "dev" fallback (see internal/version.Get stamp normalization). A
+	// release-stamped build must never print an empty version like " ()".
+	root := &cobra.Command{Use: "openapi-cli"}
+	cmd := newVersionCommand()
+	root.AddCommand(cmd)
+	root.SetArgs([]string{"version", "--output", "json"})
+
+	output, err := captureStdout(func() error {
+		return root.Execute()
+	})
+
+	require.NoError(t, err)
+	var parsed version.Info
+	require.NoError(t, json.Unmarshal([]byte(output), &parsed))
+	assert.NotEmpty(t, parsed.Version,
+		"version output must never be empty; internal/version.Get must normalize empty build stamps")
+}
+
 func TestNewVersionCommand_ExtraArgs(t *testing.T) {
 	// Note: newVersionCommand does not set cobra.Args validator,
 	// so extra args are silently ignored — not an error.

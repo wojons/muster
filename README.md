@@ -224,6 +224,15 @@ go build -o bin/openapi-cli ./cmd/openapi-cli
 go build -o bin/openapi-mcp ./cmd/mcp-server
 go build -o bin/openapi-daemon ./cmd/daemon
 
+# Version stamps
+# Bare `go build` binaries report "dev (unknown)" — expected, they carry no
+# build metadata. Stamped builds come from the Makefile:
+#   make build          # version/commit/branch/date via -ldflags (see Makefile LDFLAGS)
+# `openapi-cli version` always prints a non-empty version: a stamped value,
+# or dev/unknown for a bare build (empty stamps are normalized in
+# internal/version.Get). Docker images are stamped by their build pipeline
+# (ARG VERSION → -ldflags in the Dockerfile).
+
 # Run tests
 go test ./...
 # NOTE: the full suite includes a 30-minute daemon stability soak test
