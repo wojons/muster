@@ -37,6 +37,10 @@ func TestBinaryExecution_StatusCommand(t *testing.T) {
 	// Verify output shows daemon status
 	output := stdout.String()
 	t.Logf("Status output: %s", output)
+
+	// DF-047: the status surface must not advertise a token file the daemon
+	// never creates.
+	require.NotContains(t, output, "Token file:", "status must not print a token-file hint")
 }
 
 // TestBinaryExecution_HelpCommand tests help output
@@ -207,7 +211,11 @@ func TestBinaryExecution_RestartCommand(t *testing.T) {
 	}
 
 	// Start the daemon (spawns a detached child).
-	runDaemonCmd("start", "--socket-path", socketPath)
+	startOut := runDaemonCmd("start", "--socket-path", socketPath)
+
+	// DF-047: the start banner must not advertise a token file the daemon
+	// never creates.
+	require.NotContains(t, startOut, "Token file:", "start must not print a token-file hint")
 
 	oldPID, err := readPIDFile(pidPath)
 	require.NoError(t, err, "start should write a PID file")

@@ -54,15 +54,17 @@ install the middleware. Both facts, with sources:
 | Item | Detail | Source |
 |------|--------|--------|
 | Header shape (if middleware installed) | `Authorization: Bearer <token>` (prefix literal at the cited line) | `pkg/daemon/token_manager.go:44` |
-| Token file path | `<socket-path>.token` (derived, and printed by `start`/`proxy`) | `pkg/daemon/proxy.go:71`, `cmd/daemon/main.go:201` |
+| Token file path | `<socket-path>.token` (derived by the library; never written or printed by the CLI) | `pkg/daemon/proxy.go:71` |
 | Health routes exempt from auth | `/health`, `/health/live`, `/health/ready`, `/health/startup` | `pkg/daemon/proxy.go:368`, `pkg/daemon/proxy.go:373` |
 | Middleware | `withTokenAuth` | `pkg/daemon/proxy.go:328` |
 | Only caller of the middleware | `NewAuthenticatedProxyServer` — no non-test caller in the repo | `pkg/daemon/proxy.go:310` |
 | Token registration | `TokenManager.AddToken` is called only from tests | `pkg/daemon/token_manager.go:22` |
 
 **Measured:** the running daemon answered a non-health path with no `Authorization` header present at
-all (see the `/not-a-route` probe below, and the `/hello.txt` probe in proxy mode). The daemon also
-never writes the token file it advertises — after `start`, only the socket and PID file exist on disk:
+all (see the `/not-a-route` probe below, and the `/hello.txt` probe in proxy mode). It also never
+writes the `.token` file, and it no longer claims to: the `Token file:` line was removed from the
+`start`, `proxy` and `status` banners (DF-047) because it sent operators hunting for a credential
+file that never exists. After `start`, only the socket and PID file exist on disk:
 
 ```text
 $ ls -l /tmp/muster-daemon.sock*
@@ -132,7 +134,8 @@ and host (`:608`), the query string is forwarded (`:592`), hop-by-hop headers ar
 ## Verified transcript
 
 Built in this worktree with `CGO_ENABLED=1 go build -o bin/openapi-daemon ./cmd/daemon`.
-Every line below was executed; the command is printed above its output.
+Every line below was executed; the command is printed above its output. Re-run on 2026-09-29 after
+DF-047 removed the `Token file:` banner line — every other line reproduced verbatim.
 
 **Mode A — `start` (no backend):**
 
@@ -141,7 +144,6 @@ $ ./bin/openapi-daemon start --socket-path /tmp/muster-daemon.sock
 Daemon started successfully
 PID file: /tmp/muster-daemon.sock.pid
 Socket: /tmp/muster-daemon.sock
-Token file: /tmp/muster-daemon.sock.token
 
 $ curl -sS --unix-socket /tmp/muster-daemon.sock http://localhost/health
 {"status":"healthy"}
@@ -179,7 +181,6 @@ Proxying requests to: http://127.0.0.1:18989
 Daemon started successfully
 PID file: /tmp/muster-daemon-proxy.sock.pid
 Socket: /tmp/muster-daemon-proxy.sock
-Token file: /tmp/muster-daemon-proxy.sock.token
 
 $ curl -sS --unix-socket /tmp/muster-daemon-proxy.sock http://localhost/health
 {"status":"healthy"}
