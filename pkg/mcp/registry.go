@@ -429,6 +429,16 @@ func (c *Converter) effectiveBaseURL(opServerURL string) string {
 	return opServerURL
 }
 
+// containsStr reports whether s is present in list.
+func containsStr(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
 // ConvertToTools converts an OpenAPI document to MCP tools and execution configs.
 func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]ExecutionConfig, error) {
 	if doc == nil || doc.Paths == nil {
@@ -491,6 +501,21 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 		}
 
 		// Build full JSON Schema
+		// DF-034 safety net: ensure every path template param is advertised
+		// (properties+required) even if the parser missed it. Path params are
+		// always required by the route.
+		for _, pathParam := range extractPathParams(op.Path) {
+			if _, ok := properties[pathParam]; !ok {
+				properties[pathParam] = map[string]interface{}{
+					"type":        "string",
+					"description": fmt.Sprintf("Path parameter %s (from %s)", pathParam, op.Path),
+				}
+			}
+			if !containsStr(required, pathParam) {
+				required = append(required, pathParam)
+			}
+		}
+
 		schema := map[string]interface{}{
 			"type":       "object",
 			"properties": properties,
