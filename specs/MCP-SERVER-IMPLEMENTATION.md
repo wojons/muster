@@ -277,6 +277,23 @@ func (s *MCPServer) handleRequest(ctx context.Context, req *JSONRPCRequest) {
 }
 ```
 
+### Message Size Limit
+
+The implementation does not use `bufio.Scanner` for the read loop. Its default
+64 KiB token cap aborts the loop with `bufio.Scanner: token too long` when one
+message is larger than that, which ends the server process with no JSON-RPC
+error and no recovery (DF-046). `Run` reads with a `bufio.Reader` instead and
+enforces one documented cap:
+
+- `maxMessageSize` (4 MiB) — a newline-delimited JSON-RPC message larger than
+  this is answered with JSON-RPC error `-32600` (`Request too large: message
+  exceeds the 4194304-byte limit`) and its line is drained, so the next message
+  on the same stream is still served and the process stays alive.
+- `stdinBufSize` (64 KiB) — read granularity only; a message larger than this
+  is reassembled from successive reads, up to `maxMessageSize` bytes.
+
+The cap counts the message itself, not its line terminator.
+
 ## 3. Response Handling
 
 ```go
