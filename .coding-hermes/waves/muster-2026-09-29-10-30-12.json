@@ -11,5 +11,7 @@
       "branch": "wt/DF-034",
       "depends_on": []
     }
-  ]
+  ],
+  "finished_at": "2026-09-29T14:00:00Z",
+  "recovery_note": "DF-034 merged to main (7686559f, verified ancestor of origin/main) by prior tick; remote evidence branch wt/DF-034 deleted; manifest closed at wave-recovery tick muster-2026-09-29-13-56-02"
 }

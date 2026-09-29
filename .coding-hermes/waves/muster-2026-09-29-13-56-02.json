@@ -1,0 +1,13 @@
+{
+  "tick_id": "muster-2026-09-29-13-56-02",
+  "project": "muster",
+  "base": "origin/main",
+  "base_sha": "dfbef5cc",
+  "max_concurrent": 4,
+  "tasks": [
+    {"id": "DF-033", "worktree": "/home/kara/worktrees/muster-DF-033", "branch": "wt/DF-033", "depends_on": []},
+    {"id": "DF-038", "worktree": "/home/kara/worktrees/muster-DF-038", "branch": "wt/DF-038", "depends_on": []},
+    {"id": "DF-041", "worktree": "/home/kara/worktrees/muster-DF-041", "branch": "wt/DF-041", "depends_on": []},
+    {"id": "README-044", "worktree": "/home/kara/worktrees/muster-README-044", "branch": "wt/README-044", "depends_on": [], "note": "also implements REVIEW-MUSTER-8 (companion, same demo/run-all.sh surface)"}
+  ]
+}
