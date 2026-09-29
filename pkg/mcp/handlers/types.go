@@ -72,6 +72,11 @@ type Tool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	InputSchema json.RawMessage `json:"inputSchema"`
+	// Annotations carry the MCP-standard annotation object plus
+	// implementation-specific keys (namespaced, e.g. muster/openapi-path) that
+	// keep the pre-sanitization tool name and path-parameter mapping
+	// recoverable when a tool name had to be rewritten (DF-033).
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ToHandlersTool is a no-op convenience method.

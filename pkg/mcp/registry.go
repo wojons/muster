@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -23,6 +25,46 @@ type ExecutionConfig struct {
 	InputSchema json.RawMessage `json:"inputSchema,omitempty"`
 }
 
+// Annotation keys stamped on converted MCP tools so a client-side rename is
+// not lossy: the original tool name and the path-parameter mapping stay
+// recoverable from the tool object alone (DF-033). The muster/openapi-* keys
+// mirror the ones pkg/generator stamps on generated CLI commands, so the CLI
+// and MCP surfaces describe an operation identically.
+const (
+	// AnnotationOperationPath carries the OpenAPI path template,
+	// e.g. /tasks/{task_id}.
+	AnnotationOperationPath = "muster/openapi-path"
+
+	// AnnotationOperationMethod carries the HTTP method (GET, POST, ...).
+	AnnotationOperationMethod = "muster/openapi-method"
+
+	// AnnotationToolNameTemplate carries the tool name before sanitization
+	// (e.g. get_tasks_{task_id}). Stamped only when sanitization changed the
+	// name, which is exactly when a client-side rename needs reversing.
+	AnnotationToolNameTemplate = "muster/tool-name-template"
+
+	// AnnotationPathParams lists the path template parameters in path order
+	// (e.g. project_id), so a client can recover which argument fills which
+	// segment without re-deriving it from the path.
+	AnnotationPathParams = "muster/path-params"
+)
+
+// maxMCPToolNameLen is the length bound of the conventional Tool.name pattern.
+const maxMCPToolNameLen = 128
+
+// fallbackToolName replaces a generated name that sanitizes to nothing.
+const fallbackToolName = "tool"
+
+// maxDisambiguationSuffixLen caps the method+path suffix appended when
+// sanitization collides, keeping disambiguated names readable and inside
+// maxMCPToolNameLen.
+const maxDisambiguationSuffixLen = 48
+
+// MCPToolNamePattern is the conventional MCP Tool.name pattern. Strict
+// registries and UIs reject names outside it, so every name ConvertToTools
+// produces matches it (DF-033).
+var MCPToolNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
+
 // OpenAPITool represents a tool derived from an OpenAPI spec.
 type OpenAPITool struct {
 	Name        string
@@ -31,6 +73,9 @@ type OpenAPITool struct {
 	Path        string
 	BaseURL     string
 	InputSchema json.RawMessage
+	// Annotations carry the operation identity and the pre-sanitization tool
+	// name; served verbatim in tools/list.
+	Annotations map[string]string
 }
 
 // ToHandlersTool converts the OpenAPI tool to a handlers.Tool.
@@ -39,6 +84,7 @@ func (t *OpenAPITool) ToHandlersTool() handlers.Tool {
 		Name:        t.Name,
 		Description: t.Description,
 		InputSchema: t.InputSchema,
+		Annotations: t.Annotations,
 	}
 }
 
@@ -454,11 +500,15 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 	tools := make([]OpenAPITool, 0, len(operations))
 	configs := make(map[string]ExecutionConfig, len(operations))
 
-	for _, op := range operations {
-		toolName := op.ID
-		if toolName == "" {
-			toolName = fmt.Sprintf("%s_%s", strings.ToLower(op.Method), strings.ReplaceAll(strings.Trim(op.Path, "/"), "/", "_"))
-		}
+	// DF-033: tool names are derived from the operationId (or method+path) and
+	// frequently embed the path template (get_tasks_{task_id}), which violates
+	// the conventional MCP Tool.name pattern. Sanitize once, for the whole
+	// operation set, so collisions are broken deterministically.
+	toolNames := assignToolNames(operations)
+
+	for i, op := range operations {
+		originalName := originalToolName(op)
+		toolName := toolNames[i]
 
 		// Build description
 		description := op.Summary
@@ -541,6 +591,7 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 			Path:        op.Path,
 			BaseURL:     baseURL,
 			InputSchema: schemaJSON,
+			Annotations: buildToolAnnotations(op, originalName, toolName),
 		}
 		tools = append(tools, tool)
 
@@ -553,6 +604,167 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 	}
 
 	return tools, configs, nil
+}
+
+// originalToolName returns an operation's pre-sanitization tool name: the
+// spec's operationId, or a deterministic method+path name
+// (e.g. get_tasks_{task_id}) when the spec omits one.
+func originalToolName(op *openapi.Operation) string {
+	if op.ID != "" {
+		return op.ID
+	}
+	return fmt.Sprintf("%s_%s", strings.ToLower(op.Method), strings.ReplaceAll(strings.Trim(op.Path, "/"), "/", "_"))
+}
+
+// sanitizeToolName rewrites a generated tool name into the conventional MCP
+// Tool.name charset: path-template delimiters are dropped
+// (get_tasks_{task_id} → get_tasks_task_id) and any other character outside
+// [a-zA-Z0-9_-] becomes an underscore. The rewrite is deterministic; the
+// original name stays recoverable from the tool's annotations.
+func sanitizeToolName(name string) string {
+	var b strings.Builder
+	b.Grow(len(name))
+	for _, r := range name {
+		if r == '{' || r == '}' {
+			// Template delimiters are structure, not name data.
+			continue
+		}
+		if !isMCPToolNameRune(r) {
+			b.WriteRune('_')
+			continue
+		}
+		b.WriteRune(r)
+	}
+
+	s := b.String()
+	if s == "" {
+		return fallbackToolName
+	}
+	return truncateToolName(s, maxMCPToolNameLen)
+}
+
+// isMCPToolNameRune reports whether r is allowed in a tool name.
+func isMCPToolNameRune(r rune) bool {
+	switch {
+	case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		return true
+	case r == '_' || r == '-':
+		return true
+	default:
+		return false
+	}
+}
+
+// truncateToolName clips a name to max bytes. Sanitized names are ASCII-only,
+// so byte clipping cannot split a rune.
+func truncateToolName(name string, max int) string {
+	if len(name) <= max {
+		return name
+	}
+	return name[:max]
+}
+
+// withSuffix appends a disambiguation suffix while keeping the whole name
+// inside the length bound. The suffix is what disambiguates, so the base is
+// what gets clipped.
+func withSuffix(base, suffix string) string {
+	if len(suffix) >= maxMCPToolNameLen {
+		suffix = suffix[:maxMCPToolNameLen]
+	}
+	return truncateToolName(base, maxMCPToolNameLen-len(suffix)) + suffix
+}
+
+// assignToolNames returns one conventional, deterministic tool name per
+// operation, in operation order. Sanitization collisions are broken with a
+// method+path suffix; residual duplicates (same method and path) get an
+// ordinal assigned in canonical order. Ordering never depends on the
+// operations' slice position, because pkg/openapi walks paths via a Go map and
+// would otherwise make names vary between runs.
+func assignToolNames(operations []*openapi.Operation) []string {
+	names := make([]string, len(operations))
+	counts := make(map[string]int, len(operations))
+	for i, op := range operations {
+		names[i] = sanitizeToolName(originalToolName(op))
+		counts[names[i]]++
+	}
+
+	// Collision pass: every member of a colliding group takes the suffix, so
+	// which operation keeps the bare name does not depend on slice order.
+	for i, op := range operations {
+		if counts[names[i]] < 2 {
+			continue
+		}
+		names[i] = withSuffix(names[i], disambiguationSuffix(op))
+	}
+
+	// Residual pass: identical method+path pairs, or suffixes clipped to the
+	// same text, would still share a name.
+	groups := make(map[string][]int, len(names))
+	for i, name := range names {
+		groups[name] = append(groups[name], i)
+	}
+	for _, idx := range groups {
+		if len(idx) < 2 {
+			continue
+		}
+		sort.Slice(idx, func(a, b int) bool {
+			return canonicalOperationKey(operations[idx[a]]) < canonicalOperationKey(operations[idx[b]])
+		})
+		for n, i := range idx {
+			if n == 0 {
+				continue
+			}
+			names[i] = withSuffix(names[i], fmt.Sprintf("_%d", n+1))
+		}
+	}
+
+	return names
+}
+
+// disambiguationSuffix builds the deterministic method+path suffix used to
+// break a sanitization collision.
+func disambiguationSuffix(op *openapi.Operation) string {
+	slug := strings.ToLower(op.Method) + "_" + pathSlug(op.Path)
+	if len(slug) > maxDisambiguationSuffixLen {
+		slug = slug[:maxDisambiguationSuffixLen]
+	}
+	return "_" + slug
+}
+
+// pathSlug flattens a path template into tool-name characters.
+func pathSlug(path string) string {
+	var b strings.Builder
+	for _, r := range path {
+		if isMCPToolNameRune(r) {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteRune('_')
+	}
+	return strings.Trim(b.String(), "_")
+}
+
+// canonicalOperationKey orders operations deterministically for suffix
+// assignment.
+func canonicalOperationKey(op *openapi.Operation) string {
+	return op.Method + " " + op.Path + " " + originalToolName(op)
+}
+
+// buildToolAnnotations records the operation identity and, when sanitization
+// rewrote the name, the pre-sanitization template — so a client can reverse a
+// rename from the tool object alone (DF-033).
+func buildToolAnnotations(op *openapi.Operation, originalName, toolName string) map[string]string {
+	annotations := map[string]string{
+		AnnotationOperationPath:   op.Path,
+		AnnotationOperationMethod: op.Method,
+	}
+	if params := extractPathParams(op.Path); len(params) > 0 {
+		annotations[AnnotationPathParams] = strings.Join(params, ",")
+	}
+	if originalName != toolName {
+		annotations[AnnotationToolNameTemplate] = originalName
+	}
+	return annotations
 }
 
 func paramTypeToJSONSchema(t string) string {
