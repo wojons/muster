@@ -212,7 +212,7 @@ Go API for building MCP servers programmatically:
 
 The daemon runs a persistent Unix-socket HTTP proxy to a backend API — one
 shared process, many clients (`curl`, scripts, other services), with request
-transformation and a token file for the control channel.
+transformation.
 
 Full start → run → stop sequence (verified):
 
@@ -222,7 +222,6 @@ Full start → run → stop sequence (verified):
 # [INFO] proxy server started socket=/tmp/muster.sock
 # Proxy daemon started successfully
 # Socket: /tmp/muster.sock
-# Token file: /tmp/muster.sock.token
 
 # Terminal 2 — talk to the backend through the socket
 curl --unix-socket /tmp/muster.sock http://localhost/api/v3/pet/1
@@ -243,8 +242,10 @@ Subcommands: `start`, `proxy`, `stop`, `restart`, `status`. Flags:
 
 Operational notes:
 
-- The proxy writes `<socket-path>.token` next to the socket for the control
-  channel. Keep the socket directory private to the daemon user.
+- The socket is the only control channel, and the daemon writes no token file:
+  `pkg/daemon`'s token middleware is not installed by the shipped CLI, and the
+  `Token file:` hint was removed from the banners (DF-047). Keep the socket
+  directory private to the daemon user — the socket is created `0600`.
 - For systemd deployment (restart policies, socket activation) see
   [docs/SYSTEMD-CONFIGURATION-GUIDE.md](SYSTEMD-CONFIGURATION-GUIDE.md).
 - Daemon Go API and controller patterns:
