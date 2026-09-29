@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 
 	"github.com/wojons/muster/internal/version"
+	apperrors "github.com/wojons/muster/pkg/errors"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 )
 
@@ -70,10 +72,42 @@ func (s *Server) registerHandlers() {
 	s.handlers.Register(handlers.NewInitializedHandler())
 }
 
-func (s *Server) Run(ctx context.Context) error {
-	scanner := bufio.NewScanner(s.stdin)
+// jsonRPCCodeInvalidRequest is the JSON-RPC 2.0 "Invalid Request" error code.
+// It is used for a message the server cannot process, including one larger
+// than maxMessageSize.
+const jsonRPCCodeInvalidRequest = -32600
 
-	for scanner.Scan() {
+// maxMessageSize is the largest single newline-delimited JSON-RPC message the
+// server accepts on stdin, in bytes. bufio.Scanner's default token cap is
+// 64 KiB, which a tools/call argument carrying a large payload can exceed; that
+// ended the read loop with "bufio.Scanner: token too long" and killed the
+// process with no JSON-RPC error and no way to continue (DF-046). Messages up
+// to this cap are served; a larger one is drained, answered with a JSON-RPC
+// error and does not stop the server.
+const maxMessageSize = 4 << 20 // 4 MiB
+
+// stdinBufSize bounds how much of stdin is buffered between reads. A message
+// larger than this is reassembled from successive reads, up to maxMessageSize.
+const stdinBufSize = 64 << 10 // 64 KiB
+
+// tooLargeMessage is the message reported for a JSON-RPC request larger than
+// maxMessageSize. It names the limit so a client can size its messages.
+var tooLargeMessage = fmt.Sprintf("Request too large: message exceeds the %d-byte limit", maxMessageSize)
+
+// errMessageTooLong reports a single message larger than maxMessageSize. It is
+// a validation error so the read loop can answer it and keep serving instead of
+// terminating the server (DF-046).
+var errMessageTooLong = apperrors.New(apperrors.CodeValidation, tooLargeMessage)
+
+// Run reads newline-delimited JSON-RPC requests from stdin and dispatches them
+// until stdin is closed, the context is cancelled or Shutdown is called. Read
+// failures other than EOF are returned to the caller; a message larger than
+// maxMessageSize is answered with a JSON-RPC error and does not terminate the
+// server (DF-046).
+func (s *Server) Run(ctx context.Context) error {
+	reader := bufio.NewReaderSize(s.stdin, stdinBufSize)
+
+	for {
 		select {
 		case <-s.shutdownChan:
 			// Wait for in-flight request goroutines before returning
@@ -86,13 +120,32 @@ func (s *Server) Run(ctx context.Context) error {
 		default:
 		}
 
-		line := scanner.Text()
-		if line == "" {
+		line, err := readMessage(ctx, reader, maxMessageSize)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if apperrors.IsError(err, apperrors.CodeValidation) {
+				// An oversized message is refused, not fatal: report it to the
+				// client and to stderr, then keep serving subsequent messages.
+				_, _ = fmt.Fprintf(s.stderr, "mcp: %v\n", err)
+				s.sendError(nil, jsonRPCCodeInvalidRequest, tooLargeMessage)
+				continue
+			}
+			// Wait for in-flight request goroutines before returning
+			s.wg.Wait()
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
+			return err
+		}
+
+		if len(line) == 0 {
 			continue
 		}
 
 		var req JSONRPCRequest
-		if err := json.Unmarshal([]byte(line), &req); err != nil {
+		if err := json.Unmarshal(line, &req); err != nil {
 			s.sendError(nil, -32700, "Parse error")
 			continue
 		}
@@ -109,7 +162,86 @@ func (s *Server) Run(ctx context.Context) error {
 
 	// Wait for all in-flight request goroutines to complete before returning
 	s.wg.Wait()
-	return scanner.Err()
+	return nil
+}
+
+// readMessage reads one newline-terminated message from r, up to maxSize bytes,
+// and returns it without its line terminator. The final line before EOF is
+// accepted even without a terminator. A message larger than maxSize is reported
+// as errMessageTooLong once the rest of its line has been drained, so the next
+// message on the stream can still be read.
+//
+// ctx is consulted between reads so an unresponsive client streaming an endless
+// line cannot hold the server open past cancellation.
+func readMessage(ctx context.Context, r *bufio.Reader, maxSize int) ([]byte, error) {
+	var line []byte
+	tooLong := false
+
+	for {
+		chunk, err := r.ReadSlice('\n')
+
+		if !tooLong {
+			// The line terminator is not part of the message, so it must not
+			// count against the cap: a message of exactly maxSize bytes is
+			// accepted.
+			if len(line)+messageLen(chunk) > maxSize {
+				// An oversized message is refused rather than parsed, so the
+				// bytes read so far are dropped instead of being retained.
+				tooLong = true
+				line = nil
+			} else {
+				line = append(line, chunk...)
+			}
+		}
+
+		switch {
+		case err == nil:
+			if tooLong {
+				return nil, errMessageTooLong
+			}
+			return trimLineEnding(line), nil
+		case errors.Is(err, bufio.ErrBufferFull):
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
+			}
+			continue
+		case errors.Is(err, io.EOF):
+			if tooLong {
+				return nil, errMessageTooLong
+			}
+			if len(line) == 0 {
+				return nil, io.EOF
+			}
+			return trimLineEnding(line), nil
+		default:
+			return nil, err
+		}
+	}
+}
+
+// trimLineEnding removes the line terminator, and a carriage return preceding
+// it, that ReadSlice leaves on a line.
+func trimLineEnding(line []byte) []byte {
+	if n := len(line); n > 0 && line[n-1] == '\n' {
+		line = line[:n-1]
+	}
+	if n := len(line); n > 0 && line[n-1] == '\r' {
+		line = line[:n-1]
+	}
+	return line
+}
+
+// messageLen reports how many bytes of chunk belong to the message, excluding a
+// trailing newline and any carriage return before it.
+func messageLen(chunk []byte) int {
+	n := len(chunk)
+	if n > 0 && chunk[n-1] == '\n' {
+		n--
+		if n > 0 && chunk[n-1] == '\r' {
+			n--
+		}
+	}
+	return n
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *JSONRPCRequest) {
