@@ -175,6 +175,10 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 			// Extract tags from the operation-level tags field
 			// (kin-openapi puts operation tags in the operation struct)
 			serverURL := resolveServerURL(spec, pathItem, op)
+			// DF-034: merge path-item-level parameters with operation-level ones —
+			// specs like task-forge declare path params at the PATH-ITEM level, and
+			// reading op.Parameters only left templated tools with empty schemas.
+			mergedParams := append(append(openapi3.Parameters{}, pathItem.Parameters...), op.Parameters...)
 			operation := &Operation{
 				ID:          op.OperationID,
 				Path:        path,
@@ -182,7 +186,7 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 				Summary:     op.Summary,
 				Description: op.Description,
 				Tags:        op.Tags,
-				Parameters:  extractParameters(op.Parameters),
+				Parameters:  extractParameters(mergedParams),
 				RequestBody: extractRequestBodyProperties(spec, op.RequestBody),
 				ServerURL:   serverURL,
 			}
@@ -225,16 +229,27 @@ func extractParameters(params openapi3.Parameters) []Parameter {
 	}
 
 	result := make([]Parameter, 0, len(params))
+	seen := map[string]bool{}
 	for _, paramRef := range params {
 		if paramRef == nil || paramRef.Value == nil {
 			continue
 		}
 		param := paramRef.Value
 
+		// DF-034: a param declared at BOTH path-item and operation level must
+		// appear once (operation-level wins; skip the duplicate).
+		key := param.In + ":" + param.Name
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
 		p := Parameter{
-			Name:        param.Name,
-			In:          param.In,
-			Required:    param.Required,
+			Name: param.Name,
+			In:   param.In,
+			// DF-034: OpenAPI requires path parameters to be always-required; some
+			// real specs omit the flag, so force it for in=path.
+			Required:    param.Required || param.In == "path",
 			Description: param.Description,
 		}
 
