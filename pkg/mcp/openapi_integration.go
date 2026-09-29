@@ -174,17 +174,33 @@ func (e *OpenAPIExecutor) Execute(ctx context.Context, name string, args map[str
 	// builder.Execute's internal bare http.Client{}.
 	req, err := builder.Build()
 	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
+		return nil, handlers.NewToolCallError(
+			handlers.ErrorClassClient, handlers.ReasonInvalidArguments,
+			fmt.Sprintf("build request: %v", err),
+		).WithCause(err)
 	}
 	req = req.WithContext(ctx)
 	resp, err := e.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("execute request: %w", err)
+		// DF-038: no upstream response was produced — an upstream-side failure.
+		return nil, handlers.NewToolCallError(
+			handlers.ErrorClassUpstream, handlers.ReasonUpstreamUnreachable,
+			fmt.Sprintf("execute request: %v", err),
+		).WithCause(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
+		// DF-038: this executor has no credential surface, so a 401/403 is
+		// reported as missing_credential with the mechanisms muster's MCP
+		// server resolves a bearer credential from.
+		return nil, newUpstreamHTTPError(
+			fmt.Sprintf("HTTP error: %s", resp.Status),
+			DefaultCredentialSource,
+			false,
+			resp.StatusCode,
+			nil,
+		)
 	}
 
 	// Read and parse response — use interface{} so JSON arrays (not just

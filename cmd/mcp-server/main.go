@@ -81,6 +81,24 @@ func loadConfig() *MCPServerConfig {
 	}
 }
 
+// credentialSource names the mechanism the outbound bearer credential is
+// resolved from, reported (DF-038) in the marker of a 401/403 tool result so
+// the agent consumer learns where the credential was expected from. It never
+// contains the credential value — only the option name and, when a token file
+// is used, its path.
+func credentialSource(config *MCPServerConfig) string {
+	if config == nil {
+		return mcp.DefaultCredentialSource
+	}
+	if config.AuthTokenFile != "" {
+		return fmt.Sprintf("the --auth-token-file flag (%s)", config.AuthTokenFile)
+	}
+	if config.AuthToken != "" {
+		return "the MUSTER_AUTH_TOKEN environment variable"
+	}
+	return mcp.DefaultCredentialSource
+}
+
 // resolveAuthToken loads an explicitly configured token file once at startup.
 // File input takes precedence over MUSTER_AUTH_TOKEN without exposing either
 // credential in process arguments or error messages.
@@ -233,7 +251,10 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
 	// after generated header arguments, so every outbound tool request carries
 	// the process-level bearer credential when configured.
 	registry := mcp.NewOpenAPIRegistry(tools, configs)
-	executor := mcp.NewOpenAPIExecutor(configs, mcp.WithBearerToken(config.AuthToken))
+	executor := mcp.NewOpenAPIExecutor(configs,
+		mcp.WithBearerToken(config.AuthToken),
+		mcp.WithCredentialSource(credentialSource(config)),
+	)
 
 	// Register tool handlers
 	listHandler := handlers.NewListToolsHandler(registry)

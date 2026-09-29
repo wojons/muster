@@ -78,9 +78,16 @@ type Tool struct {
 func (t Tool) ToHandlersTool() Tool { return t }
 
 // CallToolResult is the result of a tools/call request.
+//
+// StructuredContent (DF-038) carries the result as a JSON object for the agent
+// consumer: the upstream payload when it was JSON, or — on failure — the
+// machine-readable error marker ({class, code, message, ...}). Content stays
+// populated either way, so a client that only understands the text blocks
+// behaves exactly as before; the field is additive and omitted when empty.
 type CallToolResult struct {
-	Content []ToolContent `json:"content"`
-	IsError bool          `json:"isError,omitempty"`
+	Content           []ToolContent          `json:"content"`
+	IsError           bool                   `json:"isError,omitempty"`
+	StructuredContent map[string]interface{} `json:"structuredContent,omitempty"`
 }
 
 // ToolContent represents content returned by a tool call.
@@ -291,10 +298,14 @@ func NewCallToolHandler(executor interface{}) Handler {
 			}); ok {
 				result, err := exec.Execute(ctx, req.Name, req.Arguments)
 				if err != nil {
-					// Return error as CallToolResult with isError=true
+					// Return error as CallToolResult with isError=true. DF-038:
+					// the text block is unchanged (backward compatibility) and the
+					// result additionally carries a machine-readable marker so the
+					// agent can tell a client-side failure from an upstream one.
 					return &CallToolResult{
-						Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("Error: %v", err)}},
-						IsError: true,
+						Content:           []ToolContent{{Type: "text", Text: fmt.Sprintf("Error: %v", err)}},
+						IsError:           true,
+						StructuredContent: map[string]interface{}{"error": toolErrorMeta(req.Name, err)},
 					}, nil
 				}
 				// Marshal result to JSON text for content
@@ -304,9 +315,15 @@ func NewCallToolHandler(executor interface{}) Handler {
 						Content: []ToolContent{{Type: "text", Text: fmt.Sprintf("%v", result)}},
 					}, nil
 				}
-				return &CallToolResult{
+				callResult := &CallToolResult{
 					Content: []ToolContent{{Type: "text", Text: string(resultJSON)}},
-				}, nil
+				}
+				// DF-038: preserve a JSON payload as structured content instead of
+				// leaving it as one flat text blob.
+				if structured, ok := structuredContentFor(result, resultJSON); ok {
+					callResult.StructuredContent = structured
+				}
+				return callResult, nil
 			}
 			return nil, &MCPError{Code: -32603, Message: "Tool executor not available"}
 		},

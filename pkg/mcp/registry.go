@@ -147,17 +147,35 @@ func (r *ToolRegistry) GetCommand(name string) *handlers.Command {
 
 // ToolExecutor implements handlers.CommandExecutor using request builder.
 type ToolExecutor struct {
-	configs     map[string]ExecutionConfig
-	bearerToken string
+	configs          map[string]ExecutionConfig
+	bearerToken      string
+	credentialSource string
 }
 
 // ToolExecutorOption configures a ToolExecutor.
 type ToolExecutorOption func(*ToolExecutor)
 
+// DefaultCredentialSource names the mechanisms the MCP server resolves the
+// outbound bearer credential from (cmd/mcp-server: --auth-token-file wins over
+// MUSTER_AUTH_TOKEN). DF-038: a 401 is reported to the agent with this, so the
+// failure says where the credential was expected from instead of only echoing
+// the upstream body.
+const DefaultCredentialSource = "MUSTER_AUTH_TOKEN environment variable or the --auth-token-file flag"
+
 // WithBearerToken attaches a bearer credential to every outbound tool request.
 func WithBearerToken(token string) ToolExecutorOption {
 	return func(executor *ToolExecutor) {
 		executor.bearerToken = token
+	}
+}
+
+// WithCredentialSource records which mechanism the configured bearer credential
+// came from (for example "the --auth-token-file flag (/etc/muster/key)"). It is
+// used by the 401/403 classification and must never contain the credential
+// value itself; when unset, DefaultCredentialSource is reported.
+func WithCredentialSource(source string) ToolExecutorOption {
+	return func(executor *ToolExecutor) {
+		executor.credentialSource = source
 	}
 }
 
@@ -204,12 +222,20 @@ func (e *ToolExecutor) validateArgs(schema json.RawMessage, args map[string]inte
 func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string]interface{}) (interface{}, error) {
 	config, ok := e.configs[name]
 	if !ok {
-		return nil, fmt.Errorf("tool %q not found in registry", name)
+		// DF-038: an unresolvable operation is a client-side failure. It is
+		// classified so the agent does not read it as an upstream API error.
+		return nil, handlers.NewToolCallError(
+			handlers.ErrorClassClient, handlers.ReasonUnknownOperation,
+			fmt.Sprintf("tool %q not found in registry", name),
+		).WithDetail("tool", name)
 	}
 
 	// CRITICAL SECURITY FIX: Validate inputs against JSON Schema before execution
 	if err := e.validateArgs(config.InputSchema, args); err != nil {
-		return nil, fmt.Errorf("tool %q: %w", name, err)
+		return nil, handlers.NewToolCallError(
+			handlers.ErrorClassClient, handlers.ReasonInvalidArguments,
+			fmt.Sprintf("tool %q: %v", name, err),
+		).WithDetail("tool", name).WithCause(err)
 	}
 
 	// Build HTTP request
@@ -259,7 +285,12 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 	if isWriteMethod && len(bodyMap) > 0 {
 		bodyJSON, err := json.Marshal(bodyMap)
 		if err != nil {
-			return nil, fmt.Errorf("marshal request body: %w", err)
+			// DF-038: the caller supplied an unencodable argument, so this is
+			// client-side, not an upstream failure.
+			return nil, handlers.NewToolCallError(
+				handlers.ErrorClassClient, handlers.ReasonInvalidArguments,
+				fmt.Sprintf("marshal request body: %v", err),
+			).WithDetail("tool", name).WithCause(err)
 		}
 		builder.JSONBody(string(bodyJSON))
 		builder.SetHeader("Content-Type", "application/json")
@@ -275,24 +306,118 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 	// Execute request
 	result, err := builder.ExecuteWithResult(ctx)
 	if err != nil {
-		return nil, err
+		// DF-038: the request never produced an upstream response. The message
+		// text is unchanged; the classification says whose side failed.
+		return nil, handlers.NewToolCallError(
+			handlers.ErrorClassUpstream, handlers.ReasonUpstreamUnreachable, err.Error(),
+		).WithDetail("tool", name).WithCause(err)
 	}
 
 	if result.StatusCode >= 400 {
-		return nil, fmt.Errorf("HTTP %d: %s", result.StatusCode, string(result.Body))
+		return nil, e.upstreamHTTPError(name, result.StatusCode, result.Body)
 	}
 
 	// Parse and return JSON response
 	var response interface{}
 	if err := json.Unmarshal(result.Body, &response); err != nil {
-		// Return raw body if not JSON
-		return map[string]interface{}{
-			"status": result.StatusCode,
-			"body":   string(result.Body),
+		// DF-038: a non-JSON body stays a text payload. The value reports
+		// that it did NOT come from a JSON payload, so the MCP result builder
+		// keeps it in the text content block instead of advertising it as
+		// structured content. The marshaled shape is unchanged.
+		return UnstructuredResult{
+			Status: result.StatusCode,
+			Body:   string(result.Body),
 		}, nil
 	}
 
 	return response, nil
+}
+
+// UnstructuredResult is the result of a call whose upstream body was not JSON.
+// It marshals to the same {"status","body"} object the executor has always
+// returned, and implements handlers.StructuredResultProvider to report that the
+// payload is not structured JSON.
+type UnstructuredResult struct {
+	Status int    `json:"status"`
+	Body   string `json:"body"`
+}
+
+// StructuredPayload implements handlers.StructuredResultProvider. The upstream
+// body was not JSON, so the payload is carried in the text content block only.
+func (u UnstructuredResult) StructuredPayload() (interface{}, bool) { return u, false }
+
+// upstreamHTTPError classifies an upstream error response (DF-038). A 401/403
+// is an authentication outcome: with no credential configured the failure is
+// client-side wiring and the message names the mechanisms the credential is
+// expected from; with one configured the credential was rejected and the
+// message names its source. Every other error status is an upstream error whose
+// body is preserved as structured content when it was JSON.
+func (e *ToolExecutor) upstreamHTTPError(tool string, status int, body []byte) error {
+	return newUpstreamHTTPError(
+		fmt.Sprintf("HTTP %d: %s", status, string(body)),
+		e.credentialSourceName(),
+		e.bearerToken != "",
+		status,
+		body,
+	).WithDetail("tool", tool)
+}
+
+// newUpstreamHTTPError builds the classified failure for an upstream HTTP error
+// status, shared by every executor in this package so the classes and reason
+// codes reported to an agent consumer stay identical across protocol paths.
+// message is the executor's own wording (unchanged for existing consumers),
+// credentialSource names where the outbound credential came from or was
+// expected from, and credentialConfigured says whether one was sent.
+func newUpstreamHTTPError(message, credentialSource string, credentialConfigured bool, statusCode int, body []byte) *handlers.ToolCallError {
+	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
+		if !credentialConfigured {
+			return handlers.NewToolCallError(
+				handlers.ErrorClassClient, handlers.ReasonMissingCredential,
+				fmt.Sprintf("%s — the upstream rejected this request as unauthenticated and no bearer credential is configured: set %s",
+					message, credentialSource),
+			).
+				WithStatus(statusCode).
+				WithCredentialSource(credentialSource).
+				WithUpstreamBody(parseJSONBody(body))
+		}
+		return handlers.NewToolCallError(
+			handlers.ErrorClassClient, handlers.ReasonCredentialRejected,
+			fmt.Sprintf("%s — the upstream rejected the bearer credential configured from %s",
+				message, credentialSource),
+		).
+			WithStatus(statusCode).
+			WithCredentialSource(credentialSource).
+			WithUpstreamBody(parseJSONBody(body))
+	}
+
+	return handlers.NewToolCallError(
+		handlers.ErrorClassUpstream, handlers.ReasonUpstreamHTTP, message,
+	).
+		WithStatus(statusCode).
+		WithUpstreamBody(parseJSONBody(body))
+}
+
+// credentialSourceName reports where the outbound credential came from, or the
+// mechanisms it was expected from when none is configured. It never contains
+// the credential value.
+func (e *ToolExecutor) credentialSourceName() string {
+	if e.credentialSource != "" {
+		return e.credentialSource
+	}
+	return DefaultCredentialSource
+}
+
+// parseJSONBody decodes an upstream response body as JSON for the error marker,
+// returning nil when the body was not a JSON document (or was JSON null).
+func parseJSONBody(body []byte) interface{} {
+	if len(body) == 0 {
+		return nil
+	}
+	var parsed interface{}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil
+	}
+	return parsed
 }
 
 // classifyParams parses the JSON Schema from an ExecutionConfig's InputSchema
