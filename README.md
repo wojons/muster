@@ -32,6 +32,7 @@ support is a CGO package (`github.com/mattn/go-sqlite3`), and `make` builds with
 | **Go 1.26.6+** | the version in [`go.mod`](go.mod) — older toolchains fail with a hard toolchain error. Check with `go version`; install from https://go.dev/dl/ |
 | **C compiler** (`gcc` or `clang`) | required for CGO (SQLite). Without one, `make build-cli` stops with `cgo: C compiler "gcc" not found` (reported from `runtime/cgo`) |
 | **make**, **git**, **curl** | build driver, cloning the repo, fetching specs over http(s) |
+| **Python 3 + Flask** | demo only — the 5 mock services are Flask apps. Install Flask into a repo venv (`python3 -m venv .venv && . .venv/bin/activate && pip install flask`); a bare `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+ (PEP 668). Not needed to build or use the binaries |
 
 Debian 13 / Ubuntu — one line:
 
@@ -85,7 +86,10 @@ make build-cli
 # MUSTER_BASE_URL) — running such a command without one fails with a hint
 # naming those two options instead of a bare http error.
 
-# Run the full demo (5 mock services, 10 scripts, all 7 surfaces)
+# Run the full demo (5 mock services, 10 scripts, all 7 surfaces).
+# The mock services are Flask apps — install Flask into a repo venv once
+# (a bare `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+: PEP 668):
+python3 -m venv .venv && . .venv/bin/activate && pip install flask
 ./demo/run-all.sh
 ```
 
@@ -102,9 +106,18 @@ The demo spins up 5 mock services and exercises every surface:
 | ChainLink | 9805 | Workflow automation — multi-step chains, webhooks, polling |
 
 ```bash
+# The 5 mock services are Flask apps — install Flask into a repo venv first
+# (once; a bare `pip install flask` is refused on Debian 12/13+, Ubuntu 23.04+):
+python3 -m venv .venv && . .venv/bin/activate && pip install flask
+
 cd demo && ./run-all.sh
 # Builds binaries → starts 5 services → runs 10 demos → prints 23 pass/fail → cleans up
 ```
+
+`run-all.sh` probes its interpreter for `flask` **before** it builds anything: with
+no `.venv` and no Flask on the system `python3`, it exits 1 naming the venv
+command above, instead of building and then reporting a service that failed to
+start.
 
 ## Testing
 
@@ -245,8 +258,23 @@ go test -short ./...
 ./demo/run-all.sh
 ```
 
-Requires Go 1.26.6+, Python 3 (for demo services), Flask (`pip install flask`).
+Requires Go 1.26.6+, Python 3, and Flask (the demo's services are Flask apps).
 Also requires a C compiler for CGO (SQLite) — see [Prerequisites](#prerequisites).
+
+Install Flask into a venv in the repo — on Debian 12/13 and Ubuntu 23.04+ a bare
+`pip install flask` stops with `error: externally-managed-environment` (PEP 668):
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate && pip install flask
+./demo/run-all.sh     # picks up .venv/bin/python3 automatically
+```
+
+`demo/run-all.sh` checks that its interpreter can `import flask` before it builds
+or starts anything. If it cannot, the script exits 1 with that exact command and
+the real cause, instead of falling back to a system `python3` and failing later
+with a service-start error. Already have Flask elsewhere?
+`DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh`; alternatives to the venv are
+`pipx install flask` or `uv pip install --python .venv/bin/python3 flask`.
 
 > **Linux build note:** default builds (`go build ./...`, `go test ./...`,
 > all `make` targets) are dependency-free. The hardened CGO seccomp path is

@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
-PASS=0; FAIL=0; KEEP=0; PIDS=()
+PASS=0; FAIL=0; KEEP=0; BOOTSTRAP=0; PIDS=()
 
 pass() { echo -e "${GREEN}  ✓${NC} $1"; PASS=$((PASS+1)); }
 fail_msg() { echo -e "${RED}  ✗${NC} $1"; FAIL=$((FAIL+1)); }
@@ -17,15 +17,55 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Use project venv if available (Python3 may lack flask)
-if [ -f "$(dirname "$0")/../.venv/bin/python3" ]; then
-  PYTHON="$(cd "$(dirname "$0")/.." && pwd)/.venv/bin/python3"
+# ── Interpreter selection ────────────────────────────────────
+# Flask lives in the repo venv when present (same rule as
+# demo/test-suites/07-launch-contracts.sh); DEMO_PYTHON overrides both for hosts
+# that keep Flask elsewhere.
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -f "$REPO_ROOT/.venv/bin/python3" ]; then
+  PYTHON="$REPO_ROOT/.venv/bin/python3"
 else
-  PYTHON="python3"
+  PYTHON="$(command -v python3 || true)"
 fi
-export PATH="$(cd "$(dirname "$0")/.." && pwd)/.venv/bin:$PATH"
+PYTHON="${DEMO_PYTHON:-$PYTHON}"
 
 [[ "$*" == *"--keep-running"* ]] && KEEP=1
+[[ "$*" == *"--bootstrap"* ]] && BOOTSTRAP=1
+
+# Optional and opt-in: create the repo venv when it is missing. Never automatic.
+if [ "$BOOTSTRAP" -eq 1 ] && [ ! -x "$REPO_ROOT/.venv/bin/python3" ]; then
+  echo -e "  ${CYAN}--bootstrap:${NC} creating $REPO_ROOT/.venv ..."
+  if python3 -m venv "$REPO_ROOT/.venv" && "$REPO_ROOT/.venv/bin/pip" install --quiet flask; then
+    PYTHON="$REPO_ROOT/.venv/bin/python3"
+    echo -e "  ${GREEN}✓${NC} .venv ready (Flask installed)"
+  else
+    fail_msg "could not create .venv (needs python3-venv + network access)"
+    exit 1
+  fi
+fi
+export PATH="$REPO_ROOT/.venv/bin:$PATH"
+
+# ── Interpreter gate — fail loud on the REAL cause ───────────
+# The demo services are Flask apps. Silently falling back to a system python3
+# without Flask used to surface only as "✗ Task Forge failed to start" (after a
+# full build). Probe the interpreter up front and name the fix instead.
+if [ -z "$PYTHON" ] || [ ! -x "$PYTHON" ]; then
+  fail_msg "no python3 interpreter found — the demo services are Flask apps"
+  echo "    Install Python 3, or point the demo at an interpreter you already have:"
+  echo "      DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh"
+  exit 1
+fi
+if ! "$PYTHON" -c 'import flask' >/dev/null 2>&1; then
+  fail_msg "interpreter cannot import flask: $PYTHON"
+  echo "    The demo services are Flask apps. From the repo root, create the venv:"
+  echo "      python3 -m venv .venv && . .venv/bin/activate && pip install flask"
+  echo "    Then re-run ./demo/run-all.sh (it uses .venv/bin/python3 when present)."
+  echo "    Alternatives: pipx install flask | uv pip install --python .venv/bin/python3 flask"
+  echo "    Or point the demo at an interpreter that has Flask:"
+  echo "      DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh"
+  exit 1
+fi
+echo -e "  ${CYAN}python:${NC} $PYTHON (Flask OK)"
 
 # ── Build ────────────────────────────────────────────────────
 banner "Building Muster"
