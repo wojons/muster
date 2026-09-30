@@ -18,12 +18,18 @@ Simple greeting module that demonstrates basic WASM loading and execution.
 ---
 
 ### transform.wasm
-Data transformation module for processing API responses.
+Response-transformation plugin for `openapi-cli request --wasm-plugin`.
 
 **Features:**
-- Transforms JSON data structures
-- Applies field mappings
-- Validates output format
+- Reads the response body from stdin, writes the transformed body to stdout
+- Wraps non-empty bodies in a deterministic JSON envelope:
+  `{"hello":"world"}` → `{"wasm":true,"payload":{"hello":"world"}}`
+- Empty stdin produces empty stdout (an empty body is never turned into output)
+
+**Runtime contract**: plugins run as WASI *commands* (`pkg/wasm/module.go`), so
+the module must define `_start` and use `fd_read`/`fd_write`. A module that
+exports only a helper function is instantiated but runs nothing, which makes the
+interceptor replace the response body with an empty one.
 
 **Source**: `transform.wat`
 **Build**: `wat2wasm transform.wat -o transform.wasm`

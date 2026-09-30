@@ -1,11 +1,9 @@
 # Data Transformation Module
-# This is a placeholder description
-
-# Simulated functionality:
-# - Takes JSON or text input
-# - Applies transformations (uppercase, lowercase, reverse)
-# - Returns transformed output
-
-# Example transformations:
-# Input:  "hello world"
-# Output: "HELLO WORLD" (uppercase)
+# WASI stdin/stdout filter used by `openapi-cli request --wasm-plugin`.
+#
+# Reads the response body from stdin and writes a JSON envelope to stdout:
+#   Input:  {"hello":"world"}
+#   Output: {"wasm":true,"payload":{"hello":"world"}}
+#
+# Empty stdin -> empty stdout (an empty body is never turned into output).
+# Built from transform.wat with: wat2wasm transform.wat -o transform.wasm
