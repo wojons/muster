@@ -5,7 +5,19 @@
   "base_sha": "7398ebd9",
   "max_concurrent": 4,
   "tasks": [
-    {"id": "DF-046", "worktree": "/home/kara/worktrees/muster-DF-046", "branch": "wt/DF-046", "depends_on": []},
-    {"id": "DF-047", "worktree": "/home/kara/worktrees/muster-DF-047", "branch": "wt/DF-047", "depends_on": []}
-  ]
+    {
+      "id": "DF-046",
+      "worktree": "/home/kara/worktrees/muster-DF-046",
+      "branch": "wt/DF-046",
+      "depends_on": []
+    },
+    {
+      "id": "DF-047",
+      "worktree": "/home/kara/worktrees/muster-DF-047",
+      "branch": "wt/DF-047",
+      "depends_on": []
+    }
+  ],
+  "finished_at": "2026-09-30T04:14:51Z",
+  "recovery_note": "recovered tick 2026-09-30-04-13-37: both DF-046+DF-047 already merged at 241bf9cf (tier2 PASS); manifest closed retroactively"
 }
