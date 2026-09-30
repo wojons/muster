@@ -29,7 +29,6 @@ require (
 )
 
 require (
-	github.com/bytecodealliance/wasmtime-go/v8 v8.0.0
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/golang/protobuf v1.5.4
@@ -46,13 +45,13 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.starlark.net v0.0.0-20260908191801-89a6a09411d5
 	golang.org/x/crypto v0.57.0
+	golang.org/x/net v0.58.0
 )
 
 require (
 	github.com/jhump/protoreflect/v2 v2.0.0-beta.1 // indirect
 	github.com/petermattis/goid v0.0.0-20260113132338-7c7de50cc741 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5 // indirect
 )
