@@ -248,7 +248,7 @@ func spawnDaemonChildWithArgs(controller *daemon.Controller, args []string) erro
 	cmd.Stdin = devnull
 	cmd.Stdout = devnull
 	cmd.Stderr = devnull
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.SysProcAttr = daemonProcAttr()
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("spawn daemon child: %w", err)
