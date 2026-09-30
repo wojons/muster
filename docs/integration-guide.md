@@ -409,10 +409,27 @@ Flags: `modules run <file.wasm> [args...] --fn <name>` (default `_start`).
 Building your own modules: the demo ships `.wat` sources with a build script —
 `demo/wasm-modules/build.sh` (needs `wat2wasm` from wabt) — and
 `testdata/wasm-modules/` holds the test fixtures. The interceptor behavior
-(JSON pass-through rules, timeouts) is documented in `pkg/wasm`. Note the
-`transform.wasm` in `demo/` is a stub — it loads and executes cleanly but
-returns an empty body; a real plugin must write its transformed JSON back to
-the module's memory.
+(JSON pass-through rules, timeouts) is documented in `pkg/wasm`.
+
+A plugin is executed as a WASI **command** (`pkg/wasm/module.go`,
+`runWASMModule`): the response body is written to the module's stdin and
+whatever the module writes to **stdout** replaces the response body.
+`demo/wasm-modules/transform.wat` is a real command filter — it reads stdin to
+EOF and wraps the body in a deterministic JSON envelope, so the hook rewrites a
+live response:
+
+```bash
+./bin/openapi-cli request GET http://localhost:9801/tasks \
+  --wasm-plugin demo/wasm-modules/transform.wasm
+# {"wasm":true,"payload":[]}
+```
+
+A module that exports only a helper function and defines no `_start` is
+instantiated successfully but executes nothing, so the interceptor replaces the
+body with an EMPTY one and still exits 0 — the exact failure
+`demo/demos/09-wasm-transform.sh` now fails on. Empty stdin deliberately
+produces empty stdout, and an empty response body is passed through untouched
+before the module is called.
 
 ---
 
