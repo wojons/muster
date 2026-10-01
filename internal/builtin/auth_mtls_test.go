@@ -3,6 +3,7 @@ package builtin
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,7 +97,12 @@ func TestAuthMTLSCommand_GenerateDefaultsToConfigDir(t *testing.T) {
 
 	keyInfo, err := os.Stat(keyPath)
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), keyInfo.Mode().Perm(), "the private key stays 0600")
+	if runtime.GOOS != "windows" {
+		// Windows has no Unix permission bits: Go reports a writable file as
+		// 0666 whatever mode it was created with, so 0600 cannot be observed
+		// there. The Windows guarantee is the ACL the OS assigns on create.
+		assert.Equal(t, os.FileMode(0600), keyInfo.Mode().Perm(), "the private key stays 0600")
+	}
 	_, err = os.Stat(certPath)
 	require.NoError(t, err)
 

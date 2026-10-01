@@ -196,7 +196,7 @@ func TestBinaryExecution_RestartCommand(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(binaryPath) }()
 
-	tmpDir := t.TempDir()
+	tmpDir := shortSocketTempDir(t)
 	socketPath := filepath.Join(tmpDir, "test-restart.sock")
 	pidPath := socketPath + ".pid"
 
@@ -283,6 +283,23 @@ func TestBinaryExecution_VersionOutput(t *testing.T) {
 
 	output := stdout.String()
 	t.Logf("Version/help output: %s", output)
+}
+
+// shortSocketTempDir returns a temp dir whose path is short enough to hold a
+// Unix-domain socket. bind(2) caps sun_path (104 bytes on macOS, 108 on
+// Linux) and t.TempDir() nests <TestName><random> under /var/folders/<...>/T/
+// on macOS, which overflowed the cap: the daemon could not bind, its socket
+// file never appeared, and `start` failed with "daemon did not become ready
+// within 5s". The bound is asserted so the fixture cannot silently regress.
+func shortSocketTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "mdtsock")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+
+	sock := filepath.Join(dir, "test-restart.sock")
+	require.Less(t, len(sock), 104, "socket path %q must fit sun_path on every platform", sock)
+	return dir
 }
 
 // buildDaemonBinary builds the daemon binary for testing

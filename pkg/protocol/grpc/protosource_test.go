@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -201,5 +202,75 @@ func TestDiscover_ProtoSourceWithDeclaredDir(t *testing.T) {
 	}
 	if got := ops[0].Source[SourceFullMethod]; got != "/calc.Calculator/Add" {
 		t.Fatalf("full method = %q, want /calc.Calculator/Add", got)
+	}
+}
+
+// TestSplitImportPaths_WindowsVolumeIsNotASeparator pins the declared-dir
+// splitter against Windows absolute paths. Before this, loadProtoSources
+// split "C:\dirs\001=calc.proto" on every ':' — turning the single declared
+// directory into "C" + "\dirs\001" — the all-dirs check failed, the '=' was
+// never recognized and the whole URI was read as one file path, so every
+// declared-dir form (dir=file.proto) failed on windows-latest.
+func TestSplitImportPaths_WindowsVolumeIsNotASeparator(t *testing.T) {
+	cases := []struct {
+		name string
+		list string
+		want []string
+	}{
+		{"single unix dir", "/tmp/abc/001", []string{"/tmp/abc/001"}},
+		{"two unix dirs", "/tmp/a:/tmp/b", []string{"/tmp/a", "/tmp/b"}},
+		{"single windows dir", `C:\Users\runneradmin\AppData\Local\Temp\abc\001`,
+			[]string{`C:\Users\runneradmin\AppData\Local\Temp\abc\001`}},
+		{"forward-slash volume", "C:/Users/abc/001", []string{"C:/Users/abc/001"}},
+		{"two windows dirs", `C:\a\001:C:\b\002`, []string{`C:\a\001`, `C:\b\002`}},
+		{"mixed separator kinds", `dir1:C:\b\002`, []string{"dir1", `C:\b\002`}},
+		{"lowercase drive", `c:\a\001:c:\b\002`, []string{`c:\a\001`, `c:\b\002`}},
+		{"empty segment preserved", "a::b", []string{"a", "", "b"}},
+		{"drive-rooted tail is exempt", `dir1:X:\b`, []string{"dir1", `X:\b`}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := splitImportPaths(tc.list)
+			if len(got) != len(tc.want) {
+				t.Fatalf("splitImportPaths(%q) = %q, want %q", tc.list, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("splitImportPaths(%q) = %q, want %q", tc.list, got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+// TestDiskAccessor_ReadersAreInMemory pins the handle-leak contract every
+// reader loadProtoSources hands the parser must honour.
+//
+// protoparse's import-path pre-pass (parseToAST in jhump/protoreflect v1.18.1,
+// reached because the parser sets InferImportPaths) reads the accessor's
+// ReadCloser through parser.Parse and never closes it. Returning an *os.File
+// therefore leaks one descriptor per parsed file for the life of the process,
+// and on Windows the leaked handle also keeps the file undeletable: every
+// grpc test whose fixture proto lives in a t.TempDir() failed with
+// "TempDir RemoveAll cleanup: unlinkat ... wire.proto: The process cannot
+// access the file because it is being used by another process". Memory-backed
+// readers make the missing Close harmless.
+func TestDiskAccessor_ReadersAreInMemory(t *testing.T) {
+	dir := writeProtoDir(t, "calc.proto", calcProto("calc"))
+	accessor := diskAccessor([]string{dir}, []string{"calc.proto"})
+
+	// Both the verbatim declared-dir form and the absolute-path form.
+	for _, name := range []string{"calc.proto", filepath.Join(dir, "calc.proto")} {
+		rc, err := accessor(name)
+		if err != nil {
+			t.Fatalf("accessor(%q) = %v, want a reader", name, err)
+		}
+		if _, isFile := rc.(*os.File); isFile {
+			t.Fatalf("accessor(%q) returned an *os.File: the parser never closes it, so every parse leaks a handle", name)
+		}
+		if _, err := io.ReadAll(rc); err != nil {
+			t.Fatalf("read %q: %v", name, err)
+		}
+		_ = rc.Close()
 	}
 }

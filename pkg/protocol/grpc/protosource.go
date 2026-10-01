@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -28,9 +29,9 @@ func loadProtoSources(uri string) ([]*desc.FileDescriptor, error) {
 	filesPart := uri
 	if idx := strings.Index(uri, "="); idx >= 0 {
 		// Only treat a prefix as import paths when every path segment before
-		// '=' is an existing directory (a stray '=' inside a filename or a
-		// Windows drive letter must not be misread as an import-path spec).
-		candidate := strings.Split(uri[:idx], ":")
+		// '=' is an existing directory (a stray '=' inside a filename must not
+		// be misread as an import-path spec).
+		candidate := splitImportPaths(uri[:idx])
 		allDirs := true
 		for _, d := range candidate {
 			if d == "" {
@@ -76,6 +77,49 @@ func splitFileList(list string) []string {
 	return out
 }
 
+// splitImportPaths splits the "dir1:dir2" import-path list of the
+// "dir1:dir2=file.proto" form on ':', the separator documented for every
+// platform (the legacy form "dir1;dir2=file.proto" is not accepted, so
+// filepath.SplitList — ';' on Windows — is not the right splitter).
+//
+// A Windows absolute path carries a volume colon ("C:\dirs\calc.proto"), so a
+// plain strings.Split turned the single directory "C:\dirs" into the two
+// bogus segments "C" and "\dirs", the all-dirs check failed, and the '=' was
+// never recognized: the whole URI was then read as one file path and every
+// declared-dir form failed on Windows. A ':' is therefore a separator only
+// when it is not the volume designator that opens a path segment, i.e. not the
+// second character of a segment whose first character is an ASCII letter and
+// which is followed by a volume root ('\' or '/'). Unix paths never match that
+// shape, so this is identical to strings.Split there.
+func splitImportPaths(list string) []string {
+	parts := make([]string, 0, 2)
+	start := 0
+	for i := 0; i < len(list); i++ {
+		if list[i] != ':' {
+			continue
+		}
+		if isVolumeDesignator(list, start, i) {
+			continue
+		}
+		parts = append(parts, list[start:i])
+		start = i + 1
+	}
+	return append(parts, list[start:])
+}
+
+// isVolumeDesignator reports whether the ':' at index i opens a Windows
+// volume ("C:\", "c:/") inside the segment that starts at index start.
+func isVolumeDesignator(list string, start, i int) bool {
+	if i != start+1 || i+1 >= len(list) {
+		return false
+	}
+	drive := list[start]
+	if !(drive >= 'a' && drive <= 'z' || drive >= 'A' && drive <= 'Z') {
+		return false
+	}
+	return list[i+1] == '\\' || list[i+1] == '/'
+}
+
 // diskAccessor builds a FileAccessor that reads files from disk without
 // protoparse's import-path joining: absolute paths are read verbatim;
 // relative names resolve against the first declared dir then the current
@@ -102,7 +146,7 @@ func diskAccessor(importPaths, files []string) protoparse.FileAccessor {
 		}
 		var lastErr error
 		for _, dir := range searchPaths {
-			f, err := os.Open(filepath.Join(dir, name))
+			f, err := protoReader(filepath.Join(dir, name))
 			if err == nil {
 				return f, nil
 			}
@@ -120,20 +164,45 @@ func diskAccessor(importPaths, files []string) protoparse.FileAccessor {
 // cwd-relative usage exactly as they were.
 func openRequestedFile(importPaths []string, name string) (io.ReadCloser, error) {
 	if len(importPaths) > 0 {
-		if f, err := os.Open(filepath.Join(importPaths[0], name)); err == nil {
-			if info, statErr := f.Stat(); statErr == nil && !info.IsDir() {
-				return f, nil
-			}
-			_ = f.Close()
+		if path := filepath.Join(importPaths[0], name); isRegularFile(path) {
+			return protoReader(path)
 		}
 	}
 	return openProtoFile(name)
 }
 
+// protoReader reads a proto source into memory and returns a reader over the
+// bytes.
+//
+// Every reader this package hands the parser must be memory-backed: with
+// InferImportPaths set, protoparse's recursive pre-pass (parseToAST in
+// jhump/protoreflect v1.18.1) reads the accessor's ReadCloser through
+// parser.Parse and never closes it, so an *os.File returned here leaks one
+// handle per parsed file for the life of the process. On Windows the leaked
+// handle also makes the file undeletable, which turned every test that parses
+// a proto from a temp dir into "TempDir RemoveAll cleanup: unlinkat ...
+// The process cannot access the file because it is being used by another
+// process". The parse itself only reads the source, so buffering it is safe.
+// The raw error is returned unwrapped so callers keep their own message.
+func protoReader(path string) (io.ReadCloser, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return io.NopCloser(bytes.NewReader(data)), nil
+}
+
+// isRegularFile reports whether path exists and is a regular file (not a
+// directory), used to probe a candidate without holding a handle open.
+func isRegularFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
 // openProtoFile opens a proto file with a mapped error (CodeNotFound on
 // read failure per §4.2's target-not-found row).
 func openProtoFile(path string) (io.ReadCloser, error) {
-	f, err := os.Open(path)
+	f, err := protoReader(path)
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeNotFound, "read proto file "+path)
 	}

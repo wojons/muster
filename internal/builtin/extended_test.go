@@ -18,6 +18,28 @@ import (
 	"github.com/wojons/muster/pkg/config"
 )
 
+// isolateConfigDir pins every environment variable the platform config-dir
+// resolution reads — os.UserHomeDir (HOME / USERPROFILE) and os.UserConfigDir
+// (XDG_CONFIG_HOME or HOME on Unix, HOME on macOS, %APPDATA% on Windows) — to a
+// fresh temp dir, and returns the `<config dir>/muster` directory this platform
+// resolves. pkg/config's loader (setDefaultPaths) and the audit sink
+// (audit.DefaultSinkPath) both root their state there, so hardcoding
+// ~/.config/muster made these tests fail on windows-latest (%APPDATA%) and
+// macos-latest (~/Library/Application Support).
+func isolateConfigDir(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
+
+	dir, err := os.UserConfigDir()
+	require.NoError(t, err)
+	return filepath.Join(dir, "muster")
+}
+
 // TestWebhookCommand_ListEmpty verifies list works with no subscriptions.
 func TestWebhookCommand_ListEmpty(t *testing.T) {
 	cfg := &config.Config{ConfigDir: t.TempDir()}
@@ -281,9 +303,7 @@ func TestTenantCommand_SetUnknownTenant(t *testing.T) {
 // fresh install, then a profiles block loaded through the config loader — so
 // the validation source and the store are exercised together.
 func TestTenantCommand_PersistedTenantSurvivesProfileAddition(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	configDir := filepath.Join(home, ".config", "muster")
+	configDir := isolateConfigDir(t)
 
 	// Fresh HOME: no profiles declared, no tenants store yet.
 	fresh, err := config.NewLoader().Load()
@@ -705,13 +725,10 @@ func TestResolveWebhook(t *testing.T) {
 // events to the audit log that `audit log` reads. Previously the CLI had a
 // reader and no writers, so an enabled audit trail was always empty.
 func TestAuditEmit_MutationEventsLand(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("XDG_CONFIG_HOME", "")
+	cfgDir := isolateConfigDir(t)
 	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
 	t.Setenv("MUSTER_AUDIT_LOG", "")
 
-	cfgDir := filepath.Join(home, ".config", "muster")
 	cfg := &config.Config{ConfigDir: cfgDir}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -332,8 +332,15 @@ func TestSharedBinary_PerTestCopyIsolated(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s: per-test copy %q unreadable: %v", name, path, err)
 			}
-			if info.Mode().Perm()&0o111 == 0 {
+			// Windows has no executable bit: Go reports every writable file as
+			// 0666 regardless of the mode it was created with, so the mode check
+			// is only meaningful on Unix. Runnable-ness there is covered by the
+			// byte-identity check below and by the suites that exec the copy.
+			if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 				t.Fatalf("%s: per-test copy %q is not executable (mode %v)", name, path, info.Mode())
+			}
+			if info.Size() == 0 {
+				t.Fatalf("%s: per-test copy %q is empty", name, path)
 			}
 		}
 
