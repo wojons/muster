@@ -223,6 +223,12 @@ test-e2e: build ## Run end-to-end tests
 	@go test -v -tags=e2e ./test/e2e/...
 	@echo "✓ E2E tests complete"
 
+.PHONY: test-soak
+test-soak: ## Run 30-minute daemon stability soak (build-tagged 'stability'; excluded from default go test)
+	@echo "Running stability soak tests..."
+	@go test -tags stability -timeout 40m ./test/stability/
+	@echo "✓ Stability soak complete"
+
 # =============================================================================
 # FIPS 140-3 Compliance
 # =============================================================================

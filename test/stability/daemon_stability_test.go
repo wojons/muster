@@ -1,3 +1,5 @@
+//go:build stability
+
 package stability
 
 import (
