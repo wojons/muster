@@ -83,8 +83,20 @@ jobs:
         format: 'sarif'
         output: 'trivy-results.sarif'
 
+    # Code scanning is not enabled on this private repo, so the SARIF
+    # upload endpoint rejects the payload (INT-CI-004: job failed every
+    # run at this step). Keep the step best-effort and always upload the
+    # SARIF as a workflow artifact so scan results stay visible.
     - name: Upload scan results
       if: always()
+      continue-on-error: true
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-results.sarif'
+
+    - name: Upload scan results artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-results
+        path: trivy-results.sarif
