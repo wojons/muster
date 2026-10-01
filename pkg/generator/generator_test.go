@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -2532,6 +2533,75 @@ func TestInitializeDynamicCommands_InvalidSpec(t *testing.T) {
 
 	err = InitializeDynamicCommands(rootCmd, specPath)
 	require.Error(t, err)
+}
+
+// =============================================================================
+// QA-MUSTER-10: the command cache must not live at a fixed, host-shared path.
+// =============================================================================
+
+// TestCommandCachePath_UIDScopedAndEnvOverridable pins how the cache location is
+// resolved: a per-uid default (so two users on one host can never collide on a
+// mode-0600 file) and a MUSTER_COMMAND_CACHE override.
+func TestCommandCachePath_UIDScopedAndEnvOverridable(t *testing.T) {
+	t.Setenv(CommandCacheEnvVar, "")
+
+	got := commandCachePath()
+	want := filepath.Join(os.TempDir(), fmt.Sprintf("muster-cache-commands-%d.json", os.Getuid()))
+	require.Equal(t, want, got)
+	require.NotEqual(t, filepath.Join(os.TempDir(), "muster-cache-commands.json"), got,
+		"cache path must not be the fixed host-shared path")
+
+	override := filepath.Join(t.TempDir(), "custom-cache.json")
+	t.Setenv(CommandCacheEnvVar, override)
+	require.Equal(t, override, commandCachePath())
+}
+
+// TestInitializeDynamicCommands_HostileSharedCacheFile reproduces the shared-/tmp
+// failure: a stale cache file sitting at the legacy fixed path that this process
+// cannot write to. Generating the command tree must still succeed (RED on the
+// pre-fix code: "open <tmp>/muster-cache-commands.json: permission denied").
+func TestInitializeDynamicCommands_HostileSharedCacheFile(t *testing.T) {
+	sandbox := t.TempDir()
+	t.Setenv("TMPDIR", sandbox)
+
+	// The legacy fixed path, made unwritable — the same effect as another
+	// uid's mode-0600 leftovers.
+	hostile := filepath.Join(sandbox, "muster-cache-commands.json")
+	hostileContent := []byte(`{"SpecHash":"stale-other-uid"}`)
+	require.NoError(t, os.WriteFile(hostile, hostileContent, 0600))
+	require.NoError(t, os.Chmod(hostile, 0444))
+	t.Cleanup(func() { _ = os.Chmod(hostile, 0600) })
+
+	specPath := filepath.Join(sandbox, "hostile-cache-spec.yaml")
+	require.NoError(t, os.WriteFile(specPath, []byte(petstoreSpecJSON()), 0644))
+
+	rootCmd := &cobra.Command{Use: "test-cli"}
+	require.NoError(t, InitializeDynamicCommands(rootCmd, specPath))
+	require.NotEmpty(t, rootCmd.Commands())
+
+	// The cache landed on the per-uid path; the hostile file was never touched.
+	uidCache := filepath.Join(sandbox, fmt.Sprintf("muster-cache-commands-%d.json", os.Getuid()))
+	require.FileExists(t, uidCache)
+
+	after, err := os.ReadFile(hostile)
+	require.NoError(t, err)
+	require.Equal(t, hostileContent, after, "hostile legacy cache file must not be rewritten")
+}
+
+// TestInitializeDynamicCommands_EnvOverrideWritesCache proves MUSTER_COMMAND_CACHE
+// actually reaches persist(): the cache file lands at the overridden location.
+func TestInitializeDynamicCommands_EnvOverrideWritesCache(t *testing.T) {
+	tmpDir := t.TempDir()
+	cachePath := filepath.Join(tmpDir, "override-cache.json")
+	t.Setenv(CommandCacheEnvVar, cachePath)
+
+	specPath := filepath.Join(tmpDir, "override-cache-spec.yaml")
+	require.NoError(t, os.WriteFile(specPath, []byte(petstoreSpecJSON()), 0644))
+
+	rootCmd := &cobra.Command{Use: "test-cli"}
+	require.NoError(t, InitializeDynamicCommands(rootCmd, specPath))
+	require.NotEmpty(t, rootCmd.Commands())
+	require.FileExists(t, cachePath)
 }
 
 // =============================================================================

@@ -1618,8 +1618,30 @@ func computeHash(path string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+// CommandCacheEnvVar overrides the on-disk location of the generated-command
+// cache. It exists so deployments and tests can redirect the cache away from
+// the default per-uid path under os.TempDir().
+const CommandCacheEnvVar = "MUSTER_COMMAND_CACHE"
+
+// commandCachePath resolves the on-disk location of the generated-command
+// cache.
+//
+// The default is per-uid: <tmp>/muster-cache-commands-<uid>.json. A fixed
+// <tmp>/muster-cache-commands.json is shared by every user of a host, and
+// because persist() writes it 0600, leftovers owned by another uid (for
+// example a prior tenant on a host with a shared /tmp) made
+// InitializeDynamicCommands fail with "permission denied" instead of
+// generating the command tree. MUSTER_COMMAND_CACHE overrides the location
+// outright.
+func commandCachePath() string {
+	if override := os.Getenv(CommandCacheEnvVar); override != "" {
+		return override
+	}
+	return filepath.Join(os.TempDir(), fmt.Sprintf("muster-cache-commands-%d.json", os.Getuid()))
+}
+
 func InitializeDynamicCommands(rootCmd *cobra.Command, specPath string) error {
-	cache := NewCommandCache(filepath.Join(os.TempDir(), "muster-cache-commands.json"))
+	cache := NewCommandCache(commandCachePath())
 
 	_, cached := cache.Load(specPath)
 
