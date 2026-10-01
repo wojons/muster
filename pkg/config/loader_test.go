@@ -21,7 +21,12 @@ import (
 func TestMain(m *testing.M) {
 	isolated := filepath.Join(os.TempDir(), "muster-config-test")
 	// Redirect all platform config/cache/data roots to an empty scratch dir.
+	// USERPROFILE matters as much as HOME on Windows: os.UserHomeDir() ignores
+	// HOME there and reads %USERPROFILE%, so without it the tests fell through
+	// to the real user profile (and UserConfigFilePath's fallback pointed at
+	// C:\Users\<user>\.config\muster instead of the scratch dir).
 	os.Setenv("HOME", isolated)
+	os.Setenv("USERPROFILE", isolated)
 	os.Setenv("APPDATA", isolated)
 	os.Setenv("LOCALAPPDATA", isolated)
 	os.Exit(m.Run())

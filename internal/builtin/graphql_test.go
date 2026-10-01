@@ -216,7 +216,11 @@ func TestProtocolGraphQL_Document_PrintsTheBuiltQueryDocument(t *testing.T) {
 
 	golden, err := os.ReadFile(graphqlFixtureGoldenQuery)
 	require.NoError(t, err)
-	assert.Equal(t, strings.TrimSpace(string(golden)), strings.TrimSpace(out),
+	// Line endings are normalized before comparing: the golden file is committed
+	// with LF, but a Windows checkout (core.autocrlf) hands it back with CRLF
+	// while the printed document always uses LF.
+	want := strings.ReplaceAll(string(golden), "\r\n", "\n")
+	assert.Equal(t, strings.TrimSpace(want), strings.TrimSpace(out),
 		"--document prints exactly the document the request builder would send")
 
 	// A field with no arguments needs no variable declaration block.

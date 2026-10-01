@@ -2562,7 +2562,15 @@ func TestCommandCachePath_UIDScopedAndEnvOverridable(t *testing.T) {
 // pre-fix code: "open <tmp>/muster-cache-commands.json: permission denied").
 func TestInitializeDynamicCommands_HostileSharedCacheFile(t *testing.T) {
 	sandbox := t.TempDir()
+	// os.TempDir() reads TMPDIR on Unix and TMP/TEMP on Windows: pin whichever
+	// this platform honours, so the per-uid cache cannot land in the real temp
+	// dir (which is what made the assertion below fail on windows-latest).
 	t.Setenv("TMPDIR", sandbox)
+	t.Setenv("TMP", sandbox)
+	t.Setenv("TEMP", sandbox)
+	t.Setenv(CommandCacheEnvVar, "")
+	require.Equal(t, filepath.Clean(sandbox), filepath.Clean(os.TempDir()),
+		"the sandbox must be this process's temp dir for this test to mean anything")
 
 	// The legacy fixed path, made unwritable — the same effect as another
 	// uid's mode-0600 leftovers.
@@ -2580,7 +2588,7 @@ func TestInitializeDynamicCommands_HostileSharedCacheFile(t *testing.T) {
 	require.NotEmpty(t, rootCmd.Commands())
 
 	// The cache landed on the per-uid path; the hostile file was never touched.
-	uidCache := filepath.Join(sandbox, fmt.Sprintf("muster-cache-commands-%d.json", os.Getuid()))
+	uidCache := filepath.Join(os.TempDir(), fmt.Sprintf("muster-cache-commands-%d.json", os.Getuid()))
 	require.FileExists(t, uidCache)
 
 	after, err := os.ReadFile(hostile)

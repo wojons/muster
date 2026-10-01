@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	apperrors "github.com/wojons/muster/pkg/errors"
 )
@@ -515,5 +516,58 @@ func TestExecute_MessagesSeedOnUnary(t *testing.T) {
 	})
 	if !apperrors.IsError(err, apperrors.CodeValidation) {
 		t.Fatalf("two seeds for a unary method = %v, want AppError CodeValidation", err)
+	}
+}
+
+// ─── caller-stop classification (PROTO-009 race) ─────────────────────────
+
+// expiredDeadlineCtx is a context whose deadline has passed while Err() is still
+// nil: the window in which the transport observes the caller's deadline before
+// the context package has marked the context done.
+type expiredDeadlineCtx struct{ context.Context }
+
+func (expiredDeadlineCtx) Deadline() (time.Time, bool) {
+	return time.Now().Add(-time.Second), true
+}
+
+// TestFinishStream_DeadlinePassedButNotYetMarked pins how a caller-deadline
+// stop is classified when it lands inside that window: the transcript is
+// "cancelled", not "error".
+//
+// TestExecute_ServerStream_CallerDeadline failed on macos-latest for exactly
+// this reason — the transport ended the call at the 150ms deadline (items
+// intact, CodeTimeout) while callerCtx.Err() was still nil, so the transcript
+// was labelled "error".
+func TestFinishStream_DeadlinePassedButNotYetMarked(t *testing.T) {
+	tr := &StreamTranscript{Trailer: map[string]interface{}{}}
+	out := streamOutcome{err: context.DeadlineExceeded}
+
+	err := finishStream(tr, &streamBound{}, out, expiredDeadlineCtx{context.Background()}, "/kv.KeyValue/Tail", time.Now(), 1)
+
+	if tr.Status != StatusCancelled {
+		t.Fatalf("status = %q, want cancelled", tr.Status)
+	}
+	if !apperrors.IsError(err, apperrors.CodeTimeout) {
+		t.Fatalf("error = %v, want AppError CodeTimeout", err)
+	}
+}
+
+// TestFinishStream_LiveDeadlineStaysAnError is the control: a caller deadline
+// that has NOT passed must leave a server-reported failure classified as
+// "error", so the check above cannot be satisfied by ignoring the status.
+func TestFinishStream_LiveDeadlineStaysAnError(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	tr := &StreamTranscript{Trailer: map[string]interface{}{}}
+	out := streamOutcome{err: status.Error(codes.NotFound, "key not found")}
+
+	err := finishStream(tr, &streamBound{}, out, ctx, "/kv.KeyValue/Tail", time.Now(), 0)
+
+	if tr.Status != StatusError {
+		t.Fatalf("status = %q, want error", tr.Status)
+	}
+	if !apperrors.IsError(err, apperrors.CodeNotFound) {
+		t.Fatalf("error = %v, want AppError CodeNotFound", err)
 	}
 }

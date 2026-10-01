@@ -269,6 +269,27 @@ func sendRequests(sender requestSender, msgs []*dynamic.Message, limits StreamLi
 	return sent, nil
 }
 
+// callerEndedTheCall reports whether the CALLER's own context stopped the
+// stream: it is cancelled, or its deadline has passed.
+//
+// callerCtx.Err() alone is not enough. The transport and the context package
+// track the caller's deadline independently, so an RPC can come back
+// DeadlineExceeded while callerCtx.Err() is still nil — the transcript then
+// said "error" instead of "cancelled". That is what failed
+// TestExecute_ServerStream_CallerDeadline on macos-latest at exactly the 150ms
+// deadline, with the event received before it intact. An expired deadline is
+// therefore checked directly rather than inferred from the race.
+func callerEndedTheCall(callerCtx context.Context) bool {
+	if callerCtx == nil {
+		return false
+	}
+	if callerCtx.Err() != nil {
+		return true
+	}
+	deadline, ok := callerCtx.Deadline()
+	return ok && !time.Now().Before(deadline)
+}
+
 // finishStream stamps the terminal status and trailer of a streaming
 // invocation and returns the AppError that must accompany the transcript (nil
 // for the two clean endings). callerCtx is the caller's own context: when it is
@@ -289,7 +310,7 @@ func finishStream(t *StreamTranscript, bound *streamBound, out streamOutcome, ca
 		return nil
 	}
 	t.Trailer["error"] = out.err.Error()
-	if callerCtx != nil && callerCtx.Err() != nil {
+	if callerEndedTheCall(callerCtx) {
 		t.Status = StatusCancelled
 		return mapTransportError(out.err, fullMethod)
 	}

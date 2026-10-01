@@ -287,14 +287,35 @@ func paramNames(op *protocol.Operation) []string {
 	return names
 }
 
-// requireGolden compares got with a checked-in golden file (trailing whitespace
-// ignored).
+// requireGolden compares an artifact against its checked-in golden file (trailing
+// whitespace ignored).
+//
+// Line endings are normalized first: the golden files are committed with LF, but
+// a Windows checkout (core.autocrlf) hands them back with CRLF while the built
+// artifact always uses LF, which failed this comparison on windows-latest.
 func requireGolden(t *testing.T, path, got string) {
 	t.Helper()
 	want, err := os.ReadFile(path)
 	require.NoError(t, err)
-	require.Equal(t, strings.TrimSpace(string(want)), strings.TrimSpace(got),
+	require.Equal(t, normalizeEOL(strings.TrimSpace(string(want))), normalizeEOL(strings.TrimSpace(got)),
 		"artifact must match the checked-in golden file %s", path)
+}
+
+// normalizeEOL rewrites CRLF (and lone CR) to LF so a golden comparison does
+// not depend on the checkout's line-ending conversion.
+func normalizeEOL(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\r", "\n")
+}
+
+// TestRequireGolden_NormalizesCRLF pins the Windows golden-file comparison: a
+// checkout that converts the checked-in golden file to CRLF (core.autocrlf on
+// windows-latest) must still compare equal to the artifact, which is always
+// built with LF.
+func TestRequireGolden_NormalizesCRLF(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "golden.graphql")
+	require.NoError(t, os.WriteFile(path, []byte("query Q {\r\n  x\r\n}\r\n"), 0o600))
+
+	requireGolden(t, path, "query Q {\n  x\n}\n")
 }
 
 // ── stage 1/2: ingestion ─────────────────────────────────────────────────
