@@ -42,12 +42,18 @@ func TestUserConfigFilePath(t *testing.T) {
 	})
 
 	t.Run("prefers existing standard path over fallback", func(t *testing.T) {
-		home := os.Getenv("HOME") // isolated via package TestMain
-		legacy := filepath.Join(home, ".muster")
+		// Isolate os.UserHomeDir() on all platforms: HOME on Unix, USERPROFILE on Windows.
+		tmpHome := t.TempDir()
+		t.Setenv("HOME", tmpHome)
+		t.Setenv("USERPROFILE", tmpHome)
+		// Also isolate os.UserConfigDir() on Windows (uses APPDATA/LOCALAPPDATA).
+		t.Setenv("APPDATA", filepath.Join(tmpHome, "AppData", "Roaming"))
+		t.Setenv("LOCALAPPDATA", filepath.Join(tmpHome, "AppData", "Local"))
+
+		legacy := filepath.Join(tmpHome, ".muster")
 		require.NoError(t, os.MkdirAll(legacy, 0o700))
 		legacyCfg := filepath.Join(legacy, "config.yaml")
 		require.NoError(t, os.WriteFile(legacyCfg, []byte("version: \"1.0.0\"\n"), 0o600))
-		t.Cleanup(func() { _ = os.RemoveAll(legacy) })
 
 		path, err := UserConfigFilePath(&Config{})
 		require.NoError(t, err)
@@ -55,10 +61,17 @@ func TestUserConfigFilePath(t *testing.T) {
 	})
 
 	t.Run("defaults to xdg user path when nothing exists", func(t *testing.T) {
-		home := os.Getenv("HOME")
+		// Isolate os.UserHomeDir() on all platforms: HOME on Unix, USERPROFILE on Windows.
+		tmpHome := t.TempDir()
+		t.Setenv("HOME", tmpHome)
+		t.Setenv("USERPROFILE", tmpHome)
+		// Also isolate os.UserConfigDir() on Windows (uses APPDATA/LOCALAPPDATA).
+		t.Setenv("APPDATA", filepath.Join(tmpHome, "AppData", "Roaming"))
+		t.Setenv("LOCALAPPDATA", filepath.Join(tmpHome, "AppData", "Local"))
+
 		path, err := UserConfigFilePath(&Config{})
 		require.NoError(t, err)
-		assert.Equal(t, filepath.Join(home, ".config", "muster", "config.yaml"), path)
+		assert.Equal(t, filepath.Join(tmpHome, ".config", "muster", "config.yaml"), path)
 	})
 
 	t.Run("nil config tolerated", func(t *testing.T) {
