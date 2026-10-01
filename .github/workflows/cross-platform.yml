@@ -15,6 +15,22 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         go-version: ['1.26']
+        # windows-latest runs Go 1.27 instead: Go 1.26.x on windows/amd64
+        # corrupts the goroutine stack during overlapped socket I/O (the kernel
+        # writes an output parameter into a stack slot that has already been
+        # reused), which surfaces as a whole-package crash and not a test
+        # failure — `Exception 0xc0000005 ...` / `runtime: g N ...: unknown pc`
+        # in pkg/protocol/grpc and `fatal error: unexpected signal during
+        # runtime execution` inside the GC in internal/builtin.
+        # Upstream: golang/go#77975 (fixed by CL 753040 + CL 753560), closed
+        # with milestone Go1.27; go1.26.8 does not contain either change.
+        # INT-CI-004. Drop the exclude/include pair once the toolchain the
+        # repo targets is >= 1.27.
+        exclude:
+          - os: windows-latest
+        include:
+          - os: windows-latest
+            go-version: '1.27'
     steps:
       - uses: actions/checkout@v4
       
