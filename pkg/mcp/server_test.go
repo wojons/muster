@@ -425,7 +425,12 @@ func TestServer_Run_ToolsListRegistered(t *testing.T) {
 		t.Error("result should not be nil for tools/list")
 	}
 
-	<-done
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		cancel()
+		t.Fatal("Run did not return after stdin close (io.Pipe EOF)")
+	}
 }
 
 func TestServer_Run_MCPErrorFromHandler(t *testing.T) {
@@ -466,7 +471,12 @@ func TestServer_Run_MCPErrorFromHandler(t *testing.T) {
 		t.Errorf("error code = %d, want -32001", resp.Error.Code)
 	}
 
-	<-done
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		cancel()
+		t.Fatal("Run did not return after stdin close (io.Pipe EOF)")
+	}
 }
 
 func TestServer_Run_HandlerReturnsError(t *testing.T) {
@@ -507,7 +517,12 @@ func TestServer_Run_HandlerReturnsError(t *testing.T) {
 		t.Errorf("error code = %d, want -32000", resp.Error.Code)
 	}
 
-	<-done
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		cancel()
+		t.Fatal("Run did not return after stdin close (io.Pipe EOF)")
+	}
 }
 
 func TestServer_Run_NotificationGetsNoResponse(t *testing.T) {
