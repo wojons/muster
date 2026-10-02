@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -104,13 +105,17 @@ func TestBinaryExecution_InvalidSpec(t *testing.T) {
 	t.Logf("Binary stderr output: %s", stderrStr)
 }
 
-// TestBinaryExecution_NoSpec tests binary runs without spec
+// TestBinaryExecution_NoSpec tests that the binary refuses to start with no
+// spec (REVIEW-MUSTER-3). Bare `openapi-mcp` used to complete the initialize
+// handshake and then answer tools/list with JSON-RPC "Method not found"
+// because nothing was ever registered. It must now exit non-zero with a
+// message naming the -spec flag, and serve no JSON-RPC surface.
 func TestBinaryExecution_NoSpec(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(binaryPath) }()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, binaryPath)
@@ -121,11 +126,21 @@ func TestBinaryExecution_NoSpec(t *testing.T) {
 
 	err = cmd.Run()
 
-	// Binary should start waiting for stdin (stdio mode)
-	// Expect timeout or context cancellation, not an error
-	if err != nil {
-		t.Logf("Binary error without spec (expected): %v", err)
-	}
+	require.Error(t, err,
+		"bare openapi-mcp must exit non-zero instead of serving an empty tool surface")
+
+	var exitErr *exec.ExitError
+	require.True(t, errors.As(err, &exitErr), "expected a non-zero process exit, got: %v", err)
+	require.Equal(t, 1, exitErr.ExitCode(), "refusal must exit 1")
+
+	stderrStr := stderr.String()
+	require.Contains(t, stderrStr, "no MCP tools registered",
+		"refusal reason must be observable on stderr\nstderr: %s", stderrStr)
+	require.Contains(t, stderrStr, "-spec",
+		"refusal must name the -spec flag so the operator knows the fix\nstderr: %s", stderrStr)
+
+	require.Empty(t, strings.TrimSpace(stdout.String()),
+		"no JSON-RPC response should be served when startup is refused")
 }
 
 // TestBinaryExecution_BuildingBinary tests the build process works

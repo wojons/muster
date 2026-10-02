@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Fixed
+- **MCP server**: `openapi-mcp` started bare (no `-spec`) used to answer the
+  `initialize` handshake and then return JSON-RPC `Method not found` on
+  `tools/list` — a broken tools surface with no hint why nothing was served.
+  The server now counts the tools registered at startup (OpenAPI operations and
+  OpenRPC methods) and refuses to serve a zero-tool surface: exit 1 with
+  `no MCP tools registered: ... Pass -spec ...` on stderr, before any JSON-RPC
+  response. Startup with a spec (the initialized wire protocol) is unchanged.
 - **Build**: Docker release images are now stamped with the real version,
   commit and build date. The Dockerfile's single-quoted `-ldflags` never let
   the shell expand `${VERSION}`, so images reported the literal token
