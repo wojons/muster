@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/wojons/muster/pkg/auth/ratelimit"
 )
 
@@ -466,16 +468,16 @@ func TestCleanupExpired_RemovesOldEntries(t *testing.T) {
 	oldTracker := &failedAttemptTracker{count: 3, lastTry: time.Now().Add(-1 * time.Hour)}
 	rl.failedAttempts["old-user"] = oldTracker
 
+	// cleanupExpired runs on its own goroutine with a ticker, so the removal
+	// is asynchronous: poll (bounded) instead of sleeping a fixed interval,
+	// which is racy on slow schedulers (windows-latest).
 	go rl.cleanupExpired()
-	time.Sleep(20 * time.Millisecond)
-
-	rl.failedMu.RLock()
-	_, exists := rl.failedAttempts["old-user"]
-	rl.failedMu.RUnlock()
-
-	if exists {
-		t.Error("old entry should be cleaned up")
-	}
+	require.Eventually(t, func() bool {
+		rl.failedMu.RLock()
+		defer rl.failedMu.RUnlock()
+		_, exists := rl.failedAttempts["old-user"]
+		return !exists
+	}, 2*time.Second, 5*time.Millisecond, "old entry should be cleaned up")
 }
 
 func TestCleanupExpired_KeepsRecentEntries(t *testing.T) {
@@ -492,15 +494,14 @@ func TestCleanupExpired_KeepsRecentEntries(t *testing.T) {
 	rl.failedAttempts["recent-user"] = recentTracker
 
 	go rl.cleanupExpired()
-	time.Sleep(20 * time.Millisecond)
-
-	rl.failedMu.RLock()
-	_, exists := rl.failedAttempts["recent-user"]
-	rl.failedMu.RUnlock()
-
-	if !exists {
-		t.Error("recent entry should NOT be cleaned up")
-	}
+	// Positive condition can never become true here; assert its absence over a
+	// bounded window instead of a fixed sleep (deterministic on any scheduler).
+	require.Never(t, func() bool {
+		rl.failedMu.RLock()
+		defer rl.failedMu.RUnlock()
+		_, exists := rl.failedAttempts["recent-user"]
+		return !exists
+	}, 2*time.Second, 5*time.Millisecond, "recent entry should NOT be cleaned up")
 }
 
 func TestCleanupExpired_EmptyMap(t *testing.T) {
@@ -514,15 +515,11 @@ func TestCleanupExpired_EmptyMap(t *testing.T) {
 	}
 
 	go rl.cleanupExpired()
-	time.Sleep(20 * time.Millisecond)
-
-	rl.failedMu.RLock()
-	count := len(rl.failedAttempts)
-	rl.failedMu.RUnlock()
-
-	if count != 0 {
-		t.Errorf("empty map should stay empty, got %d entries", count)
-	}
+	require.Never(t, func() bool {
+		rl.failedMu.RLock()
+		defer rl.failedMu.RUnlock()
+		return len(rl.failedAttempts) != 0
+	}, 2*time.Second, 5*time.Millisecond, "empty map should stay empty")
 }
 
 func TestCleanupExpired_MixedOldAndNew(t *testing.T) {
@@ -539,21 +536,12 @@ func TestCleanupExpired_MixedOldAndNew(t *testing.T) {
 	rl.failedAttempts["new"] = &failedAttemptTracker{count: 1, lastTry: time.Now()}
 
 	go rl.cleanupExpired()
-	time.Sleep(30 * time.Millisecond)
-
-	rl.failedMu.RLock()
-	_, oldExists := rl.failedAttempts["old"]
-	_, newExists := rl.failedAttempts["new"]
-	remaining := len(rl.failedAttempts)
-	rl.failedMu.RUnlock()
-
-	if oldExists {
-		t.Error("old entry should be cleaned up")
-	}
-	if !newExists {
-		t.Error("recent entry should remain")
-	}
-	if remaining != 1 {
-		t.Errorf("only recent entry should remain, got %d", remaining)
-	}
+	require.Eventually(t, func() bool {
+		rl.failedMu.RLock()
+		defer rl.failedMu.RUnlock()
+		_, oldExists := rl.failedAttempts["old"]
+		_, newExists := rl.failedAttempts["new"]
+		return !oldExists && newExists && len(rl.failedAttempts) == 1
+	}, 2*time.Second, 5*time.Millisecond,
+		"only the recent entry should remain after cleanup")
 }
