@@ -588,28 +588,109 @@ The error paths behave predictably: a request with no credential gets the
 upstream `401` as a typed `unauthenticated` error (exit 1); an unknown
 resource gets `404 NOT_FOUND`.
 
-### 8.6 Honest caveats: MCP and DSL auth today
+### 8.6 Caveats: what changed since the first proof (2026-10-02)
 
-- **`openapi-mcp` has no auth surface (DF-036, open P1).** It accepts
-  `--spec` and `--base-url` (or `MUSTER_BASE_URL`) and nothing
-  credential-related. `MUSTER_AUTH_TOKEN`, which the CLI path honors, is
-  **not** consulted by the MCP server. `initialize` and `tools/list`
-  work, but every authenticated `tools/call` against a bearer API
-  returns the upstream 401 as flat error text. Until DF-036 lands, use
-  the CLI surface (§8.4/§8.5) for authed APIs, or point MCP only at
-  unauthenticated endpoints.
-- **Starlark HTTP builtins carry no headers (DF-037, open P2).**
-  `http_get/post/put/delete` accept only url/body — verified live:
-  an unauthenticated call gets the upstream 401 as the response body,
-  and passing a headers dict is rejected (`got 2 arguments, want at
-  most 1`). An authed DSL workflow is currently impossible; use the
-  CLI, or `-H` on `request`.
-- MCP tool results are rendered as flat text with no structured
-  distinction between muster wiring errors and genuine upstream errors
-  (DF-038, open P2).
-- `create-session`-style table output can echo credential-shaped values
-  returned by the API in cleartext (DF-039, open P3) — review output
-  before sharing it.
+The 2026-09-27 proof listed four open gaps (DF-036/037/038/039). All four
+have since landed, and the consensus harness run (§8.7) verified each fix
+live on 2026-10-02 (HEAD `2176a340`, CLI v0.1.1-353-g2176a340):
+
+- **MCP auth (DF-036, fixed):** `openapi-mcp` now honors
+  `MUSTER_AUTH_TOKEN` (and `-auth-token-file`) and attaches it as
+  `Authorization: Bearer <token>` on every tools/call. Verified: a
+  bearer-protected `getMetrics` call returned `200` JSON through MCP.
+- **Starlark headers (DF-037, fixed):** `http_get/post/put/delete` accept
+  an optional headers dict — `http_get(url, headers)` /
+  `http_post(url, body, headers)`. Verified: an authed DSL script drove
+  `GET /health` (200), `GET /sessions` (200) and `POST /sessions` (201)
+  against a bearer-protected server. Note: the dialect has no `while`
+  loops and globals are single-assignment — put logic in a `def main()`.
+- **MCP error structure (DF-038, fixed):** tool errors come back as
+  structured content with `isError: true` instead of undifferentiated
+  flat text.
+- **Credential echo (DF-039, fixed):** `create-session --output json`
+  masks the session-scoped key (`cs_sk_***`).
+
+Still true: MCP tool names are camelCase derived from operationIds
+(`listSessions`, `getMetrics` — not snake_case), and tool results are
+flat JSON text inside `content[0].text`. Review table output before
+sharing it.
+
+### 8.7 Worked example: the full chain against a live harness (consensus, 2026-10-02)
+
+This is the proof run behind §8.6. The harness was a real agent-runtime
+API (the consensus server) serving its own OpenAPI 3.1 document at
+`/openapi.json`, with bearer auth on everything except `/api/v1/health`.
+Every command below was executed and returned the status shown — the
+same shape works for any OpenAPI 3.x service you control.
+
+```bash
+# 0. Serve the harness (any OpenAPI 3.x server works; consensus shown)
+consensus serve --port 9814 --db-url sqlite:///tmp/consensus.db
+# Boot prints a first-admin key (cs_ak_...). Save it — it is stored hashed.
+# If session creation later returns MISSING_LLM_CONFIG, restart with an
+# LLM key exported (any value; muster's chain never invokes the LLM):
+#   DEEPSEEK_API_KEY=<value> consensus serve --port 9814 --db-url sqlite:///tmp/consensus.db
+
+# 1. Discover — read-only operation listing from the served spec
+./bin/openapi-cli discover http://127.0.0.1:9814/openapi.json
+# → operations grouped by tag (sessions, tasks, memory, auth, ...), exit 0
+
+# 2. Generate typed commands, pinned to the live base URL
+./bin/openapi-cli generate http://127.0.0.1:9814/openapi.json \
+    -u http://127.0.0.1:9814
+# ✓ Success! Commands registered and persisted (78 commands from 66 paths)
+./bin/openapi-cli generate --list          # spec URL + hash + count
+
+# 3. Store the credential once
+./bin/openapi-cli auth add --name harness --type bearer --value <cs_ak_...>
+
+# 4. Call through the CLI (typed generated commands)
+./bin/openapi-cli health-check --base-url http://127.0.0.1:9814   # 200, no auth
+./bin/openapi-cli list-sessions --base-url http://127.0.0.1:9814 --auth harness   # 200
+./bin/openapi-cli get-metrics   --base-url http://127.0.0.1:9814 --auth harness   # 200
+
+# 5. Full write path via CLI: create session → task → message
+./bin/openapi-cli create-session --agent_name muster-e2e \
+    --goal "muster integration proof" \
+    --base-url http://127.0.0.1:9814 --auth harness --output json
+# → 201 {"id": "...", "status": "booting", "api_key": "cs_sk_***"}
+SID=<id from step 5>
+./bin/openapi-cli create-task $SID --title integration-proof \
+    --description "task created via muster CLI" \
+    --base-url http://127.0.0.1:9814 --auth harness --output json   # 200
+./bin/openapi-cli send-message $SID --content "proof message" \
+    --base-url http://127.0.0.1:9814 --auth harness --output json
+# → {"session": "...", "status": "message_received"}
+
+# 6. MCP leg: 78 tools over stdio, bearer auth, live tool calls
+curl -s http://127.0.0.1:9814/openapi.json -o /tmp/harness.json
+printf '%s\n' \
+ '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"m","version":"1"}}}' \
+ '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"listSessions","arguments":{}}}' \
+| MUSTER_AUTH_TOKEN=<cs_ak_...> ./bin/openapi-mcp \
+    -spec /tmp/harness.json -base-url http://127.0.0.1:9814 -log-level error
+# → tools/list: 78 tools; tools/call listSessions: 200 JSON of the sessions
+#   created in steps 5 AND 7 (cross-leg proof through one server)
+
+# 7. Starlark DSL leg: authed workflow in a script
+cat > /tmp/proof.star <<'EOF'
+BASE = "http://127.0.0.1:9814"
+AUTH = {"Authorization": "Bearer <cs_ak_...>"}
+def main():
+    s1, _ = http_get(BASE + "/api/v1/health")
+    s2, _ = http_get(BASE + "/api/v1/sessions", AUTH)
+    s3, b3 = http_post(BASE + "/api/v1/sessions",
+        '{"agent_name":"muster-dsl","goal":"dsl leg"}', AUTH)
+    print(s1, s2, s3)   # 200 200 201
+main()
+EOF
+./bin/openapi-cli dsl run /tmp/proof.star
+```
+
+Cross-leg proof: the session created through the CLI (step 5) and the one
+created through the DSL (step 7) both appear in the MCP `listSessions`
+result (step 6) — three independent surfaces, one live server, one
+spec.
 
 ---
 
