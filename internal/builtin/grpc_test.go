@@ -1,3 +1,18 @@
+// INT-CI-005: quarantined on windows.
+//
+// This file drives a live gRPC transport (a loopback TCP listener it starts
+// itself). On windows/amd64 the Go runtime corrupts a goroutine's stack while
+// an overlapped socket I/O call is in flight (golang/go#77975); the corruption
+// surfaces as a whole-binary crash rather than a test failure and is still
+// reproducible on go1.27.1 — CI run 36962353988 shows `Exception 0xc0000005`
+// and `runtime: g N ...: unknown pc 0x0` while
+// TestGrpcCall_Unary_PrintsResponse was live. The defect is in the
+// runtime/grpc transport, not in muster code, so it cannot be fixed here.
+// Quarantined per the INT-CI-004 fallback recorded in commit adb57e4d. Drop
+// this constraint once the toolchain carries the full upstream fix set.
+
+//go:build !windows
+
 package builtin
 
 import (
