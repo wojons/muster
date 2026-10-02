@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -151,25 +152,50 @@ func setupSignalHandling() (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
+// errNoToolsRegistered is returned at startup when the server would come up
+// with an empty tool surface — no OpenAPI spec and no OpenRPC document loaded,
+// or documents that yielded zero tools. A server in that state completes the
+// `initialize` handshake and then answers tools/list with JSON-RPC
+// "Method not found" (-32601), so the operator sees a broken tools surface
+// with no hint that a spec was never loaded (REVIEW-MUSTER-3). Refusing to
+// start makes the cause observable on stderr instead.
+var errNoToolsRegistered = errors.New(
+	"no MCP tools registered: no OpenAPI spec was loaded, so tools/list would " +
+		"return Method not found. Pass -spec <path|url> to load an OpenAPI " +
+		"specification (or -openrpc-doc <path|url> to register an OpenRPC document)")
+
 func runMCPServer(config *MCPServerConfig, server *mcp.Server) error {
 	if err := resolveAuthToken(config); err != nil {
 		return fmt.Errorf("configure outbound authentication: %w", err)
 	}
 
+	toolsRegistered := 0
+
 	// If spec is provided, load and register tools
 	if config.SpecPath != "" {
-		if err := loadAndRegisterTools(server, config); err != nil {
+		count, err := loadAndRegisterTools(server, config)
+		if err != nil {
 			return fmt.Errorf("failed to load spec: %w", err)
 		}
+		toolsRegistered += count
 	}
 
 	// If an OpenRPC document is provided, register its methods as JSON-RPC
 	// tools (PROTO-004). Additive to the OpenAPI path: both tool sets can
 	// coexist on one server.
 	if config.OpenRPCDocPath != "" {
-		if err := loadAndRegisterJSONRPCTools(server, config); err != nil {
+		count, err := loadAndRegisterJSONRPCTools(server, config)
+		if err != nil {
 			return fmt.Errorf("failed to load OpenRPC document: %w", err)
 		}
+		toolsRegistered += count
+	}
+
+	// Refuse to serve a tools surface with nothing on it: a client that
+	// completes the handshake would otherwise get Method-not-found on
+	// tools/list and never learn a spec was needed (REVIEW-MUSTER-3).
+	if toolsRegistered == 0 {
+		return errNoToolsRegistered
 	}
 
 	return nil
@@ -216,17 +242,19 @@ func main() {
 	}
 }
 
-// loadAndRegisterTools loads OpenAPI spec and registers tools with MCP server
-func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
+// loadAndRegisterTools loads an OpenAPI spec and registers its operations as
+// MCP tools on the server. It returns the number of tools registered so the
+// caller can refuse to start when the spec yielded none (REVIEW-MUSTER-3).
+func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) (int, error) {
 	// Load OpenAPI spec (supports both file paths and URLs)
 	loader := openapi3.NewLoader()
 	doc, err := loadSpec(loader, config.SpecPath)
 	if err != nil {
-		return fmt.Errorf("load spec: %w", err)
+		return 0, fmt.Errorf("load spec: %w", err)
 	}
 
 	if validateErr := doc.Validate(context.Background()); validateErr != nil {
-		return fmt.Errorf("validate spec: %w", validateErr)
+		return 0, fmt.Errorf("validate spec: %w", validateErr)
 	}
 
 	fmt.Fprintf(os.Stderr, "Loaded spec: %s (%s)\n", doc.Info.Title, doc.Info.Version)
@@ -237,7 +265,7 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
 	converter := mcp.NewConverter(config.BaseURL)
 	tools, configs, err := converter.ConvertToTools(doc)
 	if err != nil {
-		return fmt.Errorf("convert tools: %w", err)
+		return 0, fmt.Errorf("convert tools: %w", err)
 	}
 
 	fmt.Fprintf(os.Stderr, "Generated %d MCP tools\n", len(tools))
@@ -263,7 +291,7 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) error {
 	server.RegisterHandler(listHandler)
 	server.RegisterHandler(callHandler)
 
-	return nil
+	return len(tools), nil
 }
 
 // RegisterHandler adds a handler to the MCP server.
@@ -286,8 +314,10 @@ func newMCPHTTPClient(authToken string) *client.Client {
 // loadAndRegisterJSONRPCTools loads an OpenRPC discovery document (file path
 // or http(s) URL) and registers its methods as MCP tools backed by the
 // JSON-RPC 2.0 adapter (PROTO-004). The endpoint is the document's
-// servers[0].url unless overridden by --base-url / MUSTER_BASE_URL.
-func loadAndRegisterJSONRPCTools(server *mcp.Server, config *MCPServerConfig) error {
+// servers[0].url unless overridden by --base-url / MUSTER_BASE_URL. It returns
+// the number of methods registered so the caller can refuse to start when the
+// document yielded none (REVIEW-MUSTER-3).
+func loadAndRegisterJSONRPCTools(server *mcp.Server, config *MCPServerConfig) (int, error) {
 	ctx := context.Background()
 
 	httpClient := newMCPHTTPClient(config.AuthToken)
@@ -295,7 +325,7 @@ func loadAndRegisterJSONRPCTools(server *mcp.Server, config *MCPServerConfig) er
 
 	ops, err := discoverer.Discover(ctx, config.OpenRPCDocPath)
 	if err != nil {
-		return fmt.Errorf("discover OpenRPC methods: %w", err)
+		return 0, fmt.Errorf("discover OpenRPC methods: %w", err)
 	}
 
 	// Executor endpoint: explicit override wins, else the document's
@@ -310,7 +340,7 @@ func loadAndRegisterJSONRPCTools(server *mcp.Server, config *MCPServerConfig) er
 		}
 	}
 	if endpoint == "" {
-		return fmt.Errorf("no JSON-RPC endpoint: pass --base-url (or MUSTER_BASE_URL) or add servers[] to the OpenRPC document")
+		return 0, fmt.Errorf("no JSON-RPC endpoint: pass --base-url (or MUSTER_BASE_URL) or add servers[] to the OpenRPC document")
 	}
 
 	executor := jsonrpc.NewClient(endpoint,
@@ -319,12 +349,12 @@ func loadAndRegisterJSONRPCTools(server *mcp.Server, config *MCPServerConfig) er
 	)
 
 	if err := jsonrpc.RegisterWithServer(server, ops, executor); err != nil {
-		return fmt.Errorf("register JSON-RPC tools: %w", err)
+		return 0, fmt.Errorf("register JSON-RPC tools: %w", err)
 	}
 
 	fmt.Fprintf(os.Stderr, "Loaded OpenRPC document: %s (%d JSON-RPC tools, endpoint %s)\n",
 		config.OpenRPCDocPath, len(ops), endpoint)
-	return nil
+	return len(ops), nil
 }
 
 // effectiveToolBaseURL reports the base URL the converted tools will actually

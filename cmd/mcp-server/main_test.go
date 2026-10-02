@@ -198,7 +198,7 @@ func TestLoadAndRegisterTools_InvalidSpecPath_LogsError(t *testing.T) {
 		BaseURL:  "",
 	}
 
-	err := loadAndRegisterTools(nil, config)
+	_, err := loadAndRegisterTools(nil, config)
 	require.Error(t, err, "should fail for nonexistent spec path")
 	require.Contains(t, err.Error(), "load spec", "error should mention loading spec")
 }
@@ -256,7 +256,7 @@ func TestLoadAndRegisterTools_InvalidSpecPath(t *testing.T) {
 		BaseURL:  "",
 	}
 
-	err := loadAndRegisterTools(nil, config)
+	_, err := loadAndRegisterTools(nil, config)
 	require.Error(t, err, "should fail for nonexistent spec path")
 	require.Contains(t, err.Error(), "load spec", "error should mention loading spec")
 }
@@ -275,7 +275,7 @@ func TestLoadAndRegisterTools_InvalidSpecContent(t *testing.T) {
 		BaseURL:  "",
 	}
 
-	err = loadAndRegisterTools(nil, config)
+	_, err = loadAndRegisterTools(nil, config)
 	require.Error(t, err, "should fail for invalid spec content")
 }
 
@@ -292,7 +292,7 @@ func TestLoadAndRegisterTools_EmptySpec(t *testing.T) {
 		BaseURL:  "",
 	}
 
-	err = loadAndRegisterTools(nil, config)
+	_, err = loadAndRegisterTools(nil, config)
 	require.Error(t, err, "should fail for empty spec")
 }
 
@@ -1219,6 +1219,10 @@ func TestSetupSignalHandling_SignalIntegration(t *testing.T) {
 	t.Skip("Signal handling tested in integration tests")
 }
 
+// TestRunMCPServer_NoSpec asserts the REVIEW-MUSTER-3 startup contract: a
+// server configured with no spec and no OpenRPC document must refuse to start
+// instead of coming up with an empty tool surface that answers tools/list with
+// "Method not found".
 func TestRunMCPServer_NoSpec(t *testing.T) {
 	config := &MCPServerConfig{
 		SpecPath: "",
@@ -1229,7 +1233,72 @@ func TestRunMCPServer_NoSpec(t *testing.T) {
 	server := &mcp.Server{}
 
 	err := runMCPServer(config, server)
-	require.NoError(t, err)
+	require.Error(t, err, "bare startup with no spec must be refused")
+	require.ErrorIs(t, err, errNoToolsRegistered)
+	require.Contains(t, err.Error(), "-spec",
+		"the refusal must name the -spec flag so the operator knows how to fix it")
+}
+
+// TestRunMCPServer_ZeroToolsSpec asserts the same refusal when a spec IS
+// supplied but yields zero tools (e.g. an OpenAPI document with no paths):
+// tools/list would still be empty, so startup must be refused.
+func TestRunMCPServer_ZeroToolsSpec(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	specContent := `openapi: 3.0.0
+info:
+  title: Empty API
+  version: 1.0.0
+paths: {}`
+
+	specPath := filepath.Join(tmpDir, "empty-paths.yaml")
+	require.NoError(t, os.WriteFile(specPath, []byte(specContent), 0644))
+
+	t.Setenv("MUSTER_AUTH_TOKEN", "")
+	config := &MCPServerConfig{
+		SpecPath: specPath,
+		BaseURL:  "http://localhost:8080",
+	}
+
+	server := &mcp.Server{}
+
+	err := runMCPServer(config, server)
+	require.Error(t, err, "a spec yielding zero tools must be refused at startup")
+	require.ErrorIs(t, err, errNoToolsRegistered)
+	require.Contains(t, err.Error(), "-spec")
+}
+
+// TestRunMCPServer_WithTools_Starts proves the refusal is scoped to the
+// zero-tool case: a spec with operations still starts the server normally.
+func TestRunMCPServer_WithTools_Starts(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	specContent := `openapi: 3.0.0
+info:
+  title: One Op API
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List pets
+      responses:
+        '200':
+          description: OK`
+
+	specPath := filepath.Join(tmpDir, "one-op.yaml")
+	require.NoError(t, os.WriteFile(specPath, []byte(specContent), 0644))
+
+	t.Setenv("MUSTER_AUTH_TOKEN", "")
+	config := &MCPServerConfig{
+		SpecPath: specPath,
+		BaseURL:  "http://localhost:8080",
+	}
+
+	server := &mcp.Server{}
+
+	require.NoError(t, runMCPServer(config, server),
+		"a spec with operations must start the server normally")
 }
 
 func TestRunMCPServer_InvalidSpec(t *testing.T) {
