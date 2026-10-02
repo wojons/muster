@@ -8,6 +8,12 @@
 // upgrade, never a pass), and the per-tag module-path stamping rule that
 // historical releases (v0.1.0's Makefile still targets the pre-rename
 // module path) would otherwise silently violate.
+//
+// QA-MUSTER-17: the same tar-sync shape also runs these tests on an agent that
+// has no release tags at all, where the script's prerequisite exits 2 and the
+// real-upgrade leg read as a FAIL. The two legs that need tags now skip when
+// the checkout genuinely has none (skipIfTaglessTree) — the script's exit-code
+// contract is untouched, and a tagged checkout still runs them for real.
 package main
 
 import (
@@ -19,6 +25,58 @@ import (
 )
 
 const upgradeScript = "../../scripts/verify-upgrade-path.sh"
+
+// repoRoot is the checkout the upgrade script verifies: this package lives at
+// <repo>/test/upgrade, and verify-upgrade-path.sh derives its own REPO_ROOT the
+// same way (SCRIPT_DIR/..). Both must resolve to the same tree.
+var repoRoot = filepath.Join("..", "..")
+
+// releaseTags returns the checkout's release tags (v-prefixed) in `git tag -l`
+// order. An empty result is the tagless-sync signature the QA battery produces:
+// sync_repo ships the tree with .git excluded and re-inits a synthetic
+// single-commit repo, so no release tags exist on the agent even though origin
+// carries them. A real checkout (dev box, CI full clone) has the tags.
+//
+// A git failure (no usable .git) is returned as an error, not swallowed: it is
+// the same class of "this tree cannot exercise a tagged upgrade" absence.
+func releaseTags(t *testing.T) ([]string, error) {
+	t.Helper()
+	cmd := exec.Command("git", "tag", "-l", "v*")
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	return parseTagLines(string(out)), nil
+}
+
+// parseTagLines splits `git tag -l` output into non-empty, trimmed tag names.
+func parseTagLines(out string) []string {
+	var tags []string
+	for _, line := range strings.Split(out, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			tags = append(tags, line)
+		}
+	}
+	return tags
+}
+
+// skipIfTaglessTree skips a leg that can only exercise the tagged-upgrade path
+// when the checkout GENUINELY carries no release tags. The decision lives here,
+// in the test, before the script is invoked: scripts/verify-upgrade-path.sh
+// keeps its exit-2 "Not counted as a pass" contract untouched and no production
+// verifier is weakened. A tagged checkout is never skipped — the real upgrade
+// legs run unchanged on the dev box and a full CI clone.
+func skipIfTaglessTree(t *testing.T) {
+	t.Helper()
+	tags, err := releaseTags(t)
+	if err != nil {
+		t.Skipf("no usable git checkout under %s for tag-based upgrade verification (%v) — synced/archive tree; run on a tagged clone", repoRoot, err)
+	}
+	if len(tags) == 0 {
+		t.Skip("no release tags in repo (synced/archive tree) — upgrade path not exercisable; run on a tagged clone")
+	}
+}
 
 // runUpgradeScript runs verify-upgrade-path.sh with explicit tag arguments
 // (cwd = the test's own package dir, test/upgrade) and returns the exit code
@@ -96,6 +154,11 @@ func TestUpgradeScriptRealUpgrade(t *testing.T) {
 	if testing.Short() {
 		t.Skip("real upgrade builds two binaries; skipped in -short suites — run explicitly")
 	}
+	// QA-MUSTER-17: the synced battery tree has zero release tags, so the
+	// script's prerequisite exits 2 and this leg would FAIL rc=2. That is a
+	// sync-shape artifact, not a broken upgrade path — skip honestly instead,
+	// and keep the real leg on every tagged checkout.
+	skipIfTaglessTree(t)
 	rc, out := runUpgradeScript("v0.1.0", "v0.1.1")
 	if rc != 0 {
 		t.Fatalf("v0.1.0 → v0.1.1 upgrade verification failed (rc=%d):\n%s", rc, out)
@@ -111,12 +174,45 @@ func TestUpgradeScriptRejectsSameTagUpgrade(t *testing.T) {
 	if testing.Short() {
 		t.Skip("shares the build path with TestUpgradeScriptRealUpgrade")
 	}
+	// QA-MUSTER-17: without tags the script exits 2 from its tag-count
+	// prerequisite, not from the same-tag branch this test names — a vacuous
+	// pass that would misreport which contract was proven. Skip, don't pass.
+	skipIfTaglessTree(t)
 	rc, out := runUpgradeScript("v0.1.1", "v0.1.1")
 	if rc != 2 {
 		t.Fatalf("upgrading v0.1.1 to v0.1.1 must be reported as nothing-to-upgrade (exit 2), got rc=%d:\n%s", rc, out)
 	}
 	if !strings.Contains(out, "UPGRADE N/A") || !strings.Contains(out, "Not counted as a pass") {
 		t.Errorf("skip must be honest N/A wording, got:\n%s", out)
+	}
+}
+
+// TestParseTagLines pins the tag-list parsing the tagless guard reads, so a
+// whitespace-only `git tag -l` line can never masquerade as a release tag.
+func TestParseTagLines(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"empty output", "", nil},
+		{"one tag", "v0.1.1\n", []string{"v0.1.1"}},
+		{"blank lines around tags", "\nv0.1.0\n\nv0.1.1\n\n", []string{"v0.1.0", "v0.1.1"}},
+		{"whitespace-only lines", "  \n\t\n", nil},
+		{"padded tag", "  v0.2.0  \n", []string{"v0.2.0"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseTagLines(tc.in)
+			if len(got) != len(tc.want) {
+				t.Fatalf("parseTagLines(%q) = %v (len %d), want %v (len %d)", tc.in, got, len(got), tc.want, len(tc.want))
+			}
+			for i := range tc.want {
+				if got[i] != tc.want[i] {
+					t.Errorf("parseTagLines(%q)[%d] = %q, want %q", tc.in, i, got[i], tc.want[i])
+				}
+			}
+		})
 	}
 }
 
