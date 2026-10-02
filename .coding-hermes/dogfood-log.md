@@ -211,3 +211,24 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 | 2026-09-26 (run 11) | PROMISING-BUT-ROUGH | CLI chain vs LIVE consensus proven end-to-end (discover→generate→auth→201/200/404/401); MCP+DSL cannot reach authed APIs at all | ~2min (clean HOME → first 201 create-session) | 1. DF-036 P1 openapi-mcp has no auth surface — every authed tools/call 401s. 2. DF-037 P2 DSL http builtins carry no headers — authed workflow impossible. 3. DF-038 P2 MCP errors are flat isError text blobs. | friction 3 | 5 rows (DF-036..040); install leg SKIPPED-install-bunker (all bunkers down/activating; install surface drifted via d9d38a9b) |
 
 | 2026-09-27 (run 12) | SHIPPABLE | Fix-verification run: MCP auth (DF-036) live-proven (201s via token-file AND env vs 401 without), DSL headers (DF-037) 201/401/401, integration-guide §8 (DF-040) re-proved on 3 backends, middleware survives SetHTTPClient (DF-042, external consumer) — but DF-039 masking landed on ONE of TWO render paths (DF-043 P1: reload path leaks cs_*/Bearer in table+json) | ~4min (build→discover→generate→first MCP 201) | friction 5 | 3 rows (DF-043 P1, DF-044 P3, DF-045 P3) + las-03 SKIPPED-install-bunker (evidence: ssh timeout; sibling bunker-mvp PROVED install: bundle→clone→bootstrap 90s→make build-cli 120s cold→discover smoke rc=0); no PERF rows (warm 10.9ms ± 0.7ms / cold 35.5ms typed command, 4th fast run) |
+
+## 2026-10-02 (run 13) — fix-verification + install-leg re-check
+
+**Promise statement:** "REVIEW-MUSTER-3 fix (bare openapi-mcp refusal) works as documented, fresh clone builds clean, and install leg status unchanged."
+
+**Angle change per skill:** last run (2026-09-27) verified MCP auth + DSL headers; this run targets the REVIEW-MUSTER-3 fix merged 5 days ago (commit dc51bf58) plus a fresh-clone build verification.
+
+**What was done (real use, not tests):**
+- REVIEW-MUSTER-3 VERIFIED: bare `openapi-mcp` (no -spec) exits 1 with "no MCP tools registered: ... Pass -spec <path|url>" on stderr, no JSON-RPC served. With `-spec demo/openapi-specs/petstore.yaml`, initialize + tools/list returns 5 tools (getPet, updatePet, deletePet, listPets, createPet) with correct inputSchema and annotations.
+- Fresh clone from GitHub (depth 1, no auth) builds clean with Go 1.26.6 + CGO_ENABLED=1. README still claims "PRIVATE + GOPRIVATE required" (REVIEW-MUSTER-4 still pending, not reproduced — anon HTTPS clone works).
+- Bunker install leg: las-02 and las-03 reachable via ssh, but `systemctl --user status bunkerd` returns "Unit bunkerd.service could not be found" — install leg still blocked, same as last run.
+
+**Findings written to board:** none (all findings already on board as REVIEW-MUSTER-2/4/5, all P2/P3 polish).
+
+**Install leg: SKIPPED-install-bunker with evidence.** las-02/03 reachable but bunkerd not running as systemd --user service. Install surface unchanged since last run (no new deps in go.mod since 2026-09-27).
+
+**No PERF rows filed:** MCP initialize + tools/list < 50ms end-to-end (stdio, no network), fresh-clone build ~8s (warm deps). Nothing a user would notice.
+
+**Time-to-first-success:** < 1 min (fresh clone → build → MCP tools/list).
+
+**Verdict:** SHIPPABLE. REVIEW-MUSTER-3 fix verified live. Remaining pending rows are P2/P3 polish (version stamp, README cleanup, demo hints). Install leg still blocked (bunkerd not running on reachable hosts).
