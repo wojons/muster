@@ -193,8 +193,21 @@ func serveKV(t *testing.T, store *kvStore, inject map[string]codes.Code, captor 
 	srv := grpc.NewServer()
 	srv.RegisterService(kvServiceDesc(def, store, inject, captor), nil)
 	reflection.Register(srv)
-	go func() { _ = srv.Serve(lis) }()
-	return lis, srv.Stop
+
+	// Deterministic teardown (INT-CI-004): callers `defer stop()`, so the
+	// returned function stops the server AND waits for Serve to return. A
+	// serving goroutine that outlives its test keeps touching the heap while
+	// later tests run, which is the window a runtime fault needs in order to be
+	// reported as a package crash instead of a test failure.
+	serveDone := make(chan struct{})
+	go func() {
+		defer close(serveDone)
+		_ = srv.Serve(lis)
+	}()
+	return lis, func() {
+		srv.Stop()
+		<-serveDone
+	}
 }
 
 // kvServiceDesc builds the ServiceDesc for kv.KeyValue with dynamic handlers.

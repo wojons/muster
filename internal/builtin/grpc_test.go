@@ -121,8 +121,22 @@ func startWireServer(t *testing.T) string {
 	require.NoError(t, err, "listen on loopback")
 	srv := grpc.NewServer()
 	srv.RegisterService(wireServiceDesc(def), nil)
-	go func() { _ = srv.Serve(lis) }()
-	t.Cleanup(srv.Stop)
+
+	// Deterministic teardown: Stop the server AND wait for Serve to return, so
+	// no goroutine is still serving on the loopback listener (or tearing a
+	// connection down) once the test has ended. A server goroutine that
+	// outlives its test keeps touching the heap while later tests run, which is
+	// the window a runtime fault needs in order to be reported as a package
+	// crash instead of a test failure (INT-CI-004).
+	serveDone := make(chan struct{})
+	go func() {
+		defer close(serveDone)
+		_ = srv.Serve(lis)
+	}()
+	t.Cleanup(func() {
+		srv.Stop()
+		<-serveDone
+	})
 
 	return lis.Addr().String()
 }
