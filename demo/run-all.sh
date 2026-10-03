@@ -55,10 +55,17 @@ if [ -z "$PYTHON" ] || [ ! -x "$PYTHON" ]; then
   echo "      DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh"
   exit 1
 fi
+REQ="$REPO_ROOT/demo/requirements.txt"
 if ! "$PYTHON" -c 'import flask' >/dev/null 2>&1; then
   fail_msg "interpreter cannot import flask: $PYTHON"
-  echo "    The demo services are Flask apps. From the repo root, create the venv:"
-  echo "      python3 -m venv .venv && . .venv/bin/activate && pip install flask"
+  echo "    The demo services are Flask apps (deps listed in demo/requirements.txt)."
+  if [ -f "$REQ" ]; then
+    echo "    From the repo root, create the venv (run-all.sh uses it automatically):"
+    echo "      python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt"
+  else
+    echo "    From the repo root, create the venv (run-all.sh uses it automatically):"
+    echo "      python3 -m venv .venv && . .venv/bin/activate && pip install flask"
+  fi
   echo "    Then re-run ./demo/run-all.sh (it uses .venv/bin/python3 when present)."
   echo "    Alternatives: pipx install flask | uv pip install --python .venv/bin/python3 flask"
   echo "    Or point the demo at an interpreter that has Flask:"
