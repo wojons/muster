@@ -22,6 +22,8 @@ var (
 // skipLong skips long-running integration tests (subprocess spawning, real
 // network/keychain access) when -short is set, keeping `go test -short ./...`
 // fast. The full suite still runs via `go test ./test/e2e/` / `make test-e2e`.
+// skipLong is shared by every subprocess-spawning e2e test; linting a staged
+// helper's callers alone still needs this file in the package context.
 func skipLong(t *testing.T) {
 	t.Helper()
 	if testing.Short() {

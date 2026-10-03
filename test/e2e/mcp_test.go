@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -15,12 +16,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// mcpSpecArgs returns the -spec flag every pattern-level MCP test must pass:
+// since dc51bf58 the server refuses to boot with no tools loaded (bare launch
+// exits fatal instead of serving an empty tools/list), so each test that
+// drives the binary hands it the petstore fixture, matching the
+// real-integration suite's existing convention.
+func mcpSpecArgs() []string {
+	return []string{"-spec", filepath.Join("../../demo/openapi-specs", "petstore.yaml")}
+}
+
+// TestMCP_NoSpecFatalIsIntentional pins the dc51bf58 hardening contract: a
+// bare launch (no -spec) must exit non-zero with the refusal message at boot.
+func TestMCP_NoSpecFatalIsIntentional(t *testing.T) {
+	skipLong(t)
+	cmd := exec.Command(mcpBinaryPath)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err == nil {
+		t.Fatalf("bare MCP launch unexpectedly succeeded; expected the no-tools refusal")
+	}
+	if !strings.Contains(stderr.String(), "no MCP tools registered") {
+		t.Fatalf("bare MCP launch stderr lacks the no-tools refusal; got: %q", stderr.String())
+	}
+}
+
 func TestMCP_Initialize(t *testing.T) {
 	skipLong(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, mcpBinaryPath)
+	cmd := exec.CommandContext(ctx, mcpBinaryPath, mcpSpecArgs()...)
 
 	stdin, err := cmd.StdinPipe()
 	require.NoError(t, err)
@@ -80,7 +106,7 @@ func TestMCP_ListTools(t *testing.T) {
 	defer cancel()
 
 	mcpBinaryPath := filepath.Join(filepath.Dir(binaryPath), filepath.Base(binaryPath)+"-mcp")
-	cmd := exec.CommandContext(ctx, mcpBinaryPath)
+	cmd := exec.CommandContext(ctx, mcpBinaryPath, mcpSpecArgs()...)
 
 	stdin, err := cmd.StdinPipe()
 	require.NoError(t, err)
@@ -168,7 +194,7 @@ func TestMCP_CallTool(t *testing.T) {
 	defer cancel()
 
 	mcpBinaryPath := filepath.Join(filepath.Dir(binaryPath), filepath.Base(binaryPath)+"-mcp")
-	cmd := exec.CommandContext(ctx, mcpBinaryPath)
+	cmd := exec.CommandContext(ctx, mcpBinaryPath, mcpSpecArgs()...)
 
 	stdin, err := cmd.StdinPipe()
 	require.NoError(t, err)
@@ -230,7 +256,7 @@ func TestMCP_ListResources(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binaryPath+"-mcp")
+	cmd := exec.CommandContext(ctx, binaryPath+"-mcp", mcpSpecArgs()...)
 
 	stdin, err := cmd.StdinPipe()
 	require.NoError(t, err)
@@ -288,7 +314,7 @@ func TestMCP_ReadResource(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binaryPath+"-mcp")
+	cmd := exec.CommandContext(ctx, binaryPath+"-mcp", mcpSpecArgs()...)
 
 	stdin, err := cmd.StdinPipe()
 	require.NoError(t, err)
@@ -375,7 +401,7 @@ func TestMCP_MultipleRequests(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binaryPath+"-mcp")
+	cmd := exec.CommandContext(ctx, binaryPath+"-mcp", mcpSpecArgs()...)
 
 	stdin, err := cmd.StdinPipe()
 	require.NoError(t, err)
@@ -433,7 +459,7 @@ func TestMCP_ErrorHandling(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binaryPath+"-mcp")
+	cmd := exec.CommandContext(ctx, binaryPath+"-mcp", mcpSpecArgs()...)
 
 	stdin, err := cmd.StdinPipe()
 	require.NoError(t, err)
