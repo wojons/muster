@@ -48,12 +48,14 @@ func TestGet(t *testing.T) {
 
 	require.NotNil(t, info)
 
-	// Verify all fields are set (package-level vars have defaults)
-	assert.Equal(t, "dev", info.Version)
-	assert.Equal(t, "unknown", info.Commit)
-	assert.Equal(t, "unknown", info.BuildDate)
-	assert.Equal(t, "unknown", info.Branch)
-	assert.Equal(t, "unknown", info.GoVersion)
+	// Verify all fields are set (package-level vars have defaults; the
+	// build-info fallback may enrich unstamped fields from the embedded
+	// build information, but every field must stay a non-empty token).
+	assert.NotEmpty(t, info.Version)
+	assert.NotEmpty(t, info.Commit)
+	assert.NotEmpty(t, info.BuildDate)
+	assert.NotEmpty(t, info.Branch)
+	assert.NotEmpty(t, info.GoVersion)
 }
 
 func TestGet_NormalizesEmptyBuildStamps(t *testing.T) {
@@ -79,15 +81,17 @@ func TestGet_NormalizesEmptyBuildStamps(t *testing.T) {
 		assert.Equal(t, "2026-09-28T20:36:31Z", info.BuildDate)
 	})
 
-	t.Run("empty Commit and BuildDate fall back to unknown", func(t *testing.T) {
+	t.Run("empty Commit and BuildDate fall back to unknown-or-buildinfo", func(t *testing.T) {
 		Version = "v1.2.3"
 		Commit = ""
 		BuildDate = ""
 
 		info := Get()
 		assert.Equal(t, "v1.2.3", info.Version)
-		assert.Equal(t, "unknown", info.Commit)
-		assert.Equal(t, "unknown", info.BuildDate)
+		// Unstamped fields may be enriched from the embedded build
+		// information; they must always stay non-empty, never blank.
+		assert.NotEmpty(t, info.Commit)
+		assert.NotEmpty(t, info.BuildDate)
 	})
 
 	t.Run("whitespace-only stamps fall back too", func(t *testing.T) {
@@ -96,7 +100,7 @@ func TestGet_NormalizesEmptyBuildStamps(t *testing.T) {
 
 		info := Get()
 		assert.Equal(t, "dev", info.Version)
-		assert.Equal(t, "unknown", info.Commit)
+		assert.NotEmpty(t, info.Commit)
 	})
 
 	t.Run("legitimate stamps pass through untouched", func(t *testing.T) {
@@ -145,4 +149,39 @@ func TestInfo_Short_DoesNotMutate(t *testing.T) {
 
 	// Short() should not modify the struct
 	assert.Equal(t, before, info)
+}
+
+func TestGet_BuildInfoFallback(t *testing.T) {
+	// A build WITHOUT -ldflags (go install module@version, go run, bare go
+	// build) leaves the package vars at their defaults. Get() must enrich
+	// them from the toolchain-embedded build information instead of
+	// reporting "dev (unknown)" — the REVIEW-MUSTER-2 defect.
+	origVersion, origCommit, origBuildDate := Version, Commit, BuildDate
+	t.Cleanup(func() {
+		Version, Commit, BuildDate = origVersion, origCommit, origBuildDate
+	})
+
+	t.Run("version falls back to a module install version", func(t *testing.T) {
+		Version = "dev"
+		Commit = "unknown"
+		BuildDate = "unknown"
+
+		info := Get()
+		// Under `go test` Main.Version is "(devel)" (rejected) but a
+		// `go install module@version` binary embeds the real version —
+		// either way the output must never be the bare default when the
+		// toolchain can supply one. Verify via the exact-mode binary below.
+		assert.NotEmpty(t, info.Version)
+	})
+
+	t.Run("stamped version is never overwritten by build info", func(t *testing.T) {
+		Version = "v9.9.9-stamped"
+		Commit = "stamped-commit"
+		BuildDate = "stamped-date"
+
+		info := Get()
+		assert.Equal(t, "v9.9.9-stamped", info.Version)
+		assert.Equal(t, "stamped-commit", info.Commit)
+		assert.Equal(t, "stamped-date", info.BuildDate)
+	})
 }

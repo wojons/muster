@@ -23,9 +23,12 @@ func TestCLI_VersionCommand(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 
 	require.NoError(t, err, string(output))
-	// Version currently outputs "dev (unknown)" — check for version marker
-	assert.True(t, strings.Contains(string(output), "dev") || strings.Contains(string(output), "version"),
-		"version command should output version info, got: %s", string(output))
+	// Version outputs "dev (unknown)" for a bare unstamped build, or the
+	// real stamped/derived version ("vX.Y.Z (commit)") otherwise — either
+	// way it must be a "<version> (<commit>)" pair (REVIEW-MUSTER-2).
+	out := strings.TrimSpace(string(output))
+	assert.Regexp(t, `^\S+ \(\S+\)$`, out,
+		"version command should output '<version> (<commit>)', got: %s", out)
 }
 
 func TestCLI_HelpCommand(t *testing.T) {
