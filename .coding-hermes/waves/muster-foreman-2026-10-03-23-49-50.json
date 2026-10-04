@@ -1,0 +1,43 @@
+{
+  "scheduler_tick_id": "muster-foreman-2026-10-03-23-49-50",
+  "project": "muster",
+  "created": "2026-10-03T23:49:50-05:00",
+  "rows": [
+    {
+      "id": "PROTO-020",
+      "priority": "P1",
+      "title": "Caller-context propagation middleware",
+      "worktree": "/home/kara/worktrees/muster-PROTO-020",
+      "branch": "wt/PROTO-020",
+      "base": "origin/main",
+      "base_sha": "2bca9234"
+    },
+    {
+      "id": "QA-MUSTER-8",
+      "priority": "P3",
+      "title": "pkg/dsl starlark.Int pointer-fragile tests",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-8",
+      "branch": "wt/QA-MUSTER-8",
+      "base": "origin/main",
+      "base_sha": "2bca9234"
+    },
+    {
+      "id": "REVIEW-MUSTER-4",
+      "priority": "P3",
+      "title": "README private-repo claim stale",
+      "worktree": "/home/kara/worktrees/muster-REVIEW-MUSTER-4",
+      "branch": "wt/REVIEW-MUSTER-4",
+      "base": "origin/main",
+      "base_sha": "2bca9234"
+    },
+    {
+      "id": "REVIEW-MUSTER-5",
+      "priority": "P3",
+      "title": "demo Flask requirements/check",
+      "worktree": "/home/kara/worktrees/muster-REVIEW-MUSTER-5",
+      "branch": "wt/REVIEW-MUSTER-5",
+      "base": "origin/main",
+      "base_sha": "2bca9234"
+    }
+  ]
+}
