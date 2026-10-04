@@ -349,8 +349,24 @@ func (c *Client) doOnce(ctx context.Context, req *http.Request) (*http.Response,
 		}
 	}
 
+	// The caller's context deadline governs the exchange (PROTOCOLS.md
+	// §4.3: no layer sets a default timeout that overrides the caller's).
+	// The stdlib enforces http.Client.Timeout as the shorter of the caller
+	// deadline and the configured default, which would clamp a caller
+	// deadline the default happens to exceed — so a deadline-carrying
+	// caller runs on a per-request copy with the private Timeout disarmed.
+	// Deadline-less callers keep the default unchanged (the field remains
+	// its storage, and the zero value means no bound). Cancellation and
+	// budget metadata on the caller's context ride along with WithContext.
+	callClient := c.httpClient
+	if _, hasDeadline := ctx.Deadline(); hasDeadline && callClient.Timeout > 0 {
+		hc := *callClient
+		hc.Timeout = 0
+		callClient = &hc
+	}
+
 	// Execute the request with context
-	resp, err := c.httpClient.Do(req.WithContext(ctx))
+	resp, err := callClient.Do(req.WithContext(ctx))
 
 	// Record response or error
 	if err != nil {

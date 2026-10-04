@@ -83,9 +83,15 @@ func (i *Interceptor) TransformResponseBody(ctx context.Context, body []byte, co
 		return body, nil
 	}
 
-	// Apply timeout
-	execCtx, cancel := context.WithTimeout(ctx, i.Timeout)
-	defer cancel()
+	// The caller's context deadline governs the transformation (PROTOCOLS.md
+	// §4.3): the interceptor's Timeout is a default applied only when the
+	// caller declared no deadline, never a clamp on an existing one.
+	execCtx := ctx
+	if _, hasDeadline := execCtx.Deadline(); !hasDeadline && i.Timeout > 0 {
+		var cancel context.CancelFunc
+		execCtx, cancel = context.WithTimeout(execCtx, i.Timeout)
+		defer cancel()
+	}
 
 	// Execute transformation
 	result, err := i.manager.Transform(execCtx, lm, body)
@@ -113,7 +119,16 @@ func (i *Interceptor) InterceptResponse(resp *http.Response, pluginPath string) 
 
 	contentType := resp.Header.Get("Content-Type")
 
-	transformed, err := i.TransformResponseBody(context.Background(), originalBody, contentType, pluginPath)
+	// Preserve the caller's context: the response's request context when
+	// one is attached, so its deadline and cancellation govern the
+	// transformation (PROTOCOLS.md §4.3); responses built without a
+	// request keep background semantics.
+	transformCtx := context.Background()
+	if resp.Request != nil {
+		transformCtx = resp.Request.Context()
+	}
+
+	transformed, err := i.TransformResponseBody(transformCtx, originalBody, contentType, pluginPath)
 	if err != nil {
 		return err
 	}
@@ -145,6 +160,7 @@ func (i *Interceptor) Middleware(pluginPath string) func(http.Handler) http.Hand
 				ResponseWriter: w,
 				pluginPath:     pluginPath,
 				interceptor:    i,
+				req:            r,
 			}
 			next.ServeHTTP(crw, r)
 		})
@@ -159,6 +175,17 @@ type captureResponseWriter struct {
 	interceptor *Interceptor
 	buf         []byte
 	statusCode  int
+	// req is the request whose context the transformation runs under; nil
+	// is allowed (bare-literal construction in tests) and falls back to
+	// context.Background().
+	req *http.Request
+}
+
+func (crw *captureResponseWriter) transformContext() context.Context {
+	if crw.req != nil {
+		return crw.req.Context()
+	}
+	return context.Background()
 }
 
 func (crw *captureResponseWriter) WriteHeader(statusCode int) {
@@ -175,7 +202,7 @@ func (crw *captureResponseWriter) Flush() error {
 	contentType := crw.Header().Get("Content-Type")
 
 	transformed, err := crw.interceptor.TransformResponseBody(
-		context.Background(),
+		crw.transformContext(),
 		crw.buf,
 		contentType,
 		crw.pluginPath,

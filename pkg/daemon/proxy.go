@@ -639,8 +639,28 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		proxyReq.Header.Add("X-Forwarded-For", r.RemoteAddr)
 	}
 
+	// Forward the caller's context to the outbound hop: its deadline and
+	// cancellation govern the backend request (PROTOCOLS.md §4.3 — the
+	// proxy must not override a caller-set deadline, and every hop stays
+	// aware of the caller's budget). The handler's default timeout applies
+	// only when the caller declared no deadline; when one exists, the
+	// private Client.Timeout is disarmed on a per-request copy so the
+	// stdlib's shorter-of-two enforcement cannot clamp the caller.
+	outCtx := r.Context()
+	outClient := h.httpClient
+	if _, hasDeadline := outCtx.Deadline(); hasDeadline && outClient.Timeout > 0 {
+		hc := *outClient
+		hc.Timeout = 0
+		outClient = &hc
+	} else if outClient.Timeout > 0 {
+		var cancel context.CancelFunc
+		outCtx, cancel = context.WithTimeout(outCtx, outClient.Timeout)
+		defer cancel()
+	}
+	proxyReq = proxyReq.WithContext(outCtx)
+
 	// Execute request
-	resp, err := h.httpClient.Do(proxyReq)
+	resp, err := outClient.Do(proxyReq)
 	if err != nil {
 		http.Error(w, "Failed to execute proxy request", http.StatusBadGateway)
 		return
