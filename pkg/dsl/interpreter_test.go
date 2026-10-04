@@ -19,6 +19,30 @@ func writeTempStarlark(t *testing.T, src string) string {
 	return path
 }
 
+// requireValueEqual asserts that want and got are equal starlark values.
+// For starlark.Int the comparison is value-based (big.Int Cmp), never
+// require.Equal: starlark.Int is struct{ impl unsafe.Pointer }, so
+// reflect.DeepEqual compares internal pointers. Small ints normally share one
+// address in starlark's reserved 4GB small-int region, but when that
+// reservation fails under a memory cap starlark falls back to a fresh
+// big.Int allocation per value — two numerically equal ints then have
+// different pointers and require.Equal fails with "expected: 42, actual: 42"
+// (QA-MUSTER-8). Big ints always allocate fresh, so require.Equal on them is
+// pointer-fragile on every host. Non-int values are not pointer-fragile and
+// fall back to require.Equal.
+func requireValueEqual(t *testing.T, want, got starlark.Value) {
+	t.Helper()
+	wantInt, ok := want.(starlark.Int)
+	if !ok {
+		require.Equal(t, want, got)
+		return
+	}
+	gotInt, ok := got.(starlark.Int)
+	require.True(t, ok, "got %T, want starlark.Int", got)
+	require.True(t, wantInt.BigInt().Cmp(gotInt.BigInt()) == 0,
+		"int values differ: want %s, got %s", wantInt.String(), gotInt.String())
+}
+
 // TestNewInterpreter_Empty creates an interpreter with no builtins.
 func TestNewInterpreter_Empty(t *testing.T) {
 	i := NewInterpreter(nil)
@@ -181,7 +205,7 @@ func TestInterpreter_Call_WithBuiltin(t *testing.T) {
 
 	result, ok := globals["result"]
 	require.True(t, ok)
-	require.Equal(t, starlark.MakeInt64(21), result)
+	requireValueEqual(t, starlark.MakeInt64(21), result)
 }
 
 // TestInterpreter_SetGlobal sets a global value and verifies it.
@@ -191,7 +215,7 @@ func TestInterpreter_SetGlobal(t *testing.T) {
 
 	val, ok := i.GetGlobal("answer")
 	require.True(t, ok)
-	require.Equal(t, starlark.MakeInt64(42), val)
+	requireValueEqual(t, starlark.MakeInt64(42), val)
 }
 
 // TestInterpreter_GetGlobal_Missing returns false for nonexistent keys.
@@ -302,7 +326,7 @@ func TestInterpreter_MultipleFiles(t *testing.T) {
 			require.True(t, ok)
 
 			if tt.expect != nil {
-				require.Equal(t, tt.expect, val)
+				requireValueEqual(t, tt.expect, val)
 			}
 		})
 	}
@@ -360,7 +384,7 @@ func TestInterpreter_SetGlobal_Multiple(t *testing.T) {
 
 	a, ok := i.GetGlobal("a")
 	require.True(t, ok)
-	require.Equal(t, starlark.MakeInt64(1), a)
+	requireValueEqual(t, starlark.MakeInt64(1), a)
 }
 
 // TestInterpreter_SetGlobal_Overwrite overwrites an existing global.
@@ -408,6 +432,38 @@ print("second line")
 	require.Len(t, captured, 2)
 	require.Equal(t, "hello from custom sink", captured[0])
 	require.Equal(t, "second line", captured[1])
+}
+
+// TestRequireValueEqual_RedPin guards the QA-MUSTER-8 fix. starlark.Int is
+// struct{ impl unsafe.Pointer }; testify's require.Equal resolves to
+// reflect.DeepEqual, which for UnsafePointer fields is a raw pointer
+// comparison. Small ints normally share one address in starlark's reserved
+// 4GB small-int region (so require.Equal passes on healthy hosts and hides
+// the fragility), but under a memory cap the reservation fails and each
+// small int becomes a fresh big.Int allocation. Big ints are ALWAYS fresh
+// allocations, so this pin can demonstrate the pointer-fragility on every
+// host: two MakeInt64(1<<40) are numerically equal yet pointer-distinct.
+func TestRequireValueEqual_RedPin(t *testing.T) {
+	big := starlark.MakeInt64(1 << 40)
+	again := starlark.MakeInt64(1 << 40)
+
+	// Sanity: two separately built big ints must not be pointer-identical.
+	// If this ever fails, starlark changed its representation and the pin
+	// below needs revisiting.
+	require.False(t, big == again,
+		"starlark.Int big values now share representation; revisit requireValueEqual pin")
+
+	// The defect itself: testify considers numerically equal big ints unequal
+	// (pointer comparison). This line is the RED that motivated
+	// requireValueEqual — it must keep failing if Equal were ever used.
+	require.NotEqual(t, big, again,
+		"require.Equal no longer distinguishes distinct big ints; pin is stale")
+
+	// The fix: value-based comparison accepts numerically equal values
+	// regardless of internal representation (small-int region pointer on
+	// healthy hosts, fresh big.Int under memory caps).
+	requireValueEqual(t, big, again)
+	requireValueEqual(t, starlark.MakeInt64(42), starlark.MakeInt64(42))
 }
 
 // TestSetPrintFunc verifies that SetPrintFunc changes the print sink at runtime.
