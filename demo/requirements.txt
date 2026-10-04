@@ -1,0 +1,6 @@
+# Dependencies for the demo Flask services (demo/services/*, demo/auth-service,
+# demo/crud-service, demo/spec-provider). All other imports in demo/ are stdlib.
+#
+# Install into the repo venv that demo/run-all.sh picks up automatically:
+#   python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt
+flask>=2.0
