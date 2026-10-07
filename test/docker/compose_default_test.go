@@ -246,7 +246,7 @@ func TestComposeConfigAcceptance(t *testing.T) {
 
 // composePortSpec mirrors one entry of a compose service's ports list.
 type composePortSpec struct {
-	Target   int    `yaml:"target"`
+	Target    int    `yaml:"target"`
 	Published string `yaml:"published"`
 }
 
@@ -389,15 +389,15 @@ func TestComposeConfigAlternateHostPortBinding(t *testing.T) {
 	// alternatePorts is one override per published service, chosen to never
 	// collide with the defaults or each other.
 	alternatePorts := map[string]string{
-		"MUSTER_API_HTTP_PORT":      "18080",
-		"MUSTER_API_METRICS_PORT":   "19090",
-		"MUSTER_DAEMON_PORT":        "18081",
-		"MUSTER_DB_PORT":            "15432",
-		"MUSTER_REDIS_PORT":         "16379",
-		"MUSTER_PROMETHEUS_PORT":    "19091",
-		"MUSTER_GRAFANA_PORT":       "13000",
-		"MUSTER_NGINX_HTTP_PORT":    "10080",
-		"MUSTER_NGINX_HTTPS_PORT":   "10443",
+		"MUSTER_API_HTTP_PORT":    "18080",
+		"MUSTER_API_METRICS_PORT": "19090",
+		"MUSTER_DAEMON_PORT":      "18081",
+		"MUSTER_DB_PORT":          "15432",
+		"MUSTER_REDIS_PORT":       "16379",
+		"MUSTER_PROMETHEUS_PORT":  "19091",
+		"MUSTER_GRAFANA_PORT":     "13000",
+		"MUSTER_NGINX_HTTP_PORT":  "10080",
+		"MUSTER_NGINX_HTTPS_PORT": "10443",
 	}
 
 	// resolve renders `docker compose config` to JSON and returns, per
