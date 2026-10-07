@@ -290,6 +290,13 @@ func callerEndedTheCall(callerCtx context.Context) bool {
 	return ok && !time.Now().Before(deadline)
 }
 
+// isContextError reports whether the error is a context cancellation or deadline
+// exceeded. These errors indicate the caller ended the stream, even if the
+// context package hasn't marked the context as done yet (a race under load).
+func isContextError(err error) bool {
+	return err == context.Canceled || err == context.DeadlineExceeded
+}
+
 // finishStream stamps the terminal status and trailer of a streaming
 // invocation and returns the AppError that must accompany the transcript (nil
 // for the two clean endings). callerCtx is the caller's own context: when it is
@@ -310,7 +317,7 @@ func finishStream(t *StreamTranscript, bound *streamBound, out streamOutcome, ca
 		return nil
 	}
 	t.Trailer["error"] = out.err.Error()
-	if callerEndedTheCall(callerCtx) {
+	if callerEndedTheCall(callerCtx) || isContextError(out.err) {
 		t.Status = StatusCancelled
 		return mapTransportError(out.err, fullMethod)
 	}
