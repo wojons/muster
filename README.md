@@ -111,7 +111,7 @@ The demo spins up 5 mock services and exercises every surface:
 python3 -m venv .venv && . .venv/bin/activate && pip install flask
 
 cd demo && ./run-all.sh
-# Builds binaries → starts 5 services → runs 10 demos → prints 23 pass/fail → cleans up
+# Builds binaries → starts 5 services → runs 13 demos + 6 integration suites → prints 32 pass/fail → cleans up
 ```
 
 `run-all.sh` probes its interpreter for `flask` **before** it builds anything: with
