@@ -48,11 +48,18 @@ from https://go.dev/dl/ instead.
 ## Quick start
 
 > **Note:** This repository is **PRIVATE** and is not published to the public Go proxy.
+> Only wojons org members with GitHub credentials (or a personal access token with repo
+> scope) can clone or `go get` it — anonymous access fails with a credential prompt.
 > **First**, configure GOPRIVATE and authenticate with GitHub:
 > ```bash
 > go env -w GOPRIVATE=github.com/wojons/*
 > ```
 > Then `go get github.com/wojons/muster@v0.1.0` resolves from the private repo.
+>
+> **No public download path exists yet** (repo private, no published release assets).
+> External users: request access or wait for a public release. There is no anonymous
+> tarball/zip fallback — both `git clone` and the GitHub release assets require auth
+> while the repo stays private.
 
 ```bash
 # Build
