@@ -102,3 +102,19 @@ demo/.venv/
 .coding-hermes/board/board.db
 .coding-hermes/board/board.db.wal
 .coding-hermes/board/*.parquet
+
+# CLN-1: stale root artifacts (binaries, backups, sweep reports, session notes)
+coverage.out
+daemon.exe
+dagger.db
+muster
+muster.db
+ralph
+SKILL.md
+go.mod.bak
+go.sum.bak
+idle-time-sweep-*.md
+spec-conformance-sweep-*.md
+spec-validation-report.json
+.session-*-complete.md
+.tmp-spec-analysis.txt
