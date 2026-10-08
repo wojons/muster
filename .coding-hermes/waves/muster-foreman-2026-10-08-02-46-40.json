@@ -1,0 +1,12 @@
+{
+  "scheduler_tick_id": "muster-foreman-2026-10-08-02-46-40",
+  "tick_number": 642,
+  "mode": "serial-fallback",
+  "reason": "only one actionable independent pending row (PROTO-007); all other pending rows are externally blocked (owner decision / org billing / release auth) or fixture",
+  "wave_budget": 10,
+  "workers": 1,
+  "task_ids": ["PROTO-007"],
+  "members": [
+    {"task_id": "PROTO-007", "worktree": "/home/kara/worktrees/muster-proto-007", "branch": "wt/proto-007", "base_sha": "61694add", "model": "openai-codex/gpt-6-luna", "brief": "/tmp/m642_worker_brief.md"}
+  ]
+}
