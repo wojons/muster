@@ -43,6 +43,7 @@ Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 
 	cmd.AddCommand(newProtocolJSONRPCCommand())
 	cmd.AddCommand(newProtocolGraphQLCommand())
+	cmd.AddCommand(newProtocolSOAPCommand())
 	return cmd
 }
 
