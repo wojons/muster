@@ -93,7 +93,7 @@ make build-cli
 # MUSTER_BASE_URL) — running such a command without one fails with a hint
 # naming those two options instead of a bare http error.
 
-# Run the full demo (5 mock services, 10 scripts, all 7 surfaces).
+# Run the full demo (5 mock services, 14 scripts, all 7 surfaces).
 # The mock services are Flask apps — install Flask into a repo venv once
 # (a bare `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+: PEP 668):
 python3 -m venv .venv && . .venv/bin/activate && pip install flask
@@ -118,7 +118,7 @@ The demo spins up 5 mock services and exercises every surface:
 python3 -m venv .venv && . .venv/bin/activate && pip install flask
 
 cd demo && ./run-all.sh
-# Builds binaries → starts 5 services → runs 13 demos + 6 integration suites → prints 32 pass/fail → cleans up
+# Builds binaries → starts 5 services → runs 14 demos + 6 integration suites → prints 33 pass/fail → cleans up
 ```
 
 `run-all.sh` probes its interpreter for `flask` **before** it builds anything: with
@@ -133,7 +133,7 @@ make test-short           # Quick pass: all tests in -short mode — skips the l
 make test-integration     # Integration-tagged tests (-tags=integration -run Integration) — proves components connect
 make test-e2e             # Builds the binaries, then runs the end-to-end suite in test/e2e
 make validate             # Full validation gate: unit tests + lint + vet + integration tests + security audit
-./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs the 10 demo scripts, 23+ checks
+./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs the 14 demo scripts + 6 integration suites, 33 checks
 ```
 
 > **Note:** bare `go test ./...` runs the full suite, which includes a 30-minute
@@ -316,7 +316,7 @@ pkg/                 # 28 public packages (importable)
   auth/              # OAuth2, mTLS, bearer tokens
   ...                # 12 more packages
 internal/            # Private utilities
-demo/                # Self-contained demo (5 services, 10 scripts)
+demo/                # Self-contained demo (5 services, 14 scripts)
 specs/               # 270+ specification files
 ```
 
