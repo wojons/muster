@@ -232,3 +232,25 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 **Time-to-first-success:** < 1 min (fresh clone → build → MCP tools/list).
 
 **Verdict:** SHIPPABLE. REVIEW-MUSTER-3 fix verified live. Remaining pending rows are P2/P3 polish (version stamp, README cleanup, demo hints). Install leg still blocked (bunkerd not running on reachable hosts).
+
+## 2026-10-10 (run 14) — SOAP adapter live interop (post PROTO-008 landing)
+
+**Promise statement:** "The freshly landed SOAP/WSDL adapter (PROTO-008, merged 2026-10-08) works against a real WSDL document and a live SOAP service, and the existing CLI/MCP surface still works."
+
+**Angle change per skill:** PROTO-008 landed 2 days ago; last run (10-02) predated it. This run targets the new `protocol soap` surface against a LIVE public service, not loopback fixtures.
+
+**What was done (real use, not tests):**
+- Built all binaries (make build, clean).
+- Ingested a real public WSDL 1.1 (NumberConversion, dataaccess.com, fetched over HTTPS): `protocol soap --wsdl` discovers 2 operations (NumberToWords, NumberToDollars) with correct typed parts, endpoint, soap_version 1.1 — ingestion WORKS.
+- Live call FAILED: `Invalid namespace '' expected 'http://www.dataaccess.com/webservicesserver/'`. --document shows the payload element is NOT namespace-qualified; hand-fixed envelope via curl returns the correct result → service is fine, adapter envelope is the defect. Filed DF-048 P1.
+- Secondary: integer arg renders as `1.234567e+06` in the envelope (not a valid xsd:integer); service rejection mapped to INTERNAL_ERROR instead of BAD_REQUEST/client-error. Filed DF-049 P2.
+
+**Perf (Step 2b):** soap call round-trip 0.30s / 0.27s warm (network-bound, failing fast); `discover` 0.01s; `generate` 0.01s; MCP initialize+tools/list <10ms stdio. Nothing slow enough that a user would notice → no PERF rows filed.
+
+**Install leg: SKIPPED-install-bunker.** Not attempted this run: previous two runs (09-26, 10-02) found bunkerd not running as a systemd --user service on all reachable hosts (las-02/las-03: "Unit bunkerd.service could not be found"); no evidence that changed. Install surface unchanged (no new deps in go.mod affecting bootstrap since 09-27 run's proven install on bunker-mvp).
+
+**Findings written to board:** DF-048 (P1), DF-049 (P2) — committed f4c13c2e, pushed to origin/main.
+
+**Time-to-first-success:** ingestion < 1 min from clone of a public WSDL; first SUCCESSFUL live SOAP call: not achievable (DF-048).
+
+**Verdict:** PROMISING-BUT-ROUGH. Ingestion side of PROTO-008 is good (discovery, typed parts, help/docs quality high — out-of-scope WS-Security documented, not hidden). Invocation side fails on the first real service a user would try: envelope not namespace-qualified. Recommend the foreman add a live-WSDL e2e leg to demo/21-soap-adapter.sh, not just loopback fixtures.
