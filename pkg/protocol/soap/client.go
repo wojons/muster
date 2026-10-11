@@ -349,9 +349,13 @@ func scalarString(v interface{}) string {
 }
 
 // trimFloat renders a JSON-decoded number without a trailing ".0" artifact.
+// Integer-valued floats (no fractional part, within safe integer range) are
+// rendered as plain decimals to avoid scientific notation (1234567 not 1.234567e+06).
 func trimFloat(f float64) string {
-	s := fmt.Sprintf("%g", f)
-	return s
+	if f == float64(int64(f)) && f >= -1e15 && f <= 1e15 {
+		return fmt.Sprintf("%d", int64(f))
+	}
+	return fmt.Sprintf("%g", f)
 }
 
 // messageID derives a WS-Addressing MessageID suffix. Deterministic per call
