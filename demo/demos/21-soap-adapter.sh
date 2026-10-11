@@ -87,6 +87,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -96,13 +97,22 @@ func main() {
 			_, _ = io.WriteString(w, "ok")
 			return
 		}
-		if _, err := io.ReadAll(r.Body); err != nil {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		if r.Header.Get("SOAPAction") != "http://example.com/echo/Echo" {
 			fmt.Println("fixture: missing SOAPAction header")
 			os.Exit(9) // loud fixture failure — the demo must not measure a stranger
+		}
+		// A namespace-validating document/literal service, like the live public
+		// endpoint this adapter was dogfooded against: the payload root inside
+		// the Body must be qualified with the schema's target namespace, or the
+		// service refuses the call with "Invalid namespace ''".
+		if !strings.Contains(string(body), `xmlns="http://example.com/echo"`) {
+			fmt.Println("fixture: payload root carries no xmlns=\"http://example.com/echo\" (Invalid namespace)")
+			os.Exit(9)
 		}
 		if mode := r.URL.Query().Get("mode"); mode == "fault" {
 			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
@@ -145,7 +155,9 @@ DOC_OUT=$("$BIN" protocol soap --wsdl "$WORK/echo.wsdl" --operation EchoService-
 echo "$DOC_OUT" | grep -q 'Content-Type: text/xml; charset=utf-8' || fail "1.1 content type missing"
 echo "$DOC_OUT" | grep -q 'SOAPAction: http://example.com/echo/Echo' || fail "SOAPAction header missing"
 echo "$DOC_OUT" | grep -q '<tags>x</tags><tags>y</tags>' || fail "repeated field not rendered as repeated elements"
-pass "--document → SOAP 1.1 envelope with SOAPAction header and repeated elements"
+echo "$DOC_OUT" | grep -q '<EchoRequest xmlns="http://example.com/echo">' || fail "payload root is not namespace-qualified with the fixture targetNamespace: $DOC_OUT"
+echo "$DOC_OUT" | grep -q '<message>demo</message>' || fail "payload children must stay unqualified (they inherit the root declaration): $DOC_OUT"
+pass "--document → SOAP 1.1 envelope, root qualified with the WSDL targetNamespace, unqualified children, SOAPAction header, repeated elements"
 
 # ── 3. Round-trip: live call through the loopback fixture ───────────────────
 CALL_OUT=$("$BIN" protocol soap --wsdl "$WORK/echo.wsdl" --operation EchoService-Echo \

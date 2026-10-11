@@ -112,8 +112,9 @@ With `WithAddressing(true)` / `--addressing` a WS-Addressing 1.0 (2005/08) heade
 
 ### 4.2 Body shape
 
-- document style (default): the input element's local name wraps its depth-1 fields in declaration order — `<EchoRequest><message>hi</message><tags>a</tags><tags>b</tags></EchoRequest>`.
-- rpc style (or a missing input element): the operation name wraps its parts.
+- document style (default): the input element's local name wraps its depth-1 fields in declaration order, and carries the input element's namespace as a default declaration — `<EchoRequest xmlns="http://example.com/echo"><message>hi</message><tags>a</tags><tags>b</tags></EchoRequest>`. A document/literal service whose input element is namespace-qualified refuses an unqualified root with `Invalid namespace ''` (the SOAP envelope namespace is not the payload's), so the declaration is required, not cosmetic.
+- rpc style (or a missing input element): the operation name wraps its parts, qualified with the document target namespace.
+- children inherit the root's namespace declaration and are emitted unqualified; the neutral request model carries no per-field namespace, so a depth-1 field in a different namespace is not representable.
 - omitted optional args are not emitted; array values render one element per entry; object values render each key as a child element (sorted for determinism); scalars are XML-escaped (`& < > " '`).
 
 ### 4.3 Response rendering

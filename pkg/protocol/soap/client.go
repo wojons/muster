@@ -204,6 +204,11 @@ func (c *Client) BuildEnvelope(op *protocol.Operation, args map[string]interface
 // the input element QName's local part; the element's depth-1 fields become
 // child elements in declaration order. rpc style wraps the operation name
 // with its parts as children.
+//
+// The payload root is namespace-qualified with a default xmlns declaration
+// (see payloadNamespace): a document/literal service whose input element is
+// namespace-qualified rejects an unqualified payload with "Invalid namespace".
+// Children inherit the declaration and are emitted unqualified.
 func (c *Client) buildBodyXML(op *protocol.Operation, args map[string]interface{}) (string, error) {
 	style := op.Source[SourceStyle]
 	inputElem := op.Source[SourceInputElem]
@@ -222,15 +227,63 @@ func (c *Client) buildBodyXML(op *protocol.Operation, args map[string]interface{
 		children.WriteString(fragment)
 	}
 
-	if style == "rpc" || inputElem == "" {
-		opName := op.Source[SourceOperation]
-		return "<" + xmlEscape(opName) + ">" + children.String() + "</" + xmlEscape(opName) + ">", nil
+	// rpc style (or a document operation whose input element the WSDL does not
+	// declare): the operation name is the wrapper element.
+	name := op.Source[SourceOperation]
+	if style != "rpc" && inputElem != "" {
+		name = qnameLocal(inputElem)
 	}
-	local := inputElem
-	if i := strings.LastIndex(local, "}"); i >= 0 {
-		local = local[i+1:]
+
+	xmlns := ""
+	if ns := c.payloadNamespace(op); ns != "" {
+		xmlns = ` xmlns="` + xmlEscape(ns) + `"`
 	}
-	return "<" + xmlEscape(local) + ">" + children.String() + "</" + xmlEscape(local) + ">", nil
+	return "<" + xmlEscape(name) + xmlns + ">" + children.String() + "</" + xmlEscape(name) + ">", nil
+}
+
+// payloadNamespace resolves the namespace URI the root payload element must
+// declare as its default xmlns ("" when none is known).
+//
+// Document style: the namespace of the operation's input element QName. The
+// element is declared in the schema's target namespace, and a document/literal
+// service rejects an unqualified root — the SOAP envelope namespace is not the
+// payload's — with "Invalid namespace". rpc style (or a document operation
+// whose input element the WSDL does not declare): the WSDL target namespace,
+// where the rpc wrapper convention puts the operation element.
+//
+// Children inherit the declaration, so a depth-1 field in a DIFFERENT
+// namespace would need its own xmlns. The neutral RequestBody model carries no
+// per-field namespace, so that case is not representable (specs/implementation
+// /PROTO-008-soap-wsdl.md §4.2).
+func (c *Client) payloadNamespace(op *protocol.Operation) string {
+	if op.Source[SourceStyle] != "rpc" {
+		if ns := qnameNamespace(op.Source[SourceInputElem]); ns != "" {
+			return ns
+		}
+	}
+	if c.doc != nil {
+		return c.doc.TargetNamespace
+	}
+	return ""
+}
+
+// qnameLocal strips a resolved QName to its local part ("{uri}Local" → "Local").
+func qnameLocal(qname string) string {
+	if i := strings.LastIndex(qname, "}"); i >= 0 {
+		return qname[i+1:]
+	}
+	return qname
+}
+
+// qnameNamespace returns the namespace URI of a resolved QName
+// ("{uri}Local" → "uri"); empty when the QName carries none.
+func qnameNamespace(qname string) string {
+	if strings.HasPrefix(qname, "{") {
+		if i := strings.Index(qname, "}"); i > 0 {
+			return qname[1:i]
+		}
+	}
+	return ""
 }
 
 // valueToXML renders one request-body property as an XML element fragment.

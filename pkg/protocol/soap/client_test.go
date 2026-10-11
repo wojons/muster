@@ -136,14 +136,37 @@ const wsdl20 = `<?xml version="1.0" encoding="utf-8"?>
   </service>
 </description>`
 
+// payloadRootIsQualified reports whether the start tag of the first occurrence
+// of element declares ns as its default namespace — the check a real
+// document/literal service performs before it answers, and the one the live
+// dataaccess.com endpoint fails muster on with "Invalid namespace".
+func payloadRootIsQualified(body, element, ns string) bool {
+	i := strings.Index(body, "<"+element)
+	if i < 0 {
+		return false
+	}
+	tag := body[i:]
+	if j := strings.Index(tag, ">"); j >= 0 {
+		tag = tag[:j]
+	}
+	return strings.Contains(tag, `xmlns="`+ns+`"`)
+}
+
 // echoSOAPHandler is the in-process SOAP 1.1 server fixture: it validates the
 // envelope shape it received and answers per the requested path — success
 // (with a repeated element), a SOAP 1.1 fault, or a SOAP 1.2 fault.
+//
+// It validates the payload ROOT namespace like a document/literal service
+// does: the round-trip tests therefore fail if the envelope sends an
+// unqualified <EchoRequest> (DF-048).
 func echoSOAPHandler(t *testing.T, fault1_1, fault1_2 bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		if !strings.Contains(string(body), ":Envelope") && !strings.Contains(string(body), "Envelope") {
 			t.Errorf("server got a non-SOAP body: %s", body)
+		}
+		if !payloadRootIsQualified(string(body), "EchoRequest", "http://example.com/echo") {
+			t.Errorf("server rejected the payload root: no xmlns=\"http://example.com/echo\" on <EchoRequest> (Invalid namespace): %s", body)
 		}
 		action := r.Header.Get("SOAPAction")
 		ct := r.Header.Get("Content-Type")
@@ -314,7 +337,7 @@ func TestBuildEnvelope_SOAP11_Golden(t *testing.T) {
 	got := string(env.XML)
 	want := `<?xml version="1.0" encoding="utf-8"?>` +
 		`<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">` +
-		`<soapenv:Body><EchoRequest>` +
+		`<soapenv:Body><EchoRequest xmlns="http://example.com/echo">` +
 		`<message>hello &amp; &lt;world&gt;</message>` +
 		`<tags>a</tags><tags>b</tags>` +
 		`</EchoRequest></soapenv:Body></soapenv:Envelope>`
@@ -340,6 +363,9 @@ func TestBuildEnvelope_SOAP12_ContentTypeAction(t *testing.T) {
 	if !strings.Contains(string(env.XML), `<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope">`) {
 		t.Errorf("wrong envelope namespace: %s", env.XML)
 	}
+	if !strings.Contains(string(env.XML), `<AddRequest xmlns="http://example.com/calc">`) {
+		t.Errorf("WSDL 2.0 payload root must carry the schema targetNamespace: %s", env.XML)
+	}
 	if !strings.Contains(string(env.XML), "<a>1.5</a>") {
 		t.Errorf("number rendering broken: %s", env.XML)
 	}
@@ -364,6 +390,159 @@ func TestBuildEnvelope_OptionalOmitted(t *testing.T) {
 	env := envelopeGolden(t, wsdl11, "EchoService-Echo", map[string]interface{}{"message": "x"})
 	if strings.Contains(string(env.XML), "<count>") || strings.Contains(string(env.XML), "<tags>") {
 		t.Errorf("omitted optional/repeated fields must not appear: %s", env.XML)
+	}
+}
+
+// ── DF-048: payload root namespace qualification ────────────────────────────
+
+// wsdl11rpc is an rpc/literal document: its input part names a complexType
+// instead of a global element, so the operation name wraps the parts and the
+// payload namespace comes from the document target namespace.
+const wsdl11rpc = `<?xml version="1.0" encoding="utf-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:tns="http://example.com/rpc"
+             targetNamespace="http://example.com/rpc">
+  <types>
+    <xsd:schema targetNamespace="http://example.com/rpc">
+      <xsd:complexType name="SumArgs">
+        <xsd:sequence>
+          <xsd:element name="a" type="xsd:int"/>
+          <xsd:element name="b" type="xsd:int"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+  </types>
+  <message name="SumInput"><part name="parameters" type="tns:SumArgs"/></message>
+  <message name="SumOutput"><part name="parameters" type="xsd:int"/></message>
+  <portType name="CalcPortType">
+    <operation name="Sum">
+      <input message="tns:SumInput"/>
+      <output message="tns:SumOutput"/>
+    </operation>
+  </portType>
+  <binding name="CalcBinding" type="tns:CalcPortType">
+    <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="Sum">
+      <soap:operation soapAction="http://example.com/rpc/Sum"/>
+      <input><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+  </binding>
+  <service name="CalcService">
+    <port name="CalcPort" binding="tns:CalcBinding">
+      <soap:address location="http://localhost/rpc"/>
+    </port>
+  </service>
+</definitions>`
+
+// TestBuildEnvelope_RootElementNamespace is the DF-048 acceptance case: the
+// root payload element is qualified with the input element's namespace, and
+// its children stay unqualified (they inherit the declaration).
+func TestBuildEnvelope_RootElementNamespace(t *testing.T) {
+	op := &protocol.Operation{
+		ID:       "NsService-GetItem",
+		Protocol: protocol.ProtocolSOAP,
+		Kind:     protocol.KindUnary,
+		Source: map[string]string{
+			SourceService:     "NsService",
+			SourceOperation:   "GetItem",
+			SourceSOAPAction:  "http://example.com/ns/GetItem",
+			SourceSOAPVersion: "1.1",
+			SourceStyle:       "document",
+			SourceInputElem:   "{http://example.com/ns}GetItem",
+		},
+		RequestBody: []protocol.RequestBodyProperty{
+			{Name: "ID", Type: "string", Required: true},
+			{Name: "opt", Type: "string"},
+		},
+	}
+	c := NewClient("")
+	env, err := c.BuildEnvelope(op, map[string]interface{}{"ID": "abc-123"})
+	if err != nil {
+		t.Fatalf("build envelope: %v", err)
+	}
+	got := string(env.XML)
+
+	if !strings.Contains(got, `<GetItem xmlns="http://example.com/ns">`) {
+		t.Fatalf("payload root must carry the input element namespace:\n%s", got)
+	}
+	if !strings.Contains(got, `<ID>abc-123</ID>`) {
+		t.Errorf("child element must stay unqualified (inherits the parent declaration):\n%s", got)
+	}
+	// Exactly one default-namespace declaration in the whole envelope: the
+	// root payload element. Children must not repeat it.
+	if n := strings.Count(got, `xmlns="`); n != 1 {
+		t.Errorf("want exactly 1 default xmlns declaration (the payload root), got %d:\n%s", n, got)
+	}
+	// The constraint is a default declaration, never a prefix.
+	if strings.Contains(got, "tns:") {
+		t.Errorf("payload must not use namespace prefixes:\n%s", got)
+	}
+}
+
+// TestBuildEnvelope_RootNamespaceFromWSDL drives the same fact through a real
+// WSDL discovery: the fixture's targetNamespace reaches the envelope.
+func TestBuildEnvelope_RootNamespaceFromWSDL(t *testing.T) {
+	env := envelopeGolden(t, wsdl11, "EchoService-Echo", map[string]interface{}{
+		"message": "hi",
+		"tags":    []interface{}{"a", "b"},
+	})
+	got := string(env.XML)
+	if !strings.Contains(got, `<EchoRequest xmlns="http://example.com/echo">`) {
+		t.Fatalf("root element must be qualified with the WSDL targetNamespace:\n%s", got)
+	}
+	if !payloadRootIsQualified(got, "EchoRequest", "http://example.com/echo") {
+		t.Errorf("a namespace-validating service would reject this envelope:\n%s", got)
+	}
+	if strings.Contains(got, `<message xmlns=`) || strings.Contains(got, `<tags xmlns=`) {
+		t.Errorf("children inherit the namespace and must not repeat it:\n%s", got)
+	}
+}
+
+// TestBuildEnvelope_RPCStyleRootNamespace: an rpc/literal operation has no
+// input element, so the wrapper (the operation name) is qualified with the
+// document target namespace.
+func TestBuildEnvelope_RPCStyleRootNamespace(t *testing.T) {
+	env := envelopeGolden(t, wsdl11rpc, "CalcService-Sum", map[string]interface{}{
+		"parameters.a": 1.0,
+		"parameters.b": 2.0,
+	})
+	got := string(env.XML)
+	if !strings.Contains(got, `<Sum xmlns="http://example.com/rpc">`) {
+		t.Fatalf("rpc wrapper must be qualified with the document target namespace:\n%s", got)
+	}
+	// Parts render unqualified inside the wrapper (pre-existing part-name
+	// prefixing is untouched by DF-048: the namespace declaration is inherited).
+	if !strings.Contains(got, `<parameters.a>1</parameters.a><parameters.b>2</parameters.b>`) {
+		t.Errorf("rpc parts must render inside the qualified wrapper:\n%s", got)
+	}
+	// The wrapper's declaration is the only default xmlns in the envelope.
+	if n := strings.Count(got, `xmlns="`); n != 1 {
+		t.Errorf("want exactly 1 default xmlns declaration (the wrapper), got %d:\n%s", n, got)
+	}
+}
+
+// TestBuildEnvelope_NoKnownNamespaceEmitsNoXmlns: when neither the input
+// element nor a discovered document names a namespace, the builder must not
+// invent one.
+func TestBuildEnvelope_NoKnownNamespaceEmitsNoXmlns(t *testing.T) {
+	op := &protocol.Operation{
+		ID:       "Loose-Ping",
+		Protocol: protocol.ProtocolSOAP,
+		Source: map[string]string{
+			SourceOperation: "Ping",
+			SourceStyle:     "rpc",
+		},
+	}
+	c := NewClient("") // no Discover(): no document, no target namespace
+	env, err := c.BuildEnvelope(op, nil)
+	if err != nil {
+		t.Fatalf("build envelope: %v", err)
+	}
+	if got := string(env.XML); strings.Contains(got, `xmlns="`) {
+		t.Errorf("no namespace is known, so none may be declared:\n%s", got)
 	}
 }
 
