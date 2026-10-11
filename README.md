@@ -136,10 +136,10 @@ make validate             # Full validation gate: unit tests + lint + vet + inte
 ./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs the 14 demo scripts + 6 integration suites, 33 checks
 ```
 
-> **Note:** bare `go test ./...` runs the full suite, which includes a 30-minute
-> daemon stability soak test (`test/stability`) that exceeds Go's 10-minute
-> per-package timeout and fails with "panic: test timed out". Use
-> `make test-short` for a quick pass.
+> **Note:** the daemon stability soak is opt-in: files under `test/stability` use
+> the `stability` build tag, so bare `go test ./...` does not include that soak and
+> is safe for the normal suite. Use `make test-short` when you want the repository's
+> quicker short-mode validation.
 
 ## CLI
 
@@ -254,11 +254,8 @@ go build -o bin/openapi-daemon ./cmd/daemon
 # (ARG VERSION → -ldflags in the Dockerfile).
 
 # Run tests
-go test ./...
-# NOTE: the full suite includes a 30-minute daemon stability soak test
-# (test/stability), which exceeds Go's 10-minute per-package timeout and
-# fails with "panic: test timed out". Use the short suite for a quick pass:
-go test -short ./...
+go test ./...                 # Normal suite; stability soak is build-tagged
+go test -short ./...          # Faster short-mode validation
 # (or: make test-short)
 
 # Run the demo
