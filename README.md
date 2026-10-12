@@ -29,7 +29,7 @@ support is a CGO package (`github.com/mattn/go-sqlite3`), and `make` builds with
 
 | Requirement | Notes |
 |---|---|
-| **Go 1.26.6+** | the version in [`go.mod`](go.mod) — older toolchains fail with a hard toolchain error. Check with `go version`; install from https://go.dev/dl/ |
+| **Go 1.26+** (repo developed on **1.26.6**) | the `go` directive in [`go.mod`](go.mod) is `1.26.6`; a toolchain older than that either auto-fetches it (`GOTOOLCHAIN=auto`, the default — needs network) or fails with a hard toolchain error (`GOTOOLCHAIN=local`). Check with `go version`; install from https://go.dev/dl/ |
 | **C compiler** (`gcc` or `clang`) | required for CGO (SQLite). Without one, `make build-cli` stops with `cgo: C compiler "gcc" not found` (reported from `runtime/cgo`) |
 | **make**, **git**, **curl** | build driver, cloning the repo, fetching specs over http(s) |
 | **Python 3 + Flask** | demo only — the 5 mock services are Flask apps. Install the pinned demo dependencies into the repo venv (`python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt`); a bare system `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+ (PEP 668). Not needed to build or use the binaries |
@@ -40,9 +40,10 @@ Debian 13 / Ubuntu — one line:
 sudo apt-get update && sudo apt-get install -y golang gcc make git curl
 ```
 
-`golang` from the distro archive is often **older than `go.mod`'s minimum**: run
+`golang` from the distro archive is often **older than the repo's toolchain**: run
 `go version` and compare it against the `go` directive in [`go.mod`](go.mod)
-(currently `1.26.6`) before building. If it is behind, install the toolchain
+(currently `1.26.6`; the repo is developed and tested on that release) before
+building. If it is behind, install the toolchain
 from https://go.dev/dl/ instead.
 
 ## Quick start
@@ -98,6 +99,8 @@ make build-cli
 # (a bare system `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+: PEP 668):
 python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt
 ./demo/run-all.sh
+# No venv yet? `./demo/run-all.sh --bootstrap` creates .venv and installs Flask.
+# Flask already in another interpreter? Skip the venv: DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh
 ```
 
 ## Demo
@@ -118,13 +121,15 @@ The demo spins up 5 mock services and exercises every surface:
 python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt
 
 cd demo && ./run-all.sh
-# Builds binaries → starts 5 services → runs 14 demos + 6 integration suites → prints 33 pass/fail → cleans up
+# Builds binaries → starts 5 services → runs 14 demos + 6 integration suites → prints the pass/fail count → cleans up
 ```
 
 `run-all.sh` probes its interpreter for `flask` **before** it builds anything: with
 no `.venv` and no Flask on the system `python3`, it exits 1 naming the venv
 command above, instead of building and then reporting a service that failed to
-start.
+start. Already have Flask in another interpreter? Point the demo at it with
+`DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh`; if the repo venv does not exist
+yet, `./demo/run-all.sh --bootstrap` creates it and installs Flask.
 
 ## Testing
 
@@ -133,7 +138,8 @@ make test-short           # Quick pass: all tests in -short mode — skips the l
 make test-integration     # Integration-tagged tests (-tags=integration -run Integration) — proves components connect
 make test-e2e             # Builds the binaries, then runs the end-to-end suite in test/e2e
 make validate             # Full validation gate: unit tests + lint + vet + integration tests + security audit
-./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs the 14 demo scripts + 6 integration suites, 33 checks
+./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs the 14 demo scripts + 6 integration suites (see run-all.sh output for the live check count)
+DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh   # no venv yet? add --bootstrap to create .venv and install Flask
 ```
 
 > **Note:** the daemon stability soak is opt-in: files under `test/stability` use
@@ -166,7 +172,7 @@ openapi-cli dsl run workflow.star
 
 ## MCP Server
 
-**`openapi-mcp` is the canonical (and only) MCP server binary** — built by `make build-mcp` from `cmd/mcp-server`. No other MCP binary is produced by the build; if a stray `mcp-server` or `openapi-cli-mcp-server` appears in `bin/`, it is a stale artifact from an ad-hoc build — delete it and rebuild.
+**`openapi-mcp` is the canonical (and only) MCP server binary** — built by `make build-mcp` from `cmd/mcp-server` (Makefile `MCP_BINARY := openapi-mcp`); `make build-cli` and `make build-daemon` likewise each write exactly one named binary. The real hazard is `bin/` itself: it is **gitignored** (`.gitignore`), so a stale binary left there by an earlier build is invisible to git and silently survives every rebuild. If a binary behaves unlike the source says it should, delete `bin/` (`make clean`) and rebuild before debugging.
 
 Add to your Claude Desktop config or any MCP client:
 
@@ -225,7 +231,7 @@ doc, _ := parser.Parse(ctx, specBytes, openapi.DefaultParseOptions())
 c := client.NewClient(client.WithBaseURL("https://api.example.com"), client.WithTimeout(30*time.Second))
 ```
 
-28 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
+29 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
 
 ## Build from source
 
@@ -262,7 +268,7 @@ go test -short ./...          # Faster short-mode validation
 ./demo/run-all.sh
 ```
 
-Requires Go 1.26.6+, Python 3, and Flask (the demo's services are Flask apps).
+Requires Go 1.26+ (repo developed on 1.26.6), Python 3, and Flask (the demo's services are Flask apps).
 Also requires a C compiler for CGO (SQLite) — see [Prerequisites](#prerequisites).
 
 Install the pinned demo dependencies into a repo venv — on Debian 12/13 and Ubuntu
@@ -303,7 +309,7 @@ the venv are `pipx install flask` or
 cmd/openapi-cli/     # CLI entry point
 cmd/mcp-server/      # MCP server entry point
 cmd/daemon/          # Daemon entry point
-pkg/                 # 28 public packages (importable)
+pkg/                 # 29 public packages (importable)
   openapi/           # OpenAPI spec parsing
   mcp/               # MCP protocol implementation
   protocol/          # gRPC, JSON-RPC/OpenRPC, and GraphQL adapters
@@ -315,10 +321,10 @@ pkg/                 # 28 public packages (importable)
   cache/             # Multi-tier caching
   rate/              # Token bucket rate limiter
   auth/              # OAuth2, mTLS, bearer tokens
-  ...                # 12 more packages
+  ...                # 12 more package directories
 internal/            # Private utilities
 demo/                # Self-contained demo (5 services, 14 scripts)
-specs/               # 270+ specification files
+specs/               # 230+ specification files
 ```
 
 ## License
