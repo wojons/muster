@@ -280,3 +280,25 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 **Time-to-first-success:** fresh box → first successful typed API call ≈ 2min (post-transfer); SOAP strict-server interop first try after fix.
 
 **Verdict:** SHIPPABLE (upgrade from run 14's PROMISING-BUT-ROUGH). The DF-048 blocker is gone: document/literal with targetNamespace now accepted by a strict validator. Install leg proven on a real fresh box this run (previous three runs skipped/blocked). Remaining pending rows are P2/P3 polish.
+
+## 2026-10-13 (run 16) — live external-service re-proof of DF-048/DF-049 + audit surface (DF-050)
+
+**Promise statement:** "The closed DF-048/DF-049 SOAP fixes hold against the same live service at HEAD, a fresh machine can follow the documented install verbatim, and the audit surface changed by ee8fe3ab (REVIEW2-MUSTER-1) works for a real user."
+
+**Angle change per skill:** runs 13-14 filed DF-048/49; the foreman closed both (50aea846, b8ba0232). SIBLING NOTE: a parallel tick landed run 15 in this log mid-flight (strict loopback echo server + bunker-mvp install, agent dogfood-muster-t4). Per the no-duplicate rule this entry keeps only what run 15 did NOT cover: re-proof against a LIVE EXTERNAL service over the internet (run 15 used loopback), the DF-049 large-integer leg, and the first drive of the audit surface. My independent install leg (agent dogfood-muster-1013, same host, tar-over-ssh, 169s cold build, fresh-box live-SOAP feature smoke) stands as re-proof of run 15's install premise; its claims are credited to run 15, not re-filed.
+
+**What was done (real use, not tests):**
+- DF-048 RE-PROVEN LIVE: `protocol soap --wsdl nc.wsdl --operation NumberConversion-NumberToWords --args '{"ubiNum":1234567}'` at HEAD 63d65e7f returns "one million two hundred thirty four thousand five hundred and sixty seven" (0.28-0.43s round-trip). --document shows payload root carries xmlns="http://www.dataaccess.com/webservicesserver/". Large-int leg: NumberToDollars 987654321 -> "nine hundred and eighty seven million six hundred and fifty four thousand three hundred and twenty one dollars" (plain decimal, no scientific notation). Both closed rows hold; no new rows.
+- Fresh-box feature smoke on the ephemeral agent too: both live calls green from the cold install (install pass is not feature pass).
+- Install leg EXECUTED (prior SKIPPED premise stale): bunker-mvp reachable, bunkerd active. Spawned agent dogfood-muster-1013 (TTL 2h), tar-over-ssh transfer (repo private, anon clone 404 — documented in README), `make build-cli` verbatim = 169s cold incl. module downloads, discover smoke exit 0. Destroyed; residue clean after 95s reconciler recheck.
+- Audit surface (ee8fe3ab): MUSTER_AUDIT_ENABLED=1 events serialize correctly — snake_case top-level keys, result.Success nested true (the old always-false top-level Success is gone). But `audit log --limit 1` returns the OLDEST event on a command documented "Show recent audit events", and the table renders no action name (both middle columns blank). Filed DF-050 (P2).
+
+**Perf (Step 2b):** live SOAP call 0.28s warm / 0.43s (network-bound), WSDL ingest list 0.013s, discover 0.01s, cold fresh-box build 169s (cold start incl. deps). Nothing user-noticeable beyond the documented cold build -> no PERF rows filed.
+
+**Findings written to board:** DF-050 (P2) — committed with this log.
+
+**Install leg: PASSED** — install_seconds=169 (cold, fresh agent on bunker-mvp), smoke=ok (discover exit 0 + two live SOAP calls from the fresh box), bunker=bunker-mvp agent=dogfood-muster-1013 (destroyed, residue recheck clean).
+
+**Time-to-first-success:** < 2 min on a fresh machine (tar transfer + 169s build + smoke).
+
+**Verdict:** SHIPPABLE. The headline protocol surface now works end-to-end against a real external service from a clean machine. Remaining pending rows are release/CI-billing infrastructure (RELEASE-001/003, CI-BILLING-002/003) and P2-P4 polish.
