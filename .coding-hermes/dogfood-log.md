@@ -254,3 +254,29 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 **Time-to-first-success:** ingestion < 1 min from clone of a public WSDL; first SUCCESSFUL live SOAP call: not achievable (DF-048).
 
 **Verdict:** PROMISING-BUT-ROUGH. Ingestion side of PROTO-008 is good (discovery, typed parts, help/docs quality high — out-of-scope WS-Security documented, not hidden). Invocation side fails on the first real service a user would try: envelope not namespace-qualified. Recommend the foreman add a live-WSDL e2e leg to demo/21-soap-adapter.sh, not just loopback fixtures.
+
+## 2026-10-13 (run 15) — DF-048 fix verification (strict live server) + install leg actually run
+
+**Promise statement:** "A user can ingest any WSDL 1.1 with a targetNamespace and call its operations successfully (DF-048 fixed), installable from scratch on a fresh box following the README."
+
+**Angle change per skill:** last run (10-10) FILED DF-048/DF-049; foremen closed both with 50aea846 (namespace-qualified payload root + plain integer rendering). This run re-proves the fix on fresh evidence — a STRICT live server that rejects unqualified payload roots, i.e. the exact failure mode of run 14 — instead of re-filing. Secondary: re-proof of pending REVIEW2-MUSTER-3 (version stamp) on a new artifact shape (tarball install).
+
+**What was done (real use, not tests):**
+- Built CLI at HEAD 63d65e7f (`make build-cli`, stamp v0.1.1-452-g63d65e7f, 0.95s warm ± 25ms).
+- Ran a strict SOAP 1.1 echo server on loopback: 500 + `Invalid namespace` fault UNLESS the payload root carries `xmlns="http://example.com/echo"` (the DF-048 guard), 200 + EchoResponse when qualified. WSDL fixture: document/literal, targetNamespace http://example.com/echo, required string + optional int + unbounded string[] parts.
+- Discovery (no --operation): both operations listed as typed JSON with soap_action/endpoint/parts incl. required+nillable+repeated flags — correct.
+- Live call `--operation EchoService-Echo` with {"message","count":42,"tags":[a,b]}: HTTP 200, JSON `{"message":"ok"}`, rc=0. Server's strict ACCEPTED branch matched ⇒ payload root WAS namespace-qualified (`<EchoRequest xmlns="http://example.com/echo">`, confirmed via --document too). DF-048 FIX VERIFIED LIVE.
+- UX check: unknown `--operation Echo` (vs discovered id `EchoService-Echo`) errors with usage — exit code is 1 (earlier rc=0 reading was a pipeline artifact; direct check verified 1). No row.
+- README smoke path verbatim on fresh box (install leg below): discover → generate → typed `get-pet-by-id 1` → 200 Pet1. Relative-server error message (--base-url hint) fired exactly as documented when run without --base-url; with --base-url it succeeded. docs-lie check: none.
+
+**Perf (Step 2b):** SOAP ingest+call 13.5ms ± 0.6ms warm / ~60ms cold (drop_caches) — build stamp in binary, call round-trip loopback; discovery-only 13.1ms ± 0.7ms; generate 0.7s cold interpreter. Nothing a user would feel → no PERF rows filed (numbers recorded here).
+
+**Install leg: RUN (not skipped) on bunker-mvp** (las-01/02/03/04 all offline in tailscale, 9d–16h; bunker-mvp active). Fresh 2h agent dogfood-muster-t4; tar-over-ssh transfer (git archive HEAD, 3.5MB — private repo, no credentials minted; note git bundle was 234MB — heavy history, cf. REVIEW-MUSTER-10). Toolchain: agent image carried go/make/git (go auto-downloaded toolchain 1.26.6 on first build). `make build-cli` cold: 1m32s. Smoke path verbatim (discover/generate/typed command vs petstore3.swagger.io): all rc=0, typed command returned 200 Pet1. Agent destroyed, verified gone via agents list (count 0). Install premise PROVEN: tarball → build → discover → generate → typed call on a fresh box, ~2min wall after transfer.
+
+**Re-proof of REVIEW2-MUSTER-3 (fresh evidence, no new row):** tarball/git-archive build (--version) reports `dev (unknown)` — same stamp gap as bare go build, now shown to affect the archive-install shape too; make-stamped builds remain correct. Premise holds.
+
+**Findings written to board:** none (all observations already covered: DF-048 verified, REVIEW2-MUSTER-3 re-proofed, DF-045 covers clone dead-end, REVIEW-MUSTER-10 covers pack size).
+
+**Time-to-first-success:** fresh box → first successful typed API call ≈ 2min (post-transfer); SOAP strict-server interop first try after fix.
+
+**Verdict:** SHIPPABLE (upgrade from run 14's PROMISING-BUT-ROUGH). The DF-048 blocker is gone: document/literal with targetNamespace now accepted by a strict validator. Install leg proven on a real fresh box this run (previous three runs skipped/blocked). Remaining pending rows are P2/P3 polish.
