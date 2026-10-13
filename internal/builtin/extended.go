@@ -644,7 +644,6 @@ func emitAuditEvent(eventType, action, resourceType, resourceID, resourceName st
 		Resource:  audit.AuditResource{ID: resourceID, Type: resourceType, Name: resourceName},
 		Result:    audit.AuditResult{Success: success, Code: code},
 		Context:   audit.AuditContext{Metadata: details},
-		Success:   success,
 	})
 }
 

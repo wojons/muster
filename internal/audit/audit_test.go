@@ -496,7 +496,6 @@ func TestAuditEvent_JSON_RoundTrip(t *testing.T) {
 		Resource:  AuditResource{ID: "res-1", Type: "api", Name: "Test Resource"},
 		Result:    AuditResult{Success: true, Code: "OK"},
 		Context:   AuditContext{Metadata: map[string]string{"key": "value"}},
-		Success:   true,
 		Details:   map[string]interface{}{"count": float64(42)},
 		Error:     "",
 	}

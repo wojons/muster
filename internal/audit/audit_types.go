@@ -56,19 +56,18 @@ type AuditContext struct {
 
 // AuditEvent represents a single auditable event.
 type AuditEvent struct {
-	Timestamp time.Time
-	EventType string
-	User      string
-	Level     AuditLevel
-	Category  AuditCategory
-	Action    string
-	Actor     AuditActor
-	Resource  AuditResource
-	Result    AuditResult
-	Context   AuditContext
-	Success   bool
-	Details   map[string]interface{}
-	Error     string
+	Timestamp time.Time              `json:"timestamp"`
+	EventType string                 `json:"event_type"`
+	User      string                 `json:"user"`
+	Level     AuditLevel             `json:"level"`
+	Category  AuditCategory          `json:"category"`
+	Action    string                 `json:"action"`
+	Actor     AuditActor             `json:"actor"`
+	Resource  AuditResource          `json:"resource"`
+	Result    AuditResult            `json:"result"`
+	Context   AuditContext           `json:"context"`
+	Details   map[string]interface{} `json:"details,omitempty"`
+	Error     string                 `json:"error,omitempty"`
 }
 
 // AuditConfig holds configuration for audit logging.
