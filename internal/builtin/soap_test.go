@@ -165,6 +165,29 @@ func TestProtocolSOAP_AddresssingFlagAddsHeaderBlock(t *testing.T) {
 	assert.Empty(t, *lastBody)
 }
 
+func TestProtocolSOAP_Call_EndpointOverrideBeatsWSDLAddress(t *testing.T) {
+	// Endpoint resolution lives in the adapter client (pkg/protocol/soap
+	// Client.Execute prefers the endpoint it was constructed with and only
+	// then falls back to the wsdl:service address). Pin that contract at the
+	// CLI seam: the document names a dead address, --endpoint points at the
+	// live loopback server, and the call must land on the server.
+	srv, lastBody := soapEchoServer(t)
+	path := filepath.Join(t.TempDir(), "echo-dead-address.wsdl")
+	require.NoError(t, os.WriteFile(path, []byte(soapWSDL), 0o600))
+
+	out := runProtocolSOAP(t,
+		"--wsdl", path,
+		"--endpoint", srv.URL,
+		"--operation", "EchoService-Echo",
+		"--args", `{"message":"hi"}`,
+	)
+
+	assert.Contains(t, out, `"message": "ok"`,
+		"the --endpoint override must route the call to the live server")
+	assert.Contains(t, *lastBody, "EchoRequest",
+		"the envelope must reach the server named by --endpoint")
+}
+
 func TestProtocolSOAP_RootWiring(t *testing.T) {
 	// The soap group must be mounted under the protocol group (frozen root).
 	root := NewRootCommand(nil)

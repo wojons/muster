@@ -175,10 +175,10 @@ Spec: specs/implementation/PROTO-008-soap-wsdl.md`,
 				return nil
 			}
 
-			callEndpoint := endpoint
-			if callEndpoint == "" {
-				callEndpoint = target.Source[soapadapter.SourceEndpoint]
-			}
+			// Endpoint resolution is the adapter's: Execute prefers the
+			// endpoint this client was constructed with (--endpoint) and
+			// falls back to the wsdl:service address (pkg/protocol/soap
+			// client.go). Resolving it here again would be dead code.
 			result, err := adapter.Execute(ctx, operation, callArgs)
 			if err != nil {
 				return err
