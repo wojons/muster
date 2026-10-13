@@ -519,39 +519,49 @@ func TestAuditCommand_ShowEmpty(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 }
 
-// TestAuditCommand_Log verifies the log subcommand reads JSON-lines events,
-// honors --filter and --limit.
+// TestAuditCommand_Log is the DF-050 regression: `audit log` is a log VIEWER
+// and must present events NEWEST-FIRST, with --limit N returning the N most
+// RECENT events (not the oldest N from the append-order file). It also checks
+// the render carries action/level, not just a blank event_type column.
 func TestAuditCommand_Log(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "audit.jsonl")
-	writeAuditLog(t, path,
-		testAuditEvent("pet.created", "alice"),
-		testAuditEvent("user.updated", "bob"),
-	)
+	oldEv := testAuditEvent("pet.created", "alice")
+	newEv := testAuditEvent("user.updated", "bob")
+	newEv.Timestamp = oldEv.Timestamp.Add(2 * time.Hour)
+	writeAuditLog(t, path, oldEv, newEv)
 	t.Setenv("MUSTER_AUDIT_LOG", path)
 
-	cmd := newAuditCommand()
-	cmd.SetArgs([]string{"log"})
-	require.NoError(t, cmd.Execute())
-
-	// Filter matches EventType substring
+	// Newest first: user.updated (bob) before pet.created (alice).
 	out, err := captureStdout(func() error {
-		cmd2 := newAuditCommand()
-		cmd2.SetArgs([]string{"log", "--filter", "pet"})
-		return cmd2.Execute()
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"log"})
+		return cmd.Execute()
 	})
 	require.NoError(t, err)
-	assert.Contains(t, out, "alice")
-	assert.NotContains(t, out, "bob")
+	assert.Less(t, strings.Index(out, "bob"), strings.Index(out, "alice"),
+		"audit log must be newest-first")
+	assert.Contains(t, out, "user.updated") // action/event type rendered
+	assert.Contains(t, out, "info")         // level rendered
 
-	// Limit truncates
+	// --limit 1 returns the MOST RECENT event, not the first on disk.
 	out2, err := captureStdout(func() error {
-		cmd3 := newAuditCommand()
-		cmd3.SetArgs([]string{"log", "--limit", "1"})
-		return cmd3.Execute()
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"log", "--limit", "1"})
+		return cmd.Execute()
 	})
 	require.NoError(t, err)
-	assert.Contains(t, out2, "alice")
-	assert.NotContains(t, out2, "bob")
+	assert.Contains(t, out2, "bob")
+	assert.NotContains(t, out2, "alice")
+
+	// Filter still matches EventType/Action/Level substring.
+	out3, err := captureStdout(func() error {
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"log", "--filter", "pet"})
+		return cmd.Execute()
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out3, "alice")
+	assert.NotContains(t, out3, "bob")
 }
 
 // TestAuditCommand_LogEmpty verifies log works with no log file.

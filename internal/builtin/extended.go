@@ -647,6 +647,10 @@ func emitAuditEvent(eventType, action, resourceType, resourceID, resourceName st
 	})
 }
 
+// newAuditCommand builds the `audit` command tree: status, show, log, info.
+// `show` and `log` render NEWEST-FIRST (most recent event first) — the events
+// on disk are append-order (oldest first), and every log viewer's default is
+// newest-first; DF-050.
 func newAuditCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "audit",
@@ -681,8 +685,9 @@ Events are persisted as JSON lines in the audit log file.`,
 				fmt.Println("No audit events found.")
 				return nil
 			}
+			auditReverse(events)
 			for _, e := range events {
-				fmt.Printf("%s\t%s\t%s\n", e.Timestamp.Format(time.RFC3339), e.EventType, e.Actor.ID)
+				fmt.Printf("%s	%s	%s	%s	%s\n", e.Timestamp.Format(time.RFC3339), e.Level, e.EventType, e.Action, e.Actor.ID)
 			}
 			return nil
 		},
@@ -706,6 +711,9 @@ Events are persisted as JSON lines in the audit log file.`,
 					matched = append(matched, e)
 				}
 			}
+			// Newest-first before the limit cut, so --limit N returns the N
+			// MOST RECENT events (DF-050); disk order is append (oldest first).
+			auditReverse(matched)
 			if logLimit > 0 && len(matched) > logLimit {
 				matched = matched[:logLimit]
 			}
@@ -714,7 +722,7 @@ Events are persisted as JSON lines in the audit log file.`,
 				return nil
 			}
 			for _, e := range matched {
-				fmt.Printf("%s\t%s\t%s\n", e.Timestamp.Format(time.RFC3339), e.EventType, e.Actor.ID)
+				fmt.Printf("%s	%s	%s	%s	%s\n", e.Timestamp.Format(time.RFC3339), e.Level, e.EventType, e.Action, e.Actor.ID)
 			}
 			return nil
 		},
@@ -786,6 +794,16 @@ func readAuditEvents(path string, limit int) ([]audit.AuditEvent, error) {
 		}
 	}
 	return events, nil
+}
+
+// auditReverse re-orders events newest-first (descending timestamp) in place.
+// The on-disk JSONL is append-order (oldest first); `audit show`/`audit log`
+// present the most recent events first, so the slice is reversed before any
+// --limit cut is applied (DF-050). Ties keep disk order (stable sort).
+func auditReverse(events []audit.AuditEvent) {
+	sort.SliceStable(events, func(i, j int) bool {
+		return events[i].Timestamp.After(events[j].Timestamp)
+	})
 }
 
 // auditEventMatches reports whether e matches the filter. Matching is a
