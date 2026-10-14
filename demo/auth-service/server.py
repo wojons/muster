@@ -34,6 +34,16 @@ def list_tasks():
         return jsonify({"error": "invalid token"}), 401
     return jsonify([{"id": 1, "title": "secure task"}])
 
+@app.route('/protected', methods=['GET'])
+def protected():
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return jsonify({"error": "unauthorized"}), 401
+    token = auth.split(' ')[1]
+    if token != VALID_TOKEN:
+        return jsonify({"error": "invalid token"}), 401
+    return jsonify({"user": "demo"})
+
 if __name__ == '__main__':
     usage = "usage: server.py [port]   (default: 9803; PORT environment variable also honored)"
     if len(sys.argv) > 2:
