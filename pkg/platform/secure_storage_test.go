@@ -3,9 +3,12 @@
 package platform
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
+
+	linuxkr "github.com/wojons/muster/internal/platform/linux"
 )
 
 // hasSecretService checks whether the D-Bus Secret Service is available
@@ -35,10 +38,25 @@ func TestLinuxKeychain(t *testing.T) {
 	// Verify the keyring is actually usable before running subtests.
 	// hasSecretService() may detect the D-Bus bus but the actual
 	// Secret Service connection can still fail (e.g., in containers
-	// without a full desktop session).
-	if _, err := getLinuxKeyring(); err != nil {
+	// without a full desktop session, or when dbus is broken).
+	keyring, err := getLinuxKeyring()
+	if err != nil {
 		t.Skipf("Linux keyring not usable: %v", err)
 	}
+
+	// Functional probe: actually try to use the keyring before running tests.
+	// getLinuxKeyring() may succeed but operations can still fail with dbus errors.
+	probeKey := "muster-probe-functional"
+	probeCred := &linuxkr.Credential{Type: "password", Value: "probe-password"}
+	ctx := context.Background()
+	if err := keyring.Set(ctx, probeKey, probeCred); err != nil {
+		t.Skipf("Linux keyring not functional (Set failed): %v", err)
+	}
+	if _, err := keyring.Get(ctx, probeKey); err != nil {
+		_ = keyring.Delete(ctx, probeKey)
+		t.Skipf("Linux keyring not functional (Get failed): %v", err)
+	}
+	_ = keyring.Delete(ctx, probeKey)
 
 	t.Run("Store", func(t *testing.T) {
 		if err := k.Store("test-svc", "test-acct", "test-pw"); err != nil {

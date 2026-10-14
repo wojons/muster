@@ -272,6 +272,21 @@ func TestLinuxKeychainReal(t *testing.T) {
 		t.Skipf("Secret Service not available: %v", err)
 	}
 
+	// Probe whether Secret Service is actually functional (dbus may be broken,
+	// service may not be unlocked, etc). NewSecretServiceKeychain only creates
+	// the struct — real dbus connection happens on first use.
+	probeService := testService + "-probe"
+	probeAccount := "probe-account"
+	probePassword := []byte("probe-password")
+	if err := keychain.Set(probeService, probeAccount, probePassword); err != nil {
+		t.Skipf("Secret Service not functional (Set failed): %v", err)
+	}
+	if _, err := keychain.Get(probeService, probeAccount); err != nil {
+		_ = keychain.Delete(probeService, probeAccount)
+		t.Skipf("Secret Service not functional (Get failed): %v", err)
+	}
+	_ = keychain.Delete(probeService, probeAccount)
+
 	t.Run("SetAndGet", func(t *testing.T) {
 		err := keychain.Set(testService, testAccount, []byte(testPassword))
 		require.NoError(t, err, "Should store credential in Secret Service")
