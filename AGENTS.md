@@ -103,7 +103,7 @@ internal/                   # Internal utilities
   testvectors/              # Test vectors
   version/                  # Version information
 
-specs/                      # 276 specification files
+specs/                      # 234 specification files (measured 2026-10-15)
   master-specification.md   # Primary north star spec
   PROTOCOLS.md              # ⭐ Protocol adapter seam + support matrix (design
                             #   authority for ALL protocol work — gRPC, JSON-RPC,
@@ -463,7 +463,7 @@ demo/
 - **Contributing**: `CONTRIBUTING.md`
 - **Makefile**: `make help` for all targets
 - **Go version**: 1.26.6 (see go.mod)
-- **Specs**: `specs/` (276 specification files; `specs/PROTOCOLS.md` is the design authority for all protocol/adapter work — matrix + gates + demo plan)
+- **Specs**: `specs/` (234 specification files (measured 2026-10-15); `specs/PROTOCOLS.md` is the design authority for all protocol/adapter work — matrix + gates + demo plan)
 - **Demo**: `demo/` (prove system works)
 - **Skills**: `.agents/skills/` (71 available skills)
 
