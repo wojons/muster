@@ -6,6 +6,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/wojons/muster/internal/platform/linux"
 )
@@ -39,6 +40,9 @@ func (s *SecretServiceKeychain) Get(service, account string) ([]byte, error) {
 	key := fmt.Sprintf("%s:%s", service, account)
 	cred, err := s.keyring.Get(context.Background(), key)
 	if err != nil {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "no such item") {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	return []byte(cred.Value), nil
