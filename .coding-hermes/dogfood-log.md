@@ -302,3 +302,24 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 **Time-to-first-success:** < 2 min on a fresh machine (tar transfer + 169s build + smoke).
 
 **Verdict:** SHIPPABLE. The headline protocol surface now works end-to-end against a real external service from a clean machine. Remaining pending rows are release/CI-billing infrastructure (RELEASE-001/003, CI-BILLING-002/003) and P2-P4 polish.
+
+## 2026-10-17 (run 17) — audit wire-shape bisect on DF-050's fix (board row DF-051)
+
+**Promise statement:** "The DF-050 fix (68f7d936, newest-first audit log) holds: `audit log` is newest-first, --limit returns the N most recent, and the render carries action+level."
+
+**Angle change per skill:** run 16 already printed `audit log` at this same surface (and filed DF-050); this run re-proves the fix at a DIFFERENT layer — the raw JSONL the audit system itself writes at HEAD d95acc02 (not the render, not the test event shape), where the tag regressions actually live.
+
+**What was done (real use, not tests):**
+- Built at HEAD d95acc02 (`make build-cli`, v0.1.1-471-gd95acc02).
+- Drove the whole audit surface end-to-end with MUSTER_AUDIT_ENABLED=1 and MUSTER_AUDIT_LOG under /tmp (scratch, no real state touched): `version`, `audit status`, `tenant set trial-tenant-1`, `webhook test` (flag check), `audit log/show` renders.
+- DF-050 FIX HOLDS at HEAD d95acc02: `audit log --limit 4` prints the most recent event first (04:22:07Z tenant.set rows above the 04:20:17Z rows); level/action columns render (that part of the fix is real).
+- NEW FINDING (DF-051, P2, filed): every HOOK-written row renders a BLANK event_type column, and the raw audit.jsonl the hook writes is camelCase (`"actor":{"ID":...}`, `"result":{"Success":true,"Code":"OK"}`, `event_type:""`) — the exact shapes ee8fe3ab (REVIEW2-MUSTER-1) claims were replaced by snake_case. Root cause: AuditEvent's nested structs carry NO struct tags at all (`ID   string` internal/audit/audit_types.go:33-53); the commit's `json:"event_type"` / `json:"actor.id"` changes never landed, so `event_type` is empty on the wire and the render's 3rd column (extended.go:690) is blank for all hook rows. Bisect: only the emitAuditEvent path (tenant/webhook mutations) sets EventType on the wire; the hook path (every CLI command, cmd/openapi-cli/main.go:31 → internal/audit/hooks.go:77 LogCommand) never sets it and has no tags to default it. Run 16's re-proof graded the RENDER, not the wire shape — the byte-level probe is what caught this.
+- Corroborating probe: a hand-written legacy line with event_type set renders both columns correctly (tenant.set + pet.created on one row) — the render code is fine; the emitter never populates what it displays. Fix direction: correct the tag syntax (single backtick literals) and add a formatting-contract regression — write one event, read the jsonl bytes back, fail unless event_type/actor.id/actor.type/result.code are snake_case.
+
+**Perf (Step 2b):** audit log --limit 4: 0.02s warm, ~0.04s first run. Discover/version infraops all <0.05s. Nothing user-noticeable — no PERF rows filed. Install leg: NOT re-run this tick — no install-path delta since 63d65e7f (19 commits since run 16 touch board/docs/pyc/tests/version-stamp only); run 16's fresh-box install pass (169s cold on bunker-mvp, live SOAP smoke) stands as the current install evidence.
+
+**Findings written to board:** DF-051 (P2) + event id 833 (dogfood_reproof).
+
+**Time on surface:** ~14 min (bisect + probes).
+
+**Verdict at HEAD:** SHIPPABLE core+SOAP surfaces (run 16's verdict stands); the audit surface now has an honest P2 filed against its wire format instead of a green "fix verified" that graded the wrong layer.
