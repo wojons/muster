@@ -22,6 +22,16 @@ const (
 // Audit category constants.
 type AuditCategory string
 
+// Audit event types emitted by the entry-point hook (CLI commands, MCP tool
+// calls, authentication). The dotted noun.verb form matches the
+// management-plane emitters in internal/builtin (webhook.create, tenant.set, …)
+// and is what `audit log --filter` matches against.
+const (
+	EventTypeCommand = "command.execute"
+	EventTypeTool    = "tool.call"
+	EventTypeAuth    = "auth.attempt"
+)
+
 const (
 	AuditCategorySystem AuditCategory = "system"
 	AuditCategoryAccess AuditCategory = "access"
@@ -30,28 +40,30 @@ const (
 )
 
 // AuditActor identifies who performed an action.
+// Field tags follow specs/EVENTS-AUDIT.md (snake_case) — the audit sink is a
+// machine-readable wire format, so Go field names must never leak into it.
 type AuditActor struct {
-	ID   string
-	Type string
-	Name string
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	Name string `json:"name"`
 }
 
 // AuditResource identifies what was acted upon.
 type AuditResource struct {
-	ID   string
-	Type string
-	Name string
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	Name string `json:"name"`
 }
 
 // AuditResult captures the outcome of an audited action.
 type AuditResult struct {
-	Success bool
-	Code    string
+	Success bool   `json:"success"`
+	Code    string `json:"code"`
 }
 
 // AuditContext holds additional metadata for an audit event.
 type AuditContext struct {
-	Metadata map[string]string
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // AuditEvent represents a single auditable event.

@@ -76,9 +76,10 @@ func (h *Hook) Log(event *AuditEvent) error {
 // LogCommand records a CLI command execution.
 func (h *Hook) LogCommand(ctx context.Context, command string, actorID string, success bool, details map[string]string) {
 	event := &AuditEvent{
-		Level:    AuditLevelInfo,
-		Category: AuditCategorySystem,
-		Action:   fmt.Sprintf("command.%s", command),
+		EventType: EventTypeCommand,
+		Level:     AuditLevelInfo,
+		Category:  AuditCategorySystem,
+		Action:    fmt.Sprintf("command.%s", command),
 		Actor: AuditActor{
 			ID:   actorID,
 			Type: "cli-user",
@@ -106,9 +107,10 @@ func (h *Hook) LogCommand(ctx context.Context, command string, actorID string, s
 // LogToolCall records an MCP tool invocation.
 func (h *Hook) LogToolCall(ctx context.Context, toolName string, actorID string, success bool, details map[string]string) {
 	event := &AuditEvent{
-		Level:    AuditLevelInfo,
-		Category: AuditCategoryAccess,
-		Action:   fmt.Sprintf("tool.%s", toolName),
+		EventType: EventTypeTool,
+		Level:     AuditLevelInfo,
+		Category:  AuditCategoryAccess,
+		Action:    fmt.Sprintf("tool.%s", toolName),
 		Actor: AuditActor{
 			ID:   actorID,
 			Type: "mcp-client",
@@ -141,9 +143,10 @@ func (h *Hook) LogAuth(ctx context.Context, actorID string, success bool, detail
 	}
 
 	event := &AuditEvent{
-		Level:    level,
-		Category: AuditCategoryAuth,
-		Action:   "authenticate",
+		EventType: EventTypeAuth,
+		Level:     level,
+		Category:  AuditCategoryAuth,
+		Action:    "authenticate",
 		Actor: AuditActor{
 			ID:   actorID,
 			Type: "user",

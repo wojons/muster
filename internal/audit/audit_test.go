@@ -717,3 +717,84 @@ func TestSinkPath_BothWritersUseSinkPath(t *testing.T) {
 		t.Fatalf("hook event missing from the SinkPath() file: %q", string(data))
 	}
 }
+
+// TestHook_JSONL_WireFormat_SnakeCase is the formatting contract for DF-051:
+// the audit sink is a machine-readable wire format, so a hook-written row must
+// carry a NON-EMPTY event_type and snake_case nested keys. Without this, a
+// reflection/reader regression makes every `audit show`/`audit log` row render a
+// blank event_type column while the JSONL silently carries Go field names
+// (actor.ID, result.Success) that no consumer documented.
+func TestHook_JSONL_WireFormat_SnakeCase(t *testing.T) {
+	sink := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
+
+	hook := NewHook(DefaultConfig())
+	hook.LogCommand(context.Background(), "inventory fetch", "tester", true, map[string]string{"k": "v"})
+	if err := hook.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	raw, err := os.ReadFile(sink)
+	if err != nil {
+		t.Fatalf("ReadFile %s: %v", sink, err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("want exactly 1 event line, got %d: %q", len(lines), string(raw))
+	}
+	line := lines[0]
+
+	// Byte-level: no Go field name may appear as a JSON key.
+	for _, bad := range []string{`"ID":`, `"Type":`, `"Name":`, `"Success":`, `"Code":`, `"Metadata":`} {
+		if strings.Contains(line, bad) {
+			t.Errorf("wire shape leaks Go field name %s: %s", bad, line)
+		}
+	}
+
+	// Structural: the documented snake_case keys must be present.
+	var row map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(line), &row); err != nil {
+		t.Fatalf("audit line is not valid JSON: %v", err)
+	}
+	for _, key := range []string{"event_type", "timestamp", "level", "category", "action", "actor", "resource", "result"} {
+		if _, ok := row[key]; !ok {
+			t.Errorf("wire shape missing top-level key %q: %s", key, line)
+		}
+	}
+	var eventType string
+	if err := json.Unmarshal(row["event_type"], &eventType); err != nil {
+		t.Fatalf("event_type is not a string: %v", err)
+	}
+	if eventType != EventTypeCommand {
+		t.Errorf("event_type = %q, want %q (blank means the emitter never populated it)", eventType, EventTypeCommand)
+	}
+
+	nested := []struct {
+		field string
+		keys  []string
+	}{
+		{"actor", []string{"id", "type", "name"}},
+		{"resource", []string{"id", "type", "name"}},
+		{"result", []string{"success", "code"}},
+	}
+	for _, want := range nested {
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(row[want.field], &obj); err != nil {
+			t.Fatalf("%s is not an object: %v", want.field, err)
+		}
+		for _, key := range want.keys {
+			if _, ok := obj[key]; !ok {
+				t.Errorf("%s is missing snake_case key %q: %s", want.field, key, line)
+			}
+		}
+	}
+	// Round-trip: the reader must still decode the documented shape.
+	var decoded AuditEvent
+	if err := json.Unmarshal([]byte(line), &decoded); err != nil {
+		t.Fatalf("readAuditEvents-style decode failed: %v", err)
+	}
+	if decoded.Actor.ID != "tester" || !decoded.Result.Success || decoded.Result.Code != "OK" {
+		t.Errorf("decoded event lost data: actor.ID=%q result=%+v", decoded.Actor.ID, decoded.Result)
+	}
+}
