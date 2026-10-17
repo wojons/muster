@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<description xmlns="http://www.w3.org/ns/wsdl"
+  xmlns:soap12="http://www.w3.org/ns/wsdl/soap"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:tns="http://example.com/echo"
+  targetNamespace="http://example.com/echo">
+
+  <types>
+    <xsd:schema targetNamespace="http://example.com/echo" elementFormDefault="qualified">
+      <xsd:element name="EchoRequest">
+        <xsd:complexType><xsd:sequence>
+          <xsd:element name="message" type="xsd:string"/>
+        </xsd:sequence></xsd:complexType>
+      </xsd:element>
+      <xsd:element name="EchoResponse">
+        <xsd:complexType><xsd:sequence>
+          <xsd:element name="message" type="xsd:string"/>
+        </xsd:sequence></xsd:complexType>
+      </xsd:element>
+    </xsd:schema>
+  </types>
+
+  <interface name="EchoInterface">
+    <operation name="Echo" pattern="http://www.w3.org/ns/wsdl/in-out">
+      <input element="tns:EchoRequest"/>
+      <output element="tns:EchoResponse"/>
+    </operation>
+  </interface>
+
+  <binding name="EchoSoap12Binding" interface="tns:EchoInterface">
+    <soap12:binding protocol="http://www.w3.org/2003/05/soap/bindings/HTTP/"/>
+    <operation ref="tns:Echo" soap12:mep="http://www.w3.org/2003/05/soap/mep/soap-response">
+      <input>
+        <soap12:body/>
+      </input>
+      <output>
+        <soap12:body/>
+      </output>
+    </operation>
+  </binding>
+
+  <service name="Echo12Service" interface="tns:EchoInterface">
+    <endpoint name="Echo12Endpoint" binding="tns:EchoSoap12Binding"
+              address="http://127.0.0.1:9998/echo12"/>
+  </service>
+</description>

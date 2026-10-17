@@ -347,3 +347,5 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 **Time-to-first-success:** unchanged (< 2 min fresh box per run 15/16). R5 gate: integration suite red for every user whose keyring service runs — first-succes stays available but the advertised integration gate lies green-adjacent.
 
 **Verdict:** PROMISING-BUT-ROUGH at HEAD (downgrade from run 16/17's SHIPPABLE on the strength of the red integration gate + the write-only keyring defect it exposes for CLI auth storage on keyring-backed hosts). Core/SOAP/audit surfaces all re-proven green; the P1s are single-site fixes (one Store target) the foreman can close quickly; billing/CI wall unchanged (noted, not re-filed).
+
+*(run-18 scratch evidence copied to `.coding-hermes/dogfood-evidence/run18/` in the follow-up commit — the rows' /tmp paths are backed by this durable copy.)*
