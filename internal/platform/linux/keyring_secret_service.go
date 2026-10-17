@@ -4,6 +4,7 @@ package linux
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -281,24 +282,29 @@ func (k *SecretServiceKeyring) DeleteSecret(key string) error {
 
 // searchItem finds an item in the collection with attribute "muster-key" = key.
 // Returns the item's object path, or empty string if not found.
+// Uses Service.SearchItems (not Collection — Collections don't have SearchItems),
+// which returns two arrays: unlocked items and locked items. We filter results
+// to only those within our collection path.
 func (k *SecretServiceKeyring) searchItem(key string) (dbus.ObjectPath, error) {
-	collection := k.conn.Object("org.freedesktop.secrets", k.collection)
-
 	attributes := map[string]string{"muster-key": key}
-	var results []dbus.ObjectPath
+	var unlocked []dbus.ObjectPath
 	var locked []dbus.ObjectPath
-	err := collection.Call(
-		"org.freedesktop.Secret.Collection.SearchItems",
+	err := k.service.Call(
+		"org.freedesktop.Secret.Service.SearchItems",
 		0,
 		attributes,
-	).Store(&results, &locked)
+	).Store(&unlocked, &locked)
 	if err != nil {
 		return "", fmt.Errorf("search items: %w", err)
 	}
 
-	if len(results) == 0 {
-		return "", nil
+	// Filter to items in our collection (Service.SearchItems returns items from all collections)
+	collectionPrefix := string(k.collection)
+	for _, itemPath := range unlocked {
+		if strings.HasPrefix(string(itemPath), collectionPrefix) {
+			return itemPath, nil
+		}
 	}
 
-	return results[0], nil
+	return "", nil
 }
