@@ -6,6 +6,7 @@ package platform
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	linuxkr "github.com/wojons/muster/internal/platform/linux"
@@ -67,7 +68,7 @@ func (k *LinuxKeychain) Retrieve(service, account string) (string, error) {
 
 	cred, err := kr.Get(context.Background(), service+"/"+account)
 	if err != nil {
-		if err == linuxkr.ErrCredentialNotFound {
+		if err == linuxkr.ErrCredentialNotFound || strings.Contains(err.Error(), "not found") {
 			return "", nil
 		}
 		return "", err
