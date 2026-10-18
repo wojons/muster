@@ -53,9 +53,6 @@ and serves them via MCP protocol.`,
 			if isMetaCommandName(cmd.Name()) || (cmd == cmd.Root() && helpRequested(cmd)) {
 				hidePersistedCommands(cmd.Root(), true)
 			}
-			if auditHook != nil {
-				auditHook.LogCommand(cmd.Context(), cmd.CommandPath(), cliActorID(), true, nil)
-			}
 		},
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
 			// Restore visibility so a follow-up invocation (e.g.
