@@ -78,10 +78,10 @@ make build-cli
 ./bin/openapi-cli get-pet-by-id 1
 
 # Or execute ad-hoc operations with the generic request command.
-# Note: the public petstore3.swagger.io demo server returns HTTP 500 on most
-# petstore endpoints — including findByStatus AND GET /pet/1 — server-side,
-# not a Muster bug. For a reliable request example, use the demo's local mock
-# services: ./demo/run-all.sh (below) starts them, then e.g.:
+# Note: petstore3.swagger.io is a shared public demo and is unreliable on some
+# endpoints (measured 2026-10-18: /store/inventory returns HTTP 500 server-side).
+# GET /pet/1 and /pet/findByStatus work. For a request that cannot be affected
+# by a third-party service, use the demo's local mock services: ./demo/run-all.sh
 ./bin/openapi-cli request GET http://localhost:9801/tasks -o json
 
 # Point generated commands at another environment without regenerating:
@@ -251,13 +251,13 @@ go build -o bin/openapi-mcp ./cmd/mcp-server
 go build -o bin/openapi-daemon ./cmd/daemon
 
 # Version stamps
-# Bare `go build` binaries report "dev (unknown)" — expected, they carry no
-# build metadata. Stamped builds come from the Makefile:
+# Bare `go build` from a git checkout carries VCS metadata via BuildInfo:
+#   openapi-cli version -> v0.1.2-0.20261018093809-b5f8c1e5127f (b5f8c1e5127f)
+# It prints "dev (unknown)" only when built outside a git checkout or with
+# -buildvcs=false. Stamped builds come from the Makefile:
 #   make build          # version/commit/branch/date via -ldflags (see Makefile LDFLAGS)
-# `openapi-cli version` always prints a non-empty version: a stamped value,
-# or dev/unknown for a bare build (empty stamps are normalized in
-# internal/version.Get). Docker images are stamped by their build pipeline
-# (ARG VERSION → -ldflags in the Dockerfile).
+# `openapi-cli version` always prints a non-empty version. Docker images are
+# stamped by their build pipeline (ARG VERSION → -ldflags in the Dockerfile).
 
 # Run tests
 go test ./...                 # Normal suite; stability soak is build-tagged
@@ -326,6 +326,14 @@ internal/            # Private utilities
 demo/                # Self-contained demo (5 services, 14 scripts)
 specs/               # 230+ specification files
 ```
+
+## Limits / known gaps
+
+- **Repository is private** — no public download path; the only install is clone + build (see [Quick start](#quick-start) for GOPRIVATE setup).
+- **Demo requires Python 3 + Flask in a venv** — `demo/requirements.txt` pins Flask; on Debian 12/13 and Ubuntu 23.04+ a bare `pip install flask` is refused (PEP 668). Use `python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt` or `./demo/run-all.sh --bootstrap`.
+- **Seccomp hardening is opt-in** — default builds are dependency-free; the hardened path needs `-tags seccomp` plus `pkg-config` + `libseccomp-dev` (see [Build from source](#build-from-source)).
+- **`bin/` is gitignored** — stale binaries survive rebuilds. Run `make clean` before debugging unexpected binary behavior.
+- **Public petstore3 demo server is unreliable** — some endpoints return HTTP 500 server-side (measured 2026-10-18: `/store/inventory`); use the local mock services (`./demo/run-all.sh`) for deterministic requests.
 
 ## License
 
