@@ -49,12 +49,12 @@ func run() error {
 
 	// Execute
 	err = rootCmd.ExecuteContext(ctx)
-	
+
 	// Log command execution (success logged in PersistentPostRun, failures logged here)
 	if err != nil && auditHook != nil {
 		// Use background context since the command context may be cancelled
 		auditHook.LogCommand(context.Background(), rootCmd.CommandPath(), "cli", false, map[string]string{"error": err.Error()})
 	}
-	
+
 	return err
 }
