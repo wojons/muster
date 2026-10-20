@@ -1,0 +1,45 @@
+=== 0) inkwell fixture health ===
+health=200
+=== 0b) remove prior-turn residue (dogfood19) ===
+Removed credential "dogfood19"
+rc=0
+=== 1) auth add df052 (bearer reader-token) ===
+Stored credential "df052" (type: bearer)
+wall=0.10s
+rc=0
+=== 2) auth list (metadata) ===
+consensus	bearer
+consensus-int	bearer
+df052	bearer
+rc=0
+=== 3) NEGATIVE CONTROL: /me without --auth ===
+{
+  "error": "missing or invalid Authorization header"
+}
+Error: request failed with status 401
+rc=1
+=== 4) ROUND-TRIP PROOF: /me --auth df052 (value lives only in the keyring) ===
+{
+  "role": "reader"
+}
+rc=0
+=== 5) WRONG-VALUE CONTROL: same route, bogus token ===
+add rc=0
+{
+  "error": "invalid token"
+}
+Error: request failed with status 401
+rc=1
+=== 6) CLEANUP ===
+Removed credential "df052"
+rc=0
+Removed credential "df052bad"
+rc=0
+--- auth list after cleanup ---
+consensus	bearer
+consensus-int	bearer
+--- credentials.json after cleanup ---
+{
+  "consensus": "bearer",
+  "consensus-int": "bearer"
+}
