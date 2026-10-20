@@ -1,0 +1,115 @@
+=== LEG START 2026-10-20T11:45:31Z ===
+host: bunker-mvp
+user: bunker-df-muster-20261020
+nproc: 8
+kernel: 6.8.0-142-generic
+distro: PRETTY_NAME="Ubuntu 24.04.4 LTS"
+
+--- 1) documented prerequisites, as found on a bare box ---
+go: /usr/bin/go
+gcc: /usr/bin/gcc
+make: /usr/bin/make
+git: /usr/bin/git
+curl: /usr/bin/curl
+python3: /usr/bin/python3
+go version (before): go version go1.22.2 linux/amd64
+go env GOTOOLCHAIN: auto
+
+--- 2) source transfer (private repo: tar snapshot, no credentials minted) ---
+tracked files: 2940
+go.mod go directive: go 1.26.9
+git HEAD after init: b0587f9 files-committed=1228
+
+--- 3) documented build: make build-cli (README Quick start step 2) ---
+go: downloading go1.26.9 (linux/amd64)
+Makefile:719: warning: overriding recipe for target 'bench'
+Makefile:296: warning: ignoring old recipe for target 'bench'
+Building CLI b0587f9...
+CGO_ENABLED=1 go build  -ldflags "-X github.com/wojons/muster/internal/version.Version=b0587f9 -X github.com/wojons/muster/internal/version.Commit=b0587f9 -X github.com/wojons/muster/internal/version.BuildDate=2026-10-20T11:45:32Z -X github.com/wojons/muster/internal/version.Branch=master -X github.com/wojons/muster/internal/version.GoVersion=go1.26.9 -s -w" -o bin/openapi-cli ./cmd/openapi-cli
+go: downloading github.com/fsnotify/fsnotify v1.10.1
+go: downloading github.com/spf13/viper v1.21.0
+go: downloading github.com/spf13/cobra v1.10.2
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading github.com/rs/zerolog v1.35.1
+go: downloading github.com/getkin/kin-openapi v0.149.0
+go: downloading github.com/spf13/pflag v1.0.10
+go: downloading go.starlark.net v0.0.0-20261005163335-bcb1a1a55bf9
+go: downloading golang.org/x/crypto v0.57.0
+go: downloading github.com/quic-go/quic-go v0.63.0
+go: downloading go.opentelemetry.io/otel/trace v1.47.0
+go: downloading go.opentelemetry.io/otel v1.47.0
+go: downloading github.com/golang/protobuf v1.5.4
+go: downloading github.com/jhump/protoreflect v1.19.0
+go: downloading google.golang.org/grpc v1.85.0-dev.0.20260825072537-93e31b48545e
+go: downloading google.golang.org/protobuf v1.36.12
+go: downloading github.com/tetratelabs/wazero v1.12.0
+go: downloading github.com/sagikazarmark/locafero v0.11.0
+go: downloading github.com/go-viper/mapstructure/v2 v2.4.0
+go: downloading github.com/spf13/afero v1.15.0
+go: downloading github.com/spf13/cast v1.10.0
+go: downloading golang.org/x/sys v0.48.0
+go: downloading github.com/godbus/dbus/v5 v5.2.2
+go: downloading github.com/mattn/go-colorable v0.1.14
+go: downloading golang.org/x/net v0.60.0
+go: downloading github.com/quic-go/qpack v0.6.0
+go: downloading github.com/go-openapi/jsonpointer v0.22.5
+go: downloading github.com/oasdiff/yaml v0.1.1
+go: downloading github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+go: downloading github.com/xeipuuv/gojsonschema v1.2.0
+go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5
+go: downloading github.com/subosito/gotenv v1.6.0
+go: downloading github.com/pelletier/go-toml/v2 v2.2.4
+go: downloading go.yaml.in/yaml/v3 v3.0.5
+go: downloading github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
+go: downloading golang.org/x/text v0.42.0
+go: downloading github.com/mattn/go-isatty v0.0.21
+go: downloading github.com/jhump/protoreflect/v2 v2.0.0-beta.1
+go: downloading golang.org/x/sync v0.23.0
+go: downloading github.com/go-openapi/swag/jsonname v0.25.5
+go: downloading github.com/oasdiff/yaml3 v0.0.14
+go: downloading github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f
+✓ Built: bin/openapi-cli
+MAKE_BUILD_CLI_RC=0
+BUILD_SECONDS=121
+go version (after build, toolchain may have auto-fetched): go version go1.26.9 linux/amd64
+total 27368
+drwxrwxr-x  2 bunker-df-muster-20261020 bunker-df-muster-20261020     4096 Oct 20 11:47 .
+drwxrwxr-x 38 bunker-df-muster-20261020 bunker-df-muster-20261020     4096 Oct 20 11:45 ..
+-rwxrwxr-x  1 bunker-df-muster-20261020 bunker-df-muster-20261020 28012809 Oct 20 11:47 openapi-cli
+
+--- 4) documented smoke: ./bin/openapi-cli version ---
+b0587f9 (b0587f9)
+VERSION_RC=0
+
+--- 5) documented smoke: discover a local spec ---
+API: Pet Store API (v1.0.0)
+Base URL: http://localhost:8080
+
+pets
+  GET    /pets                                    listPets
+  POST   /pets                                    createPet
+  GET    /pets/{petId}                            getPet
+  PUT    /pets/{petId}                            updatePet
+  DELETE /pets/{petId}                            deletePet
+DISCOVER_RC=0
+
+--- 6) delta surface smoke: audit wire shape (DF-051/DF-053/DF-054 class) ---
+sink rows: 2
+rows with event_type=command.execute: 2
+rows with empty action-identity marker ("action":"command.openapi-cli"): 1
+--- raw sink ---
+{"timestamp":"2026-10-20T11:47:33.418477789Z","event_type":"command.execute","user":"","level":"info","category":"system","action":"command.openapi-cli audit status","actor":{"id":"bunker-df-muster-20261020","type":"cli-user","name":"bunker-df-muster-20261020"},"resource":{"id":"openapi-cli audit status","type":"command","name":"openapi-cli audit status"},"result":{"success":true,"code":"OK"},"context":{}}
+{"timestamp":"2026-10-20T11:47:33.447191955Z","event_type":"command.execute","user":"","level":"info","category":"system","action":"command.openapi-cli","actor":{"id":"cli","type":"cli-user","name":"cli"},"resource":{"id":"openapi-cli","type":"command","name":"openapi-cli"},"result":{"success":false,"code":"ERROR"},"context":{"metadata":{"error":"read wasm file: open /home/bunker-df-muster-20261020/absent.wasm: no such file or directory"}}}
+--- user-facing render ---
+2026-10-20T11:47:33Z	info	command.execute	command.openapi-cli	cli
+2026-10-20T11:47:33Z	info	command.execute	command.openapi-cli audit status	bunker-df-muster-20261020
+
+--- 7) go test -short smoke (single fast package, proves tests run on the fresh box) ---
+go: downloading github.com/stretchr/testify v1.12.1
+ok  	github.com/wojons/muster/internal/version	0.010s
+SHORT_PKG_TEST_DONE
+
+=== LEG END 2026-10-20T11:47:45Z ===
+LEG-DONE rc=0

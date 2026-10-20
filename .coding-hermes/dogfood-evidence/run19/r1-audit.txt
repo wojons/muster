@@ -1,0 +1,52 @@
+=== sink before: absent ===
+--- 1) succeeding command: audit status ---
+rc=0
+rows after audit status: 1
+--- 2) succeeding command: webhook list ---
+rc=0
+rows after webhook list: 2
+--- 3) FAILING command: request against a closed port ---
+rc=1 (expect nonzero)
+rows after failing request: 3
+--- 4) FAILING command: unknown command ---
+rc=1 (expect nonzero)
+rows after unknown command: 4
+
+=== SINK CONTENTS (raw) ===
+{"timestamp":"2026-10-20T11:32:51.305042294Z","event_type":"command.execute","user":"","level":"info","category":"system","action":"command.openapi-cli audit status","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli audit status","type":"command","name":"openapi-cli audit status"},"result":{"success":true,"code":"OK"},"context":{}}
+{"timestamp":"2026-10-20T11:32:51.318953741Z","event_type":"command.execute","user":"","level":"info","category":"system","action":"command.openapi-cli webhook list","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli webhook list","type":"command","name":"openapi-cli webhook list"},"result":{"success":true,"code":"OK"},"context":{}}
+{"timestamp":"2026-10-20T11:32:51.332241593Z","event_type":"command.execute","user":"","level":"info","category":"system","action":"command.openapi-cli","actor":{"id":"cli","type":"cli-user","name":"cli"},"resource":{"id":"openapi-cli","type":"command","name":"openapi-cli"},"result":{"success":false,"code":"ERROR"},"context":{"metadata":{"error":"execute request: Get \"http://127.0.0.1:9/nope\": dial tcp 127.0.0.1:9: connect: connection refused"}}}
+{"timestamp":"2026-10-20T11:32:51.346147561Z","event_type":"command.execute","user":"","level":"info","category":"system","action":"command.openapi-cli","actor":{"id":"cli","type":"cli-user","name":"cli"},"resource":{"id":"openapi-cli","type":"command","name":"openapi-cli"},"result":{"success":false,"code":"ERROR"},"context":{"metadata":{"error":"unknown command \"frobnicate\" for \"openapi-cli\""}}}
+
+=== WIRE SHAPE ASSERTIONS ===
+total rows: 4
+rows with non-empty event_type: 4
+rows with actor.id:            4
+rows with result.success key:  4
+top-level keys seen:
+      4 timestamp,event_type,user,level,category,action,actor,resource,result,context
+
+=== per-invocation row count (duplicate-log check, DF-053) ===
+      2 command.openapi-cli
+      1 command.openapi-cli audit status
+      1 command.openapi-cli webhook list
+
+=== success bit truth table (command -> result.success) ===
+command.openapi-cli audit status -> success=true code=OK
+command.openapi-cli webhook list -> success=true code=OK
+command.openapi-cli -> success=false code=ERROR
+command.openapi-cli -> success=false code=ERROR
+
+=== user-facing render: audit log --limit 5 ===
+2026-10-20T11:32:51Z	info	command.execute	command.openapi-cli	cli
+2026-10-20T11:32:51Z	info	command.execute	command.openapi-cli	cli
+2026-10-20T11:32:51Z	info	command.execute	command.openapi-cli webhook list	kara
+2026-10-20T11:32:51Z	info	command.execute	command.openapi-cli audit status	kara
+
+=== newer-first check: audit log --limit 1 ===
+2026-10-20T11:32:51Z	info	command.execute	command.openapi-cli audit log	kara
+
+=== filter check: audit log --filter command.execute ===
+2026-10-20T11:32:51Z	info	command.execute	command.openapi-cli audit log	kara
+2026-10-20T11:32:51Z	info	command.execute	command.openapi-cli audit log	kara
+2026-10-20T11:32:51Z	info	command.execute	command.openapi-cli	cli

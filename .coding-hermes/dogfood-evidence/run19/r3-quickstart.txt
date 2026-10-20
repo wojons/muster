@@ -1,0 +1,52 @@
+### step 1: discover (remote spec) — README:69
+  DELETE /store/order/{orderId}                   deleteOrder
+user
+  POST   /user                                    createUser
+  POST   /user/createWithList                     createUsersWithListInput
+  GET    /user/login                              loginUser
+  GET    /user/logout                             logoutUser
+  GET    /user/{username}                         getUserByName
+  PUT    /user/{username}                         updateUser
+  DELETE /user/{username}                         deleteUser
+real 0.68
+user 0.02
+sys 0.01
+rc=0
+
+### step 2: generate (README:72)
+✓ Success! Commands registered and persisted
+Run 'openapi-cli --help' to see available commands
+Commands will load automatically on next CLI start
+real 0.38
+user 0.02
+sys 0.01
+rc=0
+
+### step 3: typed call (README:75) ./bin/openapi-cli get-pet-by-id 1
+id         1                  
+name       Pet1               
+photoUrls  ["test1","test2"]  
+tags       []                 
+status     available          
+[90m06:34:23[0m [32mINF[0m [1mHTTP response received[0m [36mstatus=[0m"200 OK" [36mstatus_code=[0m200
+real 0.30
+user 0.01
+sys 0.01
+rc=0
+
+### step 4: generic request (README:84)
+    "test2"
+  ],
+  "status": "available",
+  "tags": []
+}
+real 0.25
+user 0.01
+sys 0.01
+rc=0
+
+### store state after generate (user-visible persisted commands)
+total 48
+drwxr-xr-x  2 kara kara  4096 Oct 20 06:34 .
+drwxrwxr-x  3 kara kara  4096 Oct 20 06:34 ..
+-rw-r--r--  1 kara kara 37297 Oct 20 06:34 commands.json

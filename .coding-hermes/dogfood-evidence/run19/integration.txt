@@ -1,0 +1,464 @@
+Makefile:719: warning: overriding recipe for target 'bench'
+Makefile:296: warning: ignoring old recipe for target 'bench'
+Running integration tests...
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/alertmanager	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/cmd/daemon	(cached) [no tests to run]
+=== RUN   TestSetupSignalHandling_SignalIntegration
+    main_test.go:1219: Signal handling tested in integration tests
+--- SKIP: TestSetupSignalHandling_SignalIntegration (0.00s)
+=== RUN   TestRunMCPServer_SpecLoadingIntegration
+Loaded spec: Test API (1.0.0)
+Generated 1 MCP tools
+Using base URL: http://localhost:8080 (override=true)
+--- PASS: TestRunMCPServer_SpecLoadingIntegration (0.00s)
+PASS
+ok  	github.com/wojons/muster/cmd/mcp-server	(cached)
+=== RUN   TestRun_Integration
+A unified CLI tool that generates commands from OpenAPI specifications
+and serves them via MCP protocol.
+
+Usage:
+  openapi-cli [command]
+
+Available Commands:
+  audit       View audit logs
+  auth        Manage authentication credentials
+  completion  Generate shell completion scripts
+  config      Manage configuration
+  daemon      Daemon management commands
+  discover    Discover API operations from an OpenAPI spec
+  dsl         Run a Starlark DSL script with HTTP builtins
+  generate    Generate commands from OpenAPI specification
+  grpc        gRPC operations (discover, schema, call) — unary and streaming
+  help        Help about any command
+  init        Initialize OpenAPI CLI configuration
+  inventory   Manage spec inventories
+  modules     Manage WASM modules
+  protocol    Discover and call operations from non-OpenAPI protocols
+  request     Make HTTP requests
+  simple-test Simple test endpoint
+  tenant      Manage tenant context
+  version     Print version information
+  webhook     Manage webhook subscriptions
+
+Flags:
+  -h, --help             help for openapi-cli
+      --profile string   Configuration profile to use (overrides MUSTER_PROFILE and the persisted default)
+  -v, --version          version for openapi-cli
+
+Use "openapi-cli [command] --help" for more information about a command.
+--- PASS: TestRun_Integration (0.00s)
+PASS
+ok  	github.com/wojons/muster/cmd/openapi-cli	(cached)
+?   	github.com/wojons/muster/demo/services/transport-fixture	[no test files]
+GAP-045: session build (wave 4): go build -p 4 -o /var/tmp/hermes-scratch/muster-test-binaries-1369161179/openapi-cli /home/kara/wojons/muster/cmd/openapi-cli
+GAP-045: session build (wave 4): go build -p 4 -o /var/tmp/hermes-scratch/muster-test-binaries-1369161179/mcp-server /home/kara/wojons/muster/cmd/mcp-server
+GAP-045: session build (wave 4): go build -p 4 -o /var/tmp/hermes-scratch/muster-test-binaries-1369161179/daemon /home/kara/wojons/muster/cmd/daemon
+=== RUN   TestRealCLIIntegration
+    100-cli-real-integration_test.go:51: Mock server running at: http://127.0.0.1:33771
+    100-cli-real-integration_test.go:56: Using session-built CLI binary: /var/tmp/hermes-go-tmp/TestRealCLIIntegration3407181307/003/openapi-cli
+=== RUN   TestRealCLIIntegration/GenerateCommands
+    100-cli-real-integration_test.go:97: Generate output: Loading spec from: /var/tmp/hermes-go-tmp/TestRealCLIIntegration3407181307/004/petstore.yaml
+        ✓ Parsed spec (version: 1.0.0)
+        ✓ Generated 1 command groups
+        ✓ Commands persisted to storage
+        ✓ Registered command: pets
+        
+        ✓ Success! Commands registered and persisted
+        Run 'openapi-cli --help' to see available commands
+        Commands will load automatically on next CLI start
+=== RUN   TestRealCLIIntegration/HTTPRequestExecution
+=== NAME  TestRealCLIIntegration
+    100-cli-real-integration_test.go:33: Received request: GET /pets
+=== NAME  TestRealCLIIntegration/HTTPRequestExecution
+    100-cli-real-integration_test.go:134: HTTP EXECUTION SUCCESS: Received 2 pets
+=== NAME  TestRealCLIIntegration
+    100-cli-real-integration_test.go:137: REAL INTEGRATION PROVEN:
+    100-cli-real-integration_test.go:138:   ✓ OpenAPI spec parsing
+    100-cli-real-integration_test.go:139:   ✓ Command generation from spec
+    100-cli-real-integration_test.go:140:   ✓ Commands persisted to storage
+    100-cli-real-integration_test.go:141:   ✓ HTTP request execution
+    100-cli-real-integration_test.go:142:   ✓ Response parsing and formatting
+--- PASS: TestRealCLIIntegration (0.03s)
+    --- PASS: TestRealCLIIntegration/GenerateCommands (0.01s)
+    --- PASS: TestRealCLIIntegration/HTTPRequestExecution (0.00s)
+=== RUN   TestMCPIntegration
+    200-mcp-real-integration_test.go:36: Mock API server at: http://127.0.0.1:41199
+    200-mcp-real-integration_test.go:41: Using session-built MCP server binary: /var/tmp/hermes-go-tmp/TestMCPIntegration3760818904/001/mcp-server
+    200-mcp-real-integration_test.go:105: MCP server process started
+=== RUN   TestMCPIntegration/ListTools
+=== NAME  TestMCPIntegration
+    200-mcp-real-integration_test.go:118: MCP Server stderr: Loaded spec: Pet Store API (1.0.0)
+        Generated 1 MCP tools
+        Using base URL: http://127.0.0.1:41199 (override=true)
+=== NAME  TestMCPIntegration/ListTools
+    200-mcp-real-integration_test.go:161: ✓ tools/list returned 1 tools
+=== RUN   TestMCPIntegration/CallTool
+=== NAME  TestMCPIntegration
+    200-mcp-real-integration_test.go:22: API Server request: GET /pets
+=== NAME  TestMCPIntegration/CallTool
+    200-mcp-real-integration_test.go:208: ✓ tools/call executed
+=== NAME  TestMCPIntegration
+    200-mcp-real-integration_test.go:211: MCP INTEGRATION PROVEN USING REAL BINARY:
+    200-mcp-real-integration_test.go:212:   ✓ MCP server binary built and executed
+    200-mcp-real-integration_test.go:213:   ✓ OpenAPI spec loaded and parsed
+    200-mcp-real-integration_test.go:214:   ✓ JSON-RPC protocol communication
+    200-mcp-real-integration_test.go:215:   ✓ Server process management
+--- PASS: TestMCPIntegration (1.01s)
+    --- PASS: TestMCPIntegration/ListTools (0.00s)
+    --- PASS: TestMCPIntegration/CallTool (0.00s)
+=== RUN   TestWASM_RuntimeIntegration
+=== RUN   TestWASM_RuntimeIntegration/Step1_Runtime_Creation
+    600-wasm-integration_test.go:14: Step 1: Create WASM runtime with config and limits
+    600-wasm-integration_test.go:42: ✓ Runtime created successfully
+    600-wasm-integration_test.go:43:   Max memory: 16777216 bytes
+    600-wasm-integration_test.go:44:   Max execution time: 5s
+    600-wasm-integration_test.go:45:   JIT enabled: true
+=== RUN   TestWASM_RuntimeIntegration/Step2_Capability_System
+    600-wasm-integration_test.go:49: Step 2: Test capability granting and enforcement
+    600-wasm-integration_test.go:82: ✓ Capability system works correctly
+    600-wasm-integration_test.go:84:   Current capabilities: 0
+=== RUN   TestWASM_RuntimeIntegration/Step3_Resource_Limits
+    600-wasm-integration_test.go:88: Step 3: Test sandbox resource limits
+    600-wasm-integration_test.go:110: ✓ Sandbox limits configured
+    600-wasm-integration_test.go:111:   Memory: 8388608 bytes
+    600-wasm-integration_test.go:112:   Time: 10s
+    600-wasm-integration_test.go:113:   Max FDs: 32
+=== RUN   TestWASM_RuntimeIntegration/Step4_Network_Policy
+    600-wasm-integration_test.go:117: Step 4: Test network access policy
+    600-wasm-integration_test.go:140: ✓ Network policy enforcement works
+=== RUN   TestWASM_RuntimeIntegration/Step5_Configuration_Validation
+    600-wasm-integration_test.go:144: Step 5: Test runtime configuration validation
+    600-wasm-integration_test.go:166: ✓ Configuration validation works
+=== RUN   TestWASM_RuntimeIntegration/Step6_Capability_Listing
+    600-wasm-integration_test.go:170: Step 6: Test capability listing
+    600-wasm-integration_test.go:185: ✓ Capability listing works (3 capabilities)
+=== RUN   TestWASM_RuntimeIntegration/Step7_Determinism_Check
+    600-wasm-integration_test.go:189: Step 7: Verify deterministic execution configured
+    600-wasm-integration_test.go:202: ✓ Deterministic execution enabled
+    600-wasm-integration_test.go:203:   Determinism: true
+    600-wasm-integration_test.go:204:   Canonical NaN: true
+=== RUN   TestWASM_RuntimeIntegration/Step8_Validation_Summary
+    600-wasm-integration_test.go:208: === WASM INTEGRATION PROVEN ===
+    600-wasm-integration_test.go:209:   ✓ WASM runtime creation with config and limits
+    600-wasm-integration_test.go:210:   ✓ Capability granting and enforcement
+    600-wasm-integration_test.go:211:   ✓ Sandbox resource limits
+    600-wasm-integration_test.go:212:   ✓ Network policy enforcement
+    600-wasm-integration_test.go:213:   ✓ Configuration validation
+    600-wasm-integration_test.go:214:   ✓ Capability listing
+    600-wasm-integration_test.go:215:   ✓ Deterministic execution
+    600-wasm-integration_test.go:216: 
+    600-wasm-integration_test.go:217:   What's been validated:
+    600-wasm-integration_test.go:218:   • Runtime uses wasmtime-go engine
+    600-wasm-integration_test.go:219:   • Capabilities enforce least privilege
+    600-wasm-integration_test.go:220:   • Resource limits restrict memory/time
+    600-wasm-integration_test.go:221:   • Network policies control access
+    600-wasm-integration_test.go:222:   • Sandbox isolates execution
+=== RUN   TestWASM_RuntimeIntegration/Step9_Context_Support
+    600-wasm-integration_test.go:226: Step 9: Test context-aware execution tracking
+    600-wasm-integration_test.go:246: ✓ Context timeout triggered correctly
+    600-wasm-integration_test.go:247:   Elapsed: 1.000483565s
+    600-wasm-integration_test.go:250: ✓ Context-aware execution support
+--- PASS: TestWASM_RuntimeIntegration (1.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step1_Runtime_Creation (0.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step2_Capability_System (0.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step3_Resource_Limits (0.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step4_Network_Policy (0.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step5_Configuration_Validation (0.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step6_Capability_Listing (0.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step7_Determinism_Check (0.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step8_Validation_Summary (0.00s)
+    --- PASS: TestWASM_RuntimeIntegration/Step9_Context_Support (1.00s)
+PASS
+ok  	github.com/wojons/muster/demo/test-suites	(cached)
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/deployments/backup	(cached) [no tests to run]
+=== RUN   TestRollingDeploymentIntegration
+    rolling-deployment_test.go:316: Skipping integration test. Set INTEGRATION_TEST=true to run
+--- SKIP: TestRollingDeploymentIntegration (0.00s)
+PASS
+ok  	github.com/wojons/muster/deployments/scripts	(cached)
+?   	github.com/wojons/muster/exploits/auth	[no test files]
+?   	github.com/wojons/muster/exploits/network	[no test files]
+?   	github.com/wojons/muster/exploits/ratelimit	[no test files]
+?   	github.com/wojons/muster/exploits/symlink	[no test files]
+?   	github.com/wojons/muster/exploits/wasm	[no test files]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/internal/audit	(cached) [no tests to run]
+=== RUN   TestRunDsl_HttpBuiltinIntegration
+--- PASS: TestRunDsl_HttpBuiltinIntegration (0.00s)
+=== RUN   TestRunDsl_HttpPostIntegration
+--- PASS: TestRunDsl_HttpPostIntegration (0.00s)
+=== RUN   TestRunDsl_HttpPutIntegration
+--- PASS: TestRunDsl_HttpPutIntegration (0.00s)
+=== RUN   TestRunDsl_HttpDeleteIntegration
+--- PASS: TestRunDsl_HttpDeleteIntegration (0.00s)
+PASS
+ok  	github.com/wojons/muster/internal/builtin	(cached)
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/internal/monitoring	(cached) [no tests to run]
+?   	github.com/wojons/muster/internal/platform/linux	[no test files]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/internal/telemetry	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/internal/version	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/packaging	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/auth	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/auth/ratelimit	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/cache	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/cli	(cached) [no tests to run]
+=== RUN   TestClient_Retry_IntegrationWithHeaders
+--- PASS: TestClient_Retry_IntegrationWithHeaders (0.01s)
+PASS
+ok  	github.com/wojons/muster/pkg/client	(cached)
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/cmdstore	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/completion	(cached) [no tests to run]
+=== RUN   TestLoader_Integration_BindFlagsAndLoad
+=== RUN   TestLoader_Integration_BindFlagsAndLoad/Flags_Override_Config_Values
+--- PASS: TestLoader_Integration_BindFlagsAndLoad (0.00s)
+    --- PASS: TestLoader_Integration_BindFlagsAndLoad/Flags_Override_Config_Values (0.00s)
+PASS
+ok  	github.com/wojons/muster/pkg/config	(cached)
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/daemon	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/dsl	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/errors	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/generator	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/log	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/mcp	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/mcp/handlers	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/openapi	(cached) [no tests to run]
+=== RUN   TestCapabilityRestrictions_SeccompIntegration
+    capability_test.go:158: seccomp not compiled in (build with -tags seccomp to enable)
+--- SKIP: TestCapabilityRestrictions_SeccompIntegration (0.00s)
+PASS
+ok  	github.com/wojons/muster/pkg/platform	(cached)
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/protocol	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/protocol/graphql	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/protocol/grpc	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/protocol/jsonrpc	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/protocol/soap	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/rate	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/repository	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/repository/sql	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/request	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/response	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/retry	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/pkg/wasm	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/test/benchmarks	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/test/docker	(cached) [no tests to run]
+=== RUN   TestKeychainIntegration
+=== RUN   TestKeychainIntegration/SetAndGet
+=== RUN   TestKeychainIntegration/NotFound
+=== RUN   TestKeychainIntegration/Delete
+=== RUN   TestKeychainIntegration/Overwrite
+=== RUN   TestKeychainIntegration/EmptyPassword
+=== RUN   TestKeychainIntegration/LongPassword
+=== RUN   TestKeychainIntegration/UnicodePassword
+=== RUN   TestKeychainIntegration/SpecialCharacters
+=== RUN   TestKeychainIntegration/List
+--- PASS: TestKeychainIntegration (1.05s)
+    --- PASS: TestKeychainIntegration/SetAndGet (0.13s)
+    --- PASS: TestKeychainIntegration/NotFound (0.00s)
+    --- PASS: TestKeychainIntegration/Delete (0.08s)
+    --- PASS: TestKeychainIntegration/Overwrite (0.19s)
+    --- PASS: TestKeychainIntegration/EmptyPassword (0.12s)
+    --- PASS: TestKeychainIntegration/LongPassword (0.12s)
+    --- PASS: TestKeychainIntegration/UnicodePassword (0.12s)
+    --- PASS: TestKeychainIntegration/SpecialCharacters (0.12s)
+    --- PASS: TestKeychainIntegration/List (0.17s)
+=== RUN   TestRealAuthIntegration
+=== RUN   TestRealAuthIntegration/StartAuthFlow
+Auth URL: http://127.0.0.1:45441/auth?client_id=test_client&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&response_type=code&scope=read+write&state=fbef32dc89e2619507576cd239ac126c
+=== RUN   TestRealAuthIntegration/ExchangeCodeForToken
+=== RUN   TestRealAuthIntegration/TokenStorage
+=== RUN   TestRealAuthIntegration/TokenRefresh
+=== RUN   TestRealAuthIntegration/AuthenticatedRequest
+=== RUN   TestRealAuthIntegration/CompleteAuthFlow
+    auth_real_integration_test.go:293: ✓ Complete auth flow successful: 3 calls to auth server
+=== NAME  TestRealAuthIntegration
+    auth_real_integration_test.go:296: Auth integration test completed successfully
+--- PASS: TestRealAuthIntegration (0.00s)
+    --- PASS: TestRealAuthIntegration/StartAuthFlow (0.00s)
+    --- PASS: TestRealAuthIntegration/ExchangeCodeForToken (0.00s)
+    --- PASS: TestRealAuthIntegration/TokenStorage (0.00s)
+    --- PASS: TestRealAuthIntegration/TokenRefresh (0.00s)
+    --- PASS: TestRealAuthIntegration/AuthenticatedRequest (0.00s)
+    --- PASS: TestRealAuthIntegration/CompleteAuthFlow (0.00s)
+=== RUN   TestCacheIntegration_CacheMiss
+--- PASS: TestCacheIntegration_CacheMiss (0.00s)
+=== RUN   TestCacheIntegration_CacheHit
+--- PASS: TestCacheIntegration_CacheHit (0.00s)
+=== RUN   TestCacheIntegration_TTL_Enforcement
+--- PASS: TestCacheIntegration_TTL_Enforcement (0.25s)
+=== RUN   TestCacheIntegration_ManualInvalidation
+--- PASS: TestCacheIntegration_ManualInvalidation (0.00s)
+=== RUN   TestCacheIntegration_OfflineMode
+--- PASS: TestCacheIntegration_OfflineMode (0.00s)
+=== RUN   TestCacheIntegration_SizeLimit_Eviction
+--- PASS: TestCacheIntegration_SizeLimit_Eviction (0.00s)
+=== RUN   TestCacheIntegration_StaleWhileRevalidate
+--- PASS: TestCacheIntegration_StaleWhileRevalidate (0.20s)
+=== RUN   TestCacheIntegration_ConcurrentAccess
+--- PASS: TestCacheIntegration_ConcurrentAccess (0.00s)
+=== RUN   TestCacheIntegration_ClearAll
+--- PASS: TestCacheIntegration_ClearAll (0.00s)
+=== RUN   TestCacheIntegration_HitMissMetrics
+--- PASS: TestCacheIntegration_HitMissMetrics (0.00s)
+=== RUN   TestCacheIntegration_Versioning
+--- PASS: TestCacheIntegration_Versioning (0.00s)
+=== RUN   TestTokenRefreshIntegration
+=== PAUSE TestTokenRefreshIntegration
+=== RUN   TestFullStackIntegration
+    full_stack_integration_test.go:43: Step 1: Creating mock HTTP server...
+    full_stack_integration_test.go:86: Mock server running at: http://127.0.0.1:44253
+    full_stack_integration_test.go:89: Step 2: Loading OpenAPI specification...
+    full_stack_integration_test.go:95: Step 3: Parsing OpenAPI specification...
+    full_stack_integration_test.go:101: ✓ Spec parsed: version=1.0.0
+    full_stack_integration_test.go:104: Step 4: Extracting operations from spec...
+    full_stack_integration_test.go:109: ✓ Extracted 5 operations from spec
+    full_stack_integration_test.go:112: Step 5: Generating CLI commands from operations...
+    full_stack_integration_test.go:129: ✓ Generated 1 commands from operations
+    full_stack_integration_test.go:132: Step 6: Registering operations as MCP tools...
+    full_stack_integration_test.go:141: Step 7: Testing MCP tools/list...
+    full_stack_integration_test.go:150: ✓ MCP has 5 tools registered
+    full_stack_integration_test.go:153: Step 8: Testing MCP tools/call with HTTP execution...
+    full_stack_integration_test.go:157: Calling tool: listPets
+    full_stack_integration_test.go:170: Tool call: IsError=true, ContentLen=1
+    full_stack_integration_test.go:175: ✓ MCP tools/call executed
+    full_stack_integration_test.go:178: Step 9: Testing direct HTTP request building...
+    full_stack_integration_test.go:195: ✓ Direct HTTP request successful: got 2 users
+    full_stack_integration_test.go:199: 
+        === FULL STACK INTEGRATION SUMMARY ===
+    full_stack_integration_test.go:200: ✓ OpenAPI spec parsing: OK
+    full_stack_integration_test.go:201: ✓ Operation extraction: OK
+    full_stack_integration_test.go:202: ✓ Command generation: OK
+    full_stack_integration_test.go:203: ✓ MCP tool registration: OK
+    full_stack_integration_test.go:204: ✓ MCP tools/list: OK
+    full_stack_integration_test.go:205: ✓ MCP tools/call: OK
+    full_stack_integration_test.go:206: ✓ HTTP request building: OK
+    full_stack_integration_test.go:207: ✓ HTTP request execution: OK
+    full_stack_integration_test.go:208: ✓ Response parsing: OK
+    full_stack_integration_test.go:209: 
+        === COMPLETE STACK INTEGRATED SUCCESSFULLY ===
+--- PASS: TestFullStackIntegration (0.00s)
+=== RUN   TestRealMCPIntegration
+=== RUN   TestRealMCPIntegration/ListTools
+    mcp_real_integration_test.go:121: Found 5 tools: map[createPet:true deletePet:true getPet:true listPets:true updatePet:true]
+=== RUN   TestRealMCPIntegration/CallTools
+    mcp_real_integration_test.go:136: Call result: &{Content:[{Type:text Text:{"pets":[{"id":1,"name":"Fluffy","tag":"cat"},{"id":2,"name":"Rex","tag":"dog"}]}}] IsError:false StructuredContent:map[pets:[map[id:1 name:Fluffy tag:cat] map[id:2 name:Rex tag:dog]]]}
+=== NAME  TestRealMCPIntegration
+    mcp_real_integration_test.go:140: Total HTTP requests made: 1
+    mcp_real_integration_test.go:142: MCP server successfully executed HTTP requests via tool calls
+--- PASS: TestRealMCPIntegration (0.00s)
+    --- PASS: TestRealMCPIntegration/ListTools (0.00s)
+    --- PASS: TestRealMCPIntegration/CallTools (0.00s)
+=== RUN   TestRealCLIIntegration
+=== RUN   TestRealCLIIntegration/ParseOpenAPISpec
+=== RUN   TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands
+=== RUN   TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests
+=== RUN   TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests/ListPets
+=== RUN   TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests/CreatePet
+=== RUN   TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests/GetPetById
+=== RUN   TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests/PetNotFound
+=== NAME  TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests
+    real_integration_test.go:231: Total HTTP requests made: 4
+--- PASS: TestRealCLIIntegration (0.00s)
+    --- PASS: TestRealCLIIntegration/ParseOpenAPISpec (0.00s)
+        --- PASS: TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands (0.00s)
+            --- PASS: TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests (0.00s)
+                --- PASS: TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests/ListPets (0.00s)
+                --- PASS: TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests/CreatePet (0.00s)
+                --- PASS: TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests/GetPetById (0.00s)
+                --- PASS: TestRealCLIIntegration/ParseOpenAPISpec/GenerateCommands/ExecuteHTTPRequests/PetNotFound (0.00s)
+=== CONT  TestTokenRefreshIntegration
+--- PASS: TestTokenRefreshIntegration (0.00s)
+PASS
+ok  	github.com/wojons/muster/test/e2e	(cached)
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/test/functional/behaviors	(cached) [no tests to run]
+?   	github.com/wojons/muster/test/functional/harness	[no test files]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/test/functional/states	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/test/functional/workflows	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/test/production	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/test/security	(cached) [no tests to run]
+testing: warning: no tests to run
+PASS
+ok  	github.com/wojons/muster/test/upgrade	(cached) [no tests to run]
+?   	github.com/wojons/muster/test/util	[no test files]
+✓ Integration tests complete

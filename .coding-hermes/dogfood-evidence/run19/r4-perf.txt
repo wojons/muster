@@ -1,0 +1,20 @@
+### load at measurement time:
+ 06:37:05 up 14:55,  0 users,  load average: 7.94, 13.78, 24.09
+
+=== A: CLI startup floor — openapi-cli version (warm) ===
+Benchmark 1: /home/kara/wojons/muster/bin/openapi-cli version
+  Time (mean ± σ):      43.7 ms ±  26.7 ms    [User: 11.3 ms, System: 10.7 ms]
+  Range (min … max):    18.5 ms … 101.4 ms    30 runs
+
+=== B: local spec discover (parse+render, no network) ===
+Benchmark 1: /home/kara/wojons/muster/bin/openapi-cli discover demo/openapi-specs/petstore.yaml
+  Time (mean ± σ):      59.0 ms ±  35.4 ms    [User: 14.1 ms, System: 14.8 ms]
+  Range (min … max):    22.4 ms … 117.8 ms    20 runs
+
+=== C: typed call (remote petstore3, network-bound) ===
+Benchmark 1: /home/kara/wojons/muster/bin/openapi-cli get-pet-by-id 1 -o json
+  Time (mean ± σ):     603.2 ms ± 419.6 ms    [User: 26.1 ms, System: 17.0 ms]
+  Range (min … max):   284.5 ms … 1533.6 ms    10 runs
+
+=== D: audit hook cost A/B — same command, audit OFF vs ON ===
+Benchmark 1: MUSTER_AUDIT_ENABLED=0 /home/kara/wojons/muster/bin/openapi-cli audit status
