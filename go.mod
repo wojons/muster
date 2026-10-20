@@ -1,6 +1,6 @@
 module github.com/wojons/muster
 
-go 1.26.6
+go 1.26.9
 
 require (
 	// File system watching for config hot reload
@@ -45,11 +45,10 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.starlark.net v0.0.0-20261005163335-bcb1a1a55bf9
 	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 )
 
 require (
-	github.com/go-jose/go-jose/v4 v4.1.5 // indirect
 	github.com/jhump/protoreflect/v2 v2.0.0-beta.1 // indirect
 	github.com/petermattis/goid v0.0.0-20260113132338-7c7de50cc741 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
