@@ -629,7 +629,7 @@ func emitAuditEvent(eventType, action, resourceType, resourceID, resourceName st
 	}
 	defer func() { _ = storage.Close() }()
 
-	actor := cliActorID()
+	actor := CliActorID()
 	code := "ERROR"
 	if success {
 		code = "OK"

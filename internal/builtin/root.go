@@ -61,7 +61,7 @@ and serves them via MCP protocol.`,
 			// This is called on success. Errors before command execution
 			// (e.g. arg parsing) are captured by ExecuteContext returning an error.
 			if auditHook != nil {
-				auditHook.LogCommand(cmd.Context(), cmd.CommandPath(), cliActorID(), true, nil)
+				auditHook.LogCommand(cmd.Context(), cmd.CommandPath(), CliActorID(), true, nil)
 			}
 		},
 	}
@@ -172,8 +172,8 @@ func hidePersistedCommands(root *cobra.Command, hidden bool) {
 	}
 }
 
-// cliActorID returns the actor identifier for CLI audit events.
-func cliActorID() string {
+// CliActorID returns the actor identifier for CLI audit events.
+func CliActorID() string {
 	if user := os.Getenv("USER"); user != "" {
 		return user
 	}

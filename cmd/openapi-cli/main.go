@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/builtin"
@@ -52,8 +53,44 @@ func run() error {
 
 	// Log command execution (success logged in PersistentPostRun, failures logged here)
 	if err != nil && auditHook != nil {
-		// Use background context since the command context may be cancelled
-		auditHook.LogCommand(context.Background(), rootCmd.CommandPath(), "cli", false, map[string]string{"error": err.Error()})
+		// Use background context since the command context may be cancelled.
+		// rootCmd.CommandPath() is "openapi-cli" after ExecuteContext returns
+		// an error (the active subcommand is lost). Reconstruct from original
+		// argv: skip "openapi-cli" (os.Args[0]), skip leading flags (and their
+		// value args), take the first non-flag word as the command path prefix.
+		command := rootCmd.CommandPath()
+		args := os.Args[1:]
+		i := 0
+		for i < len(args) {
+			a := args[i]
+			if !strings.HasPrefix(a, "-") {
+				// First non-flag word is the subcommand
+				command = "openapi-cli " + a
+				break
+			}
+			// Flag — skip it and its optional value
+			// Flags with string values that consume the next argv element:
+			if strings.HasPrefix(a, "--") && i+1 < len(args) {
+				// Check if this flag takes a value (not a bool)
+				switch a {
+				case "--profile", "--log-level", "--log-format",
+					"--database-url", "--auth-token", "--config-file",
+					"--timeout", "--max-retries", "--http-version",
+					"--http-timeout", "-u", "--base-url":
+					// Skip the value too
+					i++
+				}
+			}
+			// Short flags like -f don't take values; -d value does
+			if strings.HasPrefix(a, "-") && len(a) == 2 && a[1] != '-' {
+				// Check if it's a known value-taking short flag
+				if a == "-d" {
+					i++
+				}
+			}
+			i++
+		}
+		auditHook.LogCommand(context.Background(), command, builtin.CliActorID(), false, map[string]string{"error": err.Error()})
 	}
 
 	return err

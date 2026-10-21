@@ -314,20 +314,20 @@ func TestCliActorID(t *testing.T) {
 		os.Setenv("USER", "testuser")
 		defer os.Unsetenv("USER")
 		os.Unsetenv("LOGNAME")
-		assert.Equal(t, "testuser", cliActorID())
+		assert.Equal(t, "testuser", CliActorID())
 	})
 
 	t.Run("falls back to LOGNAME when USER empty", func(t *testing.T) {
 		os.Unsetenv("USER")
 		os.Setenv("LOGNAME", "lognameuser")
 		defer os.Unsetenv("LOGNAME")
-		assert.Equal(t, "lognameuser", cliActorID())
+		assert.Equal(t, "lognameuser", CliActorID())
 	})
 
 	t.Run("returns 'unknown' when neither set", func(t *testing.T) {
 		os.Unsetenv("USER")
 		os.Unsetenv("LOGNAME")
-		assert.Equal(t, "unknown", cliActorID())
+		assert.Equal(t, "unknown", CliActorID())
 	})
 
 	t.Run("prefers USER over LOGNAME", func(t *testing.T) {
@@ -335,7 +335,7 @@ func TestCliActorID(t *testing.T) {
 		os.Setenv("LOGNAME", "secondary")
 		defer os.Unsetenv("USER")
 		defer os.Unsetenv("LOGNAME")
-		assert.Equal(t, "primary", cliActorID())
+		assert.Equal(t, "primary", CliActorID())
 	})
 }
 
