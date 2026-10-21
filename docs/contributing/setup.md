@@ -6,7 +6,7 @@ Setup guide for contributing to OpenAPI CLI.
 
 ### Required Tools
 
-- **Go**: 1.26.6 or later (the version in `go.mod`)
+- **Go**: 1.26.9 or later (the version in `go.mod`)
 - **A C compiler**: `gcc` or `clang` — SQLite support is a CGO package
   (`github.com/mattn/go-sqlite3`) and `make` builds with `CGO_ENABLED=1`
 - **Git**: 2.30 or later
