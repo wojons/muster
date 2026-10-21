@@ -891,3 +891,42 @@ func TestAuditSink_BothWritersShareOnePath(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out, "mcp-client-9")
 }
+
+// TestAuditEmit_UserFieldMatchesActor is the DF-055 regression for the
+// management-plane emitter: tenant/webhook rows must carry user == actor.id,
+// not the always-empty value the field shipped before the fix.
+func TestAuditEmit_UserFieldMatchesActor(t *testing.T) {
+	sink := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
+	t.Setenv("USER", "muster-tester")
+
+	cfg := &config.Config{ConfigDir: t.TempDir()}
+	set := newTenantCommand(cfg)
+	set.SetArgs([]string{"set", "acme"})
+	require.NoError(t, set.Execute())
+
+	data, err := os.ReadFile(sink)
+	require.NoError(t, err, "audit is enabled, so the sink must exist")
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	require.NotEmpty(t, lines)
+
+	found := false
+	for _, line := range lines {
+		var row struct {
+			EventType string `json:"event_type"`
+			User      string `json:"user"`
+			Actor     struct {
+				ID string `json:"id"`
+			} `json:"actor"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(line), &row))
+		if row.EventType != "tenant.set" {
+			continue
+		}
+		found = true
+		assert.NotEmpty(t, row.User, "tenant.set row must not ship an empty user (DF-055)")
+		assert.Equal(t, row.Actor.ID, row.User, "user must equal actor.id")
+	}
+	require.True(t, found, "no tenant.set row written to the sink")
+}

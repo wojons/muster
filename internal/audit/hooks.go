@@ -75,8 +75,10 @@ func (h *Hook) Log(event *AuditEvent) error {
 
 // LogCommand records a CLI command execution.
 func (h *Hook) LogCommand(ctx context.Context, command string, actorID string, success bool, details map[string]string) {
+	actorID = normalizeActorID(actorID)
 	event := &AuditEvent{
 		EventType: EventTypeCommand,
+		User:      actorID,
 		Level:     AuditLevelInfo,
 		Category:  AuditCategorySystem,
 		Action:    fmt.Sprintf("command.%s", command),
@@ -106,8 +108,10 @@ func (h *Hook) LogCommand(ctx context.Context, command string, actorID string, s
 
 // LogToolCall records an MCP tool invocation.
 func (h *Hook) LogToolCall(ctx context.Context, toolName string, actorID string, success bool, details map[string]string) {
+	actorID = normalizeActorID(actorID)
 	event := &AuditEvent{
 		EventType: EventTypeTool,
+		User:      actorID,
 		Level:     AuditLevelInfo,
 		Category:  AuditCategoryAccess,
 		Action:    fmt.Sprintf("tool.%s", toolName),
@@ -137,6 +141,7 @@ func (h *Hook) LogToolCall(ctx context.Context, toolName string, actorID string,
 
 // LogAuth records an authentication event.
 func (h *Hook) LogAuth(ctx context.Context, actorID string, success bool, details map[string]string) {
+	actorID = normalizeActorID(actorID)
 	level := AuditLevelInfo
 	if !success {
 		level = AuditLevelWarning
@@ -144,6 +149,7 @@ func (h *Hook) LogAuth(ctx context.Context, actorID string, success bool, detail
 
 	event := &AuditEvent{
 		EventType: EventTypeAuth,
+		User:      actorID,
 		Level:     level,
 		Category:  AuditCategoryAuth,
 		Action:    "authenticate",
@@ -200,6 +206,17 @@ func DefaultConfigEnabled() AuditConfig {
 	cfg := DefaultConfig()
 	cfg.Enabled = true
 	return cfg
+}
+
+// normalizeActorID returns actorID, or "unknown" when the caller has no actor
+// identity (empty string). AuditEvent.User and AuditActor.ID must never go to
+// the wire empty (DF-055): an audit row with no identity is unreadable for
+// `audit log` consumers, so a missing caller identity is recorded explicitly.
+func normalizeActorID(actorID string) string {
+	if actorID == "" {
+		return "unknown"
+	}
+	return actorID
 }
 
 func resultCode(success bool) string {

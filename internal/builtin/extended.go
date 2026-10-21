@@ -637,6 +637,7 @@ func emitAuditEvent(eventType, action, resourceType, resourceID, resourceName st
 	return storage.Write(&audit.AuditEvent{
 		Timestamp: time.Now().UTC(),
 		EventType: eventType,
+		User:      actor,
 		Level:     audit.AuditLevelInfo,
 		Category:  audit.AuditCategoryData,
 		Action:    action,

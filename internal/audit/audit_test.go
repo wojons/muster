@@ -798,3 +798,92 @@ func TestHook_JSONL_WireFormat_SnakeCase(t *testing.T) {
 		t.Errorf("decoded event lost data: actor.ID=%q result=%+v", decoded.Actor.ID, decoded.Result)
 	}
 }
+
+// TestHook_JSONL_WireFormat_UserPopulated is the DF-055 regression: every
+// emitter must populate the top-level `user` field with the invoking actor.
+// Before DF-055 every live row shipped "user":"" while the identity lived only
+// in actor.id, so any consumer filtering on .user saw nothing forever.
+func TestHook_JSONL_WireFormat_UserPopulated(t *testing.T) {
+	sink := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
+
+	hook := NewHook(DefaultConfig())
+	hook.LogCommand(context.Background(), "tenant set", "alice", true, nil)
+	hook.LogToolCall(context.Background(), "list-pets", "mcp-alice", true, nil)
+	hook.LogAuth(context.Background(), "bob", false, nil)
+	if err := hook.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	raw, err := os.ReadFile(sink)
+	if err != nil {
+		t.Fatalf("ReadFile %s: %v", sink, err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("want exactly 3 event lines, got %d: %q", len(lines), string(raw))
+	}
+
+	want := []struct {
+		eventType string
+		user      string
+	}{
+		{EventTypeCommand, "alice"},
+		{EventTypeTool, "mcp-alice"},
+		{EventTypeAuth, "bob"},
+	}
+	for i, line := range lines {
+		var row struct {
+			EventType string     `json:"event_type"`
+			User      string     `json:"user"`
+			Actor     AuditActor `json:"actor"`
+		}
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			t.Fatalf("line %d is not valid JSON: %v", i+1, err)
+		}
+		w := want[i]
+		if row.EventType != w.eventType {
+			t.Fatalf("line %d event_type = %q, want %q", i+1, row.EventType, w.eventType)
+		}
+		if row.User != w.user {
+			t.Errorf("line %d (%s): user = %q, want %q — empty means the emitter never populated User (DF-055)",
+				i+1, w.eventType, row.User, w.user)
+		}
+		if row.User != row.Actor.ID {
+			t.Errorf("line %d (%s): user = %q diverges from actor.id = %q", i+1, w.eventType, row.User, row.Actor.ID)
+		}
+	}
+}
+
+// TestHook_EmptyActorIsRecordedAsUnknown pins the fallback half of DF-055: an
+// emitter called with no actor identity must write the explicit sentinel
+// "unknown" instead of an empty user/actor.id pair a SIEM filter would drop.
+func TestHook_EmptyActorIsRecordedAsUnknown(t *testing.T) {
+	sink := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
+
+	hook := NewHook(DefaultConfig())
+	hook.LogCommand(context.Background(), "orphan cmd", "", true, nil)
+	if err := hook.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	raw, err := os.ReadFile(sink)
+	if err != nil {
+		t.Fatalf("ReadFile %s: %v", sink, err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("want exactly 1 event line, got %d: %q", len(lines), string(raw))
+	}
+
+	var decoded AuditEvent
+	if err := json.Unmarshal([]byte(lines[0]), &decoded); err != nil {
+		t.Fatalf("audit line is not valid JSON: %v", err)
+	}
+	if decoded.User != "unknown" || decoded.Actor.ID != "unknown" {
+		t.Errorf("empty actor must be recorded as \"unknown\", got user=%q actor.ID=%q", decoded.User, decoded.Actor.ID)
+	}
+}
