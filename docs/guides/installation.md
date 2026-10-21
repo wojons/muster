@@ -26,6 +26,16 @@ source**.
 - **Disk Space**: ~100MB free space
 - **Network**: Internet connection for module downloads on first build
 
+> **Toolchain bump procedure (single source of truth: `go.mod`).** When the `go`
+> directive in `go.mod` is bumped, update every user-facing version claim in the
+> same change: `README.md` (Prerequisites + demo requirements),
+> `docs/guides/installation.md` (Prerequisites + troubleshooting),
+> `docs/README.md` (build section), and `AGENTS.md` (Quick Commands "Go version"
+> line). Search with `grep -rn "1\.26\." README.md AGENTS.md docs/` and rewrite
+> any stale floor before committing — the last two toolchain bumps (GAP-033,
+> GAP-033-R2) both drifted the docs because the bump commit touched only
+> `go.mod`.
+
 ## Build from source (all platforms)
 
 ### 1. Clone the repository

@@ -51,7 +51,7 @@ prerequisites, all platforms, and troubleshooting):
 ```bash
 git clone https://github.com/wojons/muster.git
 cd muster
-make build-cli                 # requires Go 1.26.6+ and a C compiler (CGO)
+make build-cli                 # requires Go 1.26.9+ and a C compiler (CGO)
 make build-mcp                 # optional: MCP server -> bin/openapi-mcp
 export PATH="$PWD/bin:$PATH"   # binaries land in bin/
 ```
