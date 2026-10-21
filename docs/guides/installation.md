@@ -13,7 +13,7 @@ source**.
 
 ## Prerequisites
 
-- **Go 1.26.6+** (see `go.mod`; older toolchains get a hard toolchain error)
+- **Go 1.26.9+** (see `go.mod`; older toolchains get a hard toolchain error)
 - **A C compiler** — `gcc` or `clang`. SQLite support is a CGO package
   (`github.com/mattn/go-sqlite3`) and `make` builds with `CGO_ENABLED=1`, so
   without one `make build-cli` stops with
@@ -121,11 +121,11 @@ command not found: openapi-cli
 **Error**:
 
 ```
-go.mod requires go >= 1.26.6
+go.mod requires go >= 1.26.9
 ```
 
 **Solution**: your installed Go is older than the version in `go.mod`.
-Upgrade to Go 1.26.6+ (see https://go.dev/dl).
+Upgrade to Go 1.26.9+ (see https://go.dev/dl).
 
 ### First build is slow / network errors
 
