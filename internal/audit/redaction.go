@@ -2,6 +2,7 @@ package audit
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -244,16 +245,12 @@ func (r *Redactor) RedactEvent(event *AuditEvent) error {
 }
 
 // SensitiveFieldNames returns the canonical field names that audit storage
-// redacts, sorted for stable reporting (used by `audit info` output).
+// redacts, sorted for stable reporting.
 func SensitiveFieldNames() []string {
 	names := make([]string, 0, len(sensitiveFields))
 	for name := range sensitiveFields {
 		names = append(names, name)
 	}
-	for i := 1; i < len(names); i++ {
-		for j := i; j > 0 && names[j] < names[j-1]; j-- {
-			names[j], names[j-1] = names[j-1], names[j]
-		}
-	}
+	sort.Strings(names)
 	return names
 }

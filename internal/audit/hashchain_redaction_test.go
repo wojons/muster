@@ -199,13 +199,6 @@ func TestFileStorage_Write_RedactsAndChains(t *testing.T) {
 	if stored.PreviousHash != "" {
 		t.Errorf("first record previous_hash = %q, want empty (chain start)", stored.PreviousHash)
 	}
-	if !strings.Contains(lines[0], `"previous_hash"`) && stored.PreviousHash == "" {
-		// previous_hash is omitempty, so the key is absent on the genesis record;
-		// the field name must still be reachable in the struct (wire contract).
-		var probe AuditEvent
-		probe.PreviousHash = ""
-		_ = probe
-	}
 	if err := VerifyChain(path); err != nil {
 		t.Fatalf("VerifyChain on freshly written sink: %v", err)
 	}
