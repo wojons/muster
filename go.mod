@@ -1,6 +1,6 @@
 module github.com/wojons/muster
 
-go 1.26.9
+go 1.26.10
 
 require (
 	// File system watching for config hot reload
