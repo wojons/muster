@@ -2888,13 +2888,13 @@ func SeccompProfileForWASM() string {
 
 ### Environment Variables
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `MUSTER_CONFIG_DIR` | Configuration directory | XDG config dir |
-| `MUSTER_CACHE_DIR` | Cache directory | XDG cache dir |
-| `MUSTER_DATA_DIR` | Data directory | XDG data dir |
-| `MUSTER_LOG_LEVEL` | Logging level | `info` |
-| `MUSTER_NO_COLOR` | Disable colored output | `false` |
+|| Variable | Purpose | Status | Default |
+|----------|---------|--------|---------|
+|| `MUSTER_LOG_LEVEL` | Logging level | Implemented | `info` |
+|| `NO_COLOR` | Disable colored output (standard) | Implemented | (unset) |
+|| `MUSTER_CONFIG_DIR` | Configuration directory | Not implemented | XDG config dir |
+|| `MUSTER_CACHE_DIR` | Cache directory | Not implemented | XDG cache dir |
+|| `MUSTER_DATA_DIR` | Data directory | Not implemented | XDG data dir |
 
 ### Build Commands
 
