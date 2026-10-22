@@ -189,15 +189,20 @@ func (h *Hook) Close() error {
 
 // DefaultConfig returns an audit config suitable for the CLI/MCP entry points.
 // Enabled is false by default (opt-in via --audit flag or env var).
+//
+// RedactSensitive is true and reported for visibility only: redaction of
+// sensitive fields is mandatory in the write path (prepareEvent) and cannot be
+// switched off, per specs/EVENTS-AUDIT.md.
 func DefaultConfig() AuditConfig {
 	enabled := os.Getenv("MUSTER_AUDIT_ENABLED") == "1" || os.Getenv("MUSTER_AUDIT_ENABLED") == "true"
 	return AuditConfig{
-		Enabled:       enabled,
-		StorageType:   "file",
-		RetentionDays: 90,
-		BufferSize:    100,
-		FlushInterval: 5 * time.Second,
-		HashAlgorithm: "sha256",
+		Enabled:         enabled,
+		StorageType:     "file",
+		RetentionDays:   90,
+		BufferSize:      100,
+		FlushInterval:   5 * time.Second,
+		RedactSensitive: true,
+		HashAlgorithm:   "sha256",
 	}
 }
 

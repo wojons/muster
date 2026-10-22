@@ -4,6 +4,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -67,19 +68,29 @@ type AuditContext struct {
 }
 
 // AuditEvent represents a single auditable event.
+//
+// ID, Hash and PreviousHash make the persisted trail tamper-evident
+// (specs/EVENTS-AUDIT.md): PreviousHash is the Hash of the record written
+// immediately before this one, and Hash is the digest of this record's canonical
+// preimage (see eventHashPreimage). Both are assigned by the sink write path and
+// never trusted from the caller — a producer-supplied Hash is overwritten, so no
+// emitter can forge a link in the chain.
 type AuditEvent struct {
-	Timestamp time.Time              `json:"timestamp"`
-	EventType string                 `json:"event_type"`
-	User      string                 `json:"user"`
-	Level     AuditLevel             `json:"level"`
-	Category  AuditCategory          `json:"category"`
-	Action    string                 `json:"action"`
-	Actor     AuditActor             `json:"actor"`
-	Resource  AuditResource          `json:"resource"`
-	Result    AuditResult            `json:"result"`
-	Context   AuditContext           `json:"context"`
-	Details   map[string]interface{} `json:"details,omitempty"`
-	Error     string                 `json:"error,omitempty"`
+	ID           string                 `json:"id"`
+	Timestamp    time.Time              `json:"timestamp"`
+	EventType    string                 `json:"event_type"`
+	User         string                 `json:"user"`
+	Level        AuditLevel             `json:"level"`
+	Category     AuditCategory          `json:"category"`
+	Action       string                 `json:"action"`
+	Actor        AuditActor             `json:"actor"`
+	Resource     AuditResource          `json:"resource"`
+	Result       AuditResult            `json:"result"`
+	Context      AuditContext           `json:"context"`
+	Details      map[string]interface{} `json:"details,omitempty"`
+	Error        string                 `json:"error,omitempty"`
+	Hash         string                 `json:"hash"`
+	PreviousHash string                 `json:"previous_hash,omitempty"`
 }
 
 // AuditConfig holds configuration for audit logging.
@@ -119,9 +130,18 @@ type AuditStorage interface {
 }
 
 // FileStorage writes audit events to a file as JSON lines.
+//
+// It is also the hash-chain write point: every record leaving this writer has a
+// redacted body, a fresh ID, a PreviousHash pointing at the record on disk
+// before it, and a Hash covering both. lastHash is seeded from the tail of the
+// file at open time, so a short-lived writer (the management-plane emitter opens
+// one per event) continues the chain instead of restarting it.
 type FileStorage struct {
-	mu   sync.Mutex
-	file *os.File
+	mu            sync.Mutex
+	file          *os.File
+	path          string
+	lastHash      string
+	hashAlgorithm string
 }
 
 // FileStorageOptions configures file-based audit storage.
@@ -131,22 +151,48 @@ type FileStorageOptions struct {
 	Compress   bool
 }
 
-// NewFileStorage creates a new file-based audit storage.
+// NewFileStorage creates a new file-based audit storage using the default
+// sha256 chain algorithm.
 func NewFileStorage(path string, opts FileStorageOptions) (*FileStorage, error) {
+	return NewFileStorageWithHashAlgorithm(path, opts, HashAlgorithmSHA256)
+}
+
+// NewFileStorageWithHashAlgorithm creates a file-based audit storage whose audit
+// chain uses algorithm (AuditConfig.HashAlgorithm; unknown values fall back to
+// sha256).
+func NewFileStorageWithHashAlgorithm(path string, opts FileStorageOptions, algorithm string) (*FileStorage, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
-	return &FileStorage{file: f}, nil
+	return &FileStorage{
+		file:          f,
+		path:          path,
+		lastHash:      lastSinkHash(path),
+		hashAlgorithm: normalizeHashAlgorithm(algorithm),
+	}, nil
 }
 
 func (fs *FileStorage) Write(event *AuditEvent) error {
+	if event == nil {
+		return fmt.Errorf("audit: cannot write a nil event")
+	}
+
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	if event.Timestamp.IsZero() {
-		event.Timestamp = time.Now().UTC()
+	// Mandatory transformations, applied to every persisted record: identity,
+	// timestamp, and non-disableable redaction of sensitive fields.
+	prepareEvent(event)
+
+	// Seed from the sink when nothing has been written through this instance
+	// yet: another writer may have appended between open and now.
+	if fs.lastHash == "" {
+		fs.lastHash = lastSinkHash(fs.path)
 	}
+	event.PreviousHash = fs.lastHash
+	hash := computeEventHash(fs.hashAlgorithm, event)
+	event.Hash = hash
 
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -154,8 +200,16 @@ func (fs *FileStorage) Write(event *AuditEvent) error {
 	}
 	data = append(data, '\n')
 
-	_, err = fs.file.Write(data)
-	return err
+	if _, err := fs.file.Write(data); err != nil {
+		// The record never reached the sink; drop the provisional link so the
+		// next event chains from the last hash that is actually persisted.
+		event.Hash = ""
+		event.PreviousHash = ""
+		return err
+	}
+
+	fs.lastHash = hash
+	return nil
 }
 
 func (fs *FileStorage) Close() error {
