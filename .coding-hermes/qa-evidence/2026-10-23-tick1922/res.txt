@@ -1,0 +1,78 @@
+PARENT_CAP=unlimited
+SUBSHELL_CAP=3145728
+CAP_EFFECTIVE=3145728 CAP_REQUESTED=3145728
+ok  	github.com/wojons/muster/alertmanager	0.097s
+ok  	github.com/wojons/muster/cmd/daemon	52.711s
+ok  	github.com/wojons/muster/cmd/mcp-server	65.529s
+ok  	github.com/wojons/muster/cmd/openapi-cli	0.421s
+?   	github.com/wojons/muster/demo/services/transport-fixture	[no test files]
+ok  	github.com/wojons/muster/demo/test-suites	30.022s
+ok  	github.com/wojons/muster/deployments/backup	0.199s
+ok  	github.com/wojons/muster/deployments/scripts	1.079s
+?   	github.com/wojons/muster/exploits/auth	[no test files]
+?   	github.com/wojons/muster/exploits/network	[no test files]
+?   	github.com/wojons/muster/exploits/ratelimit	[no test files]
+?   	github.com/wojons/muster/exploits/symlink	[no test files]
+?   	github.com/wojons/muster/exploits/wasm	[no test files]
+ok  	github.com/wojons/muster/internal/audit	0.280s
+ok  	github.com/wojons/muster/internal/builtin	9.007s
+ok  	github.com/wojons/muster/internal/monitoring	0.406s
+?   	github.com/wojons/muster/internal/platform/linux	[no test files]
+ok  	github.com/wojons/muster/internal/telemetry	0.099s
+ok  	github.com/wojons/muster/internal/version	0.095s
+ok  	github.com/wojons/muster/packaging	1.103s
+ok  	github.com/wojons/muster/pkg/auth	34.611s
+ok  	github.com/wojons/muster/pkg/auth/ratelimit	0.491s
+ok  	github.com/wojons/muster/pkg/cache	0.695s
+ok  	github.com/wojons/muster/pkg/cli	0.093s
+ok  	github.com/wojons/muster/pkg/client	6.097s
+ok  	github.com/wojons/muster/pkg/cmdstore	0.291s
+ok  	github.com/wojons/muster/pkg/completion	0.496s
+ok  	github.com/wojons/muster/pkg/config	0.123s
+ok  	github.com/wojons/muster/pkg/daemon	0.493s
+ok  	github.com/wojons/muster/pkg/dsl	0.023s
+ok  	github.com/wojons/muster/pkg/errors	0.081s
+ok  	github.com/wojons/muster/pkg/generator	0.692s
+ok  	github.com/wojons/muster/pkg/log	0.093s
+--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)
+    server_test.go:512: Run did not return after stdin close within 3s
+FAIL
+FAIL	github.com/wojons/muster/pkg/mcp	5.003s
+ok  	github.com/wojons/muster/pkg/mcp/handlers	0.099s
+ok  	github.com/wojons/muster/pkg/openapi	0.323s
+ok  	github.com/wojons/muster/pkg/platform	0.285s
+ok  	github.com/wojons/muster/pkg/protocol	0.096s
+ok  	github.com/wojons/muster/pkg/protocol/graphql	4.619s
+ok  	github.com/wojons/muster/pkg/protocol/grpc	1.128s
+ok  	github.com/wojons/muster/pkg/protocol/jsonrpc	1.100s
+ok  	github.com/wojons/muster/pkg/protocol/soap	0.275s
+ok  	github.com/wojons/muster/pkg/rate	0.489s
+ok  	github.com/wojons/muster/pkg/repository	0.317s
+ok  	github.com/wojons/muster/pkg/repository/sql	0.300s
+ok  	github.com/wojons/muster/pkg/request	5.180s
+ok  	github.com/wojons/muster/pkg/response	0.081s
+ok  	github.com/wojons/muster/pkg/retry	0.186s
+ok  	github.com/wojons/muster/pkg/wasm	0.592s
+ok  	github.com/wojons/muster/test/benchmarks	0.091s
+ok  	github.com/wojons/muster/test/docker	9.919s
+Auth URL: http://127.0.0.1:35419/auth?client_id=test_client&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&response_type=code&scope=read+write&state=dfa7a6c23ac9034de4bd5c9b2b2a52b6
+--- FAIL: TestCLI_VersionCommand (0.11s)
+    cli_test.go:30: 
+        	Error Trace:	/home/bunker-c510dd7e/qa-muster/test/e2e/cli_test.go:30
+        	Error:      	Expect "2026/10/23 19:49:10 Starlark failed to allocate 4GB address space: cannot allocate memory. Integer performance may suffer.
+        	            	v0.0.0-20261023193045-0a70dffdc0db (0a70dffdc0db)" to match "^\S+ \(\S+\)$"
+        	Test:       	TestCLI_VersionCommand
+        	Messages:   	version command should output '<version> (<commit>)', got: 2026/10/23 19:49:10 Starlark failed to allocate 4GB address space: cannot allocate memory. Integer performance may suffer.
+        	            	v0.0.0-20261023193045-0a70dffdc0db (0a70dffdc0db)
+2026/10/23 19:49:38 http: TLS handshake error from 127.0.0.1:56100: remote error: tls: bad certificate
+FAIL
+FAIL	github.com/wojons/muster/test/e2e	57.806s
+ok  	github.com/wojons/muster/test/functional/behaviors	0.186s
+?   	github.com/wojons/muster/test/functional/harness	[no test files]
+ok  	github.com/wojons/muster/test/functional/states	0.018s
+ok  	github.com/wojons/muster/test/functional/workflows	0.206s
+ok  	github.com/wojons/muster/test/production	16.627s
+ok  	github.com/wojons/muster/test/security	245.924s
+ok  	github.com/wojons/muster/test/upgrade	0.194s
+?   	github.com/wojons/muster/test/util	[no test files]
+FAIL

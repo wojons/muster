@@ -1,0 +1,42 @@
+== E: CI-exact short suite inside act image (go1.26.10) ==
+ok  	github.com/wojons/muster/pkg/auth	6.845s
+ok  	github.com/wojons/muster/pkg/auth/ratelimit	0.255s
+ok  	github.com/wojons/muster/pkg/cache	0.393s
+ok  	github.com/wojons/muster/pkg/cli	0.004s
+ok  	github.com/wojons/muster/pkg/client	4.109s
+ok  	github.com/wojons/muster/pkg/cmdstore	0.034s
+ok  	github.com/wojons/muster/pkg/completion	0.450s
+ok  	github.com/wojons/muster/pkg/config	0.040s
+ok  	github.com/wojons/muster/pkg/daemon	0.337s
+ok  	github.com/wojons/muster/pkg/dsl	0.012s
+ok  	github.com/wojons/muster/pkg/errors	0.004s
+ok  	github.com/wojons/muster/pkg/generator	0.077s
+ok  	github.com/wojons/muster/pkg/log	0.007s
+ok  	github.com/wojons/muster/pkg/mcp	1.108s
+ok  	github.com/wojons/muster/pkg/mcp/handlers	0.005s
+ok  	github.com/wojons/muster/pkg/openapi	0.038s
+ok  	github.com/wojons/muster/pkg/platform	0.113s
+ok  	github.com/wojons/muster/pkg/protocol	0.008s
+ok  	github.com/wojons/muster/pkg/protocol/graphql	4.058s
+ok  	github.com/wojons/muster/pkg/protocol/grpc	0.518s
+ok  	github.com/wojons/muster/pkg/protocol/jsonrpc	0.928s
+ok  	github.com/wojons/muster/pkg/protocol/soap	0.037s
+ok  	github.com/wojons/muster/pkg/rate	0.461s
+ok  	github.com/wojons/muster/pkg/repository	0.159s
+ok  	github.com/wojons/muster/pkg/repository/sql	0.116s
+ok  	github.com/wojons/muster/pkg/request	5.013s
+ok  	github.com/wojons/muster/pkg/response	0.004s
+ok  	github.com/wojons/muster/pkg/retry	0.068s
+ok  	github.com/wojons/muster/pkg/wasm	0.229s
+ok  	github.com/wojons/muster/test/benchmarks	0.006s
+ok  	github.com/wojons/muster/test/docker	1.128s
+ok  	github.com/wojons/muster/test/e2e	3.743s
+ok  	github.com/wojons/muster/test/functional/behaviors	0.014s
+?   	github.com/wojons/muster/test/functional/harness	[no test files]
+ok  	github.com/wojons/muster/test/functional/states	0.005s
+ok  	github.com/wojons/muster/test/functional/workflows	0.031s
+ok  	github.com/wojons/muster/test/production	2.281s
+ok  	github.com/wojons/muster/test/upgrade	0.005s
+?   	github.com/wojons/muster/test/util	[no test files]
+FAIL
+E rc=

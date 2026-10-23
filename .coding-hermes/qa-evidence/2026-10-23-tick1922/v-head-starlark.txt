@@ -1,0 +1,17 @@
+HEAD=7cb5f3066e650703b061d0103882eb4cdaff96c0
+== V3: build CLI at HEAD ==
+build rc=0
+== V4: version stderr under 3GiB cap ==
+rc=0
+OUT: v0.1.2-0.20261023200124-7cb5f3066e65+dirty (7cb5f3066e65-dirty)
+ERR: 2026/10/23 15:06:31 Starlark failed to allocate 4GB address space: cannot allocate memory. Integer performance may suffer.
+== V5: e2e version test under cap ==
+        	Error:      	Expect "2026/10/23 15:06:33 Starlark failed to allocate 4GB address space: cannot allocate memory. Integer performance may suffer.
+        	            	v0.1.2-0.20261023200124-7cb5f3066e65+dirty (7cb5f3066e65-dirty)" to match "^\S+ \(\S+\)$"
+        	Test:       	TestCLI_VersionCommand
+        	Messages:   	version command should output '<version> (<commit>)', got: 2026/10/23 15:06:33 Starlark failed to allocate 4GB address space: cannot allocate memory. Integer performance may suffer.
+        	            	v0.1.2-0.20261023200124-7cb5f3066e65+dirty (7cb5f3066e65-dirty)
+FAIL
+FAIL	github.com/wojons/muster/test/e2e	2.114s
+FAIL
+V5 done

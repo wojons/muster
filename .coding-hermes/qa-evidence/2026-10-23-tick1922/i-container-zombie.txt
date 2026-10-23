@@ -1,0 +1,21 @@
+== I: container zombie probe ==
+go: downloading github.com/rs/zerolog v1.35.1
+go: downloading github.com/quic-go/quic-go v0.63.0
+go: downloading go.opentelemetry.io/otel/trace v1.47.0
+go: downloading github.com/godbus/dbus/v5 v5.2.2
+go: downloading go.opentelemetry.io/otel v1.47.0
+go: downloading github.com/mattn/go-colorable v0.1.14
+go: downloading github.com/mattn/go-isatty v0.0.21
+go: downloading golang.org/x/sys v0.48.0
+go: downloading github.com/quic-go/qpack v0.6.0
+go: downloading golang.org/x/net v0.60.0
+go: downloading golang.org/x/text v0.42.0
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+Daemon started successfully
+PID file: /tmp/z.sock.pid
+Socket: /tmp/z.sock
+START-RC=0
+PID=3163
+STATE=
+    PID    PPID STAT CMD
+PARENT: 

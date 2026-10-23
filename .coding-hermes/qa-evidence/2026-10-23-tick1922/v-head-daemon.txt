@@ -1,0 +1,18 @@
+HEAD=2507d70cb6de1f3d20174d590c0887e74a4f9963
+== V6: daemon restart test at HEAD in act container ==
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+--- FAIL: TestBinaryExecution_RestartCommand (5.59s)
+    integration_test.go:225: 
+        	Error Trace:	/w/cmd/daemon/integration_test.go:209
+        	            				/w/cmd/daemon/integration_test.go:225
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestBinaryExecution_RestartCommand
+        	Messages:   	command [restart --socket-path /tmp/mdtsock3365734873/test-restart.sock] failed: Error: daemon (PID 5427) did not exit after SIGTERM
+FAIL
+FAIL	github.com/wojons/muster/cmd/daemon	5.589s
+FAIL
+V6 done
+== V7: same test on dev box ==
+ok  	github.com/wojons/muster/cmd/daemon	0.695s
+V7 done

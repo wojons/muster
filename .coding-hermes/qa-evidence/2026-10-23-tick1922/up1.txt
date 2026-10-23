@@ -1,0 +1,66 @@
+go: downloading github.com/getkin/kin-openapi v0.133.0
+go: downloading github.com/prometheus/client_golang v1.19.0
+go: downloading github.com/rs/zerolog v1.32.0
+go: downloading github.com/bytecodealliance/wasmtime-go/v8 v8.0.0
+go: downloading github.com/godbus/dbus/v5 v5.0.4
+go: downloading github.com/spf13/cobra v1.8.0
+go: downloading github.com/spf13/pflag v1.0.5
+go: downloading go.starlark.net v0.0.0-20240123142251-f86470692795
+go: downloading go.opentelemetry.io/otel v1.44.0
+go: downloading go.opentelemetry.io/otel/trace v1.44.0
+go: downloading golang.org/x/crypto v0.53.0
+go: downloading go.uber.org/zap v1.27.1
+go: downloading github.com/fsnotify/fsnotify v1.7.0
+go: downloading github.com/spf13/viper v1.18.2
+go: downloading github.com/seccomp/libseccomp-golang v0.11.1
+go: downloading github.com/mattn/go-sqlite3 v1.14.34
+go: downloading github.com/stretchr/testify v1.11.1
+go: downloading github.com/testcontainers/testcontainers-go/modules/redis v0.43.0
+go: downloading github.com/testcontainers/testcontainers-go v0.43.0
+go: downloading github.com/mattn/go-colorable v0.1.13
+go: downloading github.com/prometheus/common v0.48.0
+go: downloading github.com/prometheus/procfs v0.20.1
+go: downloading google.golang.org/protobuf v1.36.11
+go: downloading github.com/go-openapi/jsonpointer v0.21.0
+go: downloading github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
+go: downloading github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
+go: downloading github.com/perimeterx/marshmallow v1.1.5
+go: downloading github.com/woodsbury/decimal128 v1.3.0
+go: downloading golang.org/x/sys v0.46.0
+go: downloading go.uber.org/multierr v1.11.0
+go: downloading github.com/mitchellh/mapstructure v1.5.0
+go: downloading github.com/sagikazarmark/slog-shim v0.1.0
+go: downloading github.com/spf13/afero v1.11.0
+go: downloading github.com/spf13/cast v1.6.0
+go: downloading github.com/go-openapi/swag v0.23.0
+go: downloading github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90
+go: downloading github.com/mailru/easyjson v0.7.7
+go: downloading github.com/hashicorp/hcl v1.0.0
+go: downloading gopkg.in/ini.v1 v1.67.0
+go: downloading github.com/pelletier/go-toml/v2 v2.1.0
+go: downloading github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+go: downloading github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
+go: downloading golang.org/x/text v0.38.0
+go: downloading github.com/moby/go-archive v0.2.0
+go: downloading github.com/moby/moby/api v1.54.2
+go: downloading github.com/moby/moby/client v0.4.1
+go: downloading github.com/josharian/intern v1.0.0
+go: downloading github.com/moby/sys/sequential v0.6.0
+go: downloading github.com/moby/sys/user v0.4.0
+go: downloading github.com/shirou/gopsutil/v4 v4.26.5
+go: downloading github.com/klauspost/compress v1.18.5
+go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
+go: downloading github.com/felixge/httpsnoop v1.0.4
+go: downloading go.opentelemetry.io/otel/metric v1.44.0
+go: downloading github.com/go-logr/logr v1.4.3
+go: downloading github.com/tklauser/go-sysconf v0.3.16
+go: downloading github.com/tklauser/numcpus v0.11.0
+# github.com/seccomp/libseccomp-golang
+# [pkg-config --cflags  -- libseccomp]
+Package libseccomp was not found in the pkg-config search path.
+Perhaps you should add the directory containing `libseccomp.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'libseccomp', required by 'virtual:world', not found
+# github.com/wojons/muster/exploits/wasm
+/usr/bin/ld: warning: x86_64.o: missing .note.GNU-stack section implies executable stack
+/usr/bin/ld: NOTE: This behaviour is deprecated and will be removed in a future version of the linker

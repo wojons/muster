@@ -1,0 +1,61 @@
+time="2026-10-23T19:33:54Z" level=info msg="Using docker host 'unix:///run/bunker/c510dd7e/docker.sock', and daemon socket 'unix:///run/bunker/c510dd7e/docker.sock'"
+[CI/build-and-test] ⭐ Run Set up job
+[CI/build-and-test] 🚀  Start image=catthehacker/ubuntu:act-latest
+[CI/build-and-test]   🐳  docker pull image=catthehacker/ubuntu:act-latest platform= username= forcePull=true
+[CI/build-and-test]   🐳  docker create image=catthehacker/ubuntu:act-latest platform= entrypoint=["tail" "-f" "/dev/null"] cmd=[] network="host"
+[CI/build-and-test]   🐳  docker run image=catthehacker/ubuntu:act-latest platform= entrypoint=["tail" "-f" "/dev/null"] cmd=[] network="host"
+[CI/build-and-test]   🐳  docker exec cmd=[node --no-warnings -e console.log(process.execPath)] user= workdir=
+[CI/build-and-test]   ✅  Success - Set up job
+[CI/build-and-test]   ☁  git clone 'https://github.com/actions/setup-go' # ref=v5
+[CI/build-and-test]   ☁  git clone 'https://github.com/actions/setup-python' # ref=v5
+[CI/build-and-test] ⭐ Run Main actions/checkout@v4
+[CI/build-and-test]   🐳  docker cp src=/home/bunker-c510dd7e/qa-muster/. dst=/home/bunker-c510dd7e/qa-muster
+[CI/build-and-test]   ✅  Success - Main actions/checkout@v4 [1.160589207s]
+[CI/build-and-test] ⭐ Run Main actions/setup-go@v5
+[CI/build-and-test]   🐳  docker cp src=/home/bunker-c510dd7e/.cache/act/actions-setup-go@v5/ dst=/var/run/act/actions/actions-setup-go@v5/
+[CI/build-and-test]   🐳  docker exec cmd=[/opt/acttoolcache/node/24.19.0/x64/bin/node /var/run/act/actions/actions-setup-go@v5/dist/setup/index.js] user= workdir=
+[CI/build-and-test]   ❓ add-matcher /run/act/actions/actions-setup-go@v5/matchers.json
+[CI/build-and-test]   ❓  ::group::go env
+[CI/build-and-test]   ❓  ::endgroup::
+[CI/build-and-test]   ✅  Success - Main actions/setup-go@v5 [13.109822037s]
+[CI/build-and-test]   ⚙  ::set-output:: go-version=1.26.10
+[CI/build-and-test]   ⚙  ::set-output:: cache-hit=false
+[CI/build-and-test]   ⚙  ::add-path:: /opt/hostedtoolcache/go/1.26.10/x64/bin
+[CI/build-and-test]   ⚙  ::add-path:: /root/go/bin
+[CI/build-and-test] ⭐ Run Main actions/setup-python@v5
+[CI/build-and-test]   🐳  docker cp src=/home/bunker-c510dd7e/.cache/act/actions-setup-python@v5/ dst=/var/run/act/actions/actions-setup-python@v5/
+[CI/build-and-test]   🐳  docker exec cmd=[/opt/acttoolcache/node/24.19.0/x64/bin/node /var/run/act/actions/actions-setup-python@v5/dist/setup/index.js] user= workdir=
+[CI/build-and-test]   ❓  ::group::Installed versions
+[CI/build-and-test]   ❓  ::endgroup::
+[CI/build-and-test]   ❓ add-matcher /run/act/actions/actions-setup-python@v5/.github/python.json
+[CI/build-and-test]   ✅  Success - Main actions/setup-python@v5 [10.609166153s]
+[CI/build-and-test]   ⚙  ::set-env:: Python_ROOT_DIR=/opt/hostedtoolcache/Python/3.11.17/x64
+[CI/build-and-test]   ⚙  ::set-env:: Python2_ROOT_DIR=/opt/hostedtoolcache/Python/3.11.17/x64
+[CI/build-and-test]   ⚙  ::set-env:: Python3_ROOT_DIR=/opt/hostedtoolcache/Python/3.11.17/x64
+[CI/build-and-test]   ⚙  ::set-env:: LD_LIBRARY_PATH=/opt/hostedtoolcache/Python/3.11.17/x64/lib
+[CI/build-and-test]   ⚙  ::set-env:: pythonLocation=/opt/hostedtoolcache/Python/3.11.17/x64
+[CI/build-and-test]   ⚙  ::set-env:: PKG_CONFIG_PATH=/opt/hostedtoolcache/Python/3.11.17/x64/lib/pkgconfig
+[CI/build-and-test]   ⚙  ::set-output:: python-version=3.11.17
+[CI/build-and-test]   ⚙  ::set-output:: python-path=/opt/hostedtoolcache/Python/3.11.17/x64/bin/python
+[CI/build-and-test]   ⚙  ::add-path:: /opt/hostedtoolcache/Python/3.11.17/x64
+[CI/build-and-test]   ⚙  ::add-path:: /opt/hostedtoolcache/Python/3.11.17/x64/bin
+[CI/build-and-test] ⭐ Run Main Install Flask
+[CI/build-and-test]   🐳  docker exec cmd=[bash -e /var/run/act/workflow/3] user= workdir=
+[CI/build-and-test]   ✅  Success - Main Install Flask [2.061868976s]
+[CI/build-and-test] ⭐ Run Main Install system dependencies
+[CI/build-and-test]   🐳  docker exec cmd=[bash -e /var/run/act/workflow/4] user= workdir=
+[CI/build-and-test]   ✅  Success - Main Install system dependencies [8.117895123s]
+[CI/build-and-test] ⭐ Run Main Build
+[CI/build-and-test]   🐳  docker exec cmd=[bash -e /var/run/act/workflow/5] user= workdir=
+[CI/build-and-test]   ✅  Success - Main Build [2m48.10670183s]
+[CI/build-and-test] ⭐ Run Main Version guard (no binary may report dev)
+[CI/build-and-test]   🐳  docker exec cmd=[bash -e /var/run/act/workflow/6] user= workdir=
+[CI/build-and-test]   ✅  Success - Main Version guard (no binary may report dev) [4.491535273s]
+[CI/build-and-test] ⭐ Run Main Test
+[CI/build-and-test]   🐳  docker exec cmd=[bash -e /var/run/act/workflow/7] user= workdir=
+[CI/build-and-test]   ❌  Failure - Main Test [1m41.213039824s]
+[CI/build-and-test] exitcode '1': failure
+[CI/build-and-test] ⭐ Run Complete job
+[CI/build-and-test]   ✅  Success - Complete job
+[CI/build-and-test] 🏁  Job failed
+Error: Job 'build-and-test' failed

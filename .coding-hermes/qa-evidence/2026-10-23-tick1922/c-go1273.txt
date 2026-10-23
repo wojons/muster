@@ -1,0 +1,22 @@
+== C: go1.27.3 toolchain, target test x5 ==
+--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)
+    server_test.go:512: Run did not return after stdin close within 3s
+--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)
+    server_test.go:512: Run did not return after stdin close within 3s
+--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)
+    server_test.go:512: Run did not return after stdin close within 3s
+--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)
+    server_test.go:512: Run did not return after stdin close within 3s
+--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)
+    server_test.go:512: Run did not return after stdin close within 3s
+FAIL
+FAIL	github.com/wojons/muster/pkg/mcp	15.020s
+FAIL
+C rc=
+== D: go1.27.3 full pkg/mcp package ==
+--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)
+    server_test.go:512: Run did not return after stdin close within 3s
+FAIL
+FAIL	github.com/wojons/muster/pkg/mcp	4.054s
+FAIL
+D rc=

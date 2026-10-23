@@ -1,0 +1,1 @@
+ok  	github.com/wojons/muster/pkg/mcp	0.009s

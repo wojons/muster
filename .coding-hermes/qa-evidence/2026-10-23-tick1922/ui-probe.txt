@@ -1,0 +1,32 @@
+A unified CLI tool that generates commands from OpenAPI specifications
+and serves them via MCP protocol.
+
+Usage:
+  openapi-cli [command]
+
+Available Commands:
+  audit       View audit logs
+  auth        Manage authentication credentials
+  completion  Generate shell completion scripts
+  config      Manage configuration
+  daemon      Daemon management commands
+  discover    Discover API operations from an OpenAPI spec
+  dsl         Run a Starlark DSL script with HTTP builtins
+  generate    Generate commands from OpenAPI specification
+  grpc        gRPC operations (discover, schema, call) — unary and streaming
+  help        Help about any command
+  init        Initialize OpenAPI CLI configuration
+  inventory   Manage spec inventories
+  modules     Manage WASM modules
+  protocol    Discover and call operations from non-OpenAPI protocols
+  request     Make HTTP requests
+  tenant      Manage tenant context
+  version     Print version information
+  webhook     Manage webhook subscriptions
+
+Flags:
+  -h, --help             help for openapi-cli
+      --profile string   Configuration profile to use (overrides MUSTER_PROFILE and the persisted default)
+  -v, --version          version for openapi-cli
+
+Use "openapi-cli [command] --help" for more information about a command.

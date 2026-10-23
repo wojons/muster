@@ -1,0 +1,20 @@
+== G: cmd/daemon restart test x2 in act image ==
+=== RUN   TestBinaryExecution_RestartCommand
+        	Error:      	Received unexpected error:
+        	Messages:   	command [restart --socket-path /tmp/mdtsock2972249756/test-restart.sock] failed: Error: daemon (PID 5577) did not exit after SIGTERM
+--- FAIL: TestBinaryExecution_RestartCommand (5.89s)
+=== RUN   TestBinaryExecution_RestartCommand
+        	Error:      	Received unexpected error:
+        	Messages:   	command [restart --socket-path /tmp/mdtsock1706033115/test-restart.sock] failed: Error: daemon (PID 5664) did not exit after SIGTERM
+--- FAIL: TestBinaryExecution_RestartCommand (5.54s)
+FAIL
+FAIL	github.com/wojons/muster/cmd/daemon	11.427s
+FAIL
+G done
+== H: same test x2 on dev box ==
+=== RUN   TestBinaryExecution_RestartCommand
+--- PASS: TestBinaryExecution_RestartCommand (1.39s)
+=== RUN   TestBinaryExecution_RestartCommand
+--- PASS: TestBinaryExecution_RestartCommand (1.15s)
+ok  	github.com/wojons/muster/cmd/daemon	2.546s
+H done

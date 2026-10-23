@@ -1,0 +1,7 @@
+HEAD=7cb5f3066e650703b061d0103882eb4cdaff96c0
+== V1: mcp wedge at HEAD under go1.27.3 x3 ==
+ok  	github.com/wojons/muster/pkg/mcp	0.010s
+V1 done
+== V2: same under go1.26.10 x3 ==
+ok  	github.com/wojons/muster/pkg/mcp	0.010s
+V2 done

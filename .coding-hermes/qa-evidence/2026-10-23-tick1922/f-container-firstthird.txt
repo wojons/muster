@@ -1,0 +1,314 @@
+== F: first-third packages in act image (go1.26.10) ==
+go: downloading github.com/godbus/dbus/v5 v5.2.2
+go: downloading go.opentelemetry.io/otel/trace v1.47.0
+go: downloading go.opentelemetry.io/otel v1.47.0
+go: downloading github.com/getkin/kin-openapi v0.149.0
+go: downloading github.com/prometheus/client_golang v1.24.1
+go: downloading github.com/rs/zerolog v1.35.1
+go: downloading github.com/quic-go/quic-go v0.63.0
+go: downloading github.com/spf13/cobra v1.10.2
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading github.com/mattn/go-sqlite3 v1.14.52
+go: downloading go.starlark.net v0.0.0-20261005163335-bcb1a1a55bf9
+go: downloading github.com/golang/protobuf v1.5.4
+go: downloading github.com/jhump/protoreflect v1.19.0
+go: downloading google.golang.org/grpc v1.85.0-dev.0.20260825072537-93e31b48545e
+go: downloading github.com/stretchr/testify v1.12.1
+go: downloading github.com/testcontainers/testcontainers-go/modules/redis v0.44.0
+go: downloading golang.org/x/crypto v0.57.0
+go: downloading github.com/fsnotify/fsnotify v1.10.1
+go: downloading github.com/testcontainers/testcontainers-go v0.44.0
+go: downloading github.com/spf13/viper v1.21.0
+go: downloading github.com/xeipuuv/gojsonschema v1.2.0
+go: downloading github.com/spf13/pflag v1.0.10
+go: downloading github.com/tetratelabs/wazero v1.12.0
+go: downloading google.golang.org/protobuf v1.36.12
+go: downloading github.com/mattn/go-colorable v0.1.14
+go: downloading github.com/beorn7/perks v1.0.1
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/prometheus/client_model v0.6.2
+go: downloading github.com/prometheus/common v0.70.1
+go: downloading github.com/prometheus/procfs v0.21.1
+go: downloading golang.org/x/sys v0.48.0
+go: downloading golang.org/x/net v0.60.0
+go: downloading github.com/quic-go/qpack v0.6.0
+go: downloading github.com/go-viper/mapstructure/v2 v2.4.0
+go: downloading github.com/sagikazarmark/locafero v0.11.0
+go: downloading github.com/spf13/afero v1.15.0
+go: downloading github.com/spf13/cast v1.10.0
+go: downloading github.com/go-openapi/jsonpointer v0.22.5
+go: downloading github.com/oasdiff/yaml v0.1.1
+go: downloading github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+go: downloading github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415
+go: downloading github.com/mdelapenya/tlscert v0.2.0
+go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260825221802-da73d73af1c5
+go: downloading github.com/mattn/go-isatty v0.0.21
+go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+go: downloading github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
+go: downloading github.com/subosito/gotenv v1.6.0
+go: downloading github.com/pelletier/go-toml/v2 v2.2.4
+go: downloading go.yaml.in/yaml/v3 v3.0.5
+go: downloading golang.org/x/text v0.42.0
+go: downloading github.com/go-openapi/swag/jsonname v0.25.5
+go: downloading github.com/oasdiff/yaml3 v0.0.14
+go: downloading github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f
+go: downloading dario.cat/mergo v1.0.2
+go: downloading github.com/cenkalti/backoff/v4 v4.3.0
+go: downloading github.com/containerd/errdefs v1.0.0
+go: downloading github.com/containerd/platforms v0.2.1
+go: downloading github.com/cpuguy83/dockercfg v0.3.2
+go: downloading github.com/google/uuid v1.6.0
+go: downloading github.com/moby/go-archive v0.3.0
+go: downloading github.com/moby/moby/api v1.55.0
+go: downloading github.com/moby/moby/client v0.5.0
+go: downloading github.com/moby/patternmatcher v0.6.1
+go: downloading github.com/opencontainers/image-spec v1.1.1
+go: downloading github.com/containerd/log v0.1.0
+go: downloading github.com/moby/sys/sequential v0.7.0
+go: downloading github.com/moby/sys/user v0.4.1
+go: downloading github.com/moby/sys/userns v0.1.0
+go: downloading github.com/docker/go-units v0.5.0
+go: downloading github.com/moby/term v0.5.2
+go: downloading github.com/containerd/errdefs/pkg v0.3.0
+go: downloading github.com/distribution/reference v0.6.0
+go: downloading github.com/docker/go-connections v0.7.0
+go: downloading github.com/opencontainers/go-digest v1.0.0
+go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
+go: downloading github.com/magiconair/properties v1.8.10
+go: downloading github.com/shirou/gopsutil/v4 v4.26.6
+go: downloading github.com/moby/docker-image-spec v1.3.1
+go: downloading github.com/jhump/protoreflect/v2 v2.0.0-beta.1
+go: downloading golang.org/x/sync v0.23.0
+go: downloading github.com/klauspost/compress v1.19.1
+go: downloading github.com/sirupsen/logrus v1.9.4
+go: downloading github.com/felixge/httpsnoop v1.1.0
+go: downloading go.opentelemetry.io/otel/metric v1.47.0
+go: downloading github.com/go-logr/logr v1.4.4
+go: downloading go.opentelemetry.io/otel/log v1.47.0
+go: downloading github.com/tklauser/go-sysconf v0.4.0
+go: downloading github.com/go-logr/stdr v1.2.2
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+go: downloading github.com/tklauser/numcpus v0.12.0
+go: downloading go.opentelemetry.io/otel/sdk v1.47.0
+ok  	github.com/wojons/muster/alertmanager	0.019s
+Muster Daemon vdev (unknown)
+
+Usage: openapi-daemon [start|stop|status|restart|reload|proxy] [flags]
+
+Commands:
+  start    Start the daemon process
+  stop     Stop the daemon process
+  status   Show daemon status
+  restart  Restart the daemon process
+  reload   Reload the daemon process
+  proxy    Start as HTTP proxy on Unix socket
+
+Options:
+  --backend-url <url>     Backend URL for proxy
+  --socket-path <path>    Path for Unix domain socket (default: /tmp/muster-daemon.sock)
+
+[INFO] test arg1 arg2
+[WARN] %s %v test=arg1
+[ERROR] test error code
+Usage: muster-daemon [start|stop|status|restart|reload|proxy] [flags]
+
+Commands:
+  start
+  stop
+  status
+  restart
+  reload
+  proxy
+
+Flags:
+  -backend-auth-type string
+    	Credential type for the injected upstream credential: bearer (Authorization: Bearer) or api-key (X-API-Key) (default "bearer")
+  -backend-token-file string
+    	Path to a file holding the upstream credential the daemon injects on every proxied request (env: MUSTER_BACKEND_TOKEN_FILE)
+  -backend-url string
+    	Backend URL for proxy mode
+  -client-token-file string
+    	Path to a file holding the token socket clients must present — required when --backend-token-file is set (env: MUSTER_DAEMON_CLIENT_TOKEN_FILE)
+  -foreground start
+    	Run start in the foreground instead of daemonizing (default: daemonize)
+  -pid-file string
+    	Path for PID file (default: /tmp/openapi-cli.sock.pid)
+  -socket-path string
+    	Path for Unix domain socket (default "/tmp/openapi-cli.sock")
+  -version
+    	Print version information and exit
+  -wasm-plugin string
+    	Path to WASM plugin for response transformation
+Usage: muster-daemon [start|stop|status|restart|reload|proxy] [flags]
+
+Commands:
+  start
+  stop
+  status
+  restart
+  reload
+  proxy
+
+Flags:
+  -backend-auth-type string
+    	Credential type for the injected upstream credential: bearer (Authorization: Bearer) or api-key (X-API-Key) (default "bearer")
+  -backend-token-file string
+    	Path to a file holding the upstream credential the daemon injects on every proxied request (env: MUSTER_BACKEND_TOKEN_FILE)
+  -backend-url string
+    	Backend URL for proxy mode
+  -client-token-file string
+    	Path to a file holding the token socket clients must present — required when --backend-token-file is set (env: MUSTER_DAEMON_CLIENT_TOKEN_FILE)
+  -foreground start
+    	Run start in the foreground instead of daemonizing (default: daemonize)
+  -pid-file string
+    	Path for PID file (default: /tmp/openapi-cli.sock.pid)
+  -socket-path string
+    	Path for Unix domain socket (default "/tmp/openapi-cli.sock")
+  -version
+    	Print version information and exit
+  -wasm-plugin string
+    	Path to WASM plugin for response transformation
+Usage: muster-daemon [start|stop|status|restart|reload|proxy] [flags]
+
+Commands:
+  start
+  stop
+  status
+  restart
+  reload
+  proxy
+
+Flags:
+  -backend-auth-type string
+    	Credential type for the injected upstream credential: bearer (Authorization: Bearer) or api-key (X-API-Key) (default "bearer")
+  -backend-token-file string
+    	Path to a file holding the upstream credential the daemon injects on every proxied request (env: MUSTER_BACKEND_TOKEN_FILE)
+  -backend-url string
+    	Backend URL for proxy mode
+  -client-token-file string
+    	Path to a file holding the token socket clients must present — required when --backend-token-file is set (env: MUSTER_DAEMON_CLIENT_TOKEN_FILE)
+  -foreground start
+    	Run start in the foreground instead of daemonizing (default: daemonize)
+  -pid-file string
+    	Path for PID file (default: /tmp/openapi-cli.sock.pid)
+  -socket-path string
+    	Path for Unix domain socket (default "/tmp/openapi-cli.sock")
+  -version
+    	Print version information and exit
+  -wasm-plugin string
+    	Path to WASM plugin for response transformation
+flag provided but not defined: -definitely-not-a-flag
+Usage: muster-daemon [start|stop|status|restart|reload|proxy] [flags]
+
+Commands:
+  start
+  stop
+  status
+  restart
+  reload
+  proxy
+
+Flags:
+  -backend-auth-type string
+    	Credential type for the injected upstream credential: bearer (Authorization: Bearer) or api-key (X-API-Key) (default "bearer")
+  -backend-token-file string
+    	Path to a file holding the upstream credential the daemon injects on every proxied request (env: MUSTER_BACKEND_TOKEN_FILE)
+  -backend-url string
+    	Backend URL for proxy mode
+  -client-token-file string
+    	Path to a file holding the token socket clients must present — required when --backend-token-file is set (env: MUSTER_DAEMON_CLIENT_TOKEN_FILE)
+  -foreground start
+    	Run start in the foreground instead of daemonizing (default: daemonize)
+  -pid-file string
+    	Path for PID file (default: /tmp/openapi-cli.sock.pid)
+  -socket-path string
+    	Path for Unix domain socket (default "/tmp/openapi-cli.sock")
+  -version
+    	Print version information and exit
+  -wasm-plugin string
+    	Path to WASM plugin for response transformation
+--- FAIL: TestBinaryExecution_RestartCommand (6.23s)
+    integration_test.go:225: 
+        	Error Trace:	/w/cmd/daemon/integration_test.go:209
+        	            				/w/cmd/daemon/integration_test.go:225
+        	Error:      	Received unexpected error:
+        	            	exit status 1
+        	Test:       	TestBinaryExecution_RestartCommand
+        	Messages:   	command [restart --socket-path /tmp/mdtsock1980798029/test-restart.sock] failed: Error: daemon (PID 13304) did not exit after SIGTERM
+Muster Daemon vdev (unknown)
+
+Usage: openapi-daemon [start|stop|status|restart|reload|proxy] [flags]
+
+Commands:
+  start    Start the daemon process
+  stop     Stop the daemon process
+  status   Show daemon status
+  restart  Restart the daemon process
+  reload   Reload the daemon process
+  proxy    Start as HTTP proxy on Unix socket
+
+Options:
+  --backend-url <url>     Backend URL for proxy
+  --socket-path <path>    Path for Unix domain socket (default: /tmp/muster-daemon.sock)
+
+Daemon Status:
+  Running:     false
+  PID:         11171
+  Start time:  0001-01-01 00:00:00 +0000 UTC
+  Socket:      /tmp/openapi-cli.sock
+  Version:     dev (unknown)
+Daemon is not running
+Daemon Status:
+  Running:     false
+  PID:         11171
+  Start time:  0001-01-01 00:00:00 +0000 UTC
+  Socket:      /tmp/openapi-cli.sock
+  Version:     
+Daemon is not running; starting fresh
+[INFO] daemon started pid=11171
+Daemon is not running; starting fresh
+Daemon stopped successfully
+Daemon Status:
+  Running:     true
+  PID:         11171
+  Start time:  2026-10-23 19:59:21
+  Socket:      /tmp/TestHandleStatus_WithPIDFile495817459/001/test-status.sock
+  Version:     dev (unknown)
+Daemon is not running
+Daemon is not running
+Daemon Status:
+  Running:     false
+  PID:         11171
+  Start time:  0001-01-01 00:00:00 +0000 UTC
+  Socket:      /tmp/TestHandleStatus_NoPIDFile_Fallback1255170174/001/test-status-fallback.sock
+  Version:     
+Daemon Status:
+  Running:     false
+  PID:         11171
+  Start time:  0001-01-01 00:00:00 +0000 UTC
+  Socket:      /tmp/openapi-cli.sock
+  Version:     dev (unknown)
+FAIL
+FAIL	github.com/wojons/muster/cmd/daemon	16.907s
+ok  	github.com/wojons/muster/cmd/mcp-server	10.901s
+ok  	github.com/wojons/muster/cmd/openapi-cli	0.031s
+?   	github.com/wojons/muster/demo/services/transport-fixture	[no test files]
+ok  	github.com/wojons/muster/demo/test-suites	7.232s
+ok  	github.com/wojons/muster/deployments/backup	0.011s
+ok  	github.com/wojons/muster/deployments/scripts	0.142s
+?   	github.com/wojons/muster/exploits/auth	[no test files]
+?   	github.com/wojons/muster/exploits/network	[no test files]
+?   	github.com/wojons/muster/exploits/ratelimit	[no test files]
+?   	github.com/wojons/muster/exploits/symlink	[no test files]
+?   	github.com/wojons/muster/exploits/wasm	[no test files]
+ok  	github.com/wojons/muster/internal/audit	0.076s
+ok  	github.com/wojons/muster/internal/builtin	6.010s
+ok  	github.com/wojons/muster/internal/monitoring	0.121s
+?   	github.com/wojons/muster/internal/platform/linux	[no test files]
+ok  	github.com/wojons/muster/internal/telemetry	0.007s
+ok  	github.com/wojons/muster/internal/version	0.004s
+ok  	github.com/wojons/muster/packaging	0.050s
+ok  	github.com/wojons/muster/pkg/auth	6.907s
+ok  	github.com/wojons/muster/pkg/auth/ratelimit	0.255s
+FAIL
+F rc=1

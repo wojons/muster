@@ -1,0 +1,16 @@
+Muster Daemon vv0.0.0-20261023193045-0a70dffdc0db (0a70dffdc0db)
+
+Usage: openapi-daemon [start|stop|status|restart|reload|proxy] [flags]
+
+Commands:
+  start    Start the daemon process
+  stop     Stop the daemon process
+  status   Show daemon status
+  restart  Restart the daemon process
+  reload   Reload the daemon process
+  proxy    Start as HTTP proxy on Unix socket
+
+Options:
+  --backend-url <url>     Backend URL for proxy
+  --socket-path <path>    Path for Unix domain socket (default: /tmp/muster-daemon.sock)
+

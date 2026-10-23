@@ -1,0 +1,59 @@
+ok  	github.com/wojons/muster/alertmanager	0.009s
+ok  	github.com/wojons/muster/cmd/daemon	11.910s
+ok  	github.com/wojons/muster/cmd/mcp-server	12.923s
+ok  	github.com/wojons/muster/cmd/openapi-cli	0.062s
+?   	github.com/wojons/muster/demo/services/transport-fixture	[no test files]
+ok  	github.com/wojons/muster/demo/test-suites	10.556s
+ok  	github.com/wojons/muster/deployments/backup	0.047s
+ok  	github.com/wojons/muster/deployments/scripts	0.219s
+?   	github.com/wojons/muster/exploits/auth	[no test files]
+?   	github.com/wojons/muster/exploits/network	[no test files]
+?   	github.com/wojons/muster/exploits/ratelimit	[no test files]
+?   	github.com/wojons/muster/exploits/symlink	[no test files]
+?   	github.com/wojons/muster/exploits/wasm	[no test files]
+ok  	github.com/wojons/muster/internal/audit	2.840s
+ok  	github.com/wojons/muster/internal/builtin	9.569s
+ok  	github.com/wojons/muster/internal/monitoring	0.138s
+?   	github.com/wojons/muster/internal/platform/linux	[no test files]
+ok  	github.com/wojons/muster/internal/telemetry	0.013s
+ok  	github.com/wojons/muster/internal/version	0.107s
+ok  	github.com/wojons/muster/packaging	1.188s
+ok  	github.com/wojons/muster/pkg/auth	11.053s
+ok  	github.com/wojons/muster/pkg/auth/ratelimit	0.270s
+ok  	github.com/wojons/muster/pkg/cache	0.389s
+ok  	github.com/wojons/muster/pkg/cli	0.007s
+ok  	github.com/wojons/muster/pkg/client	4.255s
+ok  	github.com/wojons/muster/pkg/cmdstore	0.027s
+ok  	github.com/wojons/muster/pkg/completion	0.448s
+ok  	github.com/wojons/muster/pkg/config	2.097s
+ok  	github.com/wojons/muster/pkg/daemon	0.568s
+ok  	github.com/wojons/muster/pkg/dsl	0.007s
+ok  	github.com/wojons/muster/pkg/errors	0.002s
+ok  	github.com/wojons/muster/pkg/generator	1.790s
+ok  	github.com/wojons/muster/pkg/log	0.003s
+ok  	github.com/wojons/muster/pkg/mcp	1.059s
+ok  	github.com/wojons/muster/pkg/mcp/handlers	0.005s
+ok  	github.com/wojons/muster/pkg/openapi	0.022s
+ok  	github.com/wojons/muster/pkg/platform	0.111s
+ok  	github.com/wojons/muster/pkg/protocol	0.003s
+ok  	github.com/wojons/muster/pkg/protocol/graphql	4.157s
+ok  	github.com/wojons/muster/pkg/protocol/grpc	1.141s
+ok  	github.com/wojons/muster/pkg/protocol/jsonrpc	0.962s
+ok  	github.com/wojons/muster/pkg/protocol/soap	0.020s
+ok  	github.com/wojons/muster/pkg/rate	0.456s
+ok  	github.com/wojons/muster/pkg/repository	0.562s
+ok  	github.com/wojons/muster/pkg/repository/sql	0.134s
+ok  	github.com/wojons/muster/pkg/request	5.040s
+ok  	github.com/wojons/muster/pkg/response	0.015s
+ok  	github.com/wojons/muster/pkg/retry	0.081s
+ok  	github.com/wojons/muster/pkg/wasm	0.354s
+ok  	github.com/wojons/muster/test/benchmarks	0.005s
+ok  	github.com/wojons/muster/test/docker	1.907s
+ok  	github.com/wojons/muster/test/e2e	5.266s
+ok  	github.com/wojons/muster/test/functional/behaviors	0.017s
+?   	github.com/wojons/muster/test/functional/harness	[no test files]
+ok  	github.com/wojons/muster/test/functional/states	0.006s
+ok  	github.com/wojons/muster/test/functional/workflows	0.030s
+ok  	github.com/wojons/muster/test/production	3.880s
+ok  	github.com/wojons/muster/test/upgrade	0.012s
+?   	github.com/wojons/muster/test/util	[no test files]
