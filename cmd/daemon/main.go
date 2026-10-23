@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/wojons/muster/internal/version"
+	"github.com/wojons/muster/pkg/auth"
 	"github.com/wojons/muster/pkg/daemon"
 )
 
@@ -33,12 +34,15 @@ var knownCommands = map[string]bool{
 
 // Command-line flags
 var (
-	backendURL  string
-	socketPath  string
-	pidFile     string
-	wasmPlugin  string
-	versionFlag bool
-	foreground  bool
+	backendURL      string
+	socketPath      string
+	pidFile         string
+	wasmPlugin      string
+	versionFlag     bool
+	foreground      bool
+	backendAuthType string
+	backendToken    string
+	clientToken     string
 )
 
 func main() {
@@ -77,6 +81,9 @@ func run() error {
 	flagSet.StringVar(&wasmPlugin, "wasm-plugin", "", "Path to WASM plugin for response transformation")
 	flagSet.BoolVar(&versionFlag, "version", false, "Print version information and exit")
 	flagSet.BoolVar(&foreground, "foreground", false, "Run `start` in the foreground instead of daemonizing (default: daemonize)")
+	flagSet.StringVar(&backendAuthType, "backend-auth-type", "bearer", "Credential type for the injected upstream credential: bearer (Authorization: Bearer) or api-key (X-API-Key)")
+	flagSet.StringVar(&backendToken, "backend-token-file", "", "Path to a file holding the upstream credential the daemon injects on every proxied request (env: MUSTER_BACKEND_TOKEN_FILE)")
+	flagSet.StringVar(&clientToken, "client-token-file", "", "Path to a file holding the token socket clients must present — required when --backend-token-file is set (env: MUSTER_DAEMON_CLIENT_TOKEN_FILE)")
 	// The raw flag package's default Usage only lists global flags, hiding
 	// the subcommand surface. Install a custom usage func that documents
 	// the six supported subcommands (start/stop/status/restart/reload/proxy).
@@ -114,8 +121,42 @@ func run() error {
 	// Create proxy handler with backend URL
 	var handler http.Handler
 	if backendURL != "" {
-		handler = daemon.NewProxyHandler(backendURL)
-		fmt.Printf("Proxying requests to: %s\n", backendURL)
+		// MUSTER-001: the daemon can hold the UPSTREAM credential itself, so
+		// socket clients need neither the upstream key nor its base URL. The
+		// credential file is read once at startup and never logged.
+		if backendToken == "" {
+			backendToken = os.Getenv("MUSTER_BACKEND_TOKEN_FILE")
+		}
+		if clientToken == "" {
+			clientToken = os.Getenv("MUSTER_DAEMON_CLIENT_TOKEN_FILE")
+		}
+		if backendToken != "" {
+			secret, err := readCredentialFile(backendToken, "backend credential")
+			if err != nil {
+				return err
+			}
+			if clientToken == "" {
+				return fmt.Errorf("--backend-token-file requires --client-token-file: a daemon that injects an upstream credential must gate its own socket, otherwise every local caller is silently authenticated as the daemon's upstream identity")
+			}
+			headerName, headerValue := auth.HeaderFor(backendAuthType, secret)
+			handler = daemon.NewProxyHandlerWithAuth(backendURL, headerName, headerValue)
+			fmt.Printf("Proxying requests to: %s (injecting %s)\n", backendURL, headerName)
+		} else {
+			handler = daemon.NewProxyHandler(backendURL)
+			fmt.Printf("Proxying requests to: %s\n", backendURL)
+		}
+	}
+
+	// Client tokens required on the socket (only meaningful with a handler that
+	// injects an upstream credential; without injection the historical
+	// unauthenticated socket is unchanged).
+	var authTokens []string
+	if clientToken != "" {
+		token, err := readCredentialFile(clientToken, "client token")
+		if err != nil {
+			return err
+		}
+		authTokens = append(authTokens, token)
 	}
 
 	// Create controller
@@ -125,6 +166,7 @@ func run() error {
 		Version:     version.Get().Short(),
 		Logger:      &daemonLogger{},
 		Handler:     handler,
+		AuthTokens:  authTokens,
 	})
 	if err != nil {
 		return fmt.Errorf("create controller: %w", err)
@@ -162,6 +204,26 @@ func run() error {
 	}
 }
 
+// readCredentialFile reads a one-line credential from path. Surrounding
+// whitespace is trimmed (a trailing newline from `echo` is not part of the
+// secret); an empty file or one holding several lines is refused, so a
+// multi-entry file is never silently truncated into a wrong credential.
+func readCredentialFile(path, what string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read %s file %q: %w", what, path, err)
+	}
+	secret := strings.TrimSpace(string(data))
+	if secret == "" {
+		return "", fmt.Errorf("%s file %q is empty", what, path)
+	}
+	if strings.ContainsAny(secret, "\r\n") {
+		return "", fmt.Errorf("%s file %q must contain exactly one line", what, path)
+	}
+	return secret, nil
+}
+
+// handleStart ensures the daemon comes up serving the socket.
 func handleStart(controller *daemon.Controller, handler http.Handler) error {
 	if controller == nil {
 		return fmt.Errorf("controller is required")

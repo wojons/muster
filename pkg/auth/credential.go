@@ -72,6 +72,22 @@ type CredentialHeader struct {
 	Shielded string
 }
 
+// HeaderFor returns the HTTP header name and formatted value for a credential
+// type, using the same convention as the CLI's stored credentials:
+//
+//	bearer   → Authorization: Bearer <secret>
+//	basic    → Authorization: Basic <secret>
+//	api-key  → X-API-Key: <secret>   (and any unknown type)
+//
+// Every surface that attaches an operator-supplied credential to outbound
+// requests (MCP server, daemon proxy) goes through this so one convention
+// governs the whole product. MUSTER-001: without it, a spec-driven client could
+// only authenticate with a bearer token, which excludes APIs that use an
+// api-key header (e.g. DuckBrain's x-api-key).
+func HeaderFor(credType, secret string) (name, value string) {
+	return credentialHeaderName(credType), credentialHeaderValue(credType, secret)
+}
+
 // shieldValue masks a formatted header value: "Bearer abc123" renders as
 // "Bearer ***" (scheme kept for humans); anything else becomes "***".
 func shieldValue(value string) string {

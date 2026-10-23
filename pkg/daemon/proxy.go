@@ -33,6 +33,12 @@ type ControllerConfig struct {
 	Version     string
 	Logger      Logger
 	Handler     http.Handler
+	// AuthTokens, when non-empty, makes the socket require a client token
+	// (Authorization: Bearer <token>) before any request reaches the handler.
+	// MUSTER-001: a daemon that INJECTS an upstream credential must gate its
+	// own socket, otherwise every local caller is silently authenticated as
+	// the daemon's upstream identity.
+	AuthTokens []string
 }
 
 // DaemonStatus holds the current daemon status.
@@ -195,8 +201,19 @@ func (c *Controller) StartWithSocket(handler http.Handler) error {
 
 	c.handler = handler
 
-	// Create and start the proxy server
-	proxy := NewProxyServer(c.socketPath, handler)
+	// Create and start the proxy server. When the controller was given client
+	// tokens, the socket requires them (MUSTER-001): a daemon that injects an
+	// upstream credential must not authenticate callers implicitly.
+	var proxy *ProxyServer
+	if len(c.config.AuthTokens) > 0 {
+		tokenManager := NewTokenManager()
+		for _, token := range c.config.AuthTokens {
+			tokenManager.AddToken(token)
+		}
+		proxy = NewAuthenticatedProxyServer(c.socketPath, handler, tokenManager)
+	} else {
+		proxy = NewProxyServer(c.socketPath, handler)
+	}
 	if err := proxy.Start(); err != nil {
 		return fmt.Errorf("start proxy server: %w", err)
 	}
@@ -514,6 +531,11 @@ type ProxyHandler struct {
 	backendURL   string
 	forwardedFor bool
 	httpClient   *http.Client
+	// injectHeader/injectValue carry the UPSTREAM credential the daemon holds
+	// on the caller's behalf (MUSTER-001). Empty means no injection — client
+	// headers pass through untouched, exactly as before.
+	injectHeader string
+	injectValue  string
 }
 
 // NewProxyHandler creates a new proxy handler
@@ -525,6 +547,20 @@ func NewProxyHandler(backendURL string) *ProxyHandler {
 			Timeout: 30 * time.Second,
 		},
 	}
+}
+
+// NewProxyHandlerWithAuth creates a proxy handler that injects an upstream
+// credential on every proxied request. Callers then need neither the upstream
+// credential nor the upstream base URL: they speak to the Unix socket and the
+// daemon supplies the credential (MUSTER-001). The header is applied AFTER the
+// client's headers are copied, so a caller cannot override or weaken it.
+//
+// headerName == "" disables injection (identical to NewProxyHandler).
+func NewProxyHandlerWithAuth(backendURL, headerName, headerValue string) *ProxyHandler {
+	handler := NewProxyHandler(backendURL)
+	handler.injectHeader = strings.TrimSpace(headerName)
+	handler.injectValue = headerValue
+	return handler
 }
 
 // NewProxyHandlerWithRateLimit creates a new proxy handler with token-bucket
@@ -637,6 +673,13 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Add X-Forwarded-For header
 	if h.forwardedFor && r.RemoteAddr != "" {
 		proxyReq.Header.Add("X-Forwarded-For", r.RemoteAddr)
+	}
+
+	// Injected upstream credential (MUSTER-001). Applied after the client's
+	// headers so the daemon's credential is authoritative: a caller cannot
+	// replace or downgrade it. Set (not Add) — the upstream sees exactly one.
+	if h.injectHeader != "" {
+		proxyReq.Header.Set(h.injectHeader, h.injectValue)
 	}
 
 	// Forward the caller's context to the outbound hop: its deadline and

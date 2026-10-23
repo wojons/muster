@@ -31,8 +31,9 @@ type MCPServerConfig struct {
 	SpecPath      string // Path to OpenAPI spec file
 	BaseURL       string // Base URL for API operations
 	WasmPlugin    string // Path to WASM plugin for response transformation
-	AuthToken     string // Bearer credential; never logged or serialized
-	AuthTokenFile string // Optional file containing the bearer credential
+	AuthToken     string // Bearer/credential secret; never logged or serialized
+	AuthTokenFile string // Optional file containing the outbound credential
+	AuthType      string // Credential type: bearer (default) or api-key
 	// Non-pointer fields
 	MaxConcurrentCommands int
 	CommandTimeout        time.Duration
@@ -45,7 +46,8 @@ type MCPServerConfig struct {
 var (
 	specPathFlag      = flag.String("spec", "", "Path to OpenAPI specification file")
 	baseURLFlag       = flag.String("base-url", "", "Base URL for API operations (overrides the spec's servers[] URL; env: MUSTER_BASE_URL)")
-	authTokenFileFlag = flag.String("auth-token-file", "", "Path to a file containing the outbound bearer token (overrides MUSTER_AUTH_TOKEN)")
+	authTokenFileFlag = flag.String("auth-token-file", "", "Path to a file containing the outbound credential (overrides MUSTER_AUTH_TOKEN)")
+	authTypeFlag      = flag.String("auth-type", "bearer", "Outbound credential type: bearer (Authorization: Bearer) or api-key (X-API-Key); env: MUSTER_AUTH_TYPE")
 	logLevelFlag      = flag.String("log-level", "info", "Log level")
 	logOutputFlag     = flag.String("log-output", "stderr", "Log output destination")
 	auditFlag         = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
@@ -64,6 +66,18 @@ func resolveBaseURL() string {
 	return os.Getenv("MUSTER_BASE_URL")
 }
 
+// resolveAuthType resolves the outbound credential type: the --auth-type flag
+// wins, then MUSTER_AUTH_TYPE, then "bearer" (the historical behaviour).
+func resolveAuthType() string {
+	if *authTypeFlag != "" {
+		return *authTypeFlag
+	}
+	if v := os.Getenv("MUSTER_AUTH_TYPE"); v != "" {
+		return v
+	}
+	return "bearer"
+}
+
 func loadConfig() *MCPServerConfig {
 	return &MCPServerConfig{
 		LogLevel:              *logLevelFlag,
@@ -78,6 +92,7 @@ func loadConfig() *MCPServerConfig {
 		WasmPlugin:            *wasmPluginFlag,
 		AuthToken:             os.Getenv("MUSTER_AUTH_TOKEN"),
 		AuthTokenFile:         *authTokenFileFlag,
+		AuthType:              resolveAuthType(),
 		OpenRPCDocPath:        *openrpcDocFlag,
 	}
 }
@@ -281,6 +296,7 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) (int, err
 	registry := mcp.NewOpenAPIRegistry(tools, configs)
 	executor := mcp.NewOpenAPIExecutor(configs,
 		mcp.WithBearerToken(config.AuthToken),
+		mcp.WithCredentialType(config.AuthType),
 		mcp.WithCredentialSource(credentialSource(config)),
 	)
 

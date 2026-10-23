@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/wojons/muster/pkg/auth"
 	"github.com/wojons/muster/pkg/mcp/handlers"
 	"github.com/wojons/muster/pkg/openapi"
 	"github.com/wojons/muster/pkg/request"
@@ -195,6 +196,7 @@ func (r *ToolRegistry) GetCommand(name string) *handlers.Command {
 type ToolExecutor struct {
 	configs          map[string]ExecutionConfig
 	bearerToken      string
+	credentialType   string
 	credentialSource string
 }
 
@@ -212,6 +214,17 @@ const DefaultCredentialSource = "MUSTER_AUTH_TOKEN environment variable or the -
 func WithBearerToken(token string) ToolExecutorOption {
 	return func(executor *ToolExecutor) {
 		executor.bearerToken = token
+	}
+}
+
+// WithCredentialType selects the header convention for the outbound credential
+// (see auth.HeaderFor): "bearer" (the default when unset) sends
+// Authorization: Bearer <secret>, "api-key" sends X-API-Key: <secret>.
+// MUSTER-001: an api-key API (e.g. DuckBrain) rejects a bearer token, so the
+// MCP surface needs the same convention as the CLI's stored credentials.
+func WithCredentialType(credType string) ToolExecutorOption {
+	return func(executor *ToolExecutor) {
+		executor.credentialType = credType
 	}
 }
 
@@ -346,7 +359,15 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 	// request. Set it after tool arguments so a generated header parameter
 	// cannot replace the configured credential.
 	if e.bearerToken != "" {
-		builder.SetHeader("Authorization", "Bearer "+e.bearerToken)
+		// MUSTER-001: the header follows the configured credential type
+		// (bearer → Authorization: Bearer, api-key → X-API-Key). With no
+		// credential type set, the legacy bearer behaviour is preserved
+		// exactly.
+		headerName, headerValue := "Authorization", "Bearer "+e.bearerToken
+		if e.credentialType != "" {
+			headerName, headerValue = auth.HeaderFor(e.credentialType, e.bearerToken)
+		}
+		builder.SetHeader(headerName, headerValue)
 	}
 
 	// Execute request
