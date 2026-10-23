@@ -1,0 +1,2 @@
+/tmp/mf20/ev/bytes-stdout.txt | bytes: 152 | has_secret: True | sha12: 45fcc2fbfb33 | has_ellipsis: False
+/tmp/mf20/ev/bytes-list.txt | bytes: 140 | has_secret: True | sha12: 10b132b83519 | has_ellipsis: False

@@ -1,0 +1,22 @@
+[discover-remote] rc=0 363ms :: API: Swagger Petstore - OpenAPI 3.0 (v1.0.27)|Base URL: /api/v3||
+[generate] rc=0 361ms :: Loading spec from: https://petstore3.swagger.io/api/v3/openapi.json|✓ Parsed spec (version: 1.0.27)|✓ Generated 3 command groups|
+[typed-call] rc=1 262ms :: Pet not found|Error: HTTP error: 404 Not Found
+--- typed call, machine-readable:
+rc=1
+stdout_bytes=14 stderr_bytes=33
+jq_id=jq: parse error: Invalid numeric literal at line 1, column 4
+
+--- warm repeat of the typed call (5 runs):
+  run1 325ms
+  run2 383ms
+  run3 382ms
+  run4 344ms
+  run5 278ms
+
+--- the docs' generic request example needs the demo on :9801; start it:
+health=
+generic_rc=1
+stdout_bytes=0 stderr_bytes=112
+
+svc_stopped port_free=000none
+EOF_MARK=done

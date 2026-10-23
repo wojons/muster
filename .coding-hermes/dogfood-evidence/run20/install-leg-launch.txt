@@ -1,0 +1,8 @@
+QA-HEAD=0bd841fe982027858aaa8ef9928b5e745cbb17f9 pull=clone dirty — pull skipped, testing recorded sha
+→ QA HEAD: 0bd841fe982027858aaa8ef9928b5e745cbb17f9 (clone dirty — pull skipped, testing recorded sha)
+→ QA LAUNCH project: muster — detached battery on bunker-mvp (ttl 4h)
+→ agent=53097b60 @ bunker-mvp (tailscale)
+→ CELL fresh-install: sync repo → ~/qa-muster
+→ CELL upgrade-prep: previous release tree v0.1.0 -> ~/qa-up-prev
+→ QA launch complete — no cells waited on locally (phase B: collect --evidence /tmp/bunker-qa-evidence-20261023T124416Z-3104346.jsonl)
+LAUNCHED agent=53097b60 evidence=/tmp/bunker-qa-evidence-20261023T124416Z-3104346.jsonl

@@ -1,0 +1,19 @@
+== D1 failure matrix (each invocation should record its own leaf command) ==
+--- [unknown-top-cmd] rc=1 :: Error: unknown command "frobnicate" for "openapi-cli"
+--- [unknown-subcmd] rc=1 :: Usage:
+--- [unknown-flag] rc=1 :: Usage:
+--- [missing-args] rc=1 :: Usage:
+--- [missing-file] rc=1 :: Usage:
+--- [conn-refused] rc=1 :: Error: execute request: Get "http://127.0.0.1:9/x": dial tcp 127.0.0.1:9: connect: connection refused
+--- [bad-url-userinfo] rc=1 :: Error: execute request: Get "http://127.0.0.1:9/x": dial tcp 127.0.0.1:9: connect: connection refused
+--- [bad-http-method] rc=1 :: Error: execute request: Frobnicate "http://127.0.0.1:9/x": dial tcp 127.0.0.1:9: connect: connection refused
+
+== D2 what the sink recorded for each ==
+command.openapi-cli frobnicate	false	ERROR	unknown command "frobnicate" for "openapi-cli"
+command.openapi-cli webhook	false	ERROR	unknown flag: --url
+command.openapi-cli webhook	false	ERROR	unknown flag: --bogus-flag
+command.openapi-cli discover	false	ERROR	accepts 1 arg(s), received 0
+command.openapi-cli discover	false	ERROR	read spec file "/tmp/mf20/nope.yaml": open /tmp/mf20/nope.yaml: no such file or directory
+command.openapi-cli request	false	ERROR	execute request: Get "http://127.0.0.1:9/x": dial tcp 127.0.0.1:9: connect: connection ref
+command.openapi-cli request	false	ERROR	execute request: Get "http://127.0.0.1:9/x": dial tcp 127.0.0.1:9: connect: connection ref
+command.openapi-cli request	false	ERROR	execute request: Frobnicate "http://127.0.0.1:9/x": dial tcp 127.0.0.1:9: connect: connect

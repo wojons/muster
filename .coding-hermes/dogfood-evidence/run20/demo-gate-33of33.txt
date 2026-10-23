@@ -1,0 +1,62 @@
+  [0;36mpython:[0m /tmp/mf20/src/.venv/bin/python3 (Flask OK)
+
+[0;36m═══════════════════════════════════════════[0m
+[0;36m Building Muster[0m
+[0;36m═══════════════════════════════════════════[0m
+  openapi-cli... [0;32m  ✓[0m openapi-cli
+  openapi-mcp... [0;32m  ✓[0m openapi-mcp
+  openapi-daemon... [0;32m  ✓[0m openapi-daemon
+
+[0;36m═══════════════════════════════════════════[0m
+[0;36m Starting Demo Services[0m
+[0;36m═══════════════════════════════════════════[0m
+  Task Forge (:9801)... [0;32m  ✓[0m Task Forge ready
+  ByteStash (:9802)... [0;32m  ✓[0m ByteStash ready
+  Inkwell (:9803)... [0;32m  ✓[0m Inkwell ready
+  Pulse (:9804)... [0;32m  ✓[0m Pulse ready
+  ChainLink (:9805)... [0;32m  ✓[0m ChainLink ready
+
+[0;36m═══════════════════════════════════════════[0m
+[0;36m Seeding Data[0m
+[0;36m═══════════════════════════════════════════[0m
+  bytestash... [0;32m  ✓[0m bytestash seeded
+  chainlink... [0;32m  ✓[0m chainlink seeded
+  inkwell... [0;32m  ✓[0m inkwell seeded
+  pulse... [0;32m  ✓[0m pulse seeded
+  task-forge... [0;32m  ✓[0m task-forge seeded
+
+[0;36m═══════════════════════════════════════════[0m
+[0;36m Running Demos[0m
+[0;36m═══════════════════════════════════════════[0m
+  01-discover-all.sh... [0;32m  ✓[0m 01-discover-all.sh
+  02-crud-lifecycle.sh... [0;32m  ✓[0m 02-crud-lifecycle.sh
+  03-file-workflow.sh... [0;32m  ✓[0m 03-file-workflow.sh
+  04-auth-spectrum.sh... [0;32m  ✓[0m 04-auth-spectrum.sh
+  05-analytics-pipeline.sh... [0;32m  ✓[0m 05-analytics-pipeline.sh
+  06-workflow-orchestration.sh... [0;32m  ✓[0m 06-workflow-orchestration.sh
+  07-daemon-proxy.sh... [0;32m  ✓[0m 07-daemon-proxy.sh
+  08-mcp-ai-agent.sh... [0;32m  ✓[0m 08-mcp-ai-agent.sh
+  09-wasm-transform.sh... [0;32m  ✓[0m 09-wasm-transform.sh
+  10-dsl-chaining.sh... [0;32m  ✓[0m 10-dsl-chaining.sh
+  11-proto-schema.sh... [0;32m  ✓[0m 11-proto-schema.sh
+  19-http2-transport.sh... [0;32m  ✓[0m 19-http2-transport.sh
+  20-http3-transport.sh... [0;32m  ✓[0m 20-http3-transport.sh
+  21-soap-adapter.sh... [0;32m  ✓[0m 21-soap-adapter.sh
+
+[0;36m═══════════════════════════════════════════[0m
+[0;36m Running Integration Test Suites[0m
+[0;36m═══════════════════════════════════════════[0m
+  01-cli-generation.sh... [0;32m  ✓[0m 01-cli-generation.sh
+  02-mcp-flow.sh... [0;32m  ✓[0m 02-mcp-flow.sh
+  03-wasm-execution.sh... [0;32m  ✓[0m 03-wasm-execution.sh
+  04-auth-flows.sh... [0;32m  ✓[0m 04-auth-flows.sh
+  05-daemon-socket.sh... [0;32m  ✓[0m 05-daemon-socket.sh
+  06-full-stack.sh... [0;32m  ✓[0m 06-full-stack.sh
+
+[0;36m═══════════════════════════════════════════[0m
+[0;36m Results[0m
+[0;36m═══════════════════════════════════════════[0m
+  [0;32mPassed: 33[0m
+  [0;32mAll 33 checks passed! 🎉[0m
+
+[1;33mCleaning up...[0m

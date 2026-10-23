@@ -1,0 +1,6 @@
+1 webhook.create | url_fields: [{'field': 'url', 'len': 73, 'has_secret': True, 'sha12': '4cf91d0d7d52', 'tail4': '4321'}] | full_secret_anywhere_in_line: True
+2 command.openapi-cli webhook create | url_fields: [] | full_secret_anywhere_in_line: False
+3 webhook.test | url_fields: [{'field': 'url', 'len': 73, 'has_secret': True, 'sha12': '4cf91d0d7d52', 'tail4': '4321'}] | full_secret_anywhere_in_line: True
+4 command.openapi-cli webhook test | url_fields: [] | full_secret_anywhere_in_line: False
+5 webhook.delete | url_fields: [{'field': 'url', 'len': 73, 'has_secret': True, 'sha12': '4cf91d0d7d52', 'tail4': '4321'}] | full_secret_anywhere_in_line: True
+6 command.openapi-cli webhook delete | url_fields: [] | full_secret_anywhere_in_line: False

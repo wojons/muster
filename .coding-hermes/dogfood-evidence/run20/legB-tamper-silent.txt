@@ -1,0 +1,74 @@
+== B0 audit command surface as documented ==
+View audit log events recorded by the CLI, daemon, and MCP server.
+
+Events are persisted as JSON lines in the audit log file.
+
+Usage:
+  openapi-cli audit [command]
+
+Available Commands:
+  info        Show audit configuration and statistics
+  log         Show recent audit events (optionally filtered)
+  show        Show recent audit events
+  status      Show audit logging status
+
+Flags:
+  -h, --help   help for audit
+
+Global Flags:
+      --profile string   Configuration profile to use (overrides MUSTER_PROFILE and the persisted default)
+
+Use "openapi-cli audit [command] --help" for more information about a command.
+
+== B1 failing request with userinfo credential in the URL ==
+Error: execute request: Get "http://127.0.0.1:9/nope": dial tcp 127.0.0.1:9: connect: connection refused
+--- sink rows now: 1
+--- URL-secret census in sink (want 0 for a pass): 0
+--- userinfo-stripped? (want 1 occurrence of '<redacted>' style OR no secret):
+http://127.0.0.1:9/nope\
+
+== B2 webhook add carrying a token inside a NON-sensitive field (url) ==
+Usage:
+  openapi-cli webhook [command]
+
+Available Commands:
+  create      Create a webhook subscription
+rc=0
+No webhook subscriptions.
+--- hook-secret census in sink (0 = redacted, >0 = written verbatim): 0
+"metadata":{"error":"execute request: Get \"http://127.0.0.1:9/nope\": dial tcp 127.0.0.1:9: connect: connection refused"}
+"metadata":{"error":"unknown flag: --url"}
+
+== B3 TAMPER: rewrite a recorded action in the sink, then ask the product ==
+--- tampered. audit log:
+2026-10-23T12:42:04Z	info	command.execute	command.openapi-cli webhook list	kara
+2026-10-23T12:42:04Z	info	command.execute	command.openapi-cli webhook	kara
+2026-10-23T12:42:04Z	info	command.execute	command.openapi-cli version	kara
+rc=0
+--- audit info:
+Audit logging:    enabled
+Storage type:     file
+Retention:        90 days
+Sensitive fields: redacted
+Events on disk:   4
+Log file:         /tmp/mf20/ev/auditB.jsonl
+rc=0
+--- audit status:
+Audit logging: enabled
+Storage type:  file
+Log file:      /tmp/mf20/ev/auditB.jsonl
+rc=0
+
+== B4 TAMPER: remove a middle record + blank a hash, then ask the product ==
+--- audit log --limit 10 (row removed):
+2026-10-23T12:42:04Z	info	command.execute	command.openapi-cli webhook list	kara
+2026-10-23T12:42:04Z	info	command.execute	command.openapi-cli request	kara
+rc=0
+--- audit info:
+Audit logging:    enabled
+Storage type:     file
+Retention:        90 days
+Sensitive fields: redacted
+Events on disk:   3
+Log file:         /tmp/mf20/ev/auditB.jsonl
+rc=0

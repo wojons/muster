@@ -1,0 +1,30 @@
+sink rows: 2200
+--- first (oldest) row timestamp: 2026-10-23T12:44:39.235987794Z
+--- last  (newest) row timestamp: 2026-10-23T12:45:09.200087263Z
+
+== E1 audit show --limit 5 (docs: 'Show recent audit events') ==
+2026-10-23T12:44:39Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:44:39Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:44:39Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:44:39Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:44:39Z	info	command.execute	command.openapi-cli version	kara
+
+== E2 audit log --limit 5 (same sink, same docs claim) ==
+2026-10-23T12:45:09Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:45:09Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:45:09Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:45:09Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:45:09Z	info	command.execute	command.openapi-cli version	kara
+
+== E3 audit show --limit 5 --help (does it warn about ordering?) ==
+Show recent audit events
+
+Usage:
+  openapi-cli audit show [flags]
+
+Flags:
+  -h, --help        help for show
+      --limit int   Number of events to show (default 50)
+
+Global Flags:
+      --profile string   Configuration profile to use (overrides MUSTER_PROFILE and the persisted default)

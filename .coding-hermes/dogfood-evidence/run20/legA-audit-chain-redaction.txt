@@ -1,0 +1,44 @@
+== A0 binary identity ==
+dev (unknown)
+rc=0
+
+== A1 success command (version) ==
+rc=0
+
+== A2 success command (discover local spec) ==
+rc=0
+
+== A3 FAILING command carrying a bearer secret in args ==
+Error: execute request: Get "http://127.0.0.1:9/nope": dial tcp 127.0.0.1:9: connect: connection refused
+rc=1
+
+== A4 audit info ==
+Audit logging:    enabled
+Storage type:     file
+Retention:        90 days
+Sensitive fields: redacted
+Events on disk:   5
+Log file:         /tmp/mf20/ev/audit.jsonl
+rc=0
+
+== A5 audit log --limit 10 ==
+2026-10-23T12:41:38Z	info	command.execute	command.openapi-cli audit info	kara
+2026-10-23T12:41:38Z	info	command.execute	command.openapi-cli request	kara
+2026-10-23T12:41:38Z	info	command.execute	command.openapi-cli discover	kara
+2026-10-23T12:41:38Z	info	command.execute	command.openapi-cli discover	kara
+2026-10-23T12:41:38Z	info	command.execute	command.openapi-cli version	kara
+2026-10-23T12:41:38Z	info	command.execute	command.openapi-cli version	kara
+rc=0
+
+== A6 raw sink ==
+--- lines: 7  bytes: 4082
+{"id":"156fb814a87bcf6157bde00c440b1897","timestamp":"2026-10-23T12:41:38.584723052Z","event_type":"command.execute","user":"kara","level":"info","category":"system","action":"command.openapi-cli version","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli version","type":"command","name":"openapi-cli version"},"result":{"success":true,"code":"OK"},"context":{},"hash":"4bb904cd568de6dea48e99435d8e6a2f89ba8968e9adb3a1494593c9e5f70507"}
+{"id":"d2e014e63a37ed08fe5adf2531b1f762","timestamp":"2026-10-23T12:41:38.594868388Z","event_type":"command.execute","user":"kara","level":"info","category":"system","action":"command.openapi-cli version","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli version","type":"command","name":"openapi-cli version"},"result":{"success":true,"code":"OK"},"context":{},"hash":"f96fd2d0d108ada7e7216c92175fb079fb33723d1c6cd52725f7bf7d0c6c0509","previous_hash":"4bb904cd568de6dea48e99435d8e6a2f89ba8968e9adb3a1494593c9e5f70507"}
+{"id":"1a22aff883ad50647331ae15bd62398e","timestamp":"2026-10-23T12:41:38.603653413Z","event_type":"command.execute","user":"kara","level":"info","category":"system","action":"command.openapi-cli discover","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli discover","type":"command","name":"openapi-cli discover"},"result":{"success":false,"code":"ERROR"},"context":{"metadata":{"error":"read spec file \"/tmp/mf20/src/api/openapi.yaml\": open /tmp/mf20/src/api/openapi.yaml: no such file or directory"}},"hash":"b34f7950163ff70f39fa3d398db12a426b2e2b344bbf63dd876b7ac6ba6ba911","previous_hash":"f96fd2d0d108ada7e7216c92175fb079fb33723d1c6cd52725f7bf7d0c6c0509"}
+{"id":"6d196635788a067d89c0dad8a0991c84","timestamp":"2026-10-23T12:41:38.618356873Z","event_type":"command.execute","user":"kara","level":"info","category":"system","action":"command.openapi-cli discover","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli discover","type":"command","name":"openapi-cli discover"},"result":{"success":true,"code":"OK"},"context":{},"hash":"47b51ed0aea44c84f502572b490e4ce9f63bc920473dab2aed7f473ed8f5fae0","previous_hash":"b34f7950163ff70f39fa3d398db12a426b2e2b344bbf63dd876b7ac6ba6ba911"}
+{"id":"56099be0b947b56f65f0a7a48712bfd0","timestamp":"2026-10-23T12:41:38.629340421Z","event_type":"command.execute","user":"kara","level":"info","category":"system","action":"command.openapi-cli request","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli request","type":"command","name":"openapi-cli request"},"result":{"success":false,"code":"ERROR"},"context":{"metadata":{"error":"execute request: Get \"http://127.0.0.1:9/nope\": dial tcp 127.0.0.1:9: connect: connection refused"}},"hash":"696e8d900ac3fdd2eb95e4ac1da62eec2fbde84085710a7615c2e078d26b4b7a","previous_hash":"47b51ed0aea44c84f502572b490e4ce9f63bc920473dab2aed7f473ed8f5fae0"}
+{"id":"f3c1699ff5a38156ea71c8b7bf34ec73","timestamp":"2026-10-23T12:41:38.638828589Z","event_type":"command.execute","user":"kara","level":"info","category":"system","action":"command.openapi-cli audit info","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli audit info","type":"command","name":"openapi-cli audit info"},"result":{"success":true,"code":"OK"},"context":{},"hash":"1cb1dfbdc294114dc8ff63e35626839599be0bc6698a338781eb9caa9fa1a26e","previous_hash":"696e8d900ac3fdd2eb95e4ac1da62eec2fbde84085710a7615c2e078d26b4b7a"}
+{"id":"f891b267facc54fcda940af5a49d54a6","timestamp":"2026-10-23T12:41:38.648139249Z","event_type":"command.execute","user":"kara","level":"info","category":"system","action":"command.openapi-cli audit log","actor":{"id":"kara","type":"cli-user","name":"kara"},"resource":{"id":"openapi-cli audit log","type":"command","name":"openapi-cli audit log"},"result":{"success":true,"code":"OK"},"context":{},"hash":"5004971cc28a8f0efbe7087c5612f05ad4cfd2508018630cb731447124ea54e6","previous_hash":"1cb1dfbdc294114dc8ff63e35626839599be0bc6698a338781eb9caa9fa1a26e"}
+
+== A7 secret census in the sink (expect 0) ==
+0

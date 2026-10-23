@@ -1,0 +1,27 @@
+LOADAVG: 6.93 8.53 11.95 4/8239 3113971
+CPU: 16 cores
+
+=== P1 startup floor: version, audit OFF (warm) ===
+  Time (mean ± σ):      10.1 ms ±   1.0 ms    [User: 6.7 ms, System: 6.5 ms]
+
+=== P2 audit OFF vs ON, same command, empty sink (warm) ===
+  Time (mean ± σ):       9.6 ms ±   0.7 ms    [User: 6.1 ms, System: 6.5 ms]
+  Time (mean ± σ):      11.0 ms ±   3.0 ms    [User: 6.7 ms, System: 7.0 ms]
+sink rows after P2: 33  bytes: 18197
+
+=== P3 writer growth: 200 sequential commands, EMPTY sink vs 2000-row sink ===
+P3a empty-sink   : 2689 ms total / 200 cmds = 13 ms per cmd ; rows=200
+--- now prefilling to 2000 rows (real invocations)
+rows before P3b: 2000  bytes: 1107705
+P3b 2000-row sink: 2811 ms total / 200 cmds = 14 ms per cmd ; rows=2200
+
+=== P4 reader: audit log --limit 1 at two sink sizes (warm, 10 runs each) ===
+  Time (mean ± σ):      11.7 ms ±   0.8 ms    [User: 7.6 ms, System: 6.8 ms]
+  Time (mean ± σ):      27.1 ms ±   1.7 ms    [User: 25.6 ms, System: 11.4 ms]
+  Time (mean ± σ):      23.4 ms ±   1.0 ms    [User: 22.8 ms, System: 9.1 ms]
+
+=== P5 headline user path: discover a local spec (warm) + cold one-shot ===
+spec: /tmp/mf20/src/demo/openapi-specs/petstore.yaml
+  Time (mean ± σ):      14.1 ms ±  13.9 ms    [User: 8.0 ms, System: 6.5 ms]
+--- cold-ish one-shot (fresh output dir, first invocation of the day):
+cold_wall=0.01s user=0.00s sys=0.00s

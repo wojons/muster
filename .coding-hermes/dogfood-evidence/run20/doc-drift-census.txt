@@ -1,0 +1,19 @@
+# Go-toolchain doc-drift census at HEAD 0bd841fe (run 20)
+# go.mod says:
+go 1.26.10
+
+# user-facing doc sites still claiming 1.26.9 (excluding .coding-hermes/dogfood-log.md history):
+README.md:32:| **Go 1.26.9+** (repo developed on **1.26.9**) | the `go` directive in [`go.mod`](go.mod) is `1.26.9`; a toolchain older than that either auto-fetches it (`GOTOOLCHAIN=auto`, the default — needs network) or fails with a hard toolchain error (`GOTOOLCHAIN=local`). Check with `go version`; install from https://go.dev/dl/ |
+README.md:45:(currently `1.26.9`; the repo is developed and tested on that release) before
+README.md:271:Requires Go 1.26.9+ (repo developed on 1.26.9), Python 3, and Flask (the demo's services are Flask apps).
+docs/README.md:54:make build-cli                 # requires Go 1.26.9+ and a C compiler (CGO)
+docs/guides/installation.md:16:- **Go 1.26.9+** (see `go.mod`; older toolchains get a hard toolchain error)
+docs/guides/installation.md:134:go.mod requires go >= 1.26.9
+docs/guides/installation.md:138:Upgrade to Go 1.26.9+ (see https://go.dev/dl).
+docs/integration-guide.md:44:Requires Go 1.26.9+ (the module targets go 1.26.9). A C compiler
+docs/contributing/setup.md:9:- **Go**: 1.26.9 or later (the version in `go.mod`)
+
+# sites claiming the current 1.26.10:
+(none)
+
+# guard that would fail when go.mod moves ahead of the docs?

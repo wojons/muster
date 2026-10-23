@@ -1,0 +1,25 @@
+service_up=1 health={"projects_count":0,"status":"healthy","tasks_count":0}
+
+== G1 the docs' own example: request GET http://localhost:9801/tasks -o json ==
+rc=0 stdout_bytes=3 stderr_bytes=0
+--- stdout head:
+[]
+
+--- jq parse: ARRAY len 0
+
+== G2 success control for -o json on a 2xx: create then list ==
+post_rc=1 stdout_bytes=154
+jq: parse error: Invalid numeric literal at line 1, column 10
+
+== G3 error path with -o json (404 from the same server) ==
+rc=1
+stdout_bytes=32 stderr_bytes=38
+--- stdout:
+0000000   {  \n           "   e   r   r   o   r   "   :       "   t   a
+0000020   s   k       n   o   t       f   o   u   n   d   "  \n   }  \n
+0000040
+--- stderr:
+Error: request failed with status 404
+--- jq on stdout: {
+port_after_kill=000none
+EOF_MARK=done
