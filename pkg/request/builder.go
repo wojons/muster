@@ -10,6 +10,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -352,19 +353,23 @@ func (b *Builder) buildURLFor(path string) string {
 		url += "/" + path
 	}
 
-	// Add query parameters
-	parts := make([]string, 0, len(b.QueryParams)+len(b.QueryParamList))
+	// Add query parameters. Values MUST be percent-encoded: the previous raw
+	// concatenation emitted a syntactically invalid request target for any
+	// value containing a space or a reserved character ("?q=round trip"),
+	// which servers answer with 400 Bad Request — silently breaking every
+	// filtered request the generated CLI could make (MUSTER-001).
+	query := neturl.Values{}
 	for name, value := range b.QueryParams {
-		parts = append(parts, name+"="+value)
+		query.Add(name, value)
 	}
 	// Repeated query keys (DF-017): emit ?tags=a&tags=b
 	for _, kv := range b.QueryParamList {
 		if len(kv) == 2 {
-			parts = append(parts, kv[0]+"="+kv[1])
+			query.Add(kv[0], kv[1])
 		}
 	}
-	if len(parts) > 0 {
-		url += "?" + strings.Join(parts, "&")
+	if encoded := query.Encode(); encoded != "" {
+		url += "?" + encoded
 	}
 
 	return url
