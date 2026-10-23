@@ -46,6 +46,16 @@ type Server struct {
 	mu             sync.RWMutex
 	wg             sync.WaitGroup // CRITICAL FIX: Tracks in-flight goroutines
 	concurrencySem chan struct{}  // CRITICAL FIX: Semaphore to prevent unbounded goroutine spawn
+	// writeCh carries marshaled responses to the dedicated responseWriter
+	// goroutine; done is closed when Run returns (or Shutdown is called) and
+	// tells the writer to drain and exit. QA-MUSTER-19-R2: a client that stops
+	// draining stdout mid-response (go1.27.3's json.Decoder consumes exactly
+	// the response value from an io.Pipe and never the trailing newline) parks
+	// whoever writes. Parking the writer goroutine must not park Run's
+	// shutdown: s.wg covers handler completion, never client consumption.
+	writeCh  chan []byte
+	done     chan struct{}
+	doneOnce sync.Once
 }
 
 func NewServer(stdin io.Reader, stdout, stderr io.Writer) *Server {
@@ -59,6 +69,10 @@ func NewServer(stdin io.Reader, stdout, stderr io.Writer) *Server {
 		handlers:       handlers.NewRegistry(),
 		shutdownChan:   make(chan struct{}),
 		concurrencySem: make(chan struct{}, maxConcurrent),
+		// One queued response per in-flight request cannot block an enqueue
+		// while the writer is draining.
+		writeCh: make(chan []byte, maxConcurrent),
+		done:    make(chan struct{}),
 	}
 
 	s.registerHandlers()
@@ -106,6 +120,11 @@ var errMessageTooLong = apperrors.New(apperrors.CodeValidation, tooLargeMessage)
 // server (DF-046).
 func (s *Server) Run(ctx context.Context) error {
 	reader := bufio.NewReaderSize(s.stdin, stdinBufSize)
+
+	// The dedicated writer owns every stdout write; closing done on return
+	// tells it to drain queued responses and exit.
+	go s.responseWriter()
+	defer s.closeDone()
 
 	for {
 		select {
@@ -295,15 +314,55 @@ func (s *Server) sendError(id interface{}, code int, message string) {
 }
 
 func (s *Server) writeResponse(resp JSONRPCResponse) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	data, err := json.Marshal(resp)
 	if err != nil {
 		_, _ = fmt.Fprintf(s.stderr, "Failed to marshal response: %v\n", err)
 		return
 	}
 
+	// Hand the response to the dedicated writer instead of writing inline:
+	// a client that stops draining stdout mid-response parks the writer
+	// goroutine, never a request goroutine, so Run's shutdown wait (s.wg)
+	// cannot be held open by client backpressure (QA-MUSTER-19-R2).
+	select {
+	case s.writeCh <- data:
+	case <-s.done:
+		_, _ = fmt.Fprintf(s.stderr, "mcp: response dropped, server is shutting down\n")
+	}
+}
+
+// closeDone signals the response writer to drain and exit. It is idempotent
+// because both Run's return and Shutdown can close the lifecycle.
+func (s *Server) closeDone() {
+	s.doneOnce.Do(func() { close(s.done) })
+}
+
+// responseWriter is the server's single stdout writer, started by Run. It
+// serializes responses in enqueue order (previously s.mu did this per write)
+// and is deliberately outside s.wg: once Run has returned, a write blocked on
+// an unresponsive client parks this goroutine alone until the client reads or
+// the stream is closed, instead of wedging shutdown.
+func (s *Server) responseWriter() {
+	for {
+		select {
+		case data := <-s.writeCh:
+			s.writeLine(data)
+		case <-s.done:
+			// Run waited for all handlers before closing done, so every
+			// response is already queued: drain them, then exit.
+			for {
+				select {
+				case data := <-s.writeCh:
+					s.writeLine(data)
+				default:
+					return
+				}
+			}
+		}
+	}
+}
+
+func (s *Server) writeLine(data []byte) {
 	_, _ = fmt.Fprintln(s.stdout, string(data))
 
 	// CRITICAL FIX: Flush stdout buffer to ensure JSON-RPC responses are sent immediately
@@ -316,8 +375,11 @@ func (s *Server) writeResponse(resp JSONRPCResponse) {
 func (s *Server) Shutdown() error {
 	close(s.shutdownChan)
 	// CRITICAL FIX: Wait for all request goroutines to complete
-	// This ensures no goroutines are still writing when we return
+	// This ensures no goroutines are still producing responses when we return;
+	// the dedicated writer drains anything already queued asynchronously (a
+	// client that stopped draining stdout cannot hold Shutdown open).
 	s.wg.Wait()
+	s.closeDone()
 	return nil
 }
 

@@ -641,6 +641,68 @@ func TestServer_Run_NotificationThenRequestStillAnswered(t *testing.T) {
 	stdoutR.Close()
 }
 
+// TestServer_Run_PartialResponseDrainDoesNotWedgeShutdown reproduces
+// QA-MUSTER-19-R2 deterministically on any toolchain: a client that consumes
+// the response value but never its trailing newline must not wedge Run's
+// shutdown. (go1.27.3's json.Decoder reads exactly the value's bytes from an
+// io.Pipe — a 64-byte read against the 65-byte response write, per the
+// goroutine dump in .coding-hermes/dogfood-evidence/ — leaving the '\n'
+// undrained; go1.26.10's decoder over-reads with a 512-byte buffer and hides
+// the wedge.) Run's shutdown wait covers handler completion, not the client
+// draining every byte of the response stream.
+func TestServer_Run_PartialResponseDrainDoesNotWedgeShutdown(t *testing.T) {
+	stdinR, stdinW := newStdinPipe(t)
+	stdoutR, stdoutW := io.Pipe()
+	defer stdoutR.Close()
+	stderr := &bytes.Buffer{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s := NewServer(stdinR, stdoutW, stderr)
+	s.RegisterHandler(&genericErrorHandler{})
+
+	done := make(chan error, 1)
+	go func() {
+		done <- s.Run(ctx)
+	}()
+
+	req := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      4,
+		Method:  "test/generic-error",
+	}
+	data, _ := json.Marshal(req)
+	stdinW.Write(data)
+	stdinW.Write([]byte("\n"))
+	stdinW.Close()
+
+	// Read exactly the marshaled response value and no more: the trailing
+	// newline the server appends stays undrained in the pipe, mirroring the
+	// go1.27.3 client read pattern that wedged Run.
+	expected := []byte(`{"jsonrpc":"2.0","id":4,"error":{"code":-32000,"message":"EOF"}}`)
+	got := make([]byte, len(expected))
+	if _, err := io.ReadFull(stdoutR, got); err != nil {
+		t.Fatalf("failed to read response: %v", err)
+	}
+	if !bytes.Equal(got, expected) {
+		t.Fatalf("response = %q, want %q", got, expected)
+	}
+
+	// The response contract from TestServer_Run_HandlerReturnsError still holds.
+	var resp JSONRPCResponse
+	if err := json.Unmarshal(got, &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Error == nil {
+		t.Fatal("expected error from handler")
+	}
+	if resp.Error.Code != -32000 {
+		t.Errorf("error code = %d, want -32000", resp.Error.Code)
+	}
+
+	requireRunReturned(t, done, cancel)
+}
+
 // runReturnTimeout bounds every "Run must return" liveness assertion in this
 // file so a wedged server fails the test loudly instead of hanging the CI
 // workflow (INT-CI-004B).
@@ -685,6 +747,12 @@ func requireRunReturned(t *testing.T, done <-chan error, cancel context.CancelFu
 	select {
 	case <-done:
 	case <-time.After(runReturnTimeout):
+		// QA-MUSTER-19-R2: dump all goroutine stacks before failing so the
+		// parked component is named by file:line (e.g. s.wg.Wait in Run versus
+		// a response write blocked on a client that stopped draining stdout)
+		// instead of leaving the wedge to inference.
+		buf := make([]byte, 1<<20)
+		t.Logf("goroutine dump at %s deadline:\n%s", runReturnTimeout, buf[:runtime.Stack(buf, true)])
 		cancel()
 		if runtime.GOOS == "windows" {
 			t.Logf("INT-CI-005: Run did not return within %s on windows "+

@@ -1,0 +1,51 @@
+goroutine 50 [running]:
+github.com/wojons/muster/pkg/mcp.TestWedgeDebugDump(0x3cde180d4248)
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/wedge_debug_test.go:66 +0x54b
+testing.tRunner(0x3cde180d4248, 0x18c6c80)
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2195 +0xea
+created by testing.(*T).Run in goroutine 1
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2260 +0x4d4
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0x3cde180d4008, {0xe18839?, 0x3cde1863faa0?}, 0x18c6c80)
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2268 +0x4f2
+testing.runTests.func1(0x3cde180d4008)
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2744 +0x37
+testing.tRunner(0x3cde180d4008, 0x3cde1863fbc8)
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2195 +0xea
+testing.runTests({0xe1f68e, 0x18}, {0xe2a4d1, 0x20}, 0x3cde18332000, {0x19558f0, 0x83, 0x83}, {0xc2af0d11b17e2f85, 0x8bb3375523, ...})
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2742 +0x510
+testing.(*M).Run(0x3cde182c4460)
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/testing/testing.go:2602 +0x6af
+main.main()
+	_testmain.go:306 +0x9b
+
+goroutine 51 [sync.WaitGroup.Wait]:
+sync.runtime_SemacquireWaitGroup(0x18b34d8?, 0xa0?)
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/runtime/sema.go:114 +0x2e
+sync.(*WaitGroup).Wait(0x3cde18140160)
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/sync/waitgroup.go:206 +0x85
+github.com/wojons/muster/pkg/mcp.(*Server).Run(0x3cde18140100, {0x18be340, 0x3cde1835c190})
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/server.go:164 +0x648
+github.com/wojons/muster/pkg/mcp.TestWedgeDebugDump.func1()
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/wedge_debug_test.go:41 +0x28
+created by github.com/wojons/muster/pkg/mcp.TestWedgeDebugDump in goroutine 50
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/wedge_debug_test.go:40 +0x252
+
+goroutine 38 [select]:
+io.(*pipe).write(0x3cde1834e0c0, {0x3cde1805c000, 0x41, 0x80})
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/io/pipe.go:86 +0x1e5
+io.(*PipeWriter).Write(0x3cde1805a000?, {0x3cde1805c000?, 0x1?, 0x3cde185b1df0?})
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/io/pipe.go:161 +0x1a
+fmt.Fprintln({0x18b3578, 0x3cde1834e0c0}, {0x3cde185b1e60, 0x1, 0x1})
+	/var/tmp/hermes-go-mod/golang.org/toolchain@v0.0.1-go1.27.3.linux-amd64/src/fmt/print.go:298 +0x6f
+github.com/wojons/muster/pkg/mcp.(*Server).writeResponse(0x3cde18140100, {{0xe0a239, 0x3}, {0x17ba778, 0x3cde18054020}, {0x0, 0x0, 0x0}, 0x3cde17f1c210})
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/server.go:307 +0x147
+github.com/wojons/muster/pkg/mcp.(*Server).sendError(...)
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/server.go:294
+github.com/wojons/muster/pkg/mcp.(*Server).handleRequest(0x3cde18140100, {0x18be340, 0x3cde1835c190}, 0x3cde180b4140)
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/server.go:267 +0x2ba
+github.com/wojons/muster/pkg/mcp.(*Server).Run.func1()
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/server.go:159 +0xb0
+created by github.com/wojons/muster/pkg/mcp.(*Server).Run in goroutine 51
+	/home/kara/worktrees/muster-QA-MUSTER-19-R2/pkg/mcp/server.go:155 +0x42d
