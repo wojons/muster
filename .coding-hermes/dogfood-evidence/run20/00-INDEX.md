@@ -30,8 +30,13 @@ substitution.
 | `doc-drift-census.txt` | go.mod `go 1.26.10` vs 9 doc sites at 1.26.9, 0 at 1.26.10, no guard |
 | `install-leg-launch.txt` | bunker battery launch: agent 53097b60 on bunker-mvp, tested HEAD 0bd841fe, evidence path |
 
-Install leg state at close: **PARTIAL** (battery running, no cell graded).
-Finish with
+Install leg state at close: **fresh-install cell graded OK on rc only** (its tree had
+an EMPTY `bin/`, inst.log = 90 module-download lines), so this tick produced the
+artifact-level proof itself on a COPY of the harness tree:
+`install-artifact.log` — `make build-cli` rc=0 in **203 s**, `bin/openapi-cli`
+28,012,809 bytes, `version` = `970720d (970720d)`, `discover` rc=0, audit row written
+with a hash. The rest of the battery (`ci-pass`, `docker-deploy`, …) was still running
+at close; agent `53097b60` left alive on purpose (`--keep`, ttl 4h). Finish with
 `bash ~/.hermes/scripts/bunker-qa.sh collect --evidence /tmp/bunker-qa-evidence-20261023T124416Z-3104346.jsonl`.
 
 Board rows filed by this run: DF-057, DF-050-R2, DF-059, DF-054-R2, DOC-15,

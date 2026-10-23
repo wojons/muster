@@ -447,3 +447,29 @@ end-to-end 11.6ms ± 0.9ms, jsonrpc call ~10ms, cold generate 0.019s
 *ch:trace row=DOC-15 spec=specs/EVENTS-AUDIT.md:13,25 test=run20/legPerf-measurements.txt+legA-audit-chain-redaction.txt doc=docs/guides/commands.md:482-505 evidence=.coding-hermes/dogfood-evidence/run20/ witness=dogfood-run20 verdict=P3-live commit=pending*
 *ch:trace row=README-058 spec=none:quickstart test=run20/legF-quickstart-verbatim.txt doc=README.md:66-90 evidence=.coding-hermes/dogfood-evidence/run20/legF-quickstart-verbatim.txt witness=dogfood-run20 verdict=P3-live commit=pending*
 *ch:trace row=GAP-033-R3 spec=none:toolchain-floor test=run20/doc-drift-census.txt doc=README.md:32,45,271+docs/guides/installation.md:16,134,138 evidence=.coding-hermes/dogfood-evidence/run20/doc-drift-census.txt witness=dogfood-run20 verdict=P3-live commit=pending*
+
+### run 20 install-leg addendum (same tick, after the rows were pushed)
+
+The battery's own first cell graded **`fresh-install OK` 2.9 min after launch** (`~/qa-evidence.jsonl`, ts 12:47:54Z) — but its tree `~/qa-muster` has **2915 files / 20,037,497 bytes and an EMPTY `bin/`**, and `~/qa-logs-*/inst.log` contains **only 90 module-download lines, no build output**. So the cell's `OK` is an rc verdict on a module fetch, **not** installability evidence: the documented post-install smoke (`./bin/openapi-cli version`) cannot be graded from the cell. Recorded here as a **harness observation, not a product row** (the cell's contract is rc, not artifact).
+
+Artifact-level install proof run by this tick on a **copy** of the harness tree (`cp -a ~/qa-muster ~/qa-smoke`, so the still-running battery was untouched), staged as `leg-artifact.sh` and run on agent `53097b60`:
+
+```
+SMOKE_HEAD=970720d FILES=2915 BYTES=20037497
+BUILD_RC=0 BUILD_SECONDS=203          # make build-cli, CGO_ENABLED=1, warm module cache
+bin/openapi-cli  28012809 bytes       # artifact exists and is plausible
+./bin/openapi-cli version -> 970720d (970720d)
+./bin/openapi-cli discover demo/openapi-specs/petstore.yaml -> "API: Pet Store API (v1.0.0) / Base URL: http://localhost:8080"  rc=0
+audit smoke (MUSTER_AUDIT_ENABLED=1, fresh sink): audit_rows=1 audit_has_hash=1
+```
+
+So a **fresh box installs and builds MUSTER from a clean tree in 203 s** (Go bootstrapped to 1.27.3 by the harness's toolchain cell, gcc/make/compose/node present) and the built binary drives a spec end-to-end and writes a hash-chained audit row. The build log's `GoVersion=go1.26.10` stamp is the go.mod floor the Makefile reads, not the toolchain that compiled it — noted so the number is not misread.
+
+Battery state at close: still in its `ci-pass` cell (`act` running; `qa-logs-*/ci.log` at "Run Main Build"), agent **53097b60** alive and **deliberately NOT destroyed** (`--keep`, ttl 4h) so the remaining cells stay collectable:
+
+```
+bash ~/.hermes/scripts/bunker-qa.sh collect --evidence /tmp/bunker-qa-evidence-20261023T124416Z-3104346.jsonl
+# or, if the TTL is preferred as the reaper:  bunker destroy 53097b60 --server bunker-mvp
+```
+
+Evidence: `run20/install-leg-launch.txt`, `run20/install-artifact.log`. Nothing was spawned a second time to "look busy": same HEAD, same docs.
