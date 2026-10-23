@@ -1,0 +1,1 @@
+{"tick":"muster-foreman-2026-10-23-19-40-08","project":"muster","budget":12,"mode":"serial-fallback","base":"8b76c62c5abf3dea2f6b0f1c18c5006ce38d6089","selected":[{"task_id":"QA-MUSTER-19-R2","priority":"P1","worktree":"/home/kara/worktrees/muster-QA-MUSTER-19-R2","branch":"wt/QA-MUSTER-19-R2","depends_on":[]}],"workers":[],"status":"prepared-before-dispatch"}
