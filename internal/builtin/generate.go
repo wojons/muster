@@ -60,7 +60,7 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 			var err error
 			var specSourceURL string
 			if strings.HasPrefix(specPath, "http://") || strings.HasPrefix(specPath, "https://") {
-				data, err = fetchSpec(specPath)
+				data, err = fetchSpec(specPath, specHeaders)
 				if err != nil {
 					return fmt.Errorf("fetch spec from URL: %w", err)
 				}
@@ -169,6 +169,7 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 	cmd.Flags().StringVarP(&baseURL, "base-url", "u", "", "Base URL for the API (e.g., https://api.example.com)")
 	cmd.Flags().BoolVar(&listStore, "list", false, "List the current persisted command store")
 	cmd.Flags().BoolVar(&clearStore, "clear", false, "Remove the persisted command store")
+	cmd.Flags().StringArrayVar(&specHeaders, "header", nil, "Header for the spec request (format: 'Name: Value', repeatable) — for authenticated spec URLs")
 
 	return cmd
 }
@@ -388,6 +389,12 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 	// Determine which flags represent request body properties (vs query/header params).
 	bodyFlagToJSON := extractBodyPropertyNames(doc, path, method)
 
+	// Position of every spec-declared parameter (query/header) so a RELOADED
+	// command sends it in the right place instead of defaulting to a query
+	// param — and so a spec parameter named like one of the CLI's own
+	// presentation flags is still persisted (MUSTER-001).
+	paramKinds := extractParameterFlagKinds(doc, path, method)
+
 	// Determine if this operation supports multipart
 	hasMultipart, multipartFields := detectMultipartOperation(doc, path, method)
 
@@ -429,7 +436,16 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 			Description: flag.Usage,
 		}
 
-		if flag.Name == "output" || flag.Name == "namespace" || flag.Name == "debug" {
+		// MUSTER-001: the CLI's own presentation flags are not part of the
+		// request surface and must not be persisted as parameters. But a
+		// SPEC-DECLARED parameter that happens to share one of those names IS
+		// part of it: DuckBrain's memory API takes `namespace` as a query
+		// parameter, and skipping it left every reloaded command unable to
+		// address a namespace at all ("unknown flag: --namespace").
+		if flag.Name == "output" || flag.Name == "debug" {
+			return
+		}
+		if flag.Name == "namespace" && paramKinds[flag.Name] == "" {
 			return
 		}
 
@@ -467,6 +483,15 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 		// named "auth" keeps its natural kind and reaches the server.
 		if cmd.Annotations[generator.AuthFlagAnnotation] == "true" && flag.Name == generator.AuthFlagName {
 			flagMeta.Kind = cmdstore.FlagKindAuth
+		}
+
+		// MUSTER-001: a spec-declared query/header parameter keeps its
+		// position on reload. Applied last so it wins over the body default
+		// when a request-body property shares the name — the generator gives
+		// the parameter ownership of that shared flag (pkg/generator
+		// DF-MUSTER-9), so the reloaded command must send it as the parameter.
+		if kind, ok := paramKinds[flag.Name]; ok {
+			flagMeta.Kind = kind
 		}
 
 		cmdMeta.Flags = append(cmdMeta.Flags, flagMeta)
@@ -554,6 +579,46 @@ func extractBodyPropertyNames(doc *openapi3.T, path, method string) map[string]s
 		names[normalized] = propName // original name → JSON key
 	}
 	return names
+}
+
+// extractParameterFlagKinds maps every spec-declared operation parameter's
+// flag name (normalized exactly like the generator names flags) to the
+// position it must be sent in on a RELOADED command: query or header. Path
+// parameters are positional args, not flags, so they are omitted.
+//
+// MUSTER-001: without this, the loader's default branch classified every
+// persisted flag as a query parameter — a header parameter was sent in the
+// query string — and the persist step could not tell a spec parameter from
+// one of the CLI's own presentation flags of the same name.
+func extractParameterFlagKinds(doc *openapi3.T, path, method string) map[string]cmdstore.FlagKind {
+	kinds := make(map[string]cmdstore.FlagKind)
+	if doc == nil || doc.Paths == nil || path == "" || method == "" {
+		return kinds
+	}
+	pathItem := doc.Paths.Find(path)
+	if pathItem == nil {
+		return kinds
+	}
+	operation := pathItem.GetOperation(method)
+	if operation == nil || operation.Parameters == nil {
+		return kinds
+	}
+	for _, paramRef := range operation.Parameters {
+		if paramRef == nil || paramRef.Value == nil {
+			continue
+		}
+		var kind cmdstore.FlagKind
+		switch paramRef.Value.In {
+		case "query":
+			kind = cmdstore.FlagKindQuery
+		case "header":
+			kind = cmdstore.FlagKindHeader
+		default:
+			continue
+		}
+		kinds[normalizeFlagName(paramRef.Value.Name)] = kind
+	}
+	return kinds
 }
 
 // resolveRequestBodySchema resolves the schema for a requestBody content-type

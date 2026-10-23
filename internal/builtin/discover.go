@@ -12,7 +12,6 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
-	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/openapi"
 )
 
@@ -40,6 +39,8 @@ Examples:
 		RunE: runDiscover,
 	}
 
+	cmd.Flags().StringArrayVar(&specHeaders, "header", nil, "Header for the spec request (format: 'Name: Value', repeatable) — for authenticated spec URLs")
+
 	return cmd
 }
 
@@ -51,25 +52,12 @@ func runDiscover(cmd *cobra.Command, args []string) error {
 	var data []byte
 	var err error
 	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-		// Fetch the spec from the URL using pkg/client
-		ctx := cmd.Context()
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		httpClient := client.NewClient()
-		resp, err := httpClient.Get(ctx, input)
+		// Fetch the spec from the URL. Shares fetchSpec with generate so an
+		// authenticated spec endpoint (--header "x-api-key: ...") behaves the
+		// same in both commands (MUSTER-001).
+		data, err = fetchSpec(input, specHeaders)
 		if err != nil {
 			return fmt.Errorf("fetch spec from %q: %w", input, err)
-		}
-		defer func() { _ = resp.Body.Close() }()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("unexpected status %d from %q: %s", resp.StatusCode, input, resp.Status)
-		}
-
-		data, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("read response body from %q: %w", input, err)
 		}
 	} else {
 		// Local file path
@@ -193,18 +181,39 @@ func firstTag(tags []string) string {
 	return tags[0]
 }
 
+// specHeaders holds the repeatable --header values for fetching a spec over
+// HTTP. MUSTER-001: DuckBrain's namespace spec route is authenticated (x-api-key),
+// so a plain GET could never discover it. Registered on both discover and
+// generate; values are "Name: Value" pairs.
+var specHeaders []string
+
 // fetchSpec fetches the content from a URL using net/http.
 // Used by both discover and generate commands to fetch specs from remote URLs.
-func fetchSpec(url string) ([]byte, error) {
+// headers are optional "Name: Value" pairs (e.g. "x-api-key: <key>") applied to
+// the spec request only — never persisted or logged.
+func fetchSpec(url string, headers []string) ([]byte, error) {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		return nil, fmt.Errorf("invalid URL: must start with http:// or https://")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	for _, raw := range headers {
+		name, value, ok := strings.Cut(raw, ":")
+		name = strings.TrimSpace(name)
+		if !ok || name == "" {
+			return nil, fmt.Errorf("invalid --header %q: expected \"Name: Value\"", raw)
+		}
+		req.Header.Set(name, strings.TrimSpace(value))
 	}
 
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	resp, err := client.Get(url)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
