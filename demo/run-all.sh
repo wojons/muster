@@ -156,8 +156,8 @@ done
 
 # ── Summary ──────────────────────────────────────────────────
 banner "Results"
-echo "  ${GREEN}Passed: $PASS${NC}"
-[ $FAIL -gt 0 ] && echo "  ${RED}Failed: $FAIL${NC}"
+echo -e "  ${GREEN}Passed: $PASS${NC}"
+[ $FAIL -gt 0 ] && echo -e "  ${RED}Failed: $FAIL${NC}"
 [ $FAIL -eq 0 ] && echo -e "  ${GREEN}All $PASS checks passed! 🎉${NC}"
 
 if [ $KEEP -eq 1 ]; then
