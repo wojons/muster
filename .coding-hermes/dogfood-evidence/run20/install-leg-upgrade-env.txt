@@ -1,0 +1,30 @@
+=== up1.log tail 12 (v0.1.0 build) ===
+go: downloading github.com/go-logr/logr v1.4.3
+go: downloading github.com/tklauser/go-sysconf v0.3.16
+go: downloading github.com/tklauser/numcpus v0.11.0
+# github.com/seccomp/libseccomp-golang
+# [pkg-config --cflags  -- libseccomp]
+Package libseccomp was not found in the pkg-config search path.
+Perhaps you should add the directory containing `libseccomp.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'libseccomp', required by 'virtual:world', not found
+# github.com/wojons/muster/exploits/wasm
+/usr/bin/ld: warning: x86_64.o: missing .note.GNU-stack section implies executable stack
+/usr/bin/ld: NOTE: This behaviour is deprecated and will be removed in a future version of the linker
+=== ep.log ===
+Muster Daemon vv0.0.0-20261023124453-970720d72e7e (970720d72e7e)
+
+Usage: openapi-daemon [start|stop|status|restart|reload|proxy] [flags]
+
+Commands:
+  start    Start the daemon process
+  stop     Stop the daemon process
+  status   Show daemon status
+  restart  Restart the daemon process
+  reload   Reload the daemon process
+  proxy    Start as HTTP proxy on Unix socket
+
+Options:
+  --backend-url <url>     Backend URL for proxy
+  --socket-path <path>    Path for Unix domain socket (default: /tmp/muster-daemon.sock)
+

@@ -1,0 +1,69 @@
+LOGD_NAME=qa-logs-3694885
+=== go version used natively ===
+go version go1.22.2 linux/amd64
+=== native.log full (3408b) ===
+go: downloading go.opentelemetry.io/otel/sdk v1.47.0
+ok  	github.com/wojons/muster/alertmanager	0.102s
+ok  	github.com/wojons/muster/cmd/daemon	58.885s
+ok  	github.com/wojons/muster/cmd/mcp-server	78.213s
+ok  	github.com/wojons/muster/cmd/openapi-cli	0.290s
+?   	github.com/wojons/muster/demo/services/transport-fixture	[no test files]
+ok  	github.com/wojons/muster/demo/test-suites	34.507s
+ok  	github.com/wojons/muster/deployments/backup	0.584s
+ok  	github.com/wojons/muster/deployments/scripts	1.088s
+?   	github.com/wojons/muster/exploits/auth	[no test files]
+?   	github.com/wojons/muster/exploits/network	[no test files]
+?   	github.com/wojons/muster/exploits/ratelimit	[no test files]
+?   	github.com/wojons/muster/exploits/symlink	[no test files]
+?   	github.com/wojons/muster/exploits/wasm	[no test files]
+ok  	github.com/wojons/muster/internal/audit	0.276s
+ok  	github.com/wojons/muster/internal/builtin	9.181s
+ok  	github.com/wojons/muster/internal/monitoring	0.391s
+?   	github.com/wojons/muster/internal/platform/linux	[no test files]
+ok  	github.com/wojons/muster/internal/telemetry	0.091s
+ok  	github.com/wojons/muster/internal/version	0.104s
+ok  	github.com/wojons/muster/packaging	1.103s
+ok  	github.com/wojons/muster/pkg/auth	35.903s
+ok  	github.com/wojons/muster/pkg/auth/ratelimit	0.494s
+ok  	github.com/wojons/muster/pkg/cache	0.675s
+ok  	github.com/wojons/muster/pkg/cli	0.017s
+ok  	github.com/wojons/muster/pkg/client	6.092s
+ok  	github.com/wojons/muster/pkg/cmdstore	0.206s
+ok  	github.com/wojons/muster/pkg/completion	0.678s
+ok  	github.com/wojons/muster/pkg/config	0.470s
+ok  	github.com/wojons/muster/pkg/daemon	0.502s
+ok  	github.com/wojons/muster/pkg/dsl	0.174s
+ok  	github.com/wojons/muster/pkg/errors	0.180s
+ok  	github.com/wojons/muster/pkg/generator	0.423s
+ok  	github.com/wojons/muster/pkg/log	0.079s
+--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)
+    server_test.go:512: Run did not return after stdin close within 3s
+FAIL
+FAIL	github.com/wojons/muster/pkg/mcp	4.709s
+ok  	github.com/wojons/muster/pkg/mcp/handlers	0.100s
+ok  	github.com/wojons/muster/pkg/openapi	0.394s
+ok  	github.com/wojons/muster/pkg/platform	0.204s
+ok  	github.com/wojons/muster/pkg/protocol	0.098s
+ok  	github.com/wojons/muster/pkg/protocol/graphql	4.595s
+ok  	github.com/wojons/muster/pkg/protocol/grpc	1.111s
+ok  	github.com/wojons/muster/pkg/protocol/jsonrpc	1.087s
+ok  	github.com/wojons/muster/pkg/protocol/soap	0.100s
+ok  	github.com/wojons/muster/pkg/rate	0.492s
+ok  	github.com/wojons/muster/pkg/repository	0.501s
+ok  	github.com/wojons/muster/pkg/repository/sql	0.280s
+ok  	github.com/wojons/muster/pkg/request	5.110s
+ok  	github.com/wojons/muster/pkg/response	0.025s
+ok  	github.com/wojons/muster/pkg/retry	0.184s
+ok  	github.com/wojons/muster/pkg/wasm	0.429s
+ok  	github.com/wojons/muster/test/benchmarks	0.018s
+ok  	github.com/wojons/muster/test/docker	10.679s
+ok  	github.com/wojons/muster/test/e2e	51.407s
+ok  	github.com/wojons/muster/test/functional/behaviors	0.099s
+?   	github.com/wojons/muster/test/functional/harness	[no test files]
+ok  	github.com/wojons/muster/test/functional/states	0.104s
+ok  	github.com/wojons/muster/test/functional/workflows	0.192s
+ok  	github.com/wojons/muster/test/production	15.111s
+ok  	github.com/wojons/muster/test/security	236.920s
+ok  	github.com/wojons/muster/test/upgrade	0.201s
+?   	github.com/wojons/muster/test/util	[no test files]
+FAIL

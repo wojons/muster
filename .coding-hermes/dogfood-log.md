@@ -473,3 +473,38 @@ bash ~/.hermes/scripts/bunker-qa.sh collect --evidence /tmp/bunker-qa-evidence-2
 ```
 
 Evidence: `run20/install-leg-launch.txt`, `run20/install-artifact.log`. Nothing was spawned a second time to "look busy": same HEAD, same docs.
+
+### run 20 install-leg FINISH — the battery collected (second fire of tick `muster-dogfood-2026-10-23-12-37-51`)
+
+The earlier fire of this same tick left exactly one leg open: the bunker battery was still in its `ci-pass` cell, so it was recorded PARTIAL with the finish command. This fire did only that leg — poll → collect → attribute. **No product leg was re-run and no row was re-filed**: the battery was polled with the documented `bunker-qa.sh collect --evidence /tmp/bunker-qa-evidence-20261023T124416Z-3104346.jsonl` (idempotent; it prints `RUNNING` and touches nothing while alive), and the graded cells are what it returned at 08:09 local.
+
+**Battery result on agent `53097b60` / bunker-mvp, tested HEAD `0bd841fe` (pull skipped — clone dirty), 19 pulled rows + `collect OK`:**
+
+```
+repo-head            OK          launch OK    toolchain-bootstrap OK x7    fresh-install OK
+ci-pass              FAIL        upgrade FAIL
+docker-deploy        SKIPPED     chaos-shutdown SKIPPED        (live-host safety gate)
+chaos-disconnect     UNVERIFIED  (refuses a verdict on a failing suite — downstream of ci-pass)
+chaos-resource       INFO        (go toolchain cannot build under the 3G ulimit — ENV-BLOCKED)
+chaos-errorpath      INFO        (probe hit the CLI-help arm of openapi-daemon, rc=0)
+ui-probe             INFO        (repo's go-native start command is not a long-running server)
+chaos-corruption     N/A         (no db/state files in this repo)
+```
+
+**ATTRIBUTED — one real product defect, proved by a same-host A/B.** `ci-pass` FAIL is `--- FAIL: TestServer_Run_HandlerReturnsError (3.00s)` / `server_test.go:512: Run did not return after stdin close within 3s` / `FAIL github.com/wojons/muster/pkg/mcp 4.709s`, i.e. the QA-MUSTER-19 failure again — but at a toolchain the row's closure did not cover. The battery runs the native suite as `env PATH="$HOME/tools/go/bin:$PATH" go test ./... -count=1` (`qa-run.sh:982`), and that cell installed **go 1.27.3** ("go 1.27.3 installed (~/tools/go; floor=1.26.10 distro=1.27.3)"). Running the same command on THIS host at the same HEAD, changing only the toolchain:
+
+```
+A  go1.26.10             -> --- PASS: TestServer_Run_HandlerReturnsError (0.00s)   ok pkg/mcp 0.023s
+B  GOTOOLCHAIN=go1.27.3  -> server_test.go:512: Run did not return after stdin close within 3s
+                            --- FAIL (3.00s)                                        FAIL pkg/mcp 3.011s
+```
+
+Both arms ran back-to-back with no docker/act load, so this is not the agent being busy and not the harness: the wedge is toolchain-sensitive **above** the floor QA-MUSTER-19 closed on ("toolchain-floor-scoped, 1.26.10 has the fix"). `go.mod:3` is `go 1.26.10` with **no `toolchain` directive**, so GOTOOLCHAIN=auto means any user already on Go ≥ 1.27.3 gets a red `go test ./...` on a clean checkout. Filed as **QA-MUSTER-19-R2** (minted with `--recur QA-MUSTER-19`), whose ACs require the goroutine dump at the deadline (`s.wg.Wait()` server.go:164 vs the `concurrencySem` send at :157) instead of a larger `runReturnTimeout` (server_test.go:647), plus green under BOTH toolchains.
+
+**NOT a product defect (do not file): `upgrade` FAIL.** The streamed v0.1.0 tree dies on `Package libseccomp was not found in the pkg-config search path` (+ an `exploits/wasm` `.note.GNU-stack` linker warning) — the agent has no libseccomp dev headers and no sudo. That is an agent-environment gap (ENV-BLOCKED), and QA-MUSTER-13 stays closed: the current tree's own upgrade suite is green here (`ok github.com/wojons/muster/test/upgrade` in the same native run). Recorded as a harness observation, not a row — as with run 20's `fresh-install`-cell caveat.
+
+**Harness observation worth one line:** the `ci-pass` cell's detail is truncated at 300 chars and, with `act -q`, `ci.log` carries no step output, so the cell names `native rc=1` but never the failing test. The failing package/test had to be pulled from `native.log` on the agent before destroy — a cell that reports only `FAIL` is not gradeable from the evidence file alone.
+
+**Residue:** agent `53097b60` **destroyed** (first `bunker destroy` was refused by the live-process gate naming two host-level pids; the retry found it gone and removed the local SSH key; `bunker list` now shows 6 agents, no `53097b60`). Evidence saved under `.coding-hermes/dogfood-evidence/run20/`: `install-leg-cells.jsonl` (the 22-row collect), `install-leg-native.txt` (the failing suite), `install-leg-upgrade-env.txt` (the libseccomp gap). Scratch `/tmp/mf20*` and `/tmp/bunker-qa-evidence-20261023T124416Z-3104346.jsonl` are left in place as the run's raw record.
+
+*ch:trace row=QA-MUSTER-19-R2 spec=.github/workflows/ci.yml:build-and-test-test-step test=run20/install-leg-native.txt+A/B(GOTOOLCHAIN=go1.27.3) doc=none:go.mod-has-no-toolchain-directive evidence=.coding-hermes/dogfood-evidence/run20/install-leg-cells.jsonl witness=dogfood-run20-install-leg-finish verdict=P1-recurrence-live commit=pending*
