@@ -499,6 +499,18 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		shorthand := g.inferShorthand(param.Name)
 		description := param.Description
 
+		// DF-MUSTER-9: a second registration of the same flag panics pflag
+		// ("flag redefined") and aborts generation for the WHOLE spec — one
+		// duplicated parameter name is enough to lose every command. Keep the
+		// first registration of a name and drop later ones; drop a shorthand
+		// that is already taken instead of crashing.
+		if cmd.Flags().Lookup(flagName) != nil {
+			continue
+		}
+		if shorthand != "" && cmd.Flags().ShorthandLookup(shorthand) != nil {
+			shorthand = ""
+		}
+
 		switch param.Type {
 		case "string":
 			g.addStringFlag(cmd, flagName, shorthand, &param, description)
@@ -537,6 +549,11 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		// Add non-file multipart form fields
 		for _, field := range op.MultipartFields {
 			flagName := g.normalizeFlagName(field.Name)
+			// DF-MUSTER-9: skip a form field whose flag a parameter (or an
+			// earlier field) already defined — re-registering panics pflag.
+			if cmd.Flags().Lookup(flagName) != nil {
+				continue
+			}
 			description := field.Description
 			if description == "" {
 				description = fmt.Sprintf("%s (form field)", field.Name)
@@ -558,7 +575,21 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		if multipartFlagNames[flagName] {
 			continue
 		}
+		// DF-MUSTER-9: a body property named like an operation parameter
+		// (DuckBrain's POST /api/memories declares `namespace` as BOTH a query
+		// parameter and an optional body field) must share that parameter's
+		// flag: the second registration panics pflag and aborts generation for
+		// the entire spec. The shared value is sent in both positions and the
+		// API's documented precedence decides (DuckBrain: "The namespace query
+		// parameter takes precedence over the optional body namespace field").
+		// Pass --body '{...}' when the two positions must differ.
+		if cmd.Flags().Lookup(flagName) != nil {
+			continue
+		}
 		shorthand := g.inferShorthand(bodyProp.Name)
+		if shorthand != "" && cmd.Flags().ShorthandLookup(shorthand) != nil {
+			shorthand = ""
+		}
 		description := bodyProp.Description
 		if description == "" {
 			description = fmt.Sprintf("%s (request body)", bodyProp.Name)

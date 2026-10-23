@@ -3510,3 +3510,63 @@ func TestCreateRunHandler_RawBody_MissingRequiredProperty(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing required body flag(s): --title")
 }
+
+// =============================================================================
+// DF-MUSTER-9: flag-name collisions must not panic command generation
+// =============================================================================
+
+// DF-MUSTER-9 (DuckBrain MUSTER-001): DuckBrain's POST /api/memories declares
+// `namespace` as BOTH a query parameter and an optional request-body field.
+// Before this fix the body-property registration re-defined an existing pflag
+// and panicked ("create-memory flag redefined: namespace"), aborting
+// generation for the WHOLE spec — one shared name cost every command.
+func TestAddFlags_BodyPropertySharingParameterFlag_NoPanic(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "create-memory"}
+	op := &openapi.Operation{
+		Method: http.MethodPost,
+		Path:   "/api/memories",
+		Parameters: openapi.Parameters{
+			{Name: "namespace", In: "query", Type: "string", Description: "Target namespace"},
+		},
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "key", Type: "string", Required: true},
+			{Name: "content", Type: "string", Required: true},
+			// Same normalized name as the query parameter above, and the same
+			// inferred shorthand ("n").
+			{Name: "namespace", Type: "string", Description: "Body namespace"},
+		},
+	}
+
+	require.NotPanics(t, func() { gen.addFlags(cmd, op) })
+
+	// Exactly one `namespace` flag, owned by the operation parameter (query):
+	// the parameter's description survives, proving the body duplicate was the
+	// one dropped rather than the parameter.
+	nsFlag := cmd.Flags().Lookup("namespace")
+	require.NotNil(t, nsFlag)
+	require.Equal(t, "Target namespace", nsFlag.Usage)
+	require.Equal(t, "n", nsFlag.Shorthand)
+
+	// Body-only properties are still registered.
+	require.NotNil(t, cmd.Flags().Lookup("key"))
+	require.NotNil(t, cmd.Flags().Lookup("content"))
+}
+
+// A parameter name repeated across locations (path + query) must also be
+// registered once, not panic.
+func TestAddFlags_DuplicateParameterName_NoPanic(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "get-thing"}
+	op := &openapi.Operation{
+		Method: http.MethodGet,
+		Path:   "/things/{id}",
+		Parameters: openapi.Parameters{
+			{Name: "id", In: "path", Type: "string"},
+			{Name: "id", In: "query", Type: "string", Description: "Query id"},
+		},
+	}
+
+	require.NotPanics(t, func() { gen.addFlags(cmd, op) })
+	require.NotNil(t, cmd.Flags().Lookup("id"))
+}
