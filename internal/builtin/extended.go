@@ -678,7 +678,11 @@ Events are persisted as JSON lines in the audit log file.`,
 		Use:   "show",
 		Short: "Show recent audit events",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			events, err := readAuditEvents(auditLogPath(), limit)
+			// Read the WHOLE sink, then order newest-first and cut: the file is
+			// append-ordered (oldest first), so truncating before the reverse
+			// returns the OLDEST --limit events (DF-050-R2). show must share
+			// log's ordering path so the class cannot re-split across verbs.
+			events, err := readAuditEvents(auditLogPath(), 0)
 			if err != nil {
 				return err
 			}
@@ -687,6 +691,9 @@ Events are persisted as JSON lines in the audit log file.`,
 				return nil
 			}
 			auditReverse(events)
+			if limit > 0 && len(events) > limit {
+				events = events[:limit]
+			}
 			for _, e := range events {
 				fmt.Printf("%s	%s	%s	%s	%s\n", e.Timestamp.Format(time.RFC3339), e.Level, e.EventType, e.Action, e.Actor.ID)
 			}

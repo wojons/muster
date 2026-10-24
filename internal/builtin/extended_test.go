@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -562,6 +563,65 @@ func TestAuditCommand_Log(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, out3, "alice")
 	assert.NotContains(t, out3, "bob")
+}
+
+// TestAuditCommand_ShowLimitIsNewest is the DF-050-R2 regression: `audit show`
+// must share `audit log`'s ordering path. On a 120-row append-ordered sink
+// (oldest first on disk) both verbs with --limit 5 must print the FIVE NEWEST
+// rows, newest-first, and print exactly the same output. Before the fix `show`
+// truncated to the oldest five rows before reversing.
+func TestAuditCommand_ShowLimitIsNewest(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	base := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	events := make([]audit.AuditEvent, 0, 120)
+	for i := 0; i < 120; i++ {
+		e := testAuditEvent("bench.event", "actor-"+strconv.Itoa(i))
+		e.Timestamp = base.Add(time.Duration(i) * time.Minute)
+		events = append(events, e)
+	}
+	writeAuditLog(t, path, events...)
+	t.Setenv("MUSTER_AUDIT_LOG", path)
+
+	runAudit := func(args ...string) string {
+		t.Helper()
+		out, err := captureStdout(func() error {
+			cmd := newAuditCommand()
+			cmd.SetArgs(args)
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		return out
+	}
+
+	showOut := runAudit("show", "--limit", "5")
+	logOut := runAudit("log", "--limit", "5")
+
+	showLines := nonEmptyLines(showOut)
+	logLines := nonEmptyLines(logOut)
+	require.Len(t, showLines, 5, "show --limit 5 must print exactly 5 rows")
+	require.Len(t, logLines, 5, "log --limit 5 must print exactly 5 rows")
+	assert.Equal(t, logLines, showLines, "audit show must match audit log for the same --limit")
+
+	// The five NEWEST rows are actors 119..115, newest first.
+	for i, line := range showLines {
+		wantActor := "actor-" + strconv.Itoa(119-i)
+		assert.Contains(t, line, wantActor, "row %d must be the #%d-newest event", i, i+1)
+	}
+	// The oldest rows must not be present — the pre-fix truncate-before-reverse
+	// returned exactly those.
+	assert.NotContains(t, showOut, "\tactor-0\n")
+	assert.NotContains(t, showOut, "\tactor-1\n")
+}
+
+// nonEmptyLines splits rendered output into its non-blank lines.
+func nonEmptyLines(out string) []string {
+	lines := make([]string, 0, 8)
+	for _, l := range strings.Split(out, "\n") {
+		if strings.TrimSpace(l) != "" {
+			lines = append(lines, l)
+		}
+	}
+	return lines
 }
 
 // TestAuditCommand_LogEmpty verifies log works with no log file.
