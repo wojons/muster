@@ -87,6 +87,21 @@ filter can match anywhere.
 - `TestAuditCommand_LogLimitNewestOnLargeSink`: 4,000-row sink, `--limit 1`
   returns `actor-3999`, `--limit 150` returns rows 3999..3850 in order — the
   bounded read cannot regress to oldest-first.
+- `TestPruneRetentionInWindowSinkIsUntouched`: retention runs on every writer
+  open, so an in-window sink must not be scanned or rewritten. Without this
+  skip, the audited path (`MUSTER_AUDIT_ENABLED=1`) pays a full-file scan before
+  the bounded reader runs at all.
+
+Measured on the audited path (min of 20 wall-clock runs, same host, 200-row vs
+10,000-row sink, `audit log --limit 1`):
+
+| retention scan | 200 rows | 10,000 rows | ratio |
+|---|---|---|---|
+| full-file scan on open | 14.4 ms | 45.1 ms | 3.14x |
+| first-record skip (shipped) | 27.5 ms | 29.7 ms | 1.08x |
+
+So the bounded reader alone was not enough: with the retention scan still
+O(file), the audited `--limit 1` query broke the 2x bound in practice.
 
 ## Hash-chain policy (preserved, not silently broken)
 
@@ -104,6 +119,7 @@ filter can match anywhere.
 `internal/audit/retention_test.go`
 - `TestPruneRetentionRemovesOldRowsAndPreservesChains`
 - `TestPruneRetentionDoesNotRemoveRecentRows`
+- `TestPruneRetentionInWindowSinkIsUntouched` (skip path: no scan, no rewrite)
 - `TestPruneRetentionRejectsMalformedRows`
 - `TestPruneRetentionArchiveRowsAreNonVacuous`
 - `TestFileStorage_SurvivesRetentionRotation`

@@ -35,6 +35,25 @@ func PruneRetention(path string, retentionDays int, algorithm string) (int, erro
 	}
 	defer func() { _ = file.Close() }()
 
+	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
+
+	// Fast path: the sink is append-ordered (oldest first), so if its FIRST
+	// record is still inside the window nothing can be expired and the full
+	// scan is skipped. Retention runs on every writer open, i.e. once per
+	// audited invocation, so without this an O(file) scan is paid before any
+	// command does its own work — which would swallow the bound the tail
+	// reader gives `audit log`.
+	firstTimestamp, hasFirst, err := peekOldestAuditTimestamp(file)
+	if err != nil {
+		return 0, err
+	}
+	if hasFirst && !firstTimestamp.Before(cutoff) {
+		return 0, nil
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return 0, fmt.Errorf("audit: rewind sink for retention: %w", err)
+	}
+
 	var events []AuditEvent
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
@@ -51,7 +70,6 @@ func PruneRetention(path string, retentionDays int, algorithm string) (int, erro
 	if err := scanner.Err(); err != nil {
 		return 0, fmt.Errorf("audit: read sink for retention: %w", err)
 	}
-	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
 	keepAt := 0
 	for keepAt < len(events) && events[keepAt].Timestamp.Before(cutoff) {
 		keepAt++
@@ -106,6 +124,28 @@ func PruneRetention(path string, retentionDays int, algorithm string) (int, erro
 		return 0, fmt.Errorf("audit: replace sink after retention: %w", err)
 	}
 	return keepAt, nil
+}
+
+// peekOldestAuditTimestamp returns the timestamp of the sink's first non-empty
+// record. Retention is append-ordered, so an in-window oldest record proves the
+// whole file is in-window and the caller can skip a full scan.
+func peekOldestAuditTimestamp(file *os.File) (time.Time, bool, error) {
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		if scanner.Text() == "" {
+			continue
+		}
+		var event AuditEvent
+		if err := json.Unmarshal([]byte(scanner.Text()), &event); err != nil {
+			return time.Time{}, false, fmt.Errorf("audit: retention found invalid JSON: %w", err)
+		}
+		return event.Timestamp, true, nil
+	}
+	if err := scanner.Err(); err != nil {
+		return time.Time{}, false, fmt.Errorf("audit: read sink head for retention: %w", err)
+	}
+	return time.Time{}, false, nil
 }
 
 func writeAuditEvents(path string, events []AuditEvent) error {

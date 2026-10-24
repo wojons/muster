@@ -74,6 +74,49 @@ func TestPruneRetentionRejectsMalformedRows(t *testing.T) {
 	}
 }
 
+// TestPruneRetentionInWindowSinkIsUntouched pins the skip path that keeps
+// retention O(1) for an audited invocation: when the sink's first record is
+// still inside the window, prune must do nothing at all — no archive, no byte
+// change — while a sink whose first record is expired still gets rotated (see
+// TestPruneRetentionRemovesOldRowsAndPreservesChains).
+func TestPruneRetentionInWindowSinkIsUntouched(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	now := time.Now().UTC()
+	var lines []string
+	for i := 0; i < 3; i++ {
+		event := &AuditEvent{Timestamp: now.Add(-time.Duration(i) * time.Hour), Action: "recent", EventType: "test"}
+		raw, err := json.Marshal(event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines = append(lines, string(raw))
+	}
+	before := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile(path, []byte(before), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := PruneRetention(path, 365, HashAlgorithmSHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 0 {
+		t.Fatalf("removed = %d, want 0", removed)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != before {
+		t.Fatalf("an in-window sink must not be rewritten:\nbefore=%s\nafter=%s", before, after)
+	}
+	if matches, _ := filepath.Glob(path + ".archive-*.jsonl"); len(matches) != 0 {
+		t.Fatalf("in-window prune must not create an archive, got %v", matches)
+	}
+}
+
+// TestPruneRetentionArchiveRowsAreNonVacuous pins that the removed rows are
+// moved, not dropped: the archive carries the expired record.
 func TestPruneRetentionArchiveRowsAreNonVacuous(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "audit.jsonl")
 	event := &AuditEvent{Timestamp: time.Now().UTC().AddDate(0, 0, -3), Action: "old-row"}
