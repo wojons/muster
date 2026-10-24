@@ -648,7 +648,7 @@ func emitAuditEvent(eventType, action, resourceType, resourceID, resourceName st
 	})
 }
 
-// newAuditCommand builds the `audit` command tree: status, show, log, info.
+// newAuditCommand builds the `audit` command tree: status, show, log, info, verify.
 // `show` and `log` render NEWEST-FIRST (most recent event first) — the events
 // on disk are append-order (oldest first), and every log viewer's default is
 // newest-first; DF-050.
@@ -761,6 +761,29 @@ Events are persisted as JSON lines in the audit log file.`,
 			return nil
 		},
 	})
+
+	var verifySink string
+	verifyCmd := &cobra.Command{
+		Use:   "verify",
+		Short: "Verify audit log hash-chain integrity",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := auditLogPath()
+			if verifySink != "" {
+				path = verifySink
+			}
+			if err := audit.VerifyChain(path); err != nil {
+				return err
+			}
+			events, err := readAuditEvents(path, 0)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%d records, chain intact\n", len(events))
+			return nil
+		},
+	}
+	verifyCmd.Flags().StringVar(&verifySink, "sink", "", "Audit sink path (defaults to MUSTER_AUDIT_LOG or the default audit sink)")
+	cmd.AddCommand(verifyCmd)
 
 	return cmd
 }

@@ -632,6 +632,106 @@ func TestAuditCommand_LogEmpty(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 }
 
+// TestAuditCommand_VerifyIntact verifies verify accepts an intact hash chain.
+func TestAuditCommand_VerifyIntact(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	writeHashedAuditLog(t, path,
+		testAuditEvent("pet.created", "alice"),
+		testAuditEvent("user.updated", "bob"),
+	)
+	t.Setenv("MUSTER_AUDIT_LOG", path)
+
+	out, err := captureStdout(func() error {
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"verify"})
+		return cmd.Execute()
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "2 records, chain intact")
+}
+
+// TestAuditCommand_VerifyEditedRecord rejects a record whose body changed.
+func TestAuditCommand_VerifyEditedRecord(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	writeHashedAuditLog(t, path,
+		testAuditEvent("pet.created", "alice"),
+		testAuditEvent("user.updated", "bob"),
+	)
+	lines := strings.Split(strings.TrimSpace(string(mustReadFile(t, path))), "\n")
+	var edited audit.AuditEvent
+	require.NoError(t, json.Unmarshal([]byte(lines[1]), &edited))
+	edited.Action = "tampered.action"
+	data, err := json.Marshal(edited)
+	require.NoError(t, err)
+	lines[1] = string(data)
+	require.NoError(t, os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0600))
+	t.Setenv("MUSTER_AUDIT_LOG", path)
+
+	_, err = captureStdout(func() error {
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"verify"})
+		return cmd.Execute()
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "line 2")
+	assert.Contains(t, err.Error(), "hash mismatch")
+}
+
+// TestAuditCommand_VerifyDeletedRecord rejects a chain with a missing middle record.
+func TestAuditCommand_VerifyDeletedRecord(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "audit.jsonl")
+	writeHashedAuditLog(t, path,
+		testAuditEvent("pet.created", "alice"),
+		testAuditEvent("user.updated", "bob"),
+		testAuditEvent("pet.deleted", "carol"),
+	)
+	lines := strings.Split(strings.TrimSpace(string(mustReadFile(t, path))), "\n")
+	lines = append(lines[:1], lines[2:]...)
+	require.NoError(t, os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0600))
+	t.Setenv("MUSTER_AUDIT_LOG", path)
+
+	_, err := captureStdout(func() error {
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"verify"})
+		return cmd.Execute()
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "line 2")
+	assert.Contains(t, err.Error(), "chain break")
+	assert.Contains(t, err.Error(), "previous_hash")
+}
+
+// TestAuditCommand_VerifyEmpty verifies a missing sink is trivially intact.
+func TestAuditCommand_VerifyEmpty(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing-audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_LOG", path)
+
+	out, err := captureStdout(func() error {
+		cmd := newAuditCommand()
+		cmd.SetArgs([]string{"verify"})
+		return cmd.Execute()
+	})
+	require.NoError(t, err)
+	assert.Contains(t, out, "0 records, chain intact")
+}
+
+// writeHashedAuditLog writes events through the production sink path.
+func writeHashedAuditLog(t *testing.T, path string, events ...audit.AuditEvent) {
+	t.Helper()
+	for i := range events {
+		event := events[i]
+		require.NoError(t, audit.WriteEventTo(path, &event))
+	}
+}
+
+// mustReadFile reads a test fixture or fails the test.
+func mustReadFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return data
+}
+
 // TestAuditCommand_Info verifies info shows config and stats.
 func TestAuditCommand_Info(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "audit.jsonl")
