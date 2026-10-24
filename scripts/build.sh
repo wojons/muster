@@ -4,16 +4,25 @@ set -e
 # Cross-platform build script
 
 BINARY_NAME="muster"
-CMD_DIR="cmd"
+MCP_BINARY_NAME="muster-mcp"
+DAEMON_BINARY_NAME="muster-daemon"
 BUILD_DIR="bin"
 
+# Resolve paths so the script can be invoked from any directory.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 # Get version info
-source scripts/version.sh > /dev/null
+source "$SCRIPT_DIR/version.sh" > /dev/null
+VERSION="${VERSION:-$(get_version)}"
+COMMIT="${COMMIT:-$(get_commit)}"
+BUILD_DATE="${BUILD_DATE:-$(get_build_date)}"
 
 # Build flags
-LDFLAGS="-X github.com/anomalyco/muster/internal/version.Version=$VERSION"
-LDFLAGS="$LDFLAGS -X github.com/anomalyco/muster/internal/version.Commit=$COMMIT"
-LDFLAGS="$LDFLAGS -X github.com/anomalyco/muster/internal/version.BuildDate=$BUILD_DATE"
+LDFLAGS="-X github.com/wojons/muster/internal/version.Version=$VERSION"
+LDFLAGS="$LDFLAGS -X github.com/wojons/muster/internal/version.Commit=$COMMIT"
+LDFLAGS="$LDFLAGS -X github.com/wojons/muster/internal/version.BuildDate=$BUILD_DATE"
 LDFLAGS="$LDFLAGS -s -w"
 
 # Platforms
@@ -26,18 +35,35 @@ PLATFORMS=(
     "windows/arm64"
 )
 
+build_binary() {
+    local entrypoint=$1
+    local output=$2
+
+    echo "  → Building $entrypoint as $output..."
+    CGO_ENABLED="${CGO_ENABLED:-1}" GOOS="$GOOS" GOARCH="$GOARCH" \
+        go build -ldflags "$LDFLAGS" -o "$output" "$entrypoint"
+}
+
 build_platform() {
     local goos=$1
     local goarch=$2
-    local output="$BUILD_DIR/${BINARY_NAME}-${goos}-${goarch}"
-    
+    local suffix="$goos-$goarch"
+    local cli_output="$BUILD_DIR/${BINARY_NAME}-${suffix}"
+    local mcp_output="$BUILD_DIR/${MCP_BINARY_NAME}-${suffix}"
+    local daemon_output="$BUILD_DIR/${DAEMON_BINARY_NAME}-${suffix}"
+
     if [ "$goos" = "windows" ]; then
-        output="${output}.exe"
+        cli_output="${cli_output}.exe"
+        mcp_output="${mcp_output}.exe"
+        daemon_output="${daemon_output}.exe"
     fi
-    
+
     echo "Building for $goos/$goarch..."
-    CGO_ENABLED=1 GOOS=$goos GOARCH=$goarch \
-        go build -ldflags "$LDFLAGS" -o "$output" ./$CMD_DIR
+    GOOS="$goos"
+    GOARCH="$goarch"
+    build_binary "./cmd/openapi-cli" "$cli_output"
+    build_binary "./cmd/mcp-server" "$mcp_output"
+    build_binary "./cmd/daemon" "$daemon_output"
 }
 
 # Main

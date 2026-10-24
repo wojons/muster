@@ -68,24 +68,26 @@ git clone https://github.com/wojons/muster.git
 cd muster
 make build-cli
 
-# Point at any OpenAPI spec
-./bin/openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+# Start the repo-owned deterministic Task Forge API in another terminal.
+# From the repository root, install the pinned Flask dependency once:
+python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt
+PORT=9801 .venv/bin/python3 demo/services/task-forge/server.py
 
-# Turn the spec into typed subcommands (the core "spec → CLI" step)
-./bin/openapi-cli generate https://petstore3.swagger.io/api/v3/openapi.json
+# Point at the deterministic local OpenAPI spec served by Task Forge.
+./bin/openapi-cli discover http://localhost:9801/openapi.json
 
-# Typed commands are now available on the next invocation, e.g.:
-./bin/openapi-cli get-pet-by-id 1
+# Turn the spec into typed subcommands (the core "spec → CLI" step).
+./bin/openapi-cli generate http://localhost:9801/openapi.json
 
-# Or execute ad-hoc operations with the generic request command.
-# Note: petstore3.swagger.io is a shared public demo and is unreliable on some
-# endpoints (measured 2026-10-18: /store/inventory returns HTTP 500 server-side).
-# GET /pet/1 and /pet/findByStatus work. For a request that cannot be affected
-# by a third-party service, use the demo's local mock services: ./demo/run-all.sh
+# Typed commands are now available on the next invocation. This lists the
+# repo-owned Task Forge tasks and prints a JSON body (an empty list is valid).
+./bin/openapi-cli list-tasks -o json
+
+# Or execute the same deterministic operation with the generic request command.
 ./bin/openapi-cli request GET http://localhost:9801/tasks -o json
 
 # Point generated commands at another environment without regenerating:
-# ./bin/openapi-cli get-pet-by-id 1 --base-url https://staging.example.com
+# ./bin/openapi-cli list-tasks --base-url https://staging.example.com -o json
 # (or export MUSTER_BASE_URL=https://staging.example.com)
 #
 # Specs whose servers[].url is RELATIVE (e.g. "/api/v3") resolve against the
@@ -96,8 +98,7 @@ make build-cli
 
 # Run the full demo (5 mock services, 14 scripts, all 7 surfaces).
 # The mock services are Flask apps — install the pinned demo dependencies once
-# (a bare system `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+: PEP 668):
-python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt
+# (a bare system `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+):
 ./demo/run-all.sh
 # No venv yet? `./demo/run-all.sh --bootstrap` creates .venv and installs Flask.
 # Flask already in another interpreter? Skip the venv: DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh
