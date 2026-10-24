@@ -182,12 +182,172 @@ func redactValue(value interface{}) interface{} {
 		for i, item := range v {
 			if replacement, sensitive := sensitiveReplacement(item); sensitive {
 				v[i] = replacement
+			} else if redacted, ok := redactURLCredentials(item); ok {
+				v[i] = redacted
 			}
+		}
+		return v
+	case string:
+		if replacement, sensitive := sensitiveReplacement(v); sensitive {
+			return replacement
+		}
+		if redacted, ok := redactURLCredentials(v); ok {
+			return redacted
 		}
 		return v
 	default:
 		return value
 	}
+}
+
+// redactURLCredentials detects URL-shaped strings containing embedded
+// credentials (tokens, secrets, API keys in the path or query) and redacts
+// them while preserving the URL structure. Returns the redacted URL and true
+// if credentials were found and redacted, otherwise returns the original and
+// false.
+//
+// This catches credential leaks in fields named "url", "callback_url", etc.
+// that are not in the field-name vocabulary but contain credentials in their
+// values (DF-057: webhook URLs with embedded tokens).
+func redactURLCredentials(value string) (string, bool) {
+	// Quick check: must look like a URL
+	if !strings.Contains(value, "://") {
+		return value, false
+	}
+
+	// Parse the URL to inspect path and query
+	parts := strings.SplitN(value, "://", 2)
+	if len(parts) != 2 {
+		return value, false
+	}
+
+	scheme := parts[0]
+	rest := parts[1]
+
+	// Split host from path+query
+	hostEnd := strings.Index(rest, "/")
+	if hostEnd == -1 {
+		// No path, just host - nothing to redact
+		return value, false
+	}
+
+	host := rest[:hostEnd]
+	pathAndQuery := rest[hostEnd:]
+
+	// Split path from query
+	queryStart := strings.Index(pathAndQuery, "?")
+	var path, query string
+	if queryStart == -1 {
+		path = pathAndQuery
+		query = ""
+	} else {
+		path = pathAndQuery[:queryStart]
+		query = pathAndQuery[queryStart:]
+	}
+
+	// Check path segments for credential-like patterns
+	// Slack webhook format: /services/T.../B.../<secret>
+	// Generic pattern: path segments that look like tokens (long, mixed case, no spaces)
+	pathSegments := strings.Split(path, "/")
+	redacted := false
+	for i, segment := range pathSegments {
+		if segment == "" {
+			continue
+		}
+		// Detect credential-like segments: long (>20 chars), mixed case or contains special chars
+		if len(segment) > 20 && looksLikeCredential(segment) {
+			pathSegments[i] = "[REDACTED]"
+			redacted = true
+		}
+	}
+
+	// Check query parameters for credential-like values
+	if query != "" {
+		queryParts := strings.Split(query[1:], "&") // skip the '?'
+		for i, param := range queryParts {
+			kv := strings.SplitN(param, "=", 2)
+			if len(kv) == 2 && looksLikeCredential(kv[1]) {
+				queryParts[i] = kv[0] + "=[REDACTED]"
+				redacted = true
+			}
+		}
+		if redacted {
+			query = "?" + strings.Join(queryParts, "&")
+		}
+	}
+
+	if !redacted {
+		return value, false
+	}
+
+	// Reconstruct the URL
+	return scheme + "://" + host + strings.Join(pathSegments, "/") + query, true
+}
+
+// looksLikeCredential reports whether s appears to be a credential token
+// rather than a normal path segment or parameter value.
+func looksLikeCredential(s string) bool {
+	// Must be reasonably long to be a token (not a normal word/ID)
+	if len(s) < 16 {
+		return false
+	}
+
+	// Count character types
+	hasUpper := false
+	hasLower := false
+	hasDigit := false
+	hasSpecial := false
+
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			hasUpper = true
+		case r >= 'a' && r <= 'z':
+			hasLower = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		case r == '-' || r == '_' || r == '.':
+			hasSpecial = true
+		}
+	}
+
+	// Slack webhook tokens: uppercase + digits (e.g., T00000000, B00000000)
+	// These are typically 9+ chars but we catch them if they're part of a longer path
+	if hasUpper && hasDigit && !hasLower && len(s) >= 16 {
+		return true
+	}
+
+	// Mixed case tokens with digits (typical API keys/tokens)
+	if hasUpper && hasLower && hasDigit && len(s) >= 20 {
+		return true
+	}
+
+	// All uppercase or all lowercase but long (like XXXXXXXXXXXXXXXXXXXXXXXX)
+	if (hasUpper || hasLower) && !hasDigit && !hasSpecial && len(s) >= 20 {
+		return true
+	}
+
+	// Hex-like token (all hex chars, long)
+	if isHexString(s) && len(s) >= 32 {
+		return true
+	}
+
+	// Contains special chars and is reasonably long
+	if hasSpecial && len(s) >= 16 {
+		return true
+	}
+
+	return false
+}
+
+// isHexString reports whether s contains only hexadecimal characters.
+func isHexString(s string) bool {
+	for _, r := range s {
+		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
 
 // redactEvent applies mandatory redaction to the free-form surfaces of an audit
