@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -20,13 +21,18 @@ import (
 
 func TestCLI_VersionCommand(t *testing.T) {
 	cmd := exec.Command(binaryPath, "version")
-	output, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 
-	require.NoError(t, err, string(output))
+	require.NoError(t, err, "stdout=%s stderr=%s", stdout.String(), stderr.String())
 	// Version outputs "dev (unknown)" for a bare unstamped build, or the
 	// real stamped/derived version ("vX.Y.Z (commit)") otherwise — either
 	// way it must be a "<version> (<commit>)" pair (REVIEW-MUSTER-2).
-	out := strings.TrimSpace(string(output))
+	// Assert on stdout only — stderr may contain library warnings (e.g.
+	// starlark 4GB allocation warning under memory caps, QA-MUSTER-8-R2).
+	out := strings.TrimSpace(stdout.String())
 	assert.Regexp(t, `^\S+ \(\S+\)$`, out,
 		"version command should output '<version> (<commit>)', got: %s", out)
 }
