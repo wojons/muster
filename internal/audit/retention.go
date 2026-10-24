@@ -37,11 +37,12 @@ func PruneRetention(path string, retentionDays int, algorithm string) (int, erro
 
 	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
 
-	// Fast path: the sink is append-ordered, so if its OLDEST record is still
-	// inside the window there is nothing to rotate. Reading just the first
-	// record keeps the per-process cost O(1); without it every invocation that
-	// enables audit paid a full-file scan before doing any work, which defeats
-	// the bounded --limit reader (measured 7.7x slowdown at 10k rows).
+	// Fast path: the sink is append-ordered (oldest first), so if its FIRST
+	// record is still inside the window nothing can be expired and the full
+	// scan is skipped. Retention runs on every writer open, i.e. once per
+	// audited invocation, so without this an O(file) scan is paid before any
+	// command does its own work — which would swallow the bound the tail
+	// reader gives `audit log`.
 	firstTimestamp, hasFirst, err := peekOldestAuditTimestamp(file)
 	if err != nil {
 		return 0, err
