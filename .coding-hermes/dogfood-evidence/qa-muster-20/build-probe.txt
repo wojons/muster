@@ -1,0 +1,72 @@
+
+=== identity ===
+date_utc=2026-10-24T10:13:33Z
+worktree=/home/kara/worktrees/muster-QA-MUSTER-20
+branch=wt/QA-MUSTER-20
+head=3a86f8553d0c2759730e59426a1870f7a696e79a
+## wt/QA-MUSTER-20...origin/main [ahead 1, behind 1]
+?? .coding-hermes/dogfood-evidence/qa-muster-20/
+?? test/buildscript/
+
+=== pre-fix reproduction (original script at parent commit) ===
+rc=1
+Building for linux/amd64...
+no Go files in /home/kara/worktrees/muster-QA-MUSTER-20/cmd
+prefix_anomalyco_count=3
+
+=== syntax ===
+rc=0
+
+=== source invariants ===
+anomalyco_count=0
+23:LDFLAGS="-X github.com/wojons/muster/internal/version.Version=$VERSION"
+24:LDFLAGS="$LDFLAGS -X github.com/wojons/muster/internal/version.Commit=$COMMIT"
+25:LDFLAGS="$LDFLAGS -X github.com/wojons/muster/internal/version.BuildDate=$BUILD_DATE"
+64:    build_binary "./cmd/openapi-cli" "$cli_output"
+65:    build_binary "./cmd/mcp-server" "$mcp_output"
+66:    build_binary "./cmd/daemon" "$daemon_output"
+bare_cmd_target_matches=0
+entry_points_present=3
+
+=== documented build (AC-1/AC-4) ===
+Building for linux/amd64...
+  → Building ./cmd/openapi-cli as bin/muster-linux-amd64...
+  → Building ./cmd/mcp-server as bin/muster-mcp-linux-amd64...
+  → Building ./cmd/daemon as bin/muster-daemon-linux-amd64...
+Build complete!
+rc=0
+mode=-rwxrwxr-x octal=775 size=28004617 name=bin/muster-linux-amd64
+mode=-rwxrwxr-x octal=775 size=14033161 name=bin/muster-mcp-linux-amd64
+mode=-rwxrwxr-x octal=775 size=7442697 name=bin/muster-daemon-linux-amd64
+cli_executable=yes
+v9.9.9 (3a86f855)
+version_contains_v999=1
+version_is_dev_fallback=0
+mcp_version=v9.9.9 (3a86f855)
+daemon_help_rc=0
+
+=== documentation parity (AC-5) ===
+doc_script_exact=true
+section_72_command=true
+entrypoints=3
+module_path=github.com/wojons/muster
+anomalyco_count=0
+rc=0
+
+=== regression tests ===
+rc=0
+ok  	github.com/wojons/muster/test/buildscript	2.733s
+rc=0
+
+=== go build + vet ===
+rc=0
+rc=0
+
+=== guard ===
+guard evidence: see the tier-1 transcript in the tick report
+
+=== artifact cleanup ===
+?? .coding-hermes/dogfood-evidence/qa-muster-20/
+?? test/buildscript/
+
+probe=complete

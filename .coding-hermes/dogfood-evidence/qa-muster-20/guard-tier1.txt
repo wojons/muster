@@ -1,0 +1,6 @@
+Tier 1 Guards: PASS  (test mode: full)
+  ✓ secrets — clean (gitleaks + builtin cross-check); scanners: nice=nice -n 10
+  ✓ go_build — ok; scanners: nice=nice -n 10
+  ✓ go_lint — ok; scanners: nice=nice -n 10
+  ✓ go_tests — passed
+  guard log: /home/kara/worktrees/muster-QA-MUSTER-20/.gitreins/logs/guard-20261024T101419.107059Z.log

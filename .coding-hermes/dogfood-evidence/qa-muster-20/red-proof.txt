@@ -1,0 +1,220 @@
+--- FAIL: TestBuildScript_SyntaxAndRealEntryPoints (0.00s)
+    build_script_test.go:114: script does not build openapi-cli by its real path "./cmd/openapi-cli"
+    build_script_test.go:114: script does not build mcp-server by its real path "./cmd/mcp-server"
+    build_script_test.go:114: script does not build daemon by its real path "./cmd/daemon"
+    build_script_test.go:124: script still targets the bare cmd/ directory:
+        #!/bin/bash
+        set -e
+        
+        # Cross-platform build script
+        
+        BINARY_NAME="muster"
+        CMD_DIR="cmd"
+        BUILD_DIR="bin"
+        
+        # Get version info
+        source scripts/version.sh > /dev/null
+        
+        # Build flags
+        LDFLAGS="-X github.com/anomalyco/muster/internal/version.Version=$VERSION"
+        LDFLAGS="$LDFLAGS -X github.com/anomalyco/muster/internal/version.Commit=$COMMIT"
+        LDFLAGS="$LDFLAGS -X github.com/anomalyco/muster/internal/version.BuildDate=$BUILD_DATE"
+        LDFLAGS="$LDFLAGS -s -w"
+        
+        # Platforms
+        PLATFORMS=(
+            "darwin/amd64"
+            "darwin/arm64"
+            "linux/amd64"
+            "linux/arm64"
+            "windows/amd64"
+            "windows/arm64"
+        )
+        
+        build_platform() {
+            local goos=$1
+            local goarch=$2
+            local output="$BUILD_DIR/${BINARY_NAME}-${goos}-${goarch}"
+            
+            if [ "$goos" = "windows" ]; then
+                output="${output}.exe"
+            fi
+            
+            echo "Building for $goos/$goarch..."
+            CGO_ENABLED=1 GOOS=$goos GOARCH=$goarch \
+                go build -ldflags "$LDFLAGS" -o "$output" ./$CMD_DIR
+        }
+        
+        # Main
+        mkdir -p "$BUILD_DIR"
+        
+        if [ -n "$1" ] && [ -n "$2" ]; then
+            # Build specific platform
+            build_platform "$1" "$2"
+        else
+            # Build all platforms
+            for platform in "${PLATFORMS[@]}"; do
+                IFS='/' read -r goos goarch <<< "$platform"
+                build_platform "$goos" "$goarch"
+            done
+        fi
+        
+        echo "Build complete!"
+    build_script_test.go:127: script still defines CMD_DIR="cmd" as a build target
+--- FAIL: TestBuildScript_VersionStampModulePath (0.00s)
+    build_script_test.go:141: script still references the retired anomalyco module path
+    build_script_test.go:144: grep -c anomalyco scripts/build.sh = 3, want 0
+    build_script_test.go:155: -X stamp uses module "github.com/anomalyco/muster", want "github.com/wojons/muster" (from go.mod)
+    build_script_test.go:155: -X stamp uses module "github.com/anomalyco/muster", want "github.com/wojons/muster" (from go.mod)
+    build_script_test.go:155: -X stamp uses module "github.com/anomalyco/muster", want "github.com/wojons/muster" (from go.mod)
+--- FAIL: TestBuildScript_SpecMatchesShippedScript (0.00s)
+    build_script_test.go:172: specs/BUILD-SYSTEM.md §3.2 body differs from scripts/build.sh
+        --- documented ---
+        #!/bin/bash
+        set -e
+        
+        # Cross-platform build script
+        
+        BINARY_NAME="muster"
+        MCP_BINARY_NAME="muster-mcp"
+        DAEMON_BINARY_NAME="muster-daemon"
+        BUILD_DIR="bin"
+        
+        # Resolve paths so the script can be invoked from any directory.
+        SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+        REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+        cd "$REPO_ROOT"
+        
+        # Get version info
+        source "$SCRIPT_DIR/version.sh" > /dev/null
+        VERSION="${VERSION:-$(get_version)}"
+        COMMIT="${COMMIT:-$(get_commit)}"
+        BUILD_DATE="${BUILD_DATE:-$(get_build_date)}"
+        
+        # Build flags
+        LDFLAGS="-X github.com/wojons/muster/internal/version.Version=$VERSION"
+        LDFLAGS="$LDFLAGS -X github.com/wojons/muster/internal/version.Commit=$COMMIT"
+        LDFLAGS="$LDFLAGS -X github.com/wojons/muster/internal/version.BuildDate=$BUILD_DATE"
+        LDFLAGS="$LDFLAGS -s -w"
+        
+        # Platforms
+        PLATFORMS=(
+            "darwin/amd64"
+            "darwin/arm64"
+            "linux/amd64"
+            "linux/arm64"
+            "windows/amd64"
+            "windows/arm64"
+        )
+        
+        build_binary() {
+            local entrypoint=$1
+            local output=$2
+        
+            echo "  → Building $entrypoint as $output..."
+            CGO_ENABLED="${CGO_ENABLED:-1}" GOOS="$GOOS" GOARCH="$GOARCH" \
+                go build -ldflags "$LDFLAGS" -o "$output" "$entrypoint"
+        }
+        
+        build_platform() {
+            local goos=$1
+            local goarch=$2
+            local suffix="$goos-$goarch"
+            local cli_output="$BUILD_DIR/${BINARY_NAME}-${suffix}"
+            local mcp_output="$BUILD_DIR/${MCP_BINARY_NAME}-${suffix}"
+            local daemon_output="$BUILD_DIR/${DAEMON_BINARY_NAME}-${suffix}"
+        
+            if [ "$goos" = "windows" ]; then
+                cli_output="${cli_output}.exe"
+                mcp_output="${mcp_output}.exe"
+                daemon_output="${daemon_output}.exe"
+            fi
+        
+            echo "Building for $goos/$goarch..."
+            GOOS="$goos"
+            GOARCH="$goarch"
+            build_binary "./cmd/openapi-cli" "$cli_output"
+            build_binary "./cmd/mcp-server" "$mcp_output"
+            build_binary "./cmd/daemon" "$daemon_output"
+        }
+        
+        # Main
+        mkdir -p "$BUILD_DIR"
+        
+        if [ -n "$1" ] && [ -n "$2" ]; then
+            # Build specific platform
+            build_platform "$1" "$2"
+        else
+            # Build all platforms
+            for platform in "${PLATFORMS[@]}"; do
+                IFS='/' read -r goos goarch <<< "$platform"
+                build_platform "$goos" "$goarch"
+            done
+        fi
+        
+        echo "Build complete!"
+        
+        --- shipped ---
+        #!/bin/bash
+        set -e
+        
+        # Cross-platform build script
+        
+        BINARY_NAME="muster"
+        CMD_DIR="cmd"
+        BUILD_DIR="bin"
+        
+        # Get version info
+        source scripts/version.sh > /dev/null
+        
+        # Build flags
+        LDFLAGS="-X github.com/anomalyco/muster/internal/version.Version=$VERSION"
+        LDFLAGS="$LDFLAGS -X github.com/anomalyco/muster/internal/version.Commit=$COMMIT"
+        LDFLAGS="$LDFLAGS -X github.com/anomalyco/muster/internal/version.BuildDate=$BUILD_DATE"
+        LDFLAGS="$LDFLAGS -s -w"
+        
+        # Platforms
+        PLATFORMS=(
+            "darwin/amd64"
+            "darwin/arm64"
+            "linux/amd64"
+            "linux/arm64"
+            "windows/amd64"
+            "windows/arm64"
+        )
+        
+        build_platform() {
+            local goos=$1
+            local goarch=$2
+            local output="$BUILD_DIR/${BINARY_NAME}-${goos}-${goarch}"
+            
+            if [ "$goos" = "windows" ]; then
+                output="${output}.exe"
+            fi
+            
+            echo "Building for $goos/$goarch..."
+            CGO_ENABLED=1 GOOS=$goos GOARCH=$goarch \
+                go build -ldflags "$LDFLAGS" -o "$output" ./$CMD_DIR
+        }
+        
+        # Main
+        mkdir -p "$BUILD_DIR"
+        
+        if [ -n "$1" ] && [ -n "$2" ]; then
+            # Build specific platform
+            build_platform "$1" "$2"
+        else
+            # Build all platforms
+            for platform in "${PLATFORMS[@]}"; do
+                IFS='/' read -r goos goarch <<< "$platform"
+                build_platform "$goos" "$goarch"
+            done
+        fi
+        
+        echo "Build complete!"
+--- FAIL: TestBuildScript_LinuxAMD64BuildInjectsVersion (0.00s)
+    build_script_test.go:205: bash scripts/build.sh linux amd64 exited non-zero: exit status 1
+        ../../scripts/build.sh: line 11: scripts/version.sh: No such file or directory
+FAIL
+FAIL	github.com/wojons/muster/test/build	0.009s
+FAIL
