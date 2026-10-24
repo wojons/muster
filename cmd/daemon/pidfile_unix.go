@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// isProcessRunning is declared below; fmt, strings, and os are used by it.
+
 // readPIDFile reads a PID from the given file path.
 func readPIDFile(path string) (int, error) {
 	data, err := os.ReadFile(path)
@@ -37,7 +39,9 @@ func writePIDFile(path string, pid int) error {
 	return os.WriteFile(path, []byte(strconv.Itoa(pid)+"\n"), 0644)
 }
 
-// isProcessRunning reports whether a process with the given PID exists.
+// isProcessRunning reports whether a process with the given PID exists and
+// is not a zombie. Signal 0 checks existence; /proc/<pid>/status excludes
+// zombies (State: Z) that have exited but not been reaped by their parent.
 func isProcessRunning(pid int) bool {
 	if pid <= 0 {
 		return false
@@ -46,8 +50,26 @@ func isProcessRunning(pid int) bool {
 	if err != nil {
 		return false
 	}
-	err = proc.Signal(syscall.Signal(0))
-	return err == nil
+	if err := proc.Signal(syscall.Signal(0)); err != nil {
+		return false
+	}
+	// Exclude zombies — see internal/builtin/isprocess_unix.go for the
+	// full rationale. In containers where PID 1 does not reap children,
+	// a stopped daemon becomes a zombie and signal 0 still succeeds.
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
+	if err != nil {
+		return true
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "State:") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 && fields[1] == "Z" {
+				return false
+			}
+			break
+		}
+	}
+	return true
 }
 
 // terminateProcess sends SIGTERM to the process with the given PID.
