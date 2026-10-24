@@ -41,7 +41,7 @@ make build          # builds all three binaries into bin/
 ls bin/             # openapi-cli  openapi-daemon  openapi-mcp  (exactly these three)
 ```
 
-Requires Go 1.26.9+ (the module targets go 1.26.9). A C compiler
+Requires Go 1.26.10+ (the module targets go 1.26.10). A C compiler
 (`gcc`/`clang`) is also required — SQLite support is a CGO package and
 `make build` runs with `CGO_ENABLED=1` (see
 [docs/guides/installation.md](guides/installation.md#prerequisites)). `bin/` is

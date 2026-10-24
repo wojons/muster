@@ -29,7 +29,7 @@ support is a CGO package (`github.com/mattn/go-sqlite3`), and `make` builds with
 
 | Requirement | Notes |
 |---|---|
-| **Go 1.26.9+** (repo developed on **1.26.9**) | the `go` directive in [`go.mod`](go.mod) is `1.26.9`; a toolchain older than that either auto-fetches it (`GOTOOLCHAIN=auto`, the default — needs network) or fails with a hard toolchain error (`GOTOOLCHAIN=local`). Check with `go version`; install from https://go.dev/dl/ |
+| **Go 1.26.10+** (repo developed on **1.26.10**) | the `go` directive in [`go.mod`](go.mod) is `1.26.10`; a toolchain older than that either auto-fetches it (`GOTOOLCHAIN=auto`, the default — needs network) or fails with a hard toolchain error (`GOTOOLCHAIN=local`). Check with `go version`; install from https://go.dev/dl/ |
 | **C compiler** (`gcc` or `clang`) | required for CGO (SQLite). Without one, `make build-cli` stops with `cgo: C compiler "gcc" not found` (reported from `runtime/cgo`) |
 | **make**, **git**, **curl** | build driver, cloning the repo, fetching specs over http(s) |
 | **Python 3 + Flask** | demo only — the 5 mock services are Flask apps. Install the pinned demo dependencies into the repo venv (`python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt`); a bare system `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+ (PEP 668). Not needed to build or use the binaries |
@@ -42,7 +42,7 @@ sudo apt-get update && sudo apt-get install -y golang gcc make git curl
 
 `golang` from the distro archive is often **older than the repo's toolchain**: run
 `go version` and compare it against the `go` directive in [`go.mod`](go.mod)
-(currently `1.26.9`; the repo is developed and tested on that release) before
+(currently `1.26.10`; the repo is developed and tested on that release) before
 building. If it is behind, install the toolchain
 from https://go.dev/dl/ instead.
 
@@ -268,7 +268,7 @@ go test -short ./...          # Faster short-mode validation
 ./demo/run-all.sh
 ```
 
-Requires Go 1.26.9+ (repo developed on 1.26.9), Python 3, and Flask (the demo's services are Flask apps).
+Requires Go 1.26.10+ (repo developed on 1.26.10), Python 3, and Flask (the demo's services are Flask apps).
 Also requires a C compiler for CGO (SQLite) — see [Prerequisites](#prerequisites).
 
 Install the pinned demo dependencies into a repo venv — on Debian 12/13 and Ubuntu
