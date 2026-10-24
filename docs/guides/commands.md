@@ -493,14 +493,24 @@ openapi-cli audit [command]
 | Command | Description |
 |---------|-------------|
 | `log` | Show recent audit events (`--filter <text>`, `--limit <n>`) |
-| `info` | Show audit configuration and statistics |
+| `info` | Show audit configuration and statistics (including the enforced `Retention:`) |
+| `prune` | Enforce retention: rotate rows older than the window (`--days <n>`, `--dry-run`) |
 | `show` | Show recent audit events (`--limit <n>`) |
 | `status` | Show audit logging status |
+
+**Retention**: the default window is 365 days (`RetentionDays`), the value
+`audit info` reports. Expired rows are rotated into
+`<audit log>.archive-<unixnano>.jsonl` and the active log is rewritten with a
+valid hash chain; retention is enforced on `audit prune` and whenever a writer
+opens the sink. `audit log --limit N` reads only the newest `N` rows off the end
+of the file, so its cost does not grow with the size of the log.
 
 **Examples**:
 ```bash
 openapi-cli audit log --limit 20
 openapi-cli audit log --filter "error"
+openapi-cli audit prune --dry-run
+openapi-cli audit prune
 openapi-cli audit status
 ```
 

@@ -53,7 +53,19 @@ func (h *Hook) ensureInit() error {
 		}
 	}
 
-	storage, err := NewFileStorage(path, DefaultFileStorageOptions())
+	opts := DefaultFileStorageOptions()
+	days := h.config.RetentionDays
+	if days <= 0 {
+		days = opts.RetentionDays
+	}
+	// Enforce retention before this process opens (and keeps) the sink: the
+	// rotation rewrites the file, so pruning must happen while no descriptor of
+	// ours points at the old inode. A long-lived writer in another process is
+	// handled by FileStorage.Write re-opening when it detects the swap.
+	if _, err := PruneRetention(path, days, h.config.HashAlgorithm); err != nil {
+		return fmt.Errorf("audit: enforce retention: %w", err)
+	}
+	storage, err := NewFileStorageWithHashAlgorithm(path, opts, h.config.HashAlgorithm)
 	if err != nil {
 		return fmt.Errorf("audit: open storage: %w", err)
 	}
@@ -198,7 +210,7 @@ func DefaultConfig() AuditConfig {
 	return AuditConfig{
 		Enabled:         enabled,
 		StorageType:     "file",
-		RetentionDays:   90,
+		RetentionDays:   365,
 		BufferSize:      100,
 		FlushInterval:   5 * time.Second,
 		RedactSensitive: true,

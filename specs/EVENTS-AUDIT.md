@@ -16,8 +16,20 @@ type AuditConfig struct {
     EncryptionKey    string        `json:"encryption_key,omitempty"`
     HashAlgorithm    string        `json:"hash_algorithm" validate:"oneof=sha256 sha512"`
     IncludeBody      bool          `json:"include_body"`
-    SensitiveFields  []string      `json:"sensitive_fields"`
+    SensitiveFields  []string        `json:"sensitive_fields"`
 }
+
+// Retention (DOC-15) is a real, enforced policy, not a reported number:
+//
+//   - `openapi-cli audit prune` rotates every record older than RetentionDays
+//     into a timestamped <log>.archive-<unixnano>.jsonl segment and rewrites the
+//     active log with a fresh, valid hash chain.
+//   - Every audit writer enforces the same window when it opens the sink, so an
+//     idle trail cannot grow past RetentionDays.
+//
+// The archive is itself a complete, independently verifiable chain segment; the
+// retention boundary is an explicit deletion, so no continuity is claimed across
+// it. `audit info` prints the very RetentionDays value the enforcer uses.
 
 var DefaultAuditConfig = AuditConfig{
     Enabled:       true,
