@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/builtin"
 	"github.com/wojons/muster/pkg/config"
@@ -23,6 +24,82 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// auditFlagArity reports whether arg names a flag the command (or one of its
+// ancestors) knows, and whether that flag consumes the following argv element.
+// Flag metadata comes from cobra/pflag rather than a hard-coded table of
+// value-taking flags, so a newly registered global flag needs no change here.
+func auditFlagArity(cmd *cobra.Command, arg string) (known, takesValue bool) {
+	name := strings.TrimLeft(arg, "-")
+	if i := strings.IndexByte(name, '='); i >= 0 {
+		name = name[:i]
+	}
+	shorthand := len(arg) == 2 && arg[0] == '-' && arg[1] != '-'
+
+	for c := cmd; c != nil; c = c.Parent() {
+		if shorthand {
+			if f := c.Flags().ShorthandLookup(name); f != nil {
+				return true, f.NoOptDefVal == ""
+			}
+			if f := c.PersistentFlags().ShorthandLookup(name); f != nil {
+				return true, f.NoOptDefVal == ""
+			}
+			continue
+		}
+		if f := c.Flags().Lookup(name); f != nil {
+			return true, f.NoOptDefVal == ""
+		}
+		if f := c.PersistentFlags().Lookup(name); f != nil {
+			return true, f.NoOptDefVal == ""
+		}
+	}
+
+	return false, false
+}
+
+func auditCommandPath(root *cobra.Command, args []string) string {
+	path := []string{root.CommandPath()}
+	command := root
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			break
+		}
+		if strings.HasPrefix(arg, "-") {
+			known, takesValue := auditFlagArity(command, arg)
+			if !known {
+				break
+			}
+			if takesValue && !strings.Contains(arg, "=") && i+1 < len(args) {
+				i++
+			}
+			continue
+		}
+
+		var child *cobra.Command
+		for _, candidate := range command.Commands() {
+			if candidate.Name() == arg || candidate.HasAlias(arg) {
+				child = candidate
+				break
+			}
+		}
+		if child == nil {
+			// Not a subcommand. A command that runs its own logic treats the
+			// word as a positional argument (identity stays the resolved
+			// path); a grouping command has no leaf, so the attempted word is
+			// the deepest identity the invocation reached.
+			if command.Run == nil && command.RunE == nil {
+				path = append(path, arg)
+			}
+			break
+		}
+		path = append(path, arg)
+		command = child
+	}
+
+	return strings.Join(path, " ")
 }
 
 func run() error {
@@ -54,42 +131,10 @@ func run() error {
 	// Log command execution (success logged in PersistentPostRun, failures logged here)
 	if err != nil && auditHook != nil {
 		// Use background context since the command context may be cancelled.
-		// rootCmd.CommandPath() is "openapi-cli" after ExecuteContext returns
-		// an error (the active subcommand is lost). Reconstruct from original
-		// argv: skip "openapi-cli" (os.Args[0]), skip leading flags (and their
-		// value args), take the first non-flag word as the command path prefix.
-		command := rootCmd.CommandPath()
-		args := os.Args[1:]
-		i := 0
-		for i < len(args) {
-			a := args[i]
-			if !strings.HasPrefix(a, "-") {
-				// First non-flag word is the subcommand
-				command = "openapi-cli " + a
-				break
-			}
-			// Flag — skip it and its optional value
-			// Flags with string values that consume the next argv element:
-			if strings.HasPrefix(a, "--") && i+1 < len(args) {
-				// Check if this flag takes a value (not a bool)
-				switch a {
-				case "--profile", "--log-level", "--log-format",
-					"--database-url", "--auth-token", "--config-file",
-					"--timeout", "--max-retries", "--http-version",
-					"--http-timeout", "-u", "--base-url":
-					// Skip the value too
-					i++
-				}
-			}
-			// Short flags like -f don't take values; -d value does
-			if strings.HasPrefix(a, "-") && len(a) == 2 && a[1] != '-' {
-				// Check if it's a known value-taking short flag
-				if a == "-d" {
-					i++
-				}
-			}
-			i++
-		}
+		// Cobra has already resolved as much of the command path as it can,
+		// including nested commands before a malformed flag. Preserve that
+		// resolved path instead of reducing the invocation to its first word.
+		command := auditCommandPath(rootCmd, os.Args[1:])
 		auditHook.LogCommand(context.Background(), command, builtin.CliActorID(), false, map[string]string{"error": err.Error()})
 	}
 

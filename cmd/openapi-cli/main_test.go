@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/builtin"
 	"github.com/wojons/muster/pkg/config"
 )
@@ -109,6 +114,149 @@ func TestRun_WithConfigError(t *testing.T) {
 
 	rootCmd := builtin.NewRootCommand(cfg)
 	require.NotNil(t, rootCmd, "root command should be created")
+}
+
+// readAuditSink decodes every record of a JSON-lines audit sink.
+func readAuditSink(t *testing.T, path string) []audit.AuditEvent {
+	t.Helper()
+	f, err := os.Open(path)
+	require.NoError(t, err, "audit sink %s must exist", path)
+	t.Cleanup(func() { _ = f.Close() })
+
+	var events []audit.AuditEvent
+	dec := json.NewDecoder(f)
+	for {
+		var event audit.AuditEvent
+		if err := dec.Decode(&event); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatalf("decode audit sink %s: %v", path, err)
+		}
+		events = append(events, event)
+	}
+	return events
+}
+
+// TestRun_FailurePathAudit_NestedCommandIdentity is the DF-054-R2 regression:
+// the failure-path audit record must carry the full leaf of a nested command.
+// Before the fix the reconstruction loop kept only the FIRST non-flag token
+// ("command.openapi-cli webhook"), so `webhook create --bogus-flag 1` and
+// `webhook add --url http://x` collapsed into one indistinguishable action and
+// the audit trail could not say which command failed.
+func TestRun_FailurePathAudit_NestedCommandIdentity(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{
+			name: "nested leaf after malformed flag",
+			args: []string{"webhook", "create", "--bogus-flag", "1"},
+			want: "command.openapi-cli webhook create",
+		},
+		{
+			name: "unresolvable nested leaf",
+			args: []string{"webhook", "add", "--url", "http://x"},
+			want: "command.openapi-cli webhook add",
+		},
+		{
+			name: "three level path",
+			args: []string{"audit", "verify", "--bogus-flag"},
+			want: "command.openapi-cli audit verify",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
+			t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+			sink := filepath.Join(t.TempDir(), "audit.jsonl")
+			t.Setenv("MUSTER_AUDIT_LOG", sink)
+
+			originalArgs := os.Args
+			t.Cleanup(func() { os.Args = originalArgs })
+			os.Args = append([]string{"openapi-cli"}, tc.args...)
+
+			err := run()
+			require.Error(t, err, "a malformed invocation must fail")
+
+			events := readAuditSink(t, sink)
+			require.NotEmpty(t, events, "the failure path must record an audit event")
+			last := events[len(events)-1]
+			require.Equal(t, tc.want, last.Action,
+				"failure-path audit must keep the nested command identity")
+			require.False(t, last.Result.Success, "the recorded result must be a failure")
+		})
+	}
+}
+
+// TestRun_FailurePathAudit_LeavesAreDistinct pins the observable consequence of
+// the fix: two different nested failures produce two DISTINCT actions in the
+// sink, both marked unsuccessful.
+func TestRun_FailurePathAudit_LeavesAreDistinct(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
+	t.Setenv("MUSTER_AUDIT_ENABLED", "1")
+	sink := filepath.Join(t.TempDir(), "audit.jsonl")
+	t.Setenv("MUSTER_AUDIT_LOG", sink)
+
+	originalArgs := os.Args
+	t.Cleanup(func() { os.Args = originalArgs })
+
+	for _, args := range [][]string{
+		{"webhook", "create", "--bogus-flag", "1"},
+		{"webhook", "add", "--url", "http://x"},
+	} {
+		os.Args = append([]string{"openapi-cli"}, args...)
+		require.Error(t, run())
+	}
+
+	events := readAuditSink(t, sink)
+	require.Len(t, events, 2, "each failed invocation must write one record")
+
+	actions := []string{events[0].Action, events[1].Action}
+	require.ElementsMatch(t, []string{
+		"command.openapi-cli webhook create",
+		"command.openapi-cli webhook add",
+	}, actions, "nested leaves must not collapse into one action")
+	for _, event := range events {
+		require.False(t, event.Result.Success)
+	}
+}
+
+// TestAuditCommandPath covers the argv→identity reconstruction directly: flag
+// values are skipped using cobra's own flag metadata (no hard-coded table),
+// nested commands keep their full leaf, and positional arguments are not
+// mistaken for commands.
+func TestAuditCommandPath(t *testing.T) {
+	root := builtin.NewRootCommand(&config.Config{Version: "test"})
+
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"no args", nil, "openapi-cli"},
+		{"only flags", []string{"--help"}, "openapi-cli"},
+		{"single command", []string{"webhook"}, "openapi-cli webhook"},
+		{"nested command", []string{"webhook", "create", "--bogus-flag", "1"}, "openapi-cli webhook create"},
+		{"unresolved nested word", []string{"webhook", "add", "--url", "http://x"}, "openapi-cli webhook add"},
+		{"persistent flag value skipped", []string{"--profile", "acme", "webhook", "create", "--bogus"}, "openapi-cli webhook create"},
+		{"flag equals form", []string{"--profile=acme", "webhook", "list"}, "openapi-cli webhook list"},
+		{"positional arg is not identity", []string{"webhook", "delete", "wh-1", "--bogus"}, "openapi-cli webhook delete"},
+		{"unknown root token kept", []string{"nosuchcommand", "--bogus"}, "openapi-cli nosuchcommand"},
+		{"flag terminator stops scan", []string{"webhook", "--", "create"}, "openapi-cli webhook"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, auditCommandPath(root, tc.args))
+		})
+	}
 }
 
 func TestMain_RunsProgram(t *testing.T) {
