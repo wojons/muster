@@ -1,0 +1,70 @@
+
+=== commit under test ===
+head=d8ac542407b3d40ae407979138c4e1336fd9fb26
+subject=fix(build): repair cross-platform script entry points. Addresses QA-MUSTER-20.
+body=Co-authored-by: Alexis Okuwa <wojonstech@gmail.com>
+
+author=totalwindupflightsystems
+
+files:
+ .../dogfood-evidence/qa-muster-20/build-probe.txt  |  72 +++++++
+ .../dogfood-evidence/qa-muster-20/guard-tier1.txt  |   6 +
+ .../dogfood-evidence/qa-muster-20/red-proof.txt    | 220 ++++++++++++++++++++
+ scripts/build.sh                                   |  48 ++++-
+ specs/BUILD-SYSTEM.md                              |  51 +++--
+ test/buildscript/build_script_test.go              | 226 +++++++++++++++++++++
+ 6 files changed, 599 insertions(+), 24 deletions(-)
+
+forbidden_paths_touched=0
+tree_clean_except_ignored=1
+
+=== AC-1 documented command on a clean tree ===
+Building for linux/amd64...
+  → Building ./cmd/openapi-cli as bin/muster-linux-amd64...
+  → Building ./cmd/mcp-server as bin/muster-mcp-linux-amd64...
+  → Building ./cmd/daemon as bin/muster-daemon-linux-amd64...
+Build complete!
+rc=0
+cli_exists_and_executable=0
+mode=-rwxrwxr-x size=28004617 name=bin/muster-linux-amd64
+mode=-rwxrwxr-x size=14033161 name=bin/muster-mcp-linux-amd64
+mode=-rwxrwxr-x size=7442697 name=bin/muster-daemon-linux-amd64
+
+=== AC-4 injection ===
+rc=0
+v9.9.9 (d8ac5424)
+contains_v999=1 dev_fallback=0
+v9.9.9 (d8ac5424)
+
+=== AC-2/AC-3 source invariants at the committed blob ===
+0
+23:LDFLAGS="-X github.com/wojons/muster/internal/version.Version=$VERSION"
+24:LDFLAGS="$LDFLAGS -X github.com/wojons/muster/internal/version.Commit=$COMMIT"
+25:LDFLAGS="$LDFLAGS -X github.com/wojons/muster/internal/version.BuildDate=$BUILD_DATE"
+64:    build_binary "./cmd/openapi-cli" "$cli_output"
+65:    build_binary "./cmd/mcp-server" "$mcp_output"
+66:    build_binary "./cmd/daemon" "$daemon_output"
+bare_cmd_target=0
+
+=== AC-5 documentation parity at the committed blobs ===
+=== RUN   TestBuildScript_SpecMatchesShippedScript
+--- PASS: TestBuildScript_SpecMatchesShippedScript (0.00s)
+PASS
+ok  	github.com/wojons/muster/test/buildscript	0.002s
+rc=0
+
+=== gates ===
+rc=0
+rc=0
+ok  	github.com/wojons/muster/test/buildscript	2.597s
+rc=0
+short_suite_rc=0
+suite_fail_lines=0
+
+=== working tree ===
+## wt/QA-MUSTER-20...origin/main [ahead 1, behind 5]
+?? .coding-hermes/dogfood-evidence/qa-muster-20/final-verification.txt
+
+final=complete
+
+NOTE: this transcript was captured at head=d8ac542407b3d40ae407979138c4e1336fd9fb26, the fix commit. It was then amended to include this file as evidence; the code/spec/test blobs are unchanged by that amend (git show --stat of the final commit lists only this transcript as added). Tree state during the AC-1/AC-4 legs was clean (no tracked modifications); the single untracked entry reported in the working-tree section is this very transcript.
