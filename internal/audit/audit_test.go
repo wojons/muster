@@ -405,8 +405,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.StorageType != "file" {
 		t.Errorf("StorageType = %q, want %q", cfg.StorageType, "file")
 	}
-	if cfg.RetentionDays != 90 {
-		t.Errorf("RetentionDays = %d, want 90", cfg.RetentionDays)
+	if cfg.RetentionDays != 365 {
+		t.Errorf("RetentionDays = %d, want 365", cfg.RetentionDays)
 	}
 	if cfg.BufferSize != 100 {
 		t.Errorf("BufferSize = %d, want 100", cfg.BufferSize)

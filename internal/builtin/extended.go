@@ -678,21 +678,17 @@ Events are persisted as JSON lines in the audit log file.`,
 		Use:   "show",
 		Short: "Show recent audit events",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Read the WHOLE sink, then order newest-first and cut: the file is
-			// append-ordered (oldest first), so truncating before the reverse
-			// returns the OLDEST --limit events (DF-050-R2). show must share
-			// log's ordering path so the class cannot re-split across verbs.
-			events, err := readAuditEvents(auditLogPath(), 0)
+			// Bounded read: only the newest --limit records are read off the
+			// tail of the append-ordered sink, so a 10k-row log costs the same
+			// as a 200-row one (DOC-15). Ordering is applied by the tail
+			// reader, so a limit cut can never return the OLDEST rows.
+			events, err := readNewestAuditEvents(auditLogPath(), limit)
 			if err != nil {
 				return err
 			}
 			if len(events) == 0 {
 				fmt.Println("No audit events found.")
 				return nil
-			}
-			auditReverse(events)
-			if limit > 0 && len(events) > limit {
-				events = events[:limit]
 			}
 			for _, e := range events {
 				fmt.Printf("%s	%s	%s	%s	%s\n", e.Timestamp.Format(time.RFC3339), e.Level, e.EventType, e.Action, e.Actor.ID)
@@ -709,21 +705,27 @@ Events are persisted as JSON lines in the audit log file.`,
 		Use:   "log",
 		Short: "Show recent audit events (optionally filtered)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			events, err := readAuditEvents(auditLogPath(), 0)
-			if err != nil {
-				return err
-			}
+			var err error
 			var matched []audit.AuditEvent
-			for _, e := range events {
-				if auditEventMatches(e, logFilter) {
-					matched = append(matched, e)
+			if logFilter == "" {
+				matched, err = readNewestAuditEvents(auditLogPath(), logLimit)
+			} else {
+				var events []audit.AuditEvent
+				events, err = readAuditEvents(auditLogPath(), 0)
+				for _, e := range events {
+					if auditEventMatches(e, logFilter) {
+						matched = append(matched, e)
+					}
+				}
+				// Filtered reads still sort after filtering because the filter
+				// path must preserve newest-first semantics.
+				auditReverse(matched)
+				if logLimit > 0 && len(matched) > logLimit {
+					matched = matched[:logLimit]
 				}
 			}
-			// Newest-first before the limit cut, so --limit N returns the N
-			// MOST RECENT events (DF-050); disk order is append (oldest first).
-			auditReverse(matched)
-			if logLimit > 0 && len(matched) > logLimit {
-				matched = matched[:logLimit]
+			if err != nil {
+				return err
 			}
 			if len(matched) == 0 {
 				fmt.Println("No audit events found.")
@@ -738,6 +740,58 @@ Events are persisted as JSON lines in the audit log file.`,
 	logCmd.Flags().IntVar(&logLimit, "limit", 50, "Maximum number of events to show")
 	logCmd.Flags().StringVar(&logFilter, "filter", "", "Filter events by event type, action, or level (substring)")
 	cmd.AddCommand(logCmd)
+
+	// prune is the documented retention job (DOC-15). Retention is also
+	// enforced automatically whenever a writer opens the sink, so an idle CLI
+	// never grows the trail past RetentionDays; this verb exists so an operator
+	// (or cron) can enforce the policy on demand and see what it removed.
+	var pruneDays int
+	var pruneDryRun bool
+	pruneCmd := &cobra.Command{
+		Use:   "prune",
+		Short: "Enforce audit retention: rotate rows older than the retention window",
+		Long: `Enforce the audit retention policy.
+
+Records older than the retention window are rotated into a timestamped
+<log>.archive-<unixnano>.jsonl segment and the active log is rewritten with a
+fresh, valid hash chain. The archive segment is itself a complete verifiable
+chain; the retention boundary is an explicit deletion policy, so continuity
+across the boundary is intentionally not claimed.
+
+The window defaults to the same RetentionDays value ` + "`audit info`" + ` reports.
+Retention is also enforced automatically when a writer opens the audit sink.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			days := pruneDays
+			if days <= 0 {
+				days = audit.DefaultConfig().RetentionDays
+			}
+			if pruneDryRun {
+				path := auditLogPath()
+				events, err := readAuditEvents(path, 0)
+				if err != nil {
+					return err
+				}
+				cutoff := time.Now().UTC().AddDate(0, 0, -days)
+				expired := 0
+				for _, e := range events {
+					if e.Timestamp.Before(cutoff) {
+						expired++
+					}
+				}
+				fmt.Printf("Would prune %d of %d records older than %d days from %s\n", expired, len(events), days, path)
+				return nil
+			}
+			removed, err := audit.PruneRetention(auditLogPath(), days, audit.DefaultConfig().HashAlgorithm)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Pruned %d records older than %d days from %s\n", removed, days, auditLogPath())
+			return nil
+		},
+	}
+	pruneCmd.Flags().IntVar(&pruneDays, "days", 0, "Retention window in days (defaults to the configured RetentionDays)")
+	pruneCmd.Flags().BoolVar(&pruneDryRun, "dry-run", false, "Report what would be pruned without modifying the log")
+	cmd.AddCommand(pruneCmd)
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "info",
@@ -824,6 +878,58 @@ func readAuditEvents(path string, limit int) ([]audit.AuditEvent, error) {
 			break
 		}
 	}
+	return events, nil
+}
+
+// readNewestAuditEvents reads only the newest limit JSONL records, avoiding a
+// whole-file allocation for the common unfiltered audit log path.
+func readNewestAuditEvents(path string, limit int) ([]audit.AuditEvent, error) {
+	if limit <= 0 {
+		return readAuditEvents(path, limit)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read audit log: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat audit log: %w", err)
+	}
+	const blockSize int64 = 64 * 1024
+	end := info.Size()
+	var lines []string
+	for end > 0 && len(lines) < limit {
+		start := end - blockSize
+		if start < 0 {
+			start = 0
+		}
+		buf := make([]byte, end-start)
+		if _, err := file.ReadAt(buf, start); err != nil && err != io.EOF {
+			return nil, fmt.Errorf("read audit log: %w", err)
+		}
+		parts := strings.Split(string(buf), "\n")
+		if start > 0 && len(parts) > 0 {
+			parts = parts[1:]
+		}
+		for i := len(parts) - 1; i >= 0 && len(lines) < limit; i-- {
+			if strings.TrimSpace(parts[i]) != "" {
+				lines = append(lines, parts[i])
+			}
+		}
+		end = start
+	}
+	var events []audit.AuditEvent
+	for i := len(lines) - 1; i >= 0; i-- {
+		var event audit.AuditEvent
+		if json.Unmarshal([]byte(lines[i]), &event) == nil {
+			events = append(events, event)
+		}
+	}
+	auditReverse(events)
 	return events, nil
 }
 

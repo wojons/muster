@@ -108,9 +108,10 @@ type AuditConfig struct {
 // DefaultFileStorageOptions returns the default file storage options.
 func DefaultFileStorageOptions() FileStorageOptions {
 	return FileStorageOptions{
-		MaxSize:    10 * 1024 * 1024,
-		MaxBackups: 5,
-		Compress:   false,
+		MaxSize:       10 * 1024 * 1024,
+		MaxBackups:    5,
+		Compress:      false,
+		RetentionDays: 365,
 	}
 }
 
@@ -146,9 +147,10 @@ type FileStorage struct {
 
 // FileStorageOptions configures file-based audit storage.
 type FileStorageOptions struct {
-	MaxSize    int64
-	MaxBackups int
-	Compress   bool
+	MaxSize       int64
+	MaxBackups    int
+	Compress      bool
+	RetentionDays int
 }
 
 // NewFileStorage creates a new file-based audit storage using the default
@@ -185,6 +187,13 @@ func (fs *FileStorage) Write(event *AuditEvent) error {
 	// timestamp, and non-disableable redaction of sensitive fields.
 	prepareEvent(event)
 
+	// Retention may have rotated the sink (rename) since this descriptor was
+	// opened. Re-open and re-seed in that case, otherwise the record would be
+	// appended to the unlinked inode and silently lost.
+	if err := fs.reopenIfRotated(); err != nil {
+		return err
+	}
+
 	// Seed from the sink when nothing has been written through this instance
 	// yet: another writer may have appended between open and now.
 	if fs.lastHash == "" {
@@ -214,6 +223,30 @@ func (fs *FileStorage) Write(event *AuditEvent) error {
 
 func (fs *FileStorage) Close() error {
 	return fs.file.Close()
+}
+
+// reopenIfRotated re-opens the sink when the path now points at a different
+// file than the one this writer holds open (retention rotates by renaming a
+// rewritten file into place). The chain is re-seeded from the new tail so the
+// next record links to whatever is actually persisted.
+func (fs *FileStorage) reopenIfRotated() error {
+	pathInfo, err := os.Stat(fs.path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err == nil {
+		if fdInfo, statErr := fs.file.Stat(); statErr == nil && os.SameFile(pathInfo, fdInfo) {
+			return nil
+		}
+	}
+	f, openErr := os.OpenFile(fs.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if openErr != nil {
+		return openErr
+	}
+	_ = fs.file.Close()
+	fs.file = f
+	fs.lastHash = ""
+	return nil
 }
 
 var _ AuditStorage = (*FileStorage)(nil)
