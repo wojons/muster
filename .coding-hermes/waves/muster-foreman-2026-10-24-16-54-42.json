@@ -1,0 +1,22 @@
+{
+  "scheduler_tick_id": "muster-foreman-2026-10-24-16-54-42",
+  "project": "muster",
+  "base": "702d35261ce3fd21f5700cb6d42d1e1a82160022",
+  "selection": {
+    "pending_count": 8,
+    "wave_budget": 12,
+    "eligible_independent_tasks": 0,
+    "selected_task": "CI-BILLING-002",
+    "mode": "serial-verification-only",
+    "reason": "Highest-priority pending row is an owner-gated GitHub Actions billing record; no worker or implementation wave is appropriate."
+  },
+  "workers": [],
+  "verification": {
+    "gitreins_task": "CI-BILLING-002",
+    "verdict": ".gitreins/history/2026-10-24/fcf49a3e/verdict.json",
+    "passed": true,
+    "implementation_commit": null,
+    "owner_blocked": true
+  },
+  "finished_at": "2026-10-24T17:00:25Z"
+}
