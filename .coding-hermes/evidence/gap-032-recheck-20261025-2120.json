@@ -1,0 +1,21 @@
+{
+  "task_id": "GAP-032",
+  "recheck_id": "gap-032-recheck-20261025-2120",
+  "observed_at_utc": "2026-10-25T21:20:36Z",
+  "head": "5e557a4ab36bc5eacd9385ea91a2ec435d0e3d96",
+  "repository": "wojons/muster",
+  "github_api": {
+    "endpoint": "repos/wojons/muster",
+    "visibility": "private",
+    "isPrivate": null,
+    "default_branch": "main"
+  },
+  "module_proxy": {
+    "url": "https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info",
+    "http_status": 404,
+    "body": "not recorded; endpoint returned 404"
+  },
+  "decision": "owner-blocked",
+  "worker_dispatched": false,
+  "unblock_owner_action": "Make the repository public, or publish the module through an authenticated reachable proxy and tag it."
+}
