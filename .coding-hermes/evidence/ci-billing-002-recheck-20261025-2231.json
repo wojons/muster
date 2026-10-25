@@ -1,0 +1,31 @@
+{
+  "tick_id": "muster-foreman-2026-10-25-22-31-18",
+  "task_id": "CI-BILLING-002",
+  "observed_at": "2026-10-25T22:31:18-05:00",
+  "head_before_closeout": "c05a606c7db99f3f366309d925acbf0e3aa0bbde",
+  "recent_runs": {
+    "query": "gh run list --repo wojons/muster --limit 3 --json status,conclusion,displayTitle,headBranch,createdAt",
+    "result": "three completed failures for evidence: recheck GAP-032 owner block at 2026-10-25T21:21:33Z"
+  },
+  "exact_owner_witness": {
+    "run_id": 39592424861,
+    "job_query": "gh api repos/wojons/muster/actions/runs/39592424861/jobs",
+    "job_name": "build",
+    "conclusion": "failure",
+    "steps": 0,
+    "runner_id": 0,
+    "runner_name": "",
+    "started_at": "2026-10-21T11:30:16Z",
+    "completed_at": "2026-10-21T11:30:19Z"
+  },
+  "module_witness": {
+    "repository_private": true,
+    "visibility": "private",
+    "proxy_v0_1_0_info_http": 404,
+    "release_objects_v0_1_0_v0_1_1": 0,
+    "tags_present": ["v0.1.0", "v0.1.1"]
+  },
+  "decision": "owner/infrastructure blocked; no implementation worker or duplicate row",
+  "owner_action": "Restore wojons organization GitHub Actions billing; make the private Go module fetchable through an authenticated reachable path or change visibility; authorize release-object backfill as applicable.",
+  "off_by_one": "none:verification-only no debugging"
+}

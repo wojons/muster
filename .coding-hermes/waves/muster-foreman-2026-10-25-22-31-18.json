@@ -1,0 +1,15 @@
+{
+  "tick_id": "muster-foreman-2026-10-25-22-31-18",
+  "project": "muster",
+  "wave_budget": 10,
+  "mode": "serial-verification",
+  "selected_task": "CI-BILLING-002",
+  "census": {
+    "pending_rows": 15,
+    "dispatchable_implementation_rows": 0,
+    "reason": "highest-priority pending row is owner/infrastructure gated"
+  },
+  "workers": [],
+  "status": "verification-only",
+  "owner_action": "Restore wojons organization GitHub Actions billing and re-probe a run with executed steps."
+}
