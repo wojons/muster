@@ -1,0 +1,41 @@
+{
+  "task": "CI-BILLING-002",
+  "tick_id": "muster-foreman-2026-10-25-21-34-23",
+  "observed_at": "2026-10-25T21:34:00Z",
+  "repository": "wojons/muster",
+  "head": "ea878c981f60b855b61da6a472b56f93de01438d",
+  "repository_visibility": {
+    "private": true,
+    "visibility": "private"
+  },
+  "recent_runs": [
+    {
+      "created_at": "2026-10-25T21:21:33Z",
+      "head_sha": "a9024f28cb02f5b5fdb90f45f991e1baf97184d5",
+      "conclusion": "failure",
+      "jobs": [{"name": "build", "runner_id": 0, "steps": 0, "conclusion": "failure"}]
+    },
+    {
+      "created_at": "2026-10-25T21:21:33Z",
+      "head_sha": "a9024f28cb02f5b5fdb90f45f991e1baf97184d5",
+      "conclusion": "failure",
+      "jobs": [{"name": "Platform-Specific Tests (Linux-SELinux)", "runner_id": 0, "steps": 0, "conclusion": "failure"}, {"name": "Test ubuntu-latest", "runner_id": 0, "steps": 0, "conclusion": "failure"}, {"name": "Test macos-latest", "runner_id": 0, "steps": 0, "conclusion": "failure"}, {"name": "ARM64 Compatibility (macOS Apple Silicon)", "runner_id": 0, "steps": 0, "conclusion": "failure"}, {"name": "Platform-Specific Tests (Windows-Credential)", "runner_id": 0, "steps": 0, "conclusion": "failure"}, {"name": "Platform-Specific Tests (macOS-Keychain)", "runner_id": 0, "steps": 0, "conclusion": "failure"}, {"name": "Linux Socket Permission Tests", "runner_id": 0, "steps": 0, "conclusion": "failure"}, {"name": "Windows Path Separator Tests", "runner_id": 0, "steps": 0, "conclusion": "failure"}, {"name": "Test windows-latest", "runner_id": 0, "steps": 0, "conclusion": "failure"}]
+    },
+    {
+      "created_at": "2026-10-25T21:21:33Z",
+      "head_sha": "a9024f28cb02f5b5fdb90f45f991e1baf97184d5",
+      "conclusion": "failure",
+      "jobs": [{"name": "build-and-test", "runner_id": 0, "steps": 0, "conclusion": "failure"}]
+    }
+  ],
+  "module_proxy_http_status": 404,
+  "release_objects_v0_1_0_v0_1_1": 0,
+  "decision": "blocked-owner",
+  "owner_action": "Restore wojons organization GitHub Actions billing; make the private module fetchable through an authenticated reachable path or change visibility; authorize release-object backfill as applicable.",
+  "gitreins": {
+    "task": "CI-BILLING-002-recheck-20261025-2134",
+    "verdict": "8581f507",
+    "passed": true,
+    "history": ".gitreins/history/2026-10-25/8581f507/verdict.json"
+  }
+}
