@@ -1,0 +1,19 @@
+{
+  "tick_id": "muster-foreman-2026-10-25-22-44-31",
+  "task": "CI-BILLING-002",
+  "observed_at": "2026-10-25T22:46:28Z",
+  "repository": "wojons/muster",
+  "head": "623ee315f52c392e7930a3b635e1786e6720b546",
+  "recent_runs": [
+    {"id": 40235116998, "status": "completed", "conclusion": "failure", "steps": 0, "runner": ""},
+    {"id": 40235116848, "status": "completed", "conclusion": "failure", "steps": 0, "runner": ""},
+    {"id": 40235116808, "status": "completed", "conclusion": "failure", "steps": 0, "runner": ""}
+  ],
+  "exact_recorded_run": {"id": 39592424861, "job": "build", "conclusion": "failure", "steps": 0, "runner_id": 0, "runner_name": ""},
+  "repository_visibility": "private",
+  "proxy_v0_1_0_info_http": 404,
+  "release_objects_v0_1_0_v0_1_1": 0,
+  "tags_present": ["v0.1.0", "v0.1.1"],
+  "verdict": "blocked-owner",
+  "owner_action": "Restore wojons organization GitHub Actions billing; make the private Go module fetchable through an authenticated reachable path or change visibility; authorize release-object backfill as applicable."
+}
