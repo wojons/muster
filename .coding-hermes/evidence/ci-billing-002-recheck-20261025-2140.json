@@ -1,0 +1,38 @@
+{
+  "tick": "muster-foreman-2026-10-25-21-40-48",
+  "task": "CI-BILLING-002",
+  "observed_at": "2026-10-25T21:44:23Z",
+  "head_before_closeout": "7d98d5dc8ecb6b88f8e579418d674d94eebc4ed4",
+  "repository": {
+    "remote": "git@github.com:wojons/muster.git",
+    "private": true,
+    "visibility": "private"
+  },
+  "github_actions": {
+    "runs": [40235116998, 40235116848, 40235116808],
+    "observed": "latest three listed runs completed with conclusion=failure",
+    "latest_run": {
+      "id": 40235116998,
+      "workflow": "Docker Build",
+      "head_sha": "a9024f28cb02f5b5fdb90f45f991e1baf97184d5",
+      "jobs": [{
+        "name": "build",
+        "conclusion": "failure",
+        "steps": 0,
+        "runner_id": 0,
+        "runner_name": ""
+      }]
+    },
+    "classification": "known wojons organization Actions billing block: no runner steps started"
+  },
+  "go_module_proxy": {
+    "version": "v0.1.0",
+    "url": "https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info",
+    "http_status": 404
+  },
+  "release_objects": {
+    "tags_checked": ["v0.1.0", "v0.1.1"],
+    "matching_release_objects": 0
+  },
+  "decision": "Keep CI-BILLING-002 pending; no implementation worker dispatched. Owner must restore Actions billing and make module access/release authorization decisions."
+}
