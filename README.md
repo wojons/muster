@@ -234,6 +234,43 @@ c := client.NewClient(client.WithBaseURL("https://api.example.com"), client.With
 
 23 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
 
+## Docker
+
+Build the image from the repository root:
+
+```bash
+docker build -f Dockerfile -t muster:latest .
+```
+
+Run any of the three binaries:
+
+```bash
+# CLI
+docker run --rm muster:latest openapi-cli --help
+docker run --rm muster:latest openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+
+# MCP server
+docker run --rm -p 8080:8080 muster:latest openapi-mcp --spec https://petstore3.swagger.io/api/v3/openapi.json
+
+# Daemon
+docker run --rm -v /tmp/muster.sock:/tmp/muster.sock muster:latest openapi-daemon start --socket-path /tmp/muster.sock
+```
+
+Or use docker-compose with profiles:
+
+```bash
+# Start core dependencies (db, redis)
+docker compose up -d
+
+# Start specific services
+docker compose --profile daemon up -d
+docker compose --profile mcp up -d
+docker compose --profile cli up -d
+
+# Full stack (api, daemon, nginx, prometheus, grafana)
+docker compose --profile prod up -d
+```
+
 ## Build from source
 
 > **Note:** The repo is **PRIVATE** — clone requires GitHub credentials (see [Quick start](#quick-start) for GOPRIVATE setup).
