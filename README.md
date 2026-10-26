@@ -138,7 +138,7 @@ yet, `./demo/run-all.sh --bootstrap` creates it and installs Flask.
 make test-short           # Quick pass: all tests in -short mode — skips the long-running stability soak
 make test-integration     # Integration-tagged tests (-tags=integration -run Integration) — proves components connect
 make test-e2e             # Builds the binaries, then runs the end-to-end suite in test/e2e
-make validate             # Full validation gate: unit tests + lint + vet + integration tests + security audit
+make validate             # Full validation gate: unit tests + lint + vet + integration tests + security audit (see validate note below)
 ./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs 21 demo scripts + 6 integration suites (33 checks total)
 DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh   # no venv yet? add --bootstrap to create .venv and install Flask
 ```
@@ -147,6 +147,13 @@ DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh   # no venv yet? add --bootstrap 
 > the `stability` build tag, so bare `go test ./...` does not include that soak and
 > is safe for the normal suite. Use `make test-short` when you want the repository's
 > quicker short-mode validation.
+
+> **`make validate` note:** the target's checks (unit tests, lint, vet, integration
+> tests, security audit) are real gates, but its final stage runs the partial
+> integration demo, which is informational only — it currently reports 5 of 10
+> scenarios mocked (remediation in progress) and is NOT a green pre-commit gate.
+> `make validate` still exits 0 because the demo stage is not scored; use
+> `./demo/run-all.sh` for the real end-to-end gate.
 
 ## CLI
 
