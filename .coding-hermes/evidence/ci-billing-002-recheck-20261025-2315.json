@@ -1,0 +1,16 @@
+{
+  "tick": "muster-foreman-2026-10-25-23-15-36",
+  "task": "CI-BILLING-002",
+  "observed_at": "2026-10-25T23:15:36-05:00",
+  "repo": "wojons/muster",
+  "visibility": {"isPrivate": null, "visibility": "private"},
+  "proxy_v0_1_0_info_http": 404,
+  "release_objects_v0_1_0_v0_1_1": 0,
+  "recent_runs": [
+    {"id": 40235116998, "status": "completed", "conclusion": "failure", "head_sha": "a9024f28cb02f5b5fdb90f45f991e1baf97184d5", "steps": 0, "runner_id": 0, "runner_name": ""},
+    {"id": 40235116848, "status": "completed", "conclusion": "failure", "head_sha": "a9024f28cb02f5b5fdb90f45f991e1baf97184d5", "steps": 0, "runner_id": 0, "runner_name": ""},
+    {"id": 40235116808, "status": "completed", "conclusion": "failure", "head_sha": "a9024f28cb02f5b5fdb90f45f991e1baf97184d5", "steps": 0, "runner_id": 0, "runner_name": ""}
+  ],
+  "worker": "none:owner-block",
+  "verdict": "blocked-owner"
+}
