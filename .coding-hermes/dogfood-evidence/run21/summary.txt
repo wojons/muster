@@ -1,0 +1,14 @@
+Muster dogfood run 21 — tick muster-dogfood-2026-10-26-14-01-09
+HEAD: 1ea7c54a0e3bbea311da1538b3785011f85078b6
+
+Clean detached worktree: /tmp/muster-dogfood-20261026-1401/src
+Build: make build rc=0; cold 14.54s; warm 2.00s
+CLI: version/discover/generate all rc=0; scratch HOME
+Demo: prerequisite-free run rc=1 (0.03s) with actionable Flask/venv message; after documented venv install run-all rc=0, cold 21.59s, warm 19.89s, 33/33 checks
+Daemon: start/status/stop rc=0; scratch socket removed
+Audit: info/status/verify/log/show/prune --dry-run all rc=0; verify reported 2 records, chain intact
+Docker: build rc=0, cold 182.50s, warm rebuild 168.78s; CLI/MCP/daemon help probes rc=0; image removed
+Perf: no PERF row; user-facing operations around 10ms, demo warm 19.89s/33 checks; no noticeable runtime latency
+Install evidence: /tmp/bunker-qa-evidence-20261026T142133Z-3945564.jsonl
+Install: launched on bunker-mvp agent 347dfc56; fresh-install FAIL no space left on device; ci-pass FAIL native test/security + test/util and act image unavailable; battery truncated; agent destroyed and absent in post-destroy bunker list
+No board rows filed; no scheduler mutation; target checkout only gained this report/evidence.

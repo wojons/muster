@@ -508,3 +508,19 @@ Both arms ran back-to-back with no docker/act load, so this is not the agent bei
 **Residue:** agent `53097b60` **destroyed** (first `bunker destroy` was refused by the live-process gate naming two host-level pids; the retry found it gone and removed the local SSH key; `bunker list` now shows 6 agents, no `53097b60`). Evidence saved under `.coding-hermes/dogfood-evidence/run20/`: `install-leg-cells.jsonl` (the 22-row collect), `install-leg-native.txt` (the failing suite), `install-leg-upgrade-env.txt` (the libseccomp gap). Scratch `/tmp/mf20*` and `/tmp/bunker-qa-evidence-20261023T124416Z-3104346.jsonl` are left in place as the run's raw record.
 
 *ch:trace row=QA-MUSTER-19-R2 spec=.github/workflows/ci.yml:build-and-test-test-step test=run20/install-leg-native.txt+A/B(GOTOOLCHAIN=go1.27.3) doc=none:go.mod-has-no-toolchain-directive evidence=.coding-hermes/dogfood-evidence/run20/install-leg-cells.jsonl witness=dogfood-run20-install-leg-finish verdict=P1-recurrence-live commit=pending*
+
+## 2026-10-26 (run 21) — documented CLI/demo/daemon/Docker path + fresh bunker leg
+
+Promise: a new user can build Muster, discover and generate commands from an OpenAPI document, run the documented local demo, use the daemon lifecycle, and run the Docker entry points.
+
+**Verdict: PROMISING-BUT-ROUGH.** The real local path works after the documented Flask/venv prerequisite. `make build` passed cold in 14.54s and warm in 2.00s; `./demo/run-all.sh` passed all 33 checks in 21.59s cold after setup and 19.89s warm; daemon start/status/stop each passed and cleaned the scratch socket; Docker built in 182.50s cold and the three binary help probes passed. CLI version/discover/generate and audit info/status/verify/log/show/prune all passed in isolated HOME.
+
+**Perf:** no PERF row. User-facing CLI invocations were about 0.01s each and the 33-check demo was 19.89s warm; neither was noticeable runtime latency. Build/image times are setup costs, not a measured runtime regression, so profiling was not warranted.
+
+**Install leg:** executed, not skipped. `bunker-qa.sh launch /home/kara/wojons/muster --keep` tested HEAD `1ea7c54a` on `bunker-mvp`, agent `347dfc56`, evidence `/tmp/bunker-qa-evidence-20261026T142133Z-3945564.jsonl`. The fresh-install cell failed with `no space left on device` during Go build-directory creation. `ci-pass` also failed with native `test/security` credential failures and `test/util` build failure; its act arm separately could not create `catthehacker/ubuntu:act-latest`. The battery truncated before final chaos cells. This is incomplete fresh-box evidence, not a product install pass and not a SKIPPED-install-bunker row. Agent teardown completed; post-destroy `bunker list` reported `347dfc56` absent.
+
+No board rows were filed: the fresh-box failures are not attributable to the product from this incomplete, storage-constrained battery, and no user-facing defect was found in the documented local path. No scheduler mutation and no foreman wake.
+
+Artifacts: `docs/dogfood/2026-10-26-integration.md` and `.coding-hermes/dogfood-evidence/run21/summary.txt`.
+
+*ch:trace tick=muster-dogfood-2026-10-26-14-01-09 head=1ea7c54a0e3bbea311da1538b3785011f85078b6 report=docs/dogfood/2026-10-26-integration.md evidence=.coding-hermes/dogfood-evidence/run21/summary.txt install=/tmp/bunker-qa-evidence-20261026T142133Z-3945564.jsonl verdict=PROMISING-BUT-ROUGH perf=none rows=0*
