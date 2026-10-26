@@ -232,7 +232,7 @@ doc, _ := parser.Parse(ctx, specBytes, openapi.DefaultParseOptions())
 c := client.NewClient(client.WithBaseURL("https://api.example.com"), client.WithTimeout(30*time.Second))
 ```
 
-29 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
+23 public packages under `pkg/`. The same packages the CLI uses. Runnable end-to-end example: [docs/integration-guide.md](docs/integration-guide.md#4-go-library-githubcomwojonsmusterpkg).
 
 ## Build from source
 
@@ -310,7 +310,7 @@ the venv are `pipx install flask` or
 cmd/openapi-cli/     # CLI entry point
 cmd/mcp-server/      # MCP server entry point
 cmd/daemon/          # Daemon entry point
-pkg/                 # 29 public packages (importable)
+pkg/                 # 23 public packages (importable)
   openapi/           # OpenAPI spec parsing
   mcp/               # MCP protocol implementation
   protocol/          # gRPC, JSON-RPC/OpenRPC, and GraphQL adapters
@@ -322,10 +322,10 @@ pkg/                 # 29 public packages (importable)
   cache/             # Multi-tier caching
   rate/              # Token bucket rate limiter
   auth/              # OAuth2, mTLS, bearer tokens
-  ...                # 12 more package directories
+  ...                # 6 more package directories
 internal/            # Private utilities
 demo/                # Self-contained demo (5 services, 14 scripts)
-specs/               # 230+ specification files
+specs/               # 228 specification files
 ```
 
 ## Limits / known gaps
