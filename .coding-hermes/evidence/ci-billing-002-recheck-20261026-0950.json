@@ -1,0 +1,18 @@
+{
+  "tick_id": "muster-foreman-2026-10-26-09-50-40",
+  "observed_at": "2026-10-26T09:57:22Z",
+  "row": "CI-BILLING-002",
+  "latest_runs": [
+    {"id": 40272960011, "title": "chore: record tick trace trailer", "head_sha": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b", "status": "completed", "conclusion": "failure", "job": "build-and-test", "runner_id": 0, "runner_name": "", "steps": 0},
+    {"id": 40272960005, "title": "chore: record tick trace trailer", "head_sha": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b", "status": "completed", "conclusion": "failure", "job": "build", "runner_id": 0, "runner_name": "", "steps": 0},
+    {"id": 40272960001, "title": "chore: record tick trace trailer", "head_sha": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b", "status": "completed", "conclusion": "failure", "job": "build", "runner_id": 0, "runner_name": "", "steps": 0}
+  ],
+  "recorded_run_probe": {"run_id": 39592424861, "job": "build", "conclusion": "failure", "runner_id": 0, "runner_name": "", "steps": 0},
+  "repository": {"private": true, "visibility": "private"},
+  "go_proxy_v010_info_http_status": 404,
+  "release_objects": {"v0.1.0": false, "v0.1.1": false},
+  "tags_found": 2,
+  "dispatch": "none:owner-block",
+  "gitreins": {"task_id": "CI-BILLING-002-recheck-20261026-0950-40", "verdict": "037d3492", "passed": true},
+  "head": "eaff07791bea9871355240fbcc185d31083b83ca"
+}

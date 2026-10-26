@@ -1,0 +1,18 @@
+{
+  "tick_id": "muster-foreman-2026-10-26-09-50-40",
+  "project": "muster",
+  "mode": "serial-verification-only",
+  "status": "finished-verification-only-no-dispatch",
+  "workers": [],
+  "wave_budget": 10,
+  "census": {
+    "picked": "CI-BILLING-002",
+    "pending_rows_before": 8,
+    "owner_or_infrastructure_rows": 8,
+    "dispatchable_implementation_rows": 0,
+    "reason": "highest-priority pending row remains owner/infrastructure gated; no implementation wave"
+  },
+  "finished_at": "2026-10-26T09:57:22Z",
+  "evidence": ".coding-hermes/evidence/ci-billing-002-recheck-20261026-0950.json",
+  "gitreins_verdict": "037d3492"
+}
