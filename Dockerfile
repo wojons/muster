@@ -80,6 +80,23 @@ RUN STAMP_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)" \
     -o openapi-mcp \
     ./cmd/mcp-server
 
+# Build daemon binary
+RUN STAMP_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || true)" \
+ && [ -n "${STAMP_COMMIT}" ] || STAMP_COMMIT="${GIT_COMMIT:-unknown}" \
+ && [ -n "${GIT_COMMIT}" ] && STAMP_COMMIT="${GIT_COMMIT}" || true \
+ && STAMP_DATE="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" \
+ && STAMP_GO="$(go version | awk '{print $3}')" \
+ && echo "Stamping version=${VERSION:-dev} commit=${STAMP_COMMIT} date=${STAMP_DATE} go=${STAMP_GO}" \
+ && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s -extldflags \"-static\" \
+    -X github.com/wojons/muster/internal/version.Version=${VERSION:-dev} \
+    -X github.com/wojons/muster/internal/version.Commit=${STAMP_COMMIT} \
+    -X github.com/wojons/muster/internal/version.BuildDate=${STAMP_DATE} \
+    -X github.com/wojons/muster/internal/version.GoVersion=${STAMP_GO}" \
+    -a -installsuffix cgo \
+    -o openapi-daemon \
+    ./cmd/daemon
+
 # Run tests (exclude platform-specific and security tests that need special environments)
 # Note: single $(...) — Docker interpolates only $var/${var}, not $(...); double-$$ breaks /bin/sh
 RUN go test -v -short -timeout 120s $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security) 2>&1 | tee test-results.txt
@@ -96,6 +113,7 @@ RUN apk add --no-cache jq curl
 
 COPY --from=builder /build/openapi-cli /tmp/
 COPY --from=builder /build/openapi-mcp /tmp/
+COPY --from=builder /build/openapi-daemon /tmp/
 
 # Scan binaries for vulnerabilities (fail on HIGH/CRITICAL)
 RUN trivy filesystem --exit-code 0 --severity HIGH,CRITICAL --no-progress /tmp/ 2>/dev/null || true
@@ -146,6 +164,7 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 # Copy binaries from builder
 COPY --from=builder /build/openapi-cli /usr/local/bin/openapi-cli
 COPY --from=builder /build/openapi-mcp /usr/local/bin/openapi-mcp
+COPY --from=builder /build/openapi-daemon /usr/local/bin/openapi-daemon
 
 # Expose port for HTTP daemon mode
 EXPOSE 8080
