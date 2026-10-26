@@ -1,0 +1,17 @@
+{
+  "tick_id": "muster-foreman-2026-10-26-21-22-01",
+  "task": "GAP-032",
+  "observed_at": "2026-10-26T21:22:01-05:00",
+  "repository": "wojons/muster",
+  "repository_visibility": "private",
+  "repository_private_field": null,
+  "visibility_probe": "gh api repos/wojons/muster --jq '{isPrivate, visibility}'",
+  "visibility_probe_result": {"isPrivate": null, "visibility": "private"},
+  "proxy_url": "https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info",
+  "proxy_http_status": 404,
+  "proxy_body_class": "private-repository-authentication-error",
+  "owner_settings_changed": false,
+  "worker_dispatched": false,
+  "classification": "owner/infrastructure block; repository is private and the unauthenticated Go proxy cannot resolve the module",
+  "witness": "visibility=private+proxy_http=404+owner_settings_changed=false"
+}

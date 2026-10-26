@@ -1,0 +1,10 @@
+{
+  "tick_id": "muster-foreman-2026-10-26-21-22-01",
+  "mode": "serial-verification-only",
+  "wave_budget": 4,
+  "task": "GAP-032",
+  "workers": [],
+  "dispatchable_implementation_rows": 0,
+  "reason": "highest-priority pending row remains owner/infrastructure gated",
+  "evidence": ".coding-hermes/evidence/gap-032-recheck-20261026-2122.json"
+}

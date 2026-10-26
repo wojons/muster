@@ -5,5 +5,7 @@
   "task": "CI-BILLING-002",
   "workers": [],
   "dispatchable_implementation_rows": 0,
-  "reason": "highest-priority pending row remains owner/infrastructure gated"
+  "reason": "highest-priority pending row remains owner/infrastructure gated",
+  "finished_at": "2026-10-26T12:27:30Z",
+  "recovery_outcome": "NO-OP verified: manifest recorded zero workers; current worktree census has no worktree or process attributable to this manifest. Existing wt/* branches belong to prior recovered evidence and were not touched."
 }
