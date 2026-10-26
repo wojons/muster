@@ -245,15 +245,17 @@ docker build -f Dockerfile -t muster:latest .
 Run any of the three binaries:
 
 ```bash
-# CLI
-docker run --rm muster:latest openapi-cli --help
-docker run --rm muster:latest openapi-cli discover https://petstore3.swagger.io/api/v3/openapi.json
+# CLI (the image's default entrypoint)
+docker run --rm muster:latest --help
+docker run --rm muster:latest discover https://petstore3.swagger.io/api/v3/openapi.json
 
-# MCP server
-docker run --rm -p 8080:8080 muster:latest openapi-mcp --spec https://petstore3.swagger.io/api/v3/openapi.json
+# MCP server (override the CLI entrypoint)
+docker run --rm --entrypoint /usr/local/bin/openapi-mcp muster:latest --help
+docker run --rm -p 8080:8080 --entrypoint /usr/local/bin/openapi-mcp muster:latest --spec https://petstore3.swagger.io/api/v3/openapi.json
 
-# Daemon
-docker run --rm -v /tmp/muster.sock:/tmp/muster.sock muster:latest openapi-daemon start --socket-path /tmp/muster.sock
+# Daemon (override the CLI entrypoint)
+docker run --rm --entrypoint /usr/local/bin/openapi-daemon -v /tmp/muster.sock:/tmp/muster.sock muster:latest --help
+docker run --rm --entrypoint /usr/local/bin/openapi-daemon -v /tmp/muster.sock:/tmp/muster.sock muster:latest start --socket-path /tmp/muster.sock
 ```
 
 Or use docker-compose with profiles:
