@@ -1,0 +1,18 @@
+{
+  "tick": "muster-foreman-2026-10-26-06-49-58",
+  "task": "CI-BILLING-002",
+  "observed_at": "2026-10-26T06:53:14Z",
+  "head_before_closeout": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b",
+  "latest_runs": [
+    {"id": 40272960011, "head_sha": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b", "status": "completed", "conclusion": "failure", "job": "build-and-test", "steps": 0, "runner_name": ""},
+    {"id": 40272960005, "head_sha": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b", "status": "completed", "conclusion": "failure", "job": "build", "steps": 0, "runner_name": ""},
+    {"id": 40272960001, "head_sha": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b", "status": "completed", "conclusion": "failure", "job": "Platform-Specific Tests (Linux-SELinux)", "steps": 0, "runner_name": ""}
+  ],
+  "repository": {"private": true, "visibility": "private"},
+  "go_proxy": {"url": "https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info", "http_status": 404},
+  "release_objects": {"v0.1.0": false, "v0.1.1": false},
+  "owner_action": "Restore wojons organization GitHub Actions billing; make the private Go module fetchable through an authenticated reachable path or change repository visibility; authorize release-object backfill as applicable.",
+  "dispatch": "none:owner-block",
+  "gitreins": {"task": "CI-BILLING-002-recheck-20261026-0458-56", "verdict": "PASS", "evaluated_commit": "71e108368d3ced8e1be8f9a5cf89ef29a07b7284", "history": ".gitreins/history/2026-10-26/ebe41045/verdict.json"},
+  "off_by_one": "none:verification-only no debugging"
+}

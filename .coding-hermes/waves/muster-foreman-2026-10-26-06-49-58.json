@@ -1,0 +1,21 @@
+{
+  "tick_id": "muster-foreman-2026-10-26-06-49-58",
+  "project": "muster",
+  "budget": 7,
+  "mode": "serial-verification-only",
+  "base": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b",
+  "census": {
+    "raw_board_lines": 277,
+    "effective_pending_rows": 8,
+    "dispatchable_implementation_rows": 0,
+    "owner_or_infrastructure_rows": ["CI-BILLING-002", "GAP-032", "INT-CI-001", "RELEASE-001", "RELEASE-003", "CI-BILLING-003", "REVIEW2-MUSTER-5", "RELEASE-012"],
+    "fixture_rows": ["NEVER-DONE"],
+    "picked_task": "CI-BILLING-002",
+    "reason": "highest-priority pending row is owner/infrastructure-gated; serial fallback and no implementation worker"
+  },
+  "workers": [],
+  "owner_action": "Restore wojons organization GitHub Actions billing; make the private Go module fetchable; authorize release-object backfill as applicable.",
+  "evidence": ".coding-hermes/evidence/ci-billing-002-recheck-20261026-0649.json",
+  "status": "finished-verification-only-no-dispatch",
+  "finished_at": "2026-10-26T06:53:14Z"
+}
