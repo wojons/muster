@@ -13,6 +13,8 @@
   "release_objects": {"v0.1.0": false, "v0.1.1": false},
   "owner_action": "Restore wojons organization GitHub Actions billing; make the private Go module fetchable through an authenticated reachable path or change repository visibility; authorize release-object backfill as applicable.",
   "dispatch": "none:owner-block",
-  "gitreins": {"task": "CI-BILLING-002-recheck-20261026-0458-56", "verdict": "PASS", "evaluated_commit": "71e108368d3ced8e1be8f9a5cf89ef29a07b7284", "history": ".gitreins/history/2026-10-26/ebe41045/verdict.json"},
+  "gitreins": {"task": "CI-BILLING-002-recheck-20261026-0649-58", "verdict": "PASS", "evaluated_commit": "e7c4a4d8ddd78d58e86bbb1fd195e59e7b335c0d", "history": ".gitreins/history/2026-10-26/00f60876/verdict.json", "deleted": true},
+  "closeout_commit": "e21a78fd15937e1cc6597c28a7047c178c87023f",
+  "post_closeout_ci": {"queried_sha": "e21a78fd15937e1cc6597c28a7047c178c87023f", "matching_runs": [], "latest_runs": [40272960011, 40272960005, 40272960001], "latest_run_head_sha": "40fb540d0a7744ee0f5ae91c6f90c78cb14b867b", "classification": "no workflow was created for the [ci skip] closeout; latest failures remain zero-step billing block on prior SHA"},
   "off_by_one": "none:verification-only no debugging"
 }
