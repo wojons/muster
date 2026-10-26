@@ -96,7 +96,7 @@ PORT=9801 .venv/bin/python3 demo/services/task-forge/server.py
 # MUSTER_BASE_URL) — running such a command without one fails with a hint
 # naming those two options instead of a bare http error.
 
-# Run the full demo (5 mock services, 14 scripts, all 7 surfaces).
+# Run the full demo (5 mock services, 21 demo scripts, 6 integration suites, 33 checks total).
 # The mock services are Flask apps — install the pinned demo dependencies once
 # (a bare system `pip install flask` is refused on Debian 12/13, Ubuntu 23.04+):
 ./demo/run-all.sh
@@ -122,7 +122,7 @@ The demo spins up 5 mock services and exercises every surface:
 python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt
 
 cd demo && ./run-all.sh
-# Builds binaries → starts 5 services → runs 14 demos + 6 integration suites → prints the pass/fail count → cleans up
+# Builds binaries → starts 5 services → runs 21 demos + 6 integration suites (33 checks) → prints the pass/fail count → cleans up
 ```
 
 `run-all.sh` probes its interpreter for `flask` **before** it builds anything: with
@@ -139,7 +139,7 @@ make test-short           # Quick pass: all tests in -short mode — skips the l
 make test-integration     # Integration-tagged tests (-tags=integration -run Integration) — proves components connect
 make test-e2e             # Builds the binaries, then runs the end-to-end suite in test/e2e
 make validate             # Full validation gate: unit tests + lint + vet + integration tests + security audit
-./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs the 14 demo scripts + 6 integration suites (see run-all.sh output for the live check count)
+./demo/run-all.sh         # The real end-to-end gate: builds, starts the 5 demo services, runs 21 demo scripts + 6 integration suites (33 checks total)
 DEMO_PYTHON=/path/to/python3 ./demo/run-all.sh   # no venv yet? add --bootstrap to create .venv and install Flask
 ```
 
