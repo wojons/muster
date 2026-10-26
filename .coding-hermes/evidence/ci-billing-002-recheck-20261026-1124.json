@@ -1,0 +1,19 @@
+{
+  "tick_id": "muster-foreman-2026-10-26-11-24-58",
+  "task": "CI-BILLING-002",
+  "observed_at": "2026-10-26T06:28:37-05:00",
+  "github_repo": "wojons/muster",
+  "latest_runs": [
+    {"id": 40272960011, "conclusion": "failure", "jobs": [{"name": "build-and-test", "steps": 0, "runner_name": ""}]},
+    {"id": 40272960005, "conclusion": "failure", "jobs": [{"name": "build", "steps": 0, "runner_name": ""}]},
+    {"id": 40272960001, "conclusion": "failure", "jobs": [{"name": "Platform-Specific Tests (Linux-SELinux)", "steps": 0, "runner_name": ""}, {"name": "Test ubuntu-latest", "steps": 0, "runner_name": ""}, {"name": "Test macos-latest", "steps": 0, "runner_name": ""}, {"name": "Platform-Specific Tests (Windows-Credential)", "steps": 0, "runner_name": ""}, {"name": "Windows Path Separator Tests", "steps": 0, "runner_name": ""}, {"name": "ARM64 Compatibility (macOS Apple Silicon)", "steps": 0, "runner_name": ""}, {"name": "Platform-Specific Tests (macOS-Keychain)", "steps": 0, "runner_name": ""}, {"name": "Linux Socket Permission Tests", "steps": 0, "runner_name": ""}, {"name": "Test windows-latest", "steps": 0, "runner_name": ""}]}
+  ],
+  "recorded_run": {"id": 39592424861, "job": "build", "conclusion": "failure", "steps": 0, "runner_id": 0, "runner_name": ""},
+  "repository_visibility": "private",
+  "proxy_v0_1_0_info_http_status": 404,
+  "tags": {"v0.1.0": "9091a849940440180c54848976b1256b5558ad69", "v0.1.1": "fc3b9b8f5e429f88dd8573172d37b5116998e434"},
+  "release_objects_v0_1_0_v0_1_1": 0,
+  "worker_dispatched": false,
+  "source_changed": false,
+  "verdict": "blocked-owner"
+}

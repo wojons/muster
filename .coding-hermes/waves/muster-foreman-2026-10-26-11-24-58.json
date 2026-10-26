@@ -1,0 +1,9 @@
+{
+  "tick_id": "muster-foreman-2026-10-26-11-24-58",
+  "mode": "serial-verification-only",
+  "wave_budget": 12,
+  "task": "CI-BILLING-002",
+  "workers": [],
+  "dispatchable_implementation_rows": 0,
+  "reason": "highest-priority pending row remains owner/infrastructure gated"
+}
