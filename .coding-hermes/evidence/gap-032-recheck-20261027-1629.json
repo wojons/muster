@@ -1,0 +1,27 @@
+{
+  "task_id": "GAP-032",
+  "tick_id": "muster-foreman-2026-10-27-21-27-40",
+  "tested_commit": "da898ad977e7d3f17483ba926d19b5ca6adbd343",
+  "observed_at": "2026-10-27T21:29:05Z",
+  "acceptance": {
+    "repository_public": {
+      "command": "gh api repos/wojons/muster --jq '.private'",
+      "exit_code": 0,
+      "stdout": "true"
+    },
+    "proxy_module_info": {
+      "command": "curl -sS -o /tmp/muster-proxy-info.body -w '%{http_code}\\n' https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info",
+      "exit_code": 0,
+      "stdout": "404",
+      "body": "not found: github.com/wojons/muster@v0.1.0: invalid version: git ls-remote -q --end-of-options https://github.com/wojons/muster in /tmp/gopath/pkg/mod/cache/vcs/39ad6f47f7db07b8efb5148e937c2f84c46ab2ef2ed7f37c9dd936db9a6eb763: exit status 128; fatal: could not read Username for 'https://github.com': terminal prompts disabled; Confirm the import path was entered correctly. If this is a private repository, see https://go.dev/doc/faq#private-repo"
+    },
+    "proxy_module_file": {
+      "command": "curl -sS -o /tmp/muster-proxy-mod.body -w '%{http_code}\\n' https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.mod",
+      "exit_code": 0,
+      "stdout": "404",
+      "body_matches_info_private_auth_failure": true
+    }
+  },
+  "result": "PENDING_OWNER_BLOCK",
+  "owner_action": "Make github.com/wojons/muster reachable to consumers through an authorized module path or change repository visibility, then re-run the acceptance probe."
+}

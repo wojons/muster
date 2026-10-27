@@ -1,0 +1,21 @@
+{
+  "tick_id": "muster-foreman-2026-10-27-21-27-40",
+  "project": "muster",
+  "mode": "serial-verification-only",
+  "selected_task": "GAP-032",
+  "selected_priority": "P0",
+  "wave_budget": 11,
+  "workers": [],
+  "dispatchable_implementation_rows": 1,
+  "dispatch_decision": "none:owner-gated",
+  "tested_commit": "da898ad977e7d3f17483ba926d19b5ca6adbd343",
+  "evidence": ".coding-hermes/evidence/gap-032-recheck-20261027-1629.json",
+  "ci_health": {
+    "status": "known-infrastructure-failure",
+    "runs": [40531727789, 40531727780, 40531727703],
+    "conclusion": "failure",
+    "reason": "recent zero-step GitHub-hosted runs are the existing wojons Actions billing/private-repository infrastructure signature; no new code-failure row filed"
+  },
+  "status": "PENDING",
+  "next_owner_action": "Restore authorized module access or make the repository public; restore Actions billing separately if required."
+}
