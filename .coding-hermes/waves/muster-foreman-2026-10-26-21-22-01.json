@@ -6,5 +6,8 @@
   "workers": [],
   "dispatchable_implementation_rows": 0,
   "reason": "highest-priority pending row remains owner/infrastructure gated",
-  "evidence": ".coding-hermes/evidence/gap-032-recheck-20261026-2122.json"
+  "evidence": ".coding-hermes/evidence/gap-032-recheck-20261026-2122.json",
+  "finished_at": "2026-10-27T04:05:41Z",
+  "recovery_outcome": "no-workers-to-recover",
+  "recovery_note": "previous tick was serial-verification-only (0 workers); nothing to recover"
 }
