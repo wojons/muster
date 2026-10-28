@@ -16,6 +16,16 @@
     "conclusion": "failure",
     "reason": "recent zero-step GitHub-hosted runs are the existing wojons Actions billing/private-repository infrastructure signature; no new code-failure row filed"
   },
-  "status": "PENDING",
-  "next_owner_action": "Restore authorized module access or make the repository public; restore Actions billing separately if required."
+  "status": "RECOVERED-CLOSED",
+  "recovery": {
+    "workers_recorded": 0,
+    "worker_branches": [],
+    "worker_worktrees": [],
+    "live_worker_processes": 0,
+    "disposition": "no-worker-recovery-required",
+    "evidence": "canonical manifest plus live worktree/process census; no worker branches or worktrees attributable to this tick"
+  },
+  "next_owner_action": "Restore authorized module access or make the repository public; restore Actions billing separately if required.",
+  "finished_at": "2026-10-28T21:55:30Z",
+  "finish_note": "Recovery verified the manifest declared zero workers; no attributable branches, worktrees, or live worker processes existed. No merge, fixup, or dispatch was performed."
 }
