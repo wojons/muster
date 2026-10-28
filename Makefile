@@ -714,12 +714,6 @@ help: ## Show this help message
 # BENCHMARK TARGETS
 # =============================================================================
 
-.PHONY: bench
-bench: ## Run all benchmarks
-	@echo "Running all benchmarks..."
-	@go test -bench=. -benchmem ./test/benchmarks/...
-	@echo "✓ Benchmarks complete"
-
 .PHONY: bench-ci
 bench-ci: ## Run benchmarks for CI (faster)
 	@echo "Running CI benchmarks..."
