@@ -1,0 +1,22 @@
+{
+  "tick_id": "muster-foreman-2026-10-29-11-39-34",
+  "task": "GAP-032",
+  "tested_commit": "db8034bca50dd988a329f82f0c92233b1d41834c",
+  "observed_at": "2026-10-29T11:48:03Z",
+  "acceptance": {
+    "repository_visibility": {"isPrivate": null, "visibility": "private"},
+    "proxy_v0_1_0_info": {"http": 404},
+    "consumer_fresh_clone": "not attempted: owner-gated module publication/visibility remains unmet"
+  },
+  "ci": {
+    "runs": [40776199680, 40776199607, 40776199573],
+    "status": "completed",
+    "conclusion": "failure",
+    "job": {"name": "build-and-test", "steps": 0, "runner_name": ""},
+    "classification": "known infrastructure/billing signature: completed failure before any job step; no new code-failure row"
+  },
+  "dispatch": {"mode": "serial-verification-only", "worker": "none:owner-block", "wave_budget": 3},
+  "verdict": "none:verification-only owner block",
+  "off_by_one": "none:verification-only no debugging",
+  "owner_action": "Make the private module reachable through an authorized path or change repository visibility; then re-run the module acceptance probe. Restore Actions billing separately if hosted CI is required."
+}
