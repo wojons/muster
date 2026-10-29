@@ -6,20 +6,29 @@
   "selected_priority": "P0",
   "wave_budget": 3,
   "workers": [],
-  "dispatchable_implementation_rows": ["DOC-16", "DOC-17", "DOC-18"],
+  "dispatchable_implementation_rows": [
+    "DOC-16",
+    "DOC-17",
+    "DOC-18"
+  ],
   "dispatch_decision": "none:owner-gated highest-priority row; no substitution authorized",
   "tested_commit": "db8034bca50dd988a329f82f0c92233b1d41834c",
   "evidence": ".coding-hermes/evidence/gap-032-recheck-20261029-113934.json",
   "gitreins": "GAP-032-recheck-20261029-113934 tier1 PASS; tier2 INCOMPLETE because evidence was not yet persisted at judge time; task deleted after verdict readback",
   "ci_health": {
     "status": "known-infrastructure-failure",
-    "runs": [40776199680, 40776199607, 40776199573],
+    "runs": [
+      40776199680,
+      40776199607,
+      40776199573
+    ],
     "conclusion": "failure",
     "job_steps": 0,
     "reason": "GitHub-hosted job failed before any step; existing billing/private-repository signature; no new code-CI row filed"
   },
   "off_by_one": "none:verification-only no debugging",
   "owner_action": "Make the private module reachable through an authorized path or change repository visibility; restore Actions billing separately if hosted CI is required.",
-  "status": "prepared",
-  "finished_at": "2026-10-29T11:49:30Z"
+  "status": "closed",
+  "finished_at": "2026-10-29T11:54:00Z",
+  "bookkeeping_commit": "2c0e8d52305a0a2a9896869e1b153f6a194cf00a"
 }
