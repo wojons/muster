@@ -30,5 +30,5 @@
   "owner_action": "Make the private module reachable through an authorized path or change repository visibility; restore Actions billing separately if hosted CI is required.",
   "status": "closed",
   "finished_at": "2026-10-29T11:54:00Z",
-  "bookkeeping_commit": "4e1ee67e5b1b2709f027843d52eaac8b69257f4a"
+  "bookkeeping_commit": "c1191d70e7e1d100af5de0efe6181605df3582de"
 }
