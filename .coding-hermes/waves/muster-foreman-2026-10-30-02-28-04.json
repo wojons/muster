@@ -1,0 +1,23 @@
+{
+  "tick_id": "muster-foreman-2026-10-30-02-28-04",
+  "project": "muster",
+  "mode": "serial-verification-only",
+  "selected_task": "GAP-032",
+  "selected_priority": "P0",
+  "wave_budget": 6,
+  "workers": [],
+  "dispatchable_implementation_rows": ["DOC-16", "DOC-17", "DOC-18"],
+  "dispatch_decision": "none:owner-gated highest-priority row; lower-priority substitution not authorized",
+  "tested_commit": "9ba1953753e9cd8fd71eb3958cfb17aa4735bfb7",
+  "evidence": ".coding-hermes/evidence/gap-032-recheck-20261030-023542.json",
+  "gitreins": "none:verification-only owner block; no implementation or independent judge lifecycle created",
+  "ci_health": {
+    "status": "known-infrastructure-failure",
+    "runs": [40981716132, 40981716012, 40981716007],
+    "conclusion": "failure",
+    "job_steps": 0,
+    "reason": "GitHub-hosted jobs failed before any step; existing billing/private-repository infrastructure signature covered by INT-CI-003"
+  },
+  "off_by_one": "none:verification-only; no debugging or fix design",
+  "owner_action": "Make the private module reachable through an authorized proxy/tag or change repository visibility; hosted Actions billing is separately owner-controlled."
+}

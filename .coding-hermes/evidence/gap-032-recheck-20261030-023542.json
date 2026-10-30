@@ -1,0 +1,51 @@
+{
+  "tick_id": "muster-foreman-2026-10-30-02-28-04",
+  "tick_number": 897,
+  "task_id": "GAP-032",
+  "tested_commit": "9ba1953753e9cd8fd71eb3958cfb17aa4735bfb7",
+  "timestamp_utc": "2026-10-30T02:35:42Z",
+  "classification": "verification-only owner/infrastructure block",
+  "worker": "none:owner-block",
+  "dispatch": "none:highest-priority row owner-gated; lower-priority substitution not authorized",
+  "acceptance_probes": {
+    "repository_private": {
+      "command": "gh api repos/wojons/muster --jq .private",
+      "exit_code": 0,
+      "stdout": "true"
+    },
+    "proxy_module_info": {
+      "command": "curl -sS -o /dev/null -w %{http_code} https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info",
+      "exit_code": 0,
+      "stdout": "404"
+    },
+    "consumer_go_get": {
+      "command": "GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org go get github.com/wojons/muster@v0.1.1 in fresh temp module",
+      "exit_code": 1,
+      "stdout": "proxy zip 404; git ls-remote failed because private repository credentials are unavailable"
+    },
+    "musterflow_replace_probe": {
+      "module_requirement_command": "grep -c github.com/wojons/muster v0 /home/kara/musterflow/go.mod",
+      "module_requirement_exit_code": 1,
+      "module_requirement_stdout": "0",
+      "absolute_replace_command": "grep -c => /home/kara/muster /home/kara/musterflow/go.mod",
+      "absolute_replace_exit_code": 1,
+      "absolute_replace_stdout": "0",
+      "note": "musterflow current guide uses generated Go workspace/local engine resolution; provider acceptance remains unmet."
+    }
+  },
+  "local_compensating_gate": {
+    "command": "make test-short",
+    "exit_code": 0,
+    "summary": "all short-mode packages passed; Short tests complete"
+  },
+  "ci_health": {
+    "command": "gh run list --repo wojons/muster --limit 3 --json status,conclusion,displayTitle,headBranch,createdAt",
+    "runs": [40981716132, 40981716012, 40981716007],
+    "classification": "known infrastructure failure",
+    "details": "all completed failures had zero executed steps; latest job shapes: build=0, build-and-test=0, test/security/integration=0 with build/release skipped; private repository/actions billing-provisioning signature; covered by INT-CI-003; no new CI code-failure row filed."
+  },
+  "origin_parity": {"ahead": 0, "behind": 0},
+  "owner_action": "Make github.com/wojons/muster reachable through an authorized module proxy/tag or change repository visibility; then rerun the exact consumer acceptance. Hosted Actions billing remains separately owner-controlled.",
+  "off_by_one": "none:verification-only; no debugging or fix design",
+  "trace": "row=GAP-032 spec=none:external-owner-action wave=.coding-hermes/waves/muster-foreman-2026-10-30-02-28-04.json test=none:live-owner-block-probes doc=.coding-hermes/evidence/gap-032-recheck-20261030-023542.json prompt=none:verification-only evidence=.coding-hermes/evidence/gap-032-recheck-20261030-023542.json witness=visibility:private+proxy:404+go-get:404+runs:40981716132,40981716012,40981716007+steps:0 verdict=none:verification-only commit=none:owner-block memory=/project/muster/status/tick-897"
+}
