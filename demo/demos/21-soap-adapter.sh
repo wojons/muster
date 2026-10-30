@@ -85,6 +85,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -123,24 +124,36 @@ func main() {
 		w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 		_, _ = io.WriteString(w, `<?xml version="1.0"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Body><EchoResponse><message>ok</message><tag>a</tag><tag>b</tag></EchoResponse></soapenv:Body></soapenv:Envelope>`)
 	})
-	fmt.Println("ready")
-	if err := http.ListenAndServe("127.0.0.1:0", nil); err != nil {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "fixture: listen: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("ready %s\n", listener.Addr().String())
+	if err := http.Serve(listener, nil); err != nil {
+		fmt.Fprintf(os.Stderr, "fixture: serve: %v\n", err)
 		os.Exit(1)
 	}
 }
 EOF
-# ListenAndServe with :0 is not discoverable; bind a fixed high port instead.
-sed -i 's/127.0.0.1:0/127.0.0.1:18891/' "$WORK/soapfixture.go"
 
 go run "$WORK/soapfixture.go" >"$WORK/fixture.out" 2>&1 &
 FIXTURE_PID=$!
+FIXTURE_ADDR=""
 for _ in $(seq 1 50); do
-  if curl -s -o /dev/null "http://127.0.0.1:18891/echo?probe=1"; then break; fi
+  if [ -s "$WORK/fixture.out" ]; then
+    FIXTURE_ADDR=$(sed -nE 's/^ready (127\.0\.0\.1:[0-9]+)$/\1/p' "$WORK/fixture.out" | tail -n 1)
+    [ -n "$FIXTURE_ADDR" ] && break
+  fi
+  if ! kill -0 "$FIXTURE_PID" 2>/dev/null; then
+    fail "SOAP fixture exited before readiness marker: $(cat "$WORK/fixture.out")"
+  fi
   sleep 0.2
 done
-kill -0 "$FIXTURE_PID" 2>/dev/null || fail "SOAP fixture did not start"
+[ -n "$FIXTURE_ADDR" ] || fail "SOAP fixture did not emit readiness marker: $(cat "$WORK/fixture.out")"
+kill -0 "$FIXTURE_PID" 2>/dev/null || fail "SOAP fixture exited after readiness marker: $(cat "$WORK/fixture.out")"
 
-sed -i "s|ENDPOINT_PLACEHOLDER|http://127.0.0.1:18891/echo|" "$WORK/echo.wsdl"
+sed -i "s|ENDPOINT_PLACEHOLDER|http://${FIXTURE_ADDR}/echo|" "$WORK/echo.wsdl"
 
 # ── 1. Discovery: typed parts with repeated/optional facts ──────────────────
 DISCOVER_OUT=$("$BIN" protocol soap --wsdl "$WORK/echo.wsdl") || fail "discovery errored: $DISCOVER_OUT"
@@ -169,7 +182,7 @@ pass "round-trip → JSON response with repeated element as array"
 # ── 4. Fault: SOAP 1.1 fault maps to a coded AppError ───────────────────────
 set +e
 FAULT_OUT=$("$BIN" protocol soap --wsdl "$WORK/echo.wsdl" --operation EchoService-Echo \
-  --args '{"message":"demo"}' --endpoint "http://127.0.0.1:18891/echo?mode=fault" 2>&1)
+  --args '{"message":"demo"}' --endpoint "http://${FIXTURE_ADDR}/echo?mode=fault" 2>&1)
 FAULT_RC=$?
 set -e
 [ "$FAULT_RC" -ne 0 ] || fail "a SOAP fault must fail the call"
