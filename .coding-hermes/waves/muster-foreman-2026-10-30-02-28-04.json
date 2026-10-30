@@ -19,5 +19,8 @@
     "reason": "GitHub-hosted jobs failed before any step; existing billing/private-repository infrastructure signature covered by INT-CI-003"
   },
   "off_by_one": "none:verification-only; no debugging or fix design",
-  "owner_action": "Make the private module reachable through an authorized proxy/tag or change repository visibility; hosted Actions billing is separately owner-controlled."
+  "owner_action": "Make the private module reachable through an authorized proxy/tag or change repository visibility; hosted Actions billing is separately owner-controlled.",
+  "finished_at": "2026-10-30T16:18:57-05:00",
+  "closed": true,
+  "recovery_evidence": "No recorded workers, branches, worktrees, or live worker processes; canonical main a73c27fc89047dda66a08550ce236e092c9e056f was clean and origin/main-parity. Recovery closed before normal tick work."
 }

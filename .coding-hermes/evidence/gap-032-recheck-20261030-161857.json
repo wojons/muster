@@ -1,0 +1,21 @@
+{
+  "tick_id": "muster-foreman-2026-10-30-21-15-32",
+  "task_id": "GAP-032",
+  "tested_commit": "a73c27fc89047dda66a08550ce236e092c9e056f",
+  "repository_visibility_private": true,
+  "proxy_v0_1_0_info_http": 404,
+  "local_short_suite": "PASS",
+  "ci_runs": [40981716132, 40981716012, 40981716007],
+  "ci_job_steps": {"40981716132": 0, "40981716012": 0, "40981716007": 0},
+  "ci_classification": "known GitHub Actions billing/private-repository infrastructure failure; no executed steps",
+  "dispatch": "none:highest-priority row remains owner-gated; lower-priority DOC-16/DOC-17/DOC-18 not substituted",
+  "recovery": {
+    "manifest": ".coding-hermes/waves/muster-foreman-2026-10-30-02-28-04.json",
+    "workers": 0,
+    "branches": 0,
+    "worktrees": 0,
+    "live_worker_processes": 0,
+    "closed": true
+  },
+  "owner_action": "Make github.com/wojons/muster reachable through an authorized module proxy/tag or change repository visibility; hosted Actions billing remains owner-controlled."
+}
