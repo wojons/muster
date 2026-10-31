@@ -349,7 +349,7 @@ mcp:
 Starting the MCP server:
 
 ```bash
-openapi-cli mcp-server --config openapi-cli.yaml
+openapi-mcp --spec ./openapi.json
 ```
 
 ## Daemon Configuration
@@ -374,7 +374,7 @@ openapi-cli daemon status
 
 # Stop daemon
 openapi-cli daemon stop
-openapi-cli daemon stop --force  # Force stop with SIGKILL
+openapi-daemon stop
 ```
 
 ## Cache Configuration
