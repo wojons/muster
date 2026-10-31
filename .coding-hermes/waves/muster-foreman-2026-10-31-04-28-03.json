@@ -61,6 +61,6 @@
     "reason": "GitHub-hosted jobs failed before any steps; existing CI billing/private-repository signature; no new code-CI row filed"
   },
   "finished_at": "2026-10-31T06:37:42-05:00",
-  "cleanup": "complete for DOC-16 and DOC-18; DOC-17 intentionally preserved as unmerged evidence because stale branch was redundant and rebasing conflicted",
+  "cleanup": "complete for DOC-16, DOC-17, and DOC-18; DOC-17 was preserved through verification as unmerged evidence, then its redundant stale branch and worktree were removed after manifest closeout",
   "closeout_commit_sha": "015080b751af2ecd96d26ca10e3eb562d003f174"
 }
