@@ -92,14 +92,14 @@ The repo also ships an MCP server and a background daemon. Build them the
 same way:
 
 ```bash
-make build-mcp      # -> bin/mcp-server
+make build-mcp      # -> bin/openapi-mcp
 make build-daemon   # -> bin/openapi-daemon
 ```
 
 Or directly:
 
 ```bash
-go build -o bin/mcp-server ./cmd/mcp-server
+go build -o bin/openapi-mcp ./cmd/mcp-server
 go build -o bin/openapi-daemon ./cmd/daemon
 ```
 
