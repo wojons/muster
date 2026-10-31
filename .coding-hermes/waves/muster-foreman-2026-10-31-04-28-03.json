@@ -1,0 +1,66 @@
+{
+  "tick_id": "muster-foreman-2026-10-31-04-28-03",
+  "project": "muster",
+  "base_sha": "f4fb4bfcf20dd5f2bee1d8e09e080114265f8bca",
+  "workers": [
+    {
+      "task_id": "DOC-16",
+      "worktree": "/home/kara/worktrees/muster-DOC-16",
+      "branch": "wt/DOC-16",
+      "gitreins_task": "DOC-16",
+      "status": "dispatching"
+    },
+    {
+      "task_id": "DOC-17",
+      "worktree": "/home/kara/worktrees/muster-DOC-17",
+      "branch": "wt/DOC-17",
+      "gitreins_task": "DOC-17",
+      "status": "dispatching"
+    },
+    {
+      "task_id": "DOC-18",
+      "worktree": "/home/kara/worktrees/muster-DOC-18",
+      "branch": "wt/DOC-18",
+      "gitreins_task": "DOC-18",
+      "status": "dispatching"
+    }
+  ],
+  "mode": "wave-recovery",
+  "current_main": "aef9ffd570b3a739bbda0b17447b38566390d54b",
+  "recovery_result": {
+    "DOC-16": {
+      "branch_tip": "aef9ffd570b3a739bbda0b17447b38566390d54b",
+      "verified_tree_sha": "aef9ffd570b3a739bbda0b17447b38566390d54b",
+      "result": "already_integrated; branch rebased to current main; worktree and branch removed"
+    },
+    "DOC-17": {
+      "branch_tip": "1c844b4535c012a6e955cb93e1b55d3376fdc2a9",
+      "result": "stale_base; rebase attempted and aborted after conflict because implementation already integrated via 501ee090; preserved as evidence with worktree and branch"
+    },
+    "DOC-18": {
+      "branch_tip": "aef9ffd570b3a739bbda0b17447b38566390d54b",
+      "verified_tree_sha": "aef9ffd570b3a739bbda0b17447b38566390d54b",
+      "result": "already_integrated; branch rebased to current main; worktree and branch removed"
+    }
+  },
+  "acceptance_after_recovery": "PASS on main: DOC-16 installation binary path; DOC-17 MCP/daemon commands; DOC-18 separate daemon surfaces",
+  "local_gates": {
+    "doc_acceptance": "PASS",
+    "gitreins_guard": "DEGRADED PASS (docs-only; Go lanes skipped)",
+    "full_go_build_vet_test": "PASS"
+  },
+  "ci_health": {
+    "status": "known infrastructure failure",
+    "runs": [
+      40981716132,
+      40981716012,
+      40981716007
+    ],
+    "conclusion": "failure",
+    "job_steps": 0,
+    "reason": "GitHub-hosted jobs failed before any steps; existing CI billing/private-repository signature; no new code-CI row filed"
+  },
+  "finished_at": "2026-10-31T06:37:42-05:00",
+  "cleanup": "complete for DOC-16 and DOC-18; DOC-17 intentionally preserved as unmerged evidence because stale branch was redundant and rebasing conflicted",
+  "closeout_commit_sha": "pending:commit"
+}
