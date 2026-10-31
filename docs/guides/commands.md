@@ -1,15 +1,23 @@
 # Command Reference
 
-Complete reference for all OpenAPI CLI commands.
+Complete reference for the `openapi-cli` binary. Two other binaries ship
+alongside it and have their own command surfaces: the daemon
+(`openapi-daemon`, see [Daemon Commands](#daemon-commands)) and the MCP server
+(`openapi-mcp`, see [MCP Server](#mcp-server)). `make build` builds all three
+into `bin/`.
 
 ## Global Options
 
-All commands support these global flags:
+Every command accepts `-h, --help`, and every command inherits the global
+`--profile` flag:
 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-h, --help` | Show help | - |
-| `-v, --version` | Show version | - |
+| `--profile <name>` | Configuration profile to use (overrides `MUSTER_PROFILE` and the persisted default) | persisted default |
+
+`-v, --version` is a root-only flag (`openapi-cli -v`). On `request`, `-v` means
+`--verbose`, so use `openapi-cli version` when a subcommand is in play.
 
 ## Discovery Commands
 
@@ -65,14 +73,18 @@ openapi-cli generate --clear
 currently persisted, the CLI prints a warning to stderr before overwriting the
 store. Running `generate` with the same spec (same hash) does not warn.
 
-### `init` (help topic)
+### `init`
 
-`init` exists as a help topic only — it is **not yet implemented** as a runnable
-command. Use `generate` to create CLI commands from a spec.
+Write a default configuration file to the user config directory
+(`~/.config/muster/config.yaml` on Linux) if one does not exist yet. Safe to
+run repeatedly: an existing config file is never overwritten.
 
 ```bash
-openapi-cli init   # prints help text only; does nothing
+openapi-cli init
 ```
+
+`init` writes configuration only — to create CLI commands from a spec, use
+`generate`.
 
 ## Inventory Commands
 
@@ -392,9 +404,19 @@ openapi-cli dsl run demo/scripts/workflow.star
 
 ## Daemon Commands
 
-### `daemon`
+The daemon is a **separate binary** (`openapi-daemon`, built from `cmd/daemon`
+to `bin/openapi-daemon`). `openapi-cli daemon` is a thin wrapper that locates
+and launches that binary; it holds no daemon logic itself and exposes only
+three subcommands. The two surfaces differ in subcommands and in the name of
+the socket flag (`--socket` on the wrapper, `--socket-path` on the binary).
 
-Manage the daemon process for background API proxying and persistent connections.
+Operational detail — the socket route table, health endpoints, and the auth
+exemption — lives in [Daemon Operations](daemon-operations.md).
+
+### `daemon` (openapi-cli wrapper)
+
+Manage the daemon process for background API proxying and persistent
+connections.
 
 ```bash
 openapi-cli daemon [command]
@@ -408,13 +430,114 @@ openapi-cli daemon [command]
 | `status` | Show daemon status (`--socket <path>`) |
 | `stop` | Stop the daemon and clean up resources (`--socket <path>`) |
 
-**Examples**:
+There is no `restart`, `reload`, or `proxy` subcommand on the wrapper — use the
+`openapi-daemon` binary for those. The socket flag is `--socket`; passing
+`--socket-path` here fails with the command's usage text (exit code 1).
+
+Default socket: `/tmp/openapi-cli.sock`; the PID file is `<socket>.pid`.
+
+`start` locates the daemon binary next to the CLI executable (or under
+`./bin`), falling back to `go build -o bin/openapi-daemon ./cmd/daemon` in a
+source checkout. With `--backend-url` it runs `openapi-daemon proxy
+--backend-url <url> --socket-path <socket>`, i.e. a pure forward proxy — the
+socket then serves **no** `/health` routes. Without `--backend-url` the daemon
+serves only its own status/health routes. Starting when a live daemon already
+owns the socket fails with `daemon already running (PID <pid>)` and exit code
+1.
+
+**Examples** (each group is a start → status → stop cycle):
 ```bash
+# Default socket
 openapi-cli daemon start
-openapi-cli daemon start --socket /tmp/my-daemon.sock
-openapi-cli daemon start --backend-url https://api.example.com
 openapi-cli daemon status
 openapi-cli daemon stop
+
+# Custom socket
+openapi-cli daemon start --socket /tmp/my-daemon.sock
+openapi-cli daemon status --socket /tmp/my-daemon.sock
+openapi-cli daemon stop --socket /tmp/my-daemon.sock
+
+# Proxy mode: the wrapper launches `openapi-daemon proxy` (a pure forward
+# proxy — no daemon /health routes on this socket)
+openapi-cli daemon start --backend-url http://127.0.0.1:8080 --socket /tmp/my-daemon.sock
+openapi-cli daemon stop --socket /tmp/my-daemon.sock
+```
+
+### `openapi-daemon` (standalone binary)
+
+The daemon's own command surface. It is not a subcommand of `openapi-cli`.
+
+```bash
+openapi-daemon [start|stop|status|restart|reload|proxy] [flags]
+```
+
+**Subcommands**:
+
+| Command | Description |
+|---------|-------------|
+| `start` | Start the daemon process (daemonizes; `--foreground` stays attached) |
+| `stop` | Stop the daemon process |
+| `status` | Show daemon status |
+| `restart` | Restart the daemon process |
+| `reload` | Reload the daemon process |
+| `proxy` | Start as an HTTP proxy on the Unix socket (requires `--backend-url`) |
+
+`restart` and `reload` both run stop-then-start; with nothing running they
+report `Daemon is not running; starting fresh` and start one. `proxy` without
+`--backend-url` fails with `handler is required; use --backend-url to specify
+the backend URL` (exit code 1).
+
+Two ways to get a reverse proxy on the socket:
+
+- `start --backend-url <url>` daemonizes like a plain `start` and keeps the
+  daemon's own `/health`, `/health/live` and `/health/ready` routes in front of
+  the backend.
+- `proxy --backend-url <url>` is the **foreground** variant: it does not
+  daemonize (it stays attached and returns only on SIGTERM), and it forwards
+  **every** socket path to the backend, `/health` included.
+
+`start` daemonizes and returns to the shell; `--foreground` (or
+`MUSTER_DAEMON_CHILD=1`) keeps it attached. Unlike the `openapi-cli daemon`
+wrapper, the standalone binary does **not** check for an already-running
+daemon: a second `start` rewrites the PID file while the earlier process keeps
+listening, so stop it through the wrapper or kill it by PID.
+
+**Flags** (as listed by `openapi-daemon --help`; this binary uses the standard
+Go `flag` package, so one or two leading dashes both work and flags may appear
+before or after the subcommand):
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-backend-url <url>` | Backend URL for proxy mode | - |
+| `-socket-path <path>` | Path for the Unix domain socket | `/tmp/openapi-cli.sock` |
+| `-pid-file <path>` | Path for the PID file | `<socket-path>.pid` |
+| `-foreground` | Run `start` in the foreground instead of daemonizing | daemonize |
+| `-backend-auth-type <type>` | Credential type injected upstream: `bearer` or `api-key` | `bearer` |
+| `-backend-token-file <path>` | File holding the upstream credential injected on every proxied request (env `MUSTER_BACKEND_TOKEN_FILE`) | - |
+| `-client-token-file <path>` | File holding the token socket clients must present; required when `-backend-token-file` is set (env `MUSTER_DAEMON_CLIENT_TOKEN_FILE`) | - |
+| `-wasm-plugin <path>` | Path to a WASM plugin for response transformation | - |
+| `-version` | Print version information and exit | - |
+
+`-backend-token-file` requires `-client-token-file`: a daemon that injects an
+upstream credential refuses to start without gating its own socket. Each
+credential file must hold exactly one non-empty line.
+
+Running `openapi-daemon` with no subcommand — or with an unrecognized one —
+prints the banner and the subcommand list and exits 0. That banner's
+`default: /tmp/muster-daemon.sock` line is stale; the real default is the
+`/tmp/openapi-cli.sock` shown in the flag list of `openapi-daemon --help`.
+`openapi-daemon <subcommand> --help` prints the same global usage and flags.
+
+**Examples**:
+```bash
+openapi-daemon --help
+openapi-daemon -version
+openapi-daemon start
+openapi-daemon start --socket-path /tmp/openapi-cli.sock
+openapi-daemon start --backend-url http://127.0.0.1:8080
+openapi-daemon status
+openapi-daemon restart
+openapi-daemon stop
 ```
 
 ## Configuration Commands
@@ -637,12 +760,19 @@ openapi-cli help [command]
 
 ## MCP Server
 
-The MCP server is a separate binary (`openapi-mcp`), not a subcommand of
-`openapi-cli`. Build it with `make build` and run it directly:
+The MCP server is a separate binary (`openapi-mcp`, built from `cmd/mcp-server`
+to `bin/openapi-mcp`), not a subcommand of `openapi-cli` — there is no
+`openapi-cli mcp-server` command. Build it with `make build` and run it
+directly:
 
 ```bash
 ./bin/openapi-mcp --help
 ```
+
+It parses its own flags with the standard Go `flag` package: `-spec`,
+`-base-url`, `-auth-type`, `-auth-token-file`, `-openrpc-doc`, `-wasm-plugin`,
+`-audit`, `-log-level`, `-log-output`, and `-version`. `openapi-mcp --help`
+lists each one with its description and default.
 
 ## Output Formats
 
@@ -712,10 +842,32 @@ openapi-cli request GET https://petstore.swagger.io/v2/pet/1
 ```
 
 ### Run as daemon
+
+The daemon serves HTTP over a Unix socket. `make build` puts all three binaries
+in `bin/`.
+
 ```bash
-openapi-cli daemon start --socket /tmp/openapi-cli.sock
+# Plain mode: the socket answers the daemon's own root/health routes and
+# returns the canned root JSON for every other path.
+openapi-daemon start --socket-path /tmp/openapi-cli.sock
+curl --unix-socket /tmp/openapi-cli.sock http://localhost/health
+openapi-daemon stop
+
+# Proxy mode: `start --backend-url` daemonizes a reverse proxy and keeps the
+# daemon's own /health routes in front of it.
+openapi-daemon start --backend-url http://127.0.0.1:8080 --socket-path /tmp/openapi-cli.sock
 curl --unix-socket /tmp/openapi-cli.sock http://localhost/pet/1
-openapi-cli daemon stop
+openapi-daemon stop
+
+# `proxy` is the foreground variant — it does not return until it is signalled,
+# so run it in its own terminal (or with `&`). It forwards every path to the
+# backend, /health included.
+openapi-daemon proxy --backend-url http://127.0.0.1:8080
+
+# The same start/status/stop cycle through the CLI wrapper (--socket).
+openapi-cli daemon start --socket /tmp/openapi-cli.sock
+openapi-cli daemon status --socket /tmp/openapi-cli.sock
+openapi-cli daemon stop --socket /tmp/openapi-cli.sock
 ```
 
 ### With environment variables
