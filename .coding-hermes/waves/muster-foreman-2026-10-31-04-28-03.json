@@ -62,5 +62,5 @@
   },
   "finished_at": "2026-10-31T06:37:42-05:00",
   "cleanup": "complete for DOC-16 and DOC-18; DOC-17 intentionally preserved as unmerged evidence because stale branch was redundant and rebasing conflicted",
-  "closeout_commit_sha": "pending:commit"
+  "closeout_commit_sha": "015080b751af2ecd96d26ca10e3eb562d003f174"
 }
