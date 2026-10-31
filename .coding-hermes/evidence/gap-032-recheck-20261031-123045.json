@@ -1,0 +1,13 @@
+{
+  "tick_id": "muster-foreman-2026-10-31-17-10-06",
+  "task_id": "GAP-032",
+  "tested_commit": "0a3319bdc843547fae385468d948791aa991b57a",
+  "repository_visibility_private": true,
+  "proxy_v0_1_0_info_http": 404,
+  "local_short_suite": "PASS",
+  "ci_runs": [41170107686, 41170107522, 41170107513, 41170107500],
+  "ci_job_steps": {"41170107686": 0, "41170107522": 0, "41170107513": 0, "41170107500": 0},
+  "ci_classification": "known GitHub Actions billing/private-repository infrastructure failure; zero executed steps on fresh 2026-10-31 runs",
+  "dispatch": "none:highest-priority row remains owner-gated; dispatch queue empty (DOC-16/DOC-17/DOC-18 complete via recovered wave)",
+  "owner_action": "Make github.com/wojons/muster reachable through an authorized module proxy/tag or change repository visibility; hosted Actions billing remains owner-controlled."
+}
