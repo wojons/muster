@@ -1,0 +1,30 @@
+{
+  "tick_id": "muster-foreman-2026-11-01-22-24-29",
+  "tick_number": 903,
+  "task": "GAP-032",
+  "tested_commit": "f1d8e033859e41143c0d7be070595f5f01136c63",
+  "observed_at": "2026-11-01T22:26:43Z",
+  "acceptance": {
+    "proxy_v0_1_0_info_http": 404,
+    "repository_private": true,
+    "status": "unmet",
+    "owner_action": "Make github.com/wojons/muster reachable through an authorized module proxy/tag or change repository visibility."
+  },
+  "ci_health": {
+    "repo": "wojons/muster",
+    "latest_runs": [],
+    "exact_head_runs": [],
+    "known_prior_real_failure": {
+      "run_id": 41272018059,
+      "head_sha": "6c0648902df9906385099a62fa4dee872413f6ab",
+      "job_id": 124746553992,
+      "job": "Test windows-latest",
+      "failed_step": "Run tests",
+      "steps": 16,
+      "runner_id": 1000019275
+    },
+    "classification": "No run exists for current HEAD; prior Windows failure is already tracked by INT-CI-006."
+  },
+  "dispatch": "none:owner-infrastructure-gated; no worker or wave",
+  "off_by_one": "none:verification-only; no debugging or fix design"
+}
