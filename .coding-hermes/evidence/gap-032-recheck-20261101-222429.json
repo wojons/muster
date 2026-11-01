@@ -3,6 +3,7 @@
   "tick_number": 903,
   "task": "GAP-032",
   "tested_commit": "f1d8e033859e41143c0d7be070595f5f01136c63",
+  "published_closeout_commit": "24e3fb2f795ac09b748f1c79a59358ea1ed5431e",
   "observed_at": "2026-11-01T22:26:43Z",
   "acceptance": {
     "proxy_v0_1_0_info_http": 404,
