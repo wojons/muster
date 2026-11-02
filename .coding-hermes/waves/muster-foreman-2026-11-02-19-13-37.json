@@ -14,5 +14,9 @@
   "next_owner_action": "Make github.com/wojons/muster reachable through an authorized module proxy/tag or change repository visibility",
   "off_by_one": "none:verification-only",
   "gitreins": "none:verification-only-no-task",
-  "status": "open"
+  "status": "closed",
+  "first_published_bookkeeping_sha": "f28b280d21c4698bc487a488a13c183ab90426d7",
+  "closeout_sha": "a717971f0e5da8fb440af4b096e69ce138e8213c",
+  "reconciliation_commit": "a717971f0e5da8fb440af4b096e69ce138e8213c",
+  "finished_at": "2026-11-02T19:25:00Z"
 }
