@@ -1,0 +1,21 @@
+{
+  "tick": "muster-foreman-2026-11-02-04-38-19",
+  "row": "GAP-032",
+  "kind": "verification-only owner-block recheck",
+  "head": "b0adc9ecce56a0879d501deb8e38587ad699ffa9",
+  "origin_main": "b0adc9ecce56a0879d501deb8e38587ad699ffa9",
+  "behind": 0,
+  "working_tree": "clean",
+  "probes": {
+    "proxy_golang_org_v010_info": {"url": "https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info", "http_status": 404},
+    "repo_visibility": {"gh_api": "repos/wojons/muster", "private": true},
+    "gh_cli_available": true
+  },
+  "conclusion": "owner block LIVE — repo still private, proxy still 404. No worker dispatch. Acceptance unmet.",
+  "owner_actions_required": [
+    "make repo public, OR",
+    "set up GOPROXY/GOPRIVATE with commit-verified CI auth, OR",
+    "musterflow commits a go.mod without the absolute replace that builds in fresh-clone CI"
+  ],
+  "prior_verification": "2026-10-26 t903 at f1d8e033859e41143c0d7be070595f5f01136c63"
+}
