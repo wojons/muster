@@ -17,6 +17,6 @@
   "status": "closed",
   "first_published_bookkeeping_sha": "f28b280d21c4698bc487a488a13c183ab90426d7",
   "closeout_sha": "a717971f0e5da8fb440af4b096e69ce138e8213c",
-  "reconciliation_commit": "a717971f0e5da8fb440af4b096e69ce138e8213c",
+  "reconciliation_commit": "b525d1a2723e6797dbf497f9a0f93848432c8ce5",
   "finished_at": "2026-11-02T19:25:00Z"
 }
