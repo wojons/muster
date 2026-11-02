@@ -1,0 +1,32 @@
+{
+  "tick_id": "muster-foreman-2026-11-02-19-13-37",
+  "row": "GAP-032",
+  "tested_commit": "de00c45da159cf17711139035761b5775304f18f",
+  "observed_at": "2026-11-02T14:19:15-05:00",
+  "probes": {
+    "repository": "github.com/wojons/muster",
+    "branch": "main",
+    "repository_private": true,
+    "proxy_v0_1_0_info_http": 404,
+    "consumer_go_mod_module_version_lines": 1,
+    "consumer_go_mod_absolute_replace_lines": 0,
+    "consumer_go_get_v0_1_1": {
+      "exit_code": 1,
+      "result": "proxy 404; private git ls-remote credentials unavailable"
+    },
+    "origin_parity_before_closeout": {
+      "ahead": 0,
+      "behind": 0
+    }
+  },
+  "acceptance": "unmet",
+  "dispatch": "none:owner-block",
+  "owner_action": "Make github.com/wojons/muster reachable through an authorized module proxy/tag or change repository visibility; no worker can perform this external authorization.",
+  "ci_health": {
+    "recent_runs": [41389881177, 41389881163, 41389881124],
+    "classification": "known existing CI failure is tracked by INT-CI-006; failed run 41389881163 has an executed Windows job and is not the zero-step billing signature; no new CI row filed"
+  },
+  "off_by_one": "none:verification-only; no debugging or fix design",
+  "verdict": "none:verification-only-no-task",
+  "ch:trace": "row=GAP-032 spec=none:external-owner-action wave=.coding-hermes/waves/muster-foreman-2026-11-02-19-13-37.json test=none:live-owner-block-probes doc=.coding-hermes/evidence/gap-032-recheck-20261102-191337.json witness=visibility:private+proxy:404+go-get:404+ci-run:41389881163+windows-steps:16 verdict=none:verification-only-no-task commit=closeout:pending memory=none:unverified"
+}

@@ -1,0 +1,18 @@
+{
+  "tick_id": "muster-foreman-2026-11-02-19-13-37",
+  "project": "muster",
+  "base_commit": "de00c45da159cf17711139035761b5775304f18f",
+  "selected_row": "GAP-032",
+  "selected_priority": "P0",
+  "physical_rows": 286,
+  "pending_rows": 6,
+  "eligible_independent": 0,
+  "wave_budget": 11,
+  "workers": [],
+  "mode": "verification-only",
+  "blocker": "owner/infrastructure authorization required: repository is private and proxy module fetch returns 404",
+  "next_owner_action": "Make github.com/wojons/muster reachable through an authorized module proxy/tag or change repository visibility",
+  "off_by_one": "none:verification-only",
+  "gitreins": "none:verification-only-no-task",
+  "status": "open"
+}
