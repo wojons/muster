@@ -935,3 +935,4 @@
 {"id":942,"timestamp":"2026-11-03 16:43:01.737092","event_type":"task_created","task_id":"REVIEW-MUSTER-25","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-25\",\"status\":\"pending\"}","tick_number":null}
 {"id":943,"timestamp":"2026-11-03 16:43:06.917758","event_type":"task_created","task_id":"REVIEW-MUSTER-26","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-26\",\"status\":\"pending\"}","tick_number":null}
 {"id":944,"timestamp":"2026-11-03 16:43:06.97477","event_type":"task_created","task_id":"REVIEW-MUSTER-27","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-27\",\"status\":\"pending\"}","tick_number":null}
+{"id":945,"timestamp":"2026-11-03 17:14:19.11596","event_type":"task_created","task_id":"INT-CI-8","actor":"foreman","detail":"{\"id\":\"INT-CI-8\",\"status\":\"pending\"}","tick_number":null}
