@@ -936,3 +936,8 @@
 {"id":943,"timestamp":"2026-11-03 16:43:06.917758","event_type":"task_created","task_id":"REVIEW-MUSTER-26","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-26\",\"status\":\"pending\"}","tick_number":null}
 {"id":944,"timestamp":"2026-11-03 16:43:06.97477","event_type":"task_created","task_id":"REVIEW-MUSTER-27","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-27\",\"status\":\"pending\"}","tick_number":null}
 {"id":945,"timestamp":"2026-11-03 17:14:19.11596","event_type":"task_created","task_id":"INT-CI-8","actor":"foreman","detail":"{\"id\":\"INT-CI-8\",\"status\":\"pending\"}","tick_number":null}
+{"id":946,"timestamp":"2026-11-03 17:24:31.130428","event_type":"task_created","task_id":"REVIEW-MUSTER-28","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-28\",\"status\":\"pending\"}","tick_number":null}
+{"id":947,"timestamp":"2026-11-03 17:24:31.193099","event_type":"task_created","task_id":"REVIEW-MUSTER-29","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-29\",\"status\":\"pending\"}","tick_number":null}
+{"id":948,"timestamp":"2026-11-03 17:24:31.254576","event_type":"task_created","task_id":"REVIEW-MUSTER-30","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-30\",\"status\":\"pending\"}","tick_number":null}
+{"id":949,"timestamp":"2026-11-03 17:24:31.318036","event_type":"task_created","task_id":"REVIEW-MUSTER-31","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-31\",\"status\":\"pending\"}","tick_number":null}
+{"id":950,"timestamp":"2026-11-03 17:24:31.37744","event_type":"task_created","task_id":"REVIEW-MUSTER-32","actor":"foreman","detail":"{\"id\":\"REVIEW-MUSTER-32\",\"status\":\"pending\"}","tick_number":null}
