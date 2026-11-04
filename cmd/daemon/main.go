@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/wojons/muster/internal/monitoring"
 	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/auth"
 	"github.com/wojons/muster/pkg/daemon"
@@ -43,7 +44,27 @@ var (
 	backendAuthType string
 	backendToken    string
 	clientToken     string
+	metricsAddr     string
 )
+
+// metricsRecorder is the process-wide recorder for the five muster_* metric
+// families (docs/observability-spec.md §3.1). It owns the ONE explicit
+// prometheus registry this process serves; the proxy handler writes into the
+// same recorder, so recorded traffic and the /metrics endpoint can never
+// diverge onto two registries (spec §4.2). Nil until run() builds it, which
+// keeps the help/status/stop paths free of any listener.
+var metricsRecorder *monitoring.MetricRecorder
+
+// metricsTenantID returns the tenant_id label value: MUSTER_TENANT_ID when the
+// operator configured one, otherwise monitoring.DefaultTenantID. The daemon is
+// single-tenant today; the label exists from day one so multi-tenancy does not
+// force a metric rename.
+func metricsTenantID() string {
+	if tenant := strings.TrimSpace(os.Getenv("MUSTER_TENANT_ID")); tenant != "" {
+		return tenant
+	}
+	return monitoring.DefaultTenantID
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -84,6 +105,7 @@ func run() error {
 	flagSet.StringVar(&backendAuthType, "backend-auth-type", "bearer", "Credential type for the injected upstream credential: bearer (Authorization: Bearer) or api-key (X-API-Key)")
 	flagSet.StringVar(&backendToken, "backend-token-file", "", "Path to a file holding the upstream credential the daemon injects on every proxied request (env: MUSTER_BACKEND_TOKEN_FILE)")
 	flagSet.StringVar(&clientToken, "client-token-file", "", "Path to a file holding the token socket clients must present — required when --backend-token-file is set (env: MUSTER_DAEMON_CLIENT_TOKEN_FILE)")
+	flagSet.StringVar(&metricsAddr, "metrics-addr", monitoring.DefaultMetricsAddr, "Loopback address for the Prometheus /metrics listener, which serves only /metrics")
 	// The raw flag package's default Usage only lists global flags, hiding
 	// the subcommand surface. Install a custom usage func that documents
 	// the six supported subcommands (start/stop/status/restart/reload/proxy).
@@ -118,6 +140,14 @@ func run() error {
 		pidFile = socketPath + ".pid"
 	}
 
+	// Reject a non-loopback metrics address up front: the listener is the one
+	// network-reachable surface the daemon gains, and spec §4.2 binds it to
+	// loopback only. A busy port stays a warning (see startMetricsListener);
+	// a wrong address is an operator error and fails here, loudly.
+	if err := monitoring.ValidateLoopbackAddr(metricsAddr); err != nil {
+		return err
+	}
+
 	// Create proxy handler with backend URL
 	var handler http.Handler
 	if backendURL != "" {
@@ -145,6 +175,17 @@ func run() error {
 			handler = daemon.NewProxyHandler(backendURL)
 			fmt.Printf("Proxying requests to: %s\n", backendURL)
 		}
+	}
+
+	// Observability (OBS-MUSTER-1, docs/observability-spec.md §4.2): ONE
+	// explicit prometheus registry per daemon process. The recorder is built
+	// before the handlers are used so the proxy handler records into exactly
+	// the registry the /metrics listener serves — never the default registry.
+	// Building it here is side-effect free (no listener), so help/status/stop
+	// stay listener-free.
+	metricsRecorder = monitoring.NewMetricRecorder(metricsTenantID(), nil)
+	if proxyHandler, ok := handler.(*daemon.ProxyHandler); ok {
+		proxyHandler.SetMetrics(metricsRecorder)
 	}
 
 	// Client tokens required on the socket (only meaningful with a handler that
@@ -199,6 +240,7 @@ func run() error {
 		fmt.Println("Options:")
 		fmt.Println("  --backend-url <url>     Backend URL for proxy")
 		fmt.Println("  --socket-path <path>    Path for Unix domain socket (default: /tmp/muster-daemon.sock)")
+		fmt.Println("  --metrics-addr <addr>   Loopback address for the /metrics listener (default: " + monitoring.DefaultMetricsAddr + ")")
 		fmt.Println("")
 		return nil
 	}
@@ -221,6 +263,57 @@ func readCredentialFile(path, what string) (string, error) {
 		return "", fmt.Errorf("%s file %q must contain exactly one line", what, path)
 	}
 	return secret, nil
+}
+
+// startMetricsListener binds the loopback metrics listener and serves the five
+// muster_* families of docs/observability-spec.md §3.1 on it.
+//
+// A bind failure is a WARNING, not fatal: the daemon's real surface is the Unix
+// socket, and a metrics port already taken (a second daemon, a leftover probe)
+// must not take that surface down with it. The listener serves only /metrics —
+// no proxied path is reachable through it — so exposing it on loopback cannot
+// widen the proxy's attack surface (spec §4.2).
+func startMetricsListener() *monitoring.MusterMetricsServer {
+	if metricsRecorder == nil {
+		return nil
+	}
+	server := monitoring.NewMusterMetricsServer(metricsAddr, metricsRecorder.Muster())
+	if err := server.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "[WARN] metrics listener not started on %s: %v\n", metricsAddr, err)
+		return nil
+	}
+	fmt.Printf("Metrics: http://%s/metrics\n", server.Addr())
+	return server
+}
+
+// shutdownMetricsListener stops the metrics listener. It does not touch
+// daemon_up: the caller marks the daemon down first so the last scrape reports
+// the truth.
+func shutdownMetricsListener(server *monitoring.MusterMetricsServer) {
+	if server == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "[WARN] metrics listener shutdown: %v\n", err)
+	}
+}
+
+// markDaemonUp publishes muster_daemon_up = 1 once the socket answers.
+func markDaemonUp() {
+	if metricsRecorder != nil {
+		metricsRecorder.Muster().MarkUp()
+	}
+}
+
+// markDaemonDown publishes muster_daemon_up = 0 on the shutdown path, before
+// the listener is closed: 1 for a dead process is the one lie a /metrics
+// endpoint must never tell.
+func markDaemonDown() {
+	if metricsRecorder != nil {
+		metricsRecorder.Muster().MarkDown()
+	}
 }
 
 // handleStart ensures the daemon comes up serving the socket.
@@ -257,6 +350,11 @@ func handleStart(controller *daemon.Controller, handler http.Handler) error {
 		return fmt.Errorf("write PID file: %w", err)
 	}
 
+	// The socket answers, so the daemon is up: publish that and start the
+	// loopback scrape target (OBS-MUSTER-1).
+	markDaemonUp()
+	metricsServer := startMetricsListener()
+
 	fmt.Println("Daemon started successfully")
 	fmt.Printf("PID file: %s\n", pidFile)
 	fmt.Printf("Socket: %s\n", socketPath)
@@ -272,12 +370,18 @@ func handleStart(controller *daemon.Controller, handler http.Handler) error {
 	<-sigCh
 	fmt.Println("Shutting down daemon...")
 
+	// Report down BEFORE the listener closes, or the final scrape leaves a
+	// stale muster_daemon_up = 1 behind.
+	markDaemonDown()
+
 	// Remove PID file before shutdown
 	_ = os.Remove(pidFile)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return controller.Shutdown(ctx)
+	shutdownErr := controller.Shutdown(ctx)
+	shutdownMetricsListener(metricsServer)
+	return shutdownErr
 }
 
 // spawnDaemonChild re-executes the current binary as a detached child
@@ -434,6 +538,10 @@ func handleProxyStart(controller *daemon.Controller, handler http.Handler) error
 		return fmt.Errorf("write PID file: %w", err)
 	}
 
+	// Socket answers: publish daemon_up = 1 and expose /metrics on loopback.
+	markDaemonUp()
+	metricsServer := startMetricsListener()
+
 	fmt.Println("Proxy daemon started successfully")
 	fmt.Printf("Socket: %s\n", socketPath)
 	fmt.Println("\nTest with:")
@@ -450,12 +558,17 @@ func handleProxyStart(controller *daemon.Controller, handler http.Handler) error
 	<-sigCh
 	fmt.Println("Shutting down proxy...")
 
+	// Publish down before the listener closes (see handleStart).
+	markDaemonDown()
+
 	// Remove PID file before shutdown
 	_ = os.Remove(pidFile)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return controller.Shutdown(ctx)
+	shutdownErr := controller.Shutdown(ctx)
+	shutdownMetricsListener(metricsServer)
+	return shutdownErr
 }
 
 func handleStop(controller *daemon.Controller) error {
