@@ -1,0 +1,51 @@
+{
+  "tick_id": "muster-foreman-2026-11-04-05-19-44",
+  "project": "muster",
+  "base_commit": "8bdd7e069c385769d7e3acbfddeadb40d16212dc",
+  "selected_rows": ["OBS-MUSTER-1", "OBS-MUSTER-2"],
+  "selected_priority": "P0",
+  "physical_rows": 317,
+  "wave_budget": 2,
+  "dependency_proof": "both rows depends_on=null and blocked_by=null in tasks.jsonl; disjoint file scopes (row1: cmd/daemon + internal/monitoring + pkg/daemon wiring; row2: internal/audit only) verified 2026-11-04",
+  "workers": [
+    {
+      "row": "OBS-MUSTER-1",
+      "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-1",
+      "branch": "wt/OBS-MUSTER-1",
+      "brief": "/home/kara/.hermes/cache/scratch/muster-t2026-11-04-05-19-44/OBS-MUSTER-1-brief.txt",
+      "model": "default (lane unpinned; hermes session default)",
+      "gitreins_task": "OBS-MUSTER-1"
+    },
+    {
+      "row": "OBS-MUSTER-2",
+      "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-2",
+      "branch": "wt/OBS-MUSTER-2",
+      "brief": "/home/kara/.hermes/cache/scratch/muster-t2026-11-04-05-19-44/OBS-MUSTER-2-brief.txt",
+      "model": "default (lane unpinned; hermes session default)",
+      "gitreins_task": "OBS-MUSTER-2"
+    }
+  ],
+  "mode": "wave",
+  "foreman_rulings": [
+    "OBS-MUSTER-1 implements its 5-metric set within internal/monitoring + cmd/daemon (+ pkg/daemon request instrumentation only); MUST NOT modify internal/audit",
+    "OBS-MUSTER-2 registers its new counters on the default prometheus registry; reconciling audit counters into the daemon's served explicit registry is a named follow-up, not either worker's scope",
+    "muster_audit_events_written_total (row-1 five-set member) is implemented on the monitoring side, NOT in internal/audit"
+  ],
+  "status": "recovered",
+  "dispatched_at": "2026-11-04T00:45:00-05:00",
+  "finished_at": "2026-11-04T18:45:00-05:00",
+  "recovery": {
+    "recovered_by_tick": "muster-foreman-2026-11-04-18-26-13",
+    "recovered_at": "2026-11-04T18:45:00-05:00",
+    "method": "branch-tip census against current main (61931bfa): both worker branches had 0 commits ahead / 0 behind main and no worktree directory on disk; worktree reflog shows the branch created from origin/main at 00:49:58 then a no-op 'rebase (finish)' onto 61931bfa at 13:21:26 - no implementation was ever committed",
+    "per_worker": [
+      {"row": "OBS-MUSTER-1", "branch_sha": "61931bfa", "ahead_of_main": 0, "verdict": "zero-work; nothing to gate, nothing to merge; branch deleted"},
+      {"row": "OBS-MUSTER-2", "branch_sha": "61931bfa", "ahead_of_main": 0, "verdict": "zero-work; nothing to gate, nothing to merge; branch deleted"}
+    ],
+    "root_cause": "worker launcher died before its first turn: `hermes chat` under the session default model (accounts/fireworks/models/deepseek-v4p1-flash-1017) answers \"Hermes couldn't start the model connection: invalid_params\". Re-dispatch with an explicit seat (-m deepseek-flash --provider deepseek) runs normally. Both wave branches are therefore empty rather than failed implementations.",
+    "board_effect": "OBS-MUSTER-1 and OBS-MUSTER-2 remain pending (correct - no work landed); OBS-MUSTER-1 was re-dispatched by the recovering tick in a fresh worktree at 61931bfa",
+    "worktrees_removed": [],
+    "branches_deleted": ["wt/OBS-MUSTER-1 (0 commits)", "wt/OBS-MUSTER-2 (0 commits)"],
+    "branches_preserved_as_evidence": []
+  }
+}
