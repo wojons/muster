@@ -536,6 +536,77 @@ type ProxyHandler struct {
 	// headers pass through untouched, exactly as before.
 	injectHeader string
 	injectValue  string
+	// metrics, when non-nil, receives one observation per proxied request
+	// (muster_daemon_proxy_requests_total / _duration_seconds, spec §3.1).
+	// It is an interface so pkg/daemon does not depend on the monitoring
+	// implementation and tests can pass a bare recorder.
+	metrics ProxyMetrics
+}
+
+// ProxyMetrics is the recording surface the proxy writes to. It matches
+// monitoring.MetricRecorder.RecordDaemonProxyRequest, so the daemon wires its
+// explicit-registry recorder here without pkg/daemon importing internal/.
+// endpoint is the request path as received; the recorder is responsible for
+// reducing it to a bounded label (spec §6 forbids unbounded path labels).
+type ProxyMetrics interface {
+	RecordDaemonProxyRequest(endpoint, method string, status int, duration time.Duration)
+}
+
+// SetMetrics attaches the recording surface. Nil (the default) disables
+// instrumentation, so every existing constructor keeps today's behaviour.
+func (h *ProxyHandler) SetMetrics(m ProxyMetrics) {
+	h.metrics = m
+}
+
+// statusRecorder captures the status code the handler actually sent, for the
+// status_class label. A handler that never calls WriteHeader still sends 200,
+// so Status() reports 200 in that case rather than 0.
+type statusRecorder struct {
+	http.ResponseWriter
+	status      int
+	wroteHeader bool
+}
+
+// WriteHeader records the first status code sent (later calls are ignored by
+// net/http itself) and forwards it unchanged.
+func (r *statusRecorder) WriteHeader(status int) {
+	if !r.wroteHeader {
+		r.status = status
+		r.wroteHeader = true
+	}
+	r.ResponseWriter.WriteHeader(status)
+}
+
+// Write records an implicit 200 for a handler that writes a body without
+// calling WriteHeader first.
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	if !r.wroteHeader {
+		r.status = http.StatusOK
+		r.wroteHeader = true
+	}
+	return r.ResponseWriter.Write(b)
+}
+
+// Flush forwards to the underlying writer when it supports flushing, so
+// wrapping the ResponseWriter cannot disable streaming responses.
+func (r *statusRecorder) Flush() {
+	if flusher, ok := r.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// Unwrap exposes the wrapped writer to http.ResponseController.
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
+// Status returns the status code sent, defaulting to 200 (net/http's implicit
+// status for a handler that wrote nothing).
+func (r *statusRecorder) Status() int {
+	if !r.wroteHeader {
+		return http.StatusOK
+	}
+	return r.status
 }
 
 // NewProxyHandler creates a new proxy handler
@@ -603,6 +674,25 @@ func NewProxyHandlerWithCache(backendURL string, c cache.Cache, ttl time.Duratio
 
 // ServeHTTP implements http.Handler
 func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Instrument the whole request: the wrapper captures the status actually
+	// sent (implicit 200 included) and the deferred recorder observes exactly
+	// one point per proxied call, on every return path — including the
+	// validation failures below, which are the failures an operator wants to
+	// see as 4xx/5xx rather than as silence (spec §3.1).
+	started := time.Now()
+	status := &statusRecorder{ResponseWriter: w}
+	w = status
+	// endpoint stays empty until the path passes validation, so an
+	// unreachable/invalid backend is reported against "/" rather than an
+	// attacker-chosen path.
+	endpoint := ""
+	defer func() {
+		if h.metrics == nil {
+			return
+		}
+		h.metrics.RecordDaemonProxyRequest(endpoint, r.Method, status.Status(), time.Since(started))
+	}()
+
 	// Parse backend URL
 	backend, err := url.Parse(h.backendURL)
 	if err != nil {
@@ -616,6 +706,7 @@ func (h *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
+	endpoint = cleanedPath
 
 	// Use url.JoinPath for proper path joining (Go 1.20+)
 	// This handles path separators, escaping, and prevents smuggling

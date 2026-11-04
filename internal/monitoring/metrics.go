@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
+	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/log"
 )
 
@@ -119,19 +120,44 @@ var (
 	)
 )
 
+// MetricRecorder is the legacy recording surface for the openapi_* families
+// plus the five muster_* families of docs/observability-spec.md §3.1.
+//
+// The openapi_* families are registered through promauto (package init), so
+// they live on the default registry; the muster_* families live on an explicit
+// registry owned by this recorder (spec §4.2 — the previous code held a
+// registry field nothing ever served, so the field was dead). Registry()
+// returns that explicit registry and is what a caller must serve.
 type MetricRecorder struct {
 	tenantID string
 	registry *prometheus.Registry
+	muster   *MusterMetrics
 	logger   *zerolog.Logger
 	mu       sync.RWMutex
 }
 
+// NewMetricRecorder creates a recorder. Each recorder owns a fresh explicit
+// registry holding exactly the five muster_* families, so tests never collide
+// and double registration is impossible.
 func NewMetricRecorder(tenantID string, logger *zerolog.Logger) *MetricRecorder {
+	muster := NewMusterMetrics(tenantID, version.Get().Version, version.Get().Commit)
 	return &MetricRecorder{
 		tenantID: tenantID,
-		registry: prometheus.NewRegistry(),
+		registry: muster.Registry(),
+		muster:   muster,
 		logger:   logger,
 	}
+}
+
+// Registry returns the explicit registry holding the muster_* families. Serve
+// this one (promhttp.HandlerFor) rather than the default registry.
+func (mr *MetricRecorder) Registry() *prometheus.Registry {
+	return mr.registry
+}
+
+// Muster exposes the muster_* families and their recording methods.
+func (mr *MetricRecorder) Muster() *MusterMetrics {
+	return mr.muster
 }
 
 func (mr *MetricRecorder) RecordCommandExecution(command string, status string, duration time.Duration) {
@@ -194,6 +220,27 @@ func (mr *MetricRecorder) RecordProxyRequest(endpoint, method string) {
 	}).Inc()
 }
 
+// RecordDaemonProxyRequest records one proxied request on the explicit
+// registry (muster_daemon_proxy_requests_total and
+// muster_daemon_proxy_duration_seconds). status is bucketed into a
+// status_class label, never emitted raw.
+func (mr *MetricRecorder) RecordDaemonProxyRequest(endpoint, method string, status int, duration time.Duration) {
+	mr.mu.Lock()
+	defer mr.mu.Unlock()
+
+	mr.muster.RecordProxyRequest(endpoint, method, status, duration)
+}
+
+// RecordAuditEvent records one audit event written to the record of truth
+// (muster_audit_events_written_total). See the TODO in NewMusterMetrics: the
+// daemon has no audit write call site yet (OBS-MUSTER-2).
+func (mr *MetricRecorder) RecordAuditEvent(eventType, category string) {
+	mr.mu.Lock()
+	defer mr.mu.Unlock()
+
+	mr.muster.RecordAuditEvent(eventType, category)
+}
+
 func (mr *MetricRecorder) RecordCacheHit() {
 	mr.mu.Lock()
 	defer mr.mu.Unlock()
@@ -230,6 +277,11 @@ func (mr *MetricRecorder) DecDaemonSocketConnections() {
 	DaemonActiveSockets.Dec()
 }
 
+// MetricsServer is the legacy (pre-OBS-MUSTER-1) multi-endpoint server. It is
+// retained because its families and tests still exist, but it serves the
+// DEFAULT registry via promhttp.Handler(), which spec §4.2 forbids for
+// production code — the daemon therefore serves MusterMetricsServer (explicit
+// registry) and never this type. Do not wire it into a binary.
 type MetricsServer struct {
 	addr   string
 	server *http.Server
