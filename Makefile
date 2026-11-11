@@ -670,8 +670,12 @@ demo: build demo-setup ## Run integration demo (STATUS: 5/10 mocked — remediat
 	@echo ""
 	@echo "Demo complete. See ./demo/run-all.sh for the production gate."
 
+.PHONY: validate-compose
+validate-compose: ## Parse-validate every tracked docker-compose file (needs docker compose)
+	@bash ./scripts/validate-compose.sh
+
 .PHONY: validate
-validate: test-unit lint vet test-integration test-security-audit ## Run full system validation
+validate: validate-compose test-unit lint vet test-integration test-security-audit ## Run full system validation
 	@echo "=== Full System Validation ==="
 	@echo ""
 	@echo "Running integration tests..."

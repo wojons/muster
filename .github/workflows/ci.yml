@@ -48,3 +48,9 @@ jobs:
 
       - name: Demo
         run: ./demo/run-all.sh
+
+      # QA-MUSTER-024: a compose file that fails `docker compose config`
+      # never reaches the operator — catch the whole class in CI instead of
+      # discovering it while deploying the hardened stack.
+      - name: Validate compose files
+        run: bash ./scripts/validate-compose.sh

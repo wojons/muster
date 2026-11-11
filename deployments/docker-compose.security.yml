@@ -51,6 +51,9 @@ services:
       - muster-network
     
     # Health check
+    # QA-MUSTER-024: the test vector MUST start with CMD/CMD-SHELL/NONE —
+    # without the prefix `docker compose config` aborts (rc=15) and the
+    # documented hardened stack can never be validated or started.
     healthcheck:
       test: ["CMD", "/usr/local/bin/openapi-cli", "version"]
       interval: 30s
@@ -116,5 +119,9 @@ networks:
     internal: false  # Set to true for complete network isolation
     ipam:
       config:
-        - subnet: 172.28.0.0/16
-          gateway: 172.28.0.1
+        # Overridable so the stack can start on hosts where this /16 is
+        # already claimed by another docker network (QA-MUSTER-024: on the
+        # fleet control host 172.28.0.0/16 belongs to crier-ui-test-net,
+        # so `up` failed on subnet overlap). Default preserved.
+        - subnet: ${MUSTER_SECURITY_SUBNET:-172.28.0.0/16}
+          gateway: ${MUSTER_SECURITY_GATEWAY:-172.28.0.1}
