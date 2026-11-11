@@ -582,8 +582,9 @@ byte-untouched rather than swept into this commit.
 ### run 23b — install leg, collected evidence (amends run 23 above)
 
 `bunker-qa.sh collect` on agent `bcf7330c` (bunker-mvp, fresh agent, clean tree synced from the repo)
-synced 14 evidence cells. Re-checked three times at ~6-minute intervals: the battery was **still running**
-at tick close, so this leg is reported as **RUNNING with partial evidence** — not PASS, not skipped.
+synced 14 evidence cells. Final state of this leg, checked at 20:34Z: the battery ended with
+`AGENT-GONE agent=bcf7330c rows=14` — the agent was reaped before the battery finished, so this leg is
+reported as **RAN PARTIALLY (agent gone, 14 cells), no PASS claimed** — not PASS, not skipped.
 
 Cells that had returned, verbatim statuses:
 - `toolchain-bootstrap` OK ×9 — go 1.27.4 auto-installed (ambient 1.22.2 below the 1.24 floor), gcc/g++
