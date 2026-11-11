@@ -1,0 +1,34 @@
+{
+  "tick_id": "muster-foreman-2026-11-11-21-43-13",
+  "project": "muster",
+  "mode": "serial-fallback",
+  "selected_row": "RELEASE-017",
+  "board_census": {
+    "pending_rows": 40,
+    "dispatchable_implementation_rows": 1,
+    "eligible_independent": 1
+  },
+  "wave_budget": 11,
+  "wave_size": 1,
+  "workers": [
+    {
+      "task_id": "RELEASE-017",
+      "worktree": "/home/kara/.hermes/cache/scratch/muster-foreman-2026-11-11-21-43-13/attempt-1/worker",
+      "branch": "wt/RELEASE-017",
+      "base_sha": "fed18fa48053d805062481f654c86d40a02903b6",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "brief": "/home/kara/.hermes/cache/scratch/muster-foreman-2026-11-11-21-43-13/attempt-1/brief-RELEASE-017-v2.txt",
+      "ownership": "foreman"
+    }
+  ],
+  "gates": [
+    "make deps-audit",
+    "go build ./...",
+    "go vet ./...",
+    "go test -short -count=1 ./...",
+    "fresh exact-head Build workflow"
+  ],
+  "off_by_one": "discover dependency-vulnerability-remediation returned not_found; broad corpus search timed out before a result",
+  "trace": "ch:trace row=RELEASE-017 spec=.coding-hermes/board/tasks.jsonl test=make deps-audit+go build ./...+go vet ./...+go test -short -count=1 ./...+exact-head-build-ci wave=.coding-hermes/waves/muster-foreman-2026-11-11-21-43-13.json verdict=none:worker-handoff"
+}
