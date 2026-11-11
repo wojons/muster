@@ -1,6 +1,6 @@
 module github.com/wojons/muster
 
-go 1.26.10
+go 1.26.11
 
 require (
 	// File system watching for config hot reload
@@ -82,7 +82,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jhump/protoreflect v1.19.0
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.21 // indirect
