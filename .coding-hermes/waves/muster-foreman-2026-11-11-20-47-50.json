@@ -1,0 +1,58 @@
+{
+  "tick_id": "muster-foreman-2026-11-11-20-47-50",
+  "project": "muster",
+  "mode": "wave-recovery",
+  "selected_row": "GAP-032",
+  "board_census": {
+    "pending_rows_before": 40,
+    "dispatchable_implementation_rows": 0,
+    "eligible_independent": 0,
+    "row_closed": true
+  },
+  "wave_budget": 1,
+  "wave_size": 0,
+  "workers": [
+    {
+      "branch": "lane/muster/ops-20261111-1948",
+      "tip": "14449b1f0e41a09d6223a4d3d5325f9cc324d8c5",
+      "base_before_rebase": "b0ba217df6cc75277f950cad3b86794d2d2f8c62",
+      "gate": "PASS",
+      "merged_into": "origin/main",
+      "merge": "fast-forward publication by worker branch",
+      "worktree": "/home/kara/muster-wt-ops-20261111-1948",
+      "cleanup": "removed; local branch deleted; remote branch absent"
+    },
+    {
+      "branch": "lane/muster/ops-qa024-20261111-1948",
+      "tip": "0e8dc50a23599465021250b3775e914ed1e713be",
+      "base_before_rebase": "eda62828a5310edfe9a3f345ce91d6d88e89207c",
+      "gate": "REFUSED: board-only branch; duplicate of origin/main",
+      "merged_into": "origin/main already contained tip",
+      "merge": "no-op/redundant; no code merge",
+      "worktree": "/home/kara/worktrees/muster-ops-qa024-20261111-1948",
+      "cleanup": "removed; local branch deleted; remote branch absent"
+    },
+    {
+      "branch": "wt/GAP-032-recheck-20261111-194840",
+      "tip": "45b2a90fd98afa1efc36b376def6dd90d798d71f",
+      "base_before_rebase": "defdbf77b1955ff542fbba8b272df3c697f784d6",
+      "gate": "REFUSED: board/evidence branch mixes .coding-hermes/board with docs/evidence/wave paths",
+      "merged_into": "not merged",
+      "merge": "preserved as evidence; canonical equivalent landed at origin/main",
+      "worktree": "/home/kara/worktrees/muster-GAP-032-recheck-20261111-194840",
+      "cleanup": "preserved unmerged branch/worktree"
+    }
+  ],
+  "blocker": "Recovery complete. GAP-032 acceptance was re-probed and closed; exact-head CI remains queued.",
+  "verification_command": "docker compose config + make validate-compose on recovered ops branch; gofmt/build/vet/go test -short on published tip; GAP-032 live probes; GitReins verification task",
+  "next_owner_action": "Update musterflow to a published muster version, remove/regenerate the absolute go.work replacement for fresh-clone use, and prove a fresh-clone build.",
+  "off_by_one": "none: verification-only; no debugging or novel fix design",
+  "sha_roles": {
+    "source_sha": "b0ba217df6cc75277f950cad3b86794d2d2f8c62",
+    "verified_code_commit": "14449b1f0e41a09d6223a4d3d5325f9cc324d8c5",
+    "evidence_commit": "14ddda33",
+    "gitreins_judged_commit": "14449b1f0e41a09d6223a4d3d5325f9cc324d8c5"
+  },
+  "trace": "ch:trace row=GAP-032 spec=none:external-owner-action wave=.coding-hermes/waves/muster-foreman-2026-11-11-20-47-50.json#selected_row test=none:verification-only-live-probes doc=docs/verification/owner-gated/GAP-032.md evidence=.coding-hermes/evidence/gap-032-recheck-20261111-203119.json witness=public:github.com/wojons/muster+proxy:200+fresh-consumer:0 verdict=9426a90b commit=14449b1f0e41a09d6223a4d3d5325f9cc324d8c5 memory=none:unverified",
+  "finished_at": "2026-11-11T21:22:00Z"
+}
