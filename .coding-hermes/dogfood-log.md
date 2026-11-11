@@ -524,3 +524,85 @@ No board rows were filed: the fresh-box failures are not attributable to the pro
 Artifacts: `docs/dogfood/2026-10-26-integration.md` and `.coding-hermes/dogfood-evidence/run21/summary.txt`.
 
 *ch:trace tick=muster-dogfood-2026-10-26-14-01-09 head=1ea7c54a0e3bbea311da1538b3785011f85078b6 report=docs/dogfood/2026-10-26-integration.md evidence=.coding-hermes/dogfood-evidence/run21/summary.txt install=/tmp/bunker-qa-evidence-20261026T142133Z-3945564.jsonl verdict=PROMISING-BUT-ROUGH perf=none rows=0*
+
+### run 23 — tick muster-dogfood-2026-11-11-19-48-40 (2026-11-11)
+
+**Verdict: PROMISING-BUT-UNSTABLE.** The documented path works end to end — build, generate a CLI from a
+live OpenAPI spec, then create/list/get resources against that same server — and it is fast. What broke
+was not the request path but the output layer and one adjacent scripting surface.
+
+**Promise exercised.** "Point it at any OpenAPI spec and get a working typed CLI in one step" — done
+against the repo's own demo service (`demo/services/task-forge`, spec at `http://localhost:9801/openapi.json`)
+from a clean `git clone` of HEAD 3eb9cbb5 with an isolated `HOME`, building with `make build-cli`.
+
+**Time to first success (real numbers, `/usr/bin/time`):**
+- cold tree build (`make build-cli`, fresh clone, existing Go caches): **2.80 s wall**, 8.20 s user, 417 MB peak RSS, 28 MB binary
+- rebuild, nothing changed: **1.12 s**
+- `generate` (warm, local spec): **0.01 s** (second run 0.10 s)
+- `list-tasks` / `list-projects` (warm): **0.01–0.03 s**, ~25 MB RSS
+- `create-project-task`: **0.04 s**
+- No PERF row filed: nothing here is slow enough for a user to notice. The only cost a user feels is the
+  one-off compile, and 2.8 s is not a complaint.
+
+**Top findings filed as rows:**
+1. `DF-MUSTER-6` (P1) — table output column order is nondeterministic: 4 invocations produced 4 different
+   header orders on identical data (`description milestone_id priority …` vs `milestone_id tags updated_at …`).
+   Breaks diffing, `awk $3`, doc screenshots; reads as broken to a first-time user.
+2. `DF-MUSTER-7` (P2) — `dsl run` can only POST JSON as a hand-serialized string:
+   `http_post(url, {dict})` → `execution error: http_post: for parameter body: got dict, want string`,
+   and the obvious workaround `json.encode(...)` → `compile error: … undefined: json`; `dsl --help` never
+   says what type `body` is.
+3. `DF-MUSTER-8` (P1) — the board itself is invalid on HEAD: `boardctl validate` FAILs with
+   `[error] tasks.jsonl line 284: duplicate task id "INT-CI-003" (also line 206)`. The two rows are
+   different findings (one complete, one pending), so the fix is to re-id one, not delete either.
+
+**Verified as working (so the next tick does not re-test it):** `generate` from a live spec; typed
+`create-project`, `create-project-task`, `get-task`, `list-tasks`, `list-projects`; `-o json` vs default
+table; `request GET <url>`; error paths for a missing resource and an unreachable base URL all returned
+sane, non-panicking messages.
+
+**Known-upstream behaviour observed, NOT re-filed:** generating a second spec replaces the persisted
+command set, so the first spec's commands then fail with `Error: unknown command "list-tasks" for
+"openapi-cli"` (rc=1) with no hint about why. That is the mechanism already owned by `DF-MUSTER-3`
+(complete) and `REVIEW-MUSTER-18` (pending, `--profile` does not namespace the store). Worth noting for
+that row: the error message gives the user nothing to recover with.
+
+**Install leg (bunker-qa):** launched, not skipped — `bunker-qa.sh launch` provisioned agent `bcf7330c`
+on `bunker-mvp` (ttl 4h) and ran the fresh-install cell. Toolchain bootstrap and `fresh-install` (go build
+./...) reported OK; the battery was still running at tick close, so the install leg's status is
+**RUNNING with partial evidence**, not PASS. Evidence:
+`/tmp/bunker-qa-evidence-20261111T202703Z-1971247.jsonl`. Harness note for QA: `lint` reported
+`runner unavailable on agent: golangci-lint — lint was not run` (INFO, not a product failure), so this
+leg does not cover lint.
+
+**Not filed, deliberately:** missing `task_created` events for new rows (board coverage census already
+tracks that class), and the uncommitted `events.jsonl` batch a concurrent sibling had in flight — left
+byte-untouched rather than swept into this commit.
+
+### run 23b — install leg, collected evidence (amends run 23 above)
+
+`bunker-qa.sh collect` on agent `bcf7330c` (bunker-mvp, fresh agent, clean tree synced from the repo)
+synced 14 evidence cells. Re-checked three times at ~6-minute intervals: the battery was **still running**
+at tick close, so this leg is reported as **RUNNING with partial evidence** — not PASS, not skipped.
+
+Cells that had returned, verbatim statuses:
+- `toolchain-bootstrap` OK ×9 — go 1.27.4 auto-installed (ambient 1.22.2 below the 1.24 floor), gcc/g++
+  wrappers, make, jq 1.8.2, compose plugin, buildx v0.39.0, node v22.15.0
+- `fresh-install` OK — `go build ./...` from the clean tree succeeded (deps fetched; no artifact expected)
+- `tests` OK — rc=0
+- `docker_build` OK — `docker build -f ./deployments/backup/Dockerfile ./deployments/backup`, legacy builder, rc=0
+- `lint` **INFO** — `runner unavailable on agent: golangci-lint — lint was not run` (harness gap, not a product failure)
+- `compose_config` **FAIL** — `docker compose -f ./deployments/docker-compose.security.yml config` → rc=1:
+  `healthcheck.test must start either by "CMD", "CMD-SHELL" or "NONE"` (plus a `version` attribute obsolete warning)
+
+That FAIL is the live confirmation of an existing row — **`QA-MUSTER-024`** (pending, "healthcheck.test lacks
+the CMD prefix") — so it was NOT re-filed; this is the clean-machine evidence for it. It is worth noting that
+this breaks a documented deploy path on a fresh box while `docker_build` and `go build ./...` stay green:
+nothing in CI catches it, which is exactly what this leg exists for.
+
+**Correction, same tick, before commit:** `DF-MUSTER-8` was filed against a real invalid baseline
+(`boardctl validate`: 1 error, duplicate id INT-CI-003), but a concurrent lane re-id'd the pending
+duplicate to `INT-CI-010` while this tick ran. The row is therefore kept as **complete** — annotated
+`[RESOLVED 2026-11-11 by a concurrent lane]` with the resolution and the re-verified
+`RESULT: OK (256 warning(s))` — rather than left pending for a foreman to chase a defect that no longer
+exists. The live findings from this tick are `DF-MUSTER-6` and `DF-MUSTER-7`.
