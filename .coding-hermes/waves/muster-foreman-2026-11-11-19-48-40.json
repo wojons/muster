@@ -11,9 +11,9 @@
   "wave_budget": 12,
   "wave_size": 0,
   "workers": [],
-  "blocker": "Cleared during this tick: repository is public and the module is reachable; no implementation worker was needed.",
-  "verification_command": "curl proxy module info; gh api repository visibility; fresh consumer go get; exact-head CI listing",
-  "next_owner_action": "None for GAP-032; close the row. Any future failure is a new recurrence row.",
+  "blocker": "Publication is healthy, but musterflow still has an active absolute go.work replacement and an unresolvable v0.0.0 dependency; fresh-clone build is not proven.",
+  "verification_command": "curl proxy module info; gh api repository visibility; inspect active go.work via go env GOWORK; GOWORK=off go list; fresh consumer go get; fresh musterflow clone build",
+  "next_owner_action": "Update musterflow to a published muster version, remove/regenerate the absolute go.work replacement for fresh-clone use, and prove a fresh-clone build.",
   "off_by_one": "none: verification-only; no debugging or novel fix design",
   "sha_roles": {
     "source_sha": "3b6de28153f7726a81ebc1b10fa70d382d48c410",

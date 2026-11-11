@@ -1,0 +1,21 @@
+{
+  "tick_id": "muster-foreman-2026-11-11-19-48-40",
+  "row": "GAP-032",
+  "supersedes": "774483c7ecd9921c534475d6942c186d667b8a7a / verdict 56898c76",
+  "tested_commit": "3b6de28153f7726a81ebc1b10fa70d382d48c410",
+  "correction": "The first evidence artifact was unsound: it checked only musterflow/go.mod and missed the active absolute replacement in the generated, gitignored musterflow/go.work. The board row remains pending.",
+  "probes": [
+    {"command":"gh api repos/wojons/muster --jq '{isPrivate, visibility}'","exit_code":0,"stdout":"{\"isPrivate\":null,\"visibility\":\"public\"}"},
+    {"command":"curl -sS -o /dev/null -w '%{http_code}' https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info","exit_code":0,"stdout":"200"},
+    {"command":"grep -c 'github.com/wojons/muster v0' /home/kara/musterflow/go.mod","exit_code":0,"stdout":"1"},
+    {"command":"grep -n 'replace github.com/wojons/muster' /home/kara/musterflow/go.work","exit_code":0,"stdout":"5: replace github.com/wojons/muster => /home/kara/wojons/muster"},
+    {"command":"go env GOWORK in /home/kara/musterflow","exit_code":0,"stdout":"/home/kara/musterflow/go.work"},
+    {"command":"GOWORK=off go list -m github.com/wojons/muster in /home/kara/musterflow","exit_code":1,"stdout":"go: github.com/wojons/muster@v0.0.0: invalid version: unknown revision v0.0.0"},
+    {"command":"GOPROXY=https://proxy.golang.org go get github.com/wojons/muster@v0.1.1 in a fresh temporary consumer","exit_code":0,"stdout":"go: added github.com/wojons/muster v0.1.1"},
+    {"command":"fresh git clone of musterflow with go.work absent, then go build ./cmd/musterflow","exit_code":1,"stdout":"missing go.sum entry for module providing package github.com/wojons/muster/pkg/auth"}
+  ],
+  "result": "Module publication is healthy, but GAP-032 acceptance is not met: musterflow still has an active absolute go.work replacement and its committed v0.0.0 dependency is not resolvable. Keep the row pending and require the consumer dependency contract to be updated and a fresh-clone build to pass.",
+  "next_owner_action": "Update musterflow's committed dependency to a published muster version, remove/regenerate the absolute go.work replacement for fresh-clone use, and prove a fresh clone builds.",
+  "wave": ".coding-hermes/waves/muster-foreman-2026-11-11-19-48-40.json",
+  "trace": "ch:trace row=GAP-032 spec=none:external-owner-action wave=.coding-hermes/waves/muster-foreman-2026-11-11-19-48-40.json#selected_row test=none:verification-only-live-probes doc=docs/verification/owner-gated/GAP-032.md evidence=.coding-hermes/evidence/gap-032-recheck-20261111-194840-correction.json witness=public:github.com/wojons/muster+proxy:200+active-go.work-replace+fresh-clone-build:1 verdict=none:acceptance-not-met commit=none:owner-block memory=/project/muster/foreman/ticks/muster-foreman-2026-11-11-19-48-40"
+}
