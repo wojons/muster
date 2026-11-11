@@ -607,3 +607,38 @@ duplicate to `INT-CI-010` while this tick ran. The row is therefore kept as **co
 `[RESOLVED 2026-11-11 by a concurrent lane]` with the resolution and the re-verified
 `RESULT: OK (256 warning(s))` — rather than left pending for a foreman to chase a defect that no longer
 exists. The live findings from this tick are `DF-MUSTER-6` and `DF-MUSTER-7`.
+
+### run 23-dup — second fire of the same tick id, records-only (no new findings)
+
+A second scheduler fire arrived for the same tick id `muster-dogfood-2026-11-11-19-48-40` at 16:02 -05.
+Per the duplicate-fire gate this fire is **records-only**: no product use, no benchmark, no install, no new
+rows. Heading count for this tick id stays at **1 delivery** (this heading deliberately does not repeat the
+id, so `grep -c '^#\+ .*<tick-id>'` is unchanged); this block is the provenance record for the re-fire.
+
+Verified against committed artifacts at 16:05 -05:
+
+- **Run record committed.** `git log -1` = `eda62828` "dogfood(muster): record install-leg final state for
+  tick …19-48-40"; `git show HEAD:.coding-hermes/dogfood-log.md | grep -c <tick-id>` = 1.
+- **Remote parity.** `merge-base --is-ancestor eda62828 origin/main` → true. `rev-list --left-right
+  --count origin/main...main` after `git fetch` = `4 0` — the lane has **0 unpushed commits**; the remote
+  moved 4 ahead. (Reading the raw `4 0` as "4 ahead locally" is the classic inversion; left is origin.)
+- **Rows intact in the committed tree** (`git show HEAD:…/tasks.jsonl`): `DF-MUSTER-6` pending,
+  `DF-MUSTER-7` pending, `DF-MUSTER-8` complete — statuses match what run 23 claimed.
+- **Board still valid.** `boardctl validate -C /home/kara/wojons/muster` → `RESULT: OK (256 warning(s))`,
+  0 errors.
+- **Cited measurement path exists.** `/tmp/bunker-qa-evidence-20261111T202703Z-1971247.jsonl`, 3,955 B,
+  mtime 15:46.
+- **The 4 new remote commits do not touch the outstanding findings.** `git diff eda62828..origin/main`
+  changes only `deployments/`, `scripts/validate-compose.sh`, `.github/workflows/ci.yml`, `Makefile`,
+  board/evidence/release docs — nothing under `pkg/`, `cmd/`, or `internal/`. So `DF-MUSTER-6`
+  (nondeterministic table column order) and `DF-MUSTER-7` (DSL cannot POST a JSON dict) are **still live**
+  and own their pending rows; nothing here was re-filed.
+- Notably, `14449b1f` is a `CMD`-prefix fix for the security-stack healthcheck — i.e. the compose FAIL that
+  run 23b attributed to `QA-MUSTER-024` was taken up by another lane on its own row, not by this one.
+
+**Uncommitted sibling residue, left byte-untouched:** `tasks.jsonl`/`events.jsonl` carry a pending
+`PERF-002` row filed at 21:02:37Z by `muster-perf-2026-11-11-19-48-40`. It is not this tick's and was not
+swept into this commit.
+
+**Deliberately not done:** no re-run of the product path, no second install battery, no duplicate rows, no
+PERF row (run 23 measured the headline path and found nothing a user would feel).
