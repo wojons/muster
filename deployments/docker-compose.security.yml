@@ -50,12 +50,16 @@ services:
     networks:
       - muster-network
     
-    # Health check
-    # QA-MUSTER-024: the test vector MUST start with CMD/CMD-SHELL/NONE —
-    # without the prefix `docker compose config` aborts (rc=15) and the
-    # documented hardened stack can never be validated or started.
+    # QA-MUSTER-029 acceptance: the service must be a LONG-RUNNING daemon —
+    # the image default (openapi-cli --help) prints help, exits 0 and
+    # restart-loops forever, so "healthy" was unreachable even with a clean
+    # seccomp profile. Run the daemon in the foreground on a socket, and make
+    # the healthcheck interrogate THAT daemon instead of running a one-shot
+    # CLI print (QA-MUSTER-024's CMD-prefix rule is preserved).
+    entrypoint: ["/usr/local/bin/openapi-daemon"]
+    command: ["start", "--foreground", "--socket-path", "/tmp/muster.sock"]
     healthcheck:
-      test: ["CMD", "/usr/local/bin/openapi-cli", "version"]
+      test: ["CMD", "/usr/local/bin/openapi-daemon", "status", "--socket-path", "/tmp/muster.sock"]
       interval: 30s
       timeout: 5s
       retries: 3
