@@ -3,8 +3,6 @@
 # Production-ready container hardening with security options
 # =============================================================================
 
-version: "3.8"
-
 services:
   muster:
     image: muster:latest
@@ -54,7 +52,7 @@ services:
     
     # Health check
     healthcheck:
-      test: ["/usr/local/bin/openapi-cli", "version"]
+      test: ["CMD", "/usr/local/bin/openapi-cli", "version"]
       interval: 30s
       timeout: 5s
       retries: 3
