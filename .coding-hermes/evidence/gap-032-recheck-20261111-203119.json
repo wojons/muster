@@ -1,0 +1,42 @@
+{
+  "row": "GAP-032",
+  "verdict": "PASS",
+  "measured_at": "2026-11-11T20:31:19Z",
+  "measured_by": "muster-releng tick muster-releng-2026-11-11-19-48-40",
+  "tip_under_test": "3eb9cbb5",
+  "clause_receipts": {
+    "proxy_v0_1_0_info_http": {
+      "command": "curl -s -o /dev/null -w '%{http_code}' https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info",
+      "result": 200,
+      "note": "measured 404 at 2026-10-23 and 404 again at 2026-11-02 by the foreman rechecks; now 200"
+    },
+    "proxy_v0_1_1_info_http": {
+      "command": "curl -s -o /dev/null -w '%{http_code}' https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.1.info",
+      "result": 200
+    },
+    "proxy_list": {
+      "command": "curl https://proxy.golang.org/github.com/wojons/muster/@v/list",
+      "result": "v0.1.0 v0.1.1"
+    },
+    "repo_private": {
+      "command": "gh api repos/wojons/muster --jq .private",
+      "result": false
+    },
+    "musterflow_module_requirement_count": {
+      "command": "grep -c 'github.com/wojons/muster v0' /home/kara/musterflow/go.mod",
+      "result": 1
+    },
+    "musterflow_absolute_replace_count": {
+      "command": "grep -c '=> /home/kara/muster' /home/kara/musterflow/go.mod",
+      "result": 0
+    },
+    "fresh_consumer_go_get": {
+      "command": "cd $(mktemp -d) && go mod init consumer-probe && go get github.com/wojons/muster@v0.1.1",
+      "exit_code": 0,
+      "note": "no credentials, no GOPRIVATE; go.mod recorded github.com/wojons/muster v0.1.1 and the toolchain auto-upgraded to go1.26.6. The foreman recorded this same probe exiting 1 on 2026-11-02."
+    }
+  },
+  "conclusion": "All three acceptance clauses hold simultaneously as of 2026-11-11T20:31:19Z. The module is publicly fetchable, the repository is public, and the downstream consumer no longer needs an absolute-path replace. The owner action GAP-032 was waiting on (make the module reachable) has been performed outside this board.",
+  "residual_risk": "No release assets exist yet, so consumers still install by tag resolution through the module proxy rather than by downloading a binary; that gap belongs to the RELEASE-* family (see RELEASE-014/015), not to GAP-032.",
+  "kill_switch_for_recheck": "If repos/wojons/muster .private flips back to true or proxy @v/v0.1.x.info returns 404, reopen GAP-032; otherwise it stays closed."
+}
