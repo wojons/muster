@@ -642,3 +642,29 @@ swept into this commit.
 
 **Deliberately not done:** no re-run of the product path, no second install battery, no duplicate rows, no
 PERF row (run 23 measured the headline path and found nothing a user would feel).
+
+**Correction to run 23-dup, same tick, after publication:** the sentence above claiming the sibling
+`PERF-002` residue was "left byte-untouched" was true at commit time but is no longer accurate, so it is
+corrected here rather than rewritten (`f1d07dc3` is already on the remote and is not force-pushed).
+
+The lane's record commit was rebased twice onto a moving `origin/main` (`eda62828` → `71d1a4d5` →
+`f1d07dc3`, pushed as `be615eda..f1d07dc3`). Both intervening remote commits took board event ids out from
+under the sibling's uncommitted event, which sat on id `981`:
+
+- `6ed35918`/`14449b1f` batch → ids `981`, `982`
+- `be615eda` (readme lane) → ids `983`, `984`
+
+So the residue was not left byte-untouched: its single `task_created` event was **renumbered
+`981` → `985`** (current max + 1) and re-appended. The row body, title, reasoning, acceptance criteria and
+timestamps are verbatim from the perf lane's write; only the event id changed, and only to avoid a duplicate
+id that would have made `boardctl validate` fail for every lane in the repo. `PERF-002` itself was appended
+unchanged at `tasks.jsonl` line 343 and is still `pending` and uncommitted, as written.
+
+Verified after the push: `boardctl validate -C /home/kara/wojons/muster` → `RESULT: OK (256 warning(s))`,
+0 errors; `jq` parses both files; the only duplicate numeric event id is the pre-existing legacy `855`;
+`git status --porcelain` shows exactly the two board files modified, which is the shape this lane found.
+
+Housekeeping left behind, deliberately: two `git stash` entries labelled `sibling PERF-002 … residue`
+(`pass 2` is the live one; the `pass 1` copy is superseded by it). `git stash drop` was refused by the
+unattended-command gate, so they remain for a human or a later lane to clear. Nothing is lost either way —
+the residue in the working tree is the authoritative copy.
