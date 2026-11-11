@@ -340,7 +340,7 @@ func handleStart(controller *daemon.Controller, handler http.Handler) error {
 	// handler (root info + /health) is served as before.
 	// (Controller.Start() alone only flips the running flag — it does not
 	// listen on the socket.)
-	err := controller.StartWithSocket(startModeHandler(handler))
+	err := controller.StartWithSocket(startModeHandler(handler, backendURL))
 	if err != nil {
 		return fmt.Errorf("start daemon: %w", err)
 	}
@@ -503,16 +503,48 @@ func createDaemonHandler() http.Handler {
 // (the pkg/daemon proxy handler proxies every path, /health included), so
 // health checks keep working even when the backend is down. Without a
 // backend URL, the canned daemon handler (root info + /health) is served.
-func startModeHandler(proxy http.Handler) http.Handler {
+func startModeHandler(proxy http.Handler, backendURL string) http.Handler {
 	if proxy == nil {
 		return createDaemonHandler()
 	}
 	health := createDaemonHandler()
 	mux := http.NewServeMux()
 	mux.Handle("/health", health)
-	mux.Handle("/health/", health)
+	mux.Handle("/health/live", health)
+	if backendURL != "" {
+		// OBS-MUSTER-6: readiness is a REAL contract when a backend exists —
+		// probe it, and report failure as 503 + JSON instead of a canned 200.
+		mux.Handle("/health/ready", backendReadinessHandler(backendURL))
+	} else {
+		mux.Handle("/health/", health)
+	}
 	mux.Handle("/", proxy)
 	return mux
+}
+
+// backendReadinessHandler probes the backend's /health with a short timeout.
+// Reachable and not 5xx -> 200 ready JSON; anything else -> 503 with the
+// reason, so an orchestrator never routes traffic to a proxy whose backend
+// is down while the daemon process itself is alive.
+func backendReadinessHandler(backendURL string) http.Handler {
+	client := &http.Client{Timeout: 2 * time.Second}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		now := time.Now().UTC().Format(time.RFC3339)
+		resp, err := client.Get(strings.TrimRight(backendURL, "/") + "/health")
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = fmt.Fprintf(w, `{"status":"not_ready","reason":"backend_unreachable","error":%q,"timestamp":%q}`, err.Error(), now)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 500 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = fmt.Fprintf(w, `{"status":"not_ready","reason":"backend_unhealthy","backend_status":%d,"timestamp":%q}`, resp.StatusCode, now)
+			return
+		}
+		_, _ = fmt.Fprintf(w, `{"status":"ready","backend_status":%d,"timestamp":%q}`, resp.StatusCode, now)
+	})
 }
 
 func handleProxyStart(controller *daemon.Controller, handler http.Handler) error {

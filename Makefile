@@ -130,20 +130,22 @@ build-all: ## Build all binaries
 # =============================================================================
 
 .PHONY: release
-release: clean generate lint test ## Create release builds
+release: clean generate lint test ## Create release builds (three binaries per platform)
 	@echo "Creating release $(VERSION)..."
 	@mkdir -p $(DIST_DIR)
 	@for platform in $(PLATFORMS); do \
 		GOOS=$$(echo $$platform | cut -d/ -f1); \
 		GOARCH=$$(echo $$platform | cut -d/ -f2); \
 		PLATFORM_NAME=$$GOOS-$$GOARCH; \
-		RELEASE_NAME=$(BINARY_NAME)-$(VERSION)-$$PLATFORM_NAME; \
+		RELEASE_NAME=$(PROJECT_NAME)-$(VERSION)-$$PLATFORM_NAME; \
 		mkdir -p $(DIST_DIR)/$$RELEASE_NAME; \
-		OUTPUT=$(DIST_DIR)/$$RELEASE_NAME/$(BINARY_NAME); \
-		if [ "$$GOOS" = "windows" ]; then OUTPUT="$$OUTPUT.exe"; fi; \
-		echo "  → Building release for $$PLATFORM_NAME..."; \
-		CGO_ENABLED=$(CGO_ENABLED) GOOS=$$GOOS GOARCH=$$GOARCH \
-			go build -trimpath $(LDFLAGS) -o $$OUTPUT ./$(CMD_DIR) || exit 1; \
+		for main in openapi-cli openapi-daemon openapi-mcp; do \
+			OUTPUT=$(DIST_DIR)/$$RELEASE_NAME/$$main; \
+			if [ "$$GOOS" = "windows" ] && [ "$$main" = "openapi-cli" -o "$$main" = "openapi-mcp" ]; then OUTPUT="$$OUTPUT.exe"; fi; \
+			echo "  → Building $$main for $$PLATFORM_NAME..."; \
+			CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH \
+				go build -trimpath $(LDFLAGS) -o $$OUTPUT ./cmd/$$main || exit 1; \
+			done; \
 		cp README.md LICENSE $(DIST_DIR)/$$RELEASE_NAME/ 2>/dev/null || true; \
 		if [ "$$GOOS" = "windows" ]; then \
 			(cd $(DIST_DIR) && zip -r $$RELEASE_NAME.zip $$RELEASE_NAME); \
@@ -160,7 +162,7 @@ release-local: ## Create release for current platform only
 	@echo "Creating local release $(VERSION)..."
 	@mkdir -p $(DIST_DIR)
 	CGO_ENABLED=$(CGO_ENABLED) go build -trimpath $(LDFLAGS) \
-		-o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-local ./$(CMD_DIR)
+		-o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-local ./cmd/$(BINARY_NAME)
 	@echo "✓ Local release: $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-local"
 
 # =============================================================================

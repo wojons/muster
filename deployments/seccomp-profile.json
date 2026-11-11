@@ -322,6 +322,7 @@
         "unlink",
         "unlinkat",
         "utime",
+        "arch_prctl",
         "utimensat",
         "utimensat_time64",
         "utimes",
@@ -347,6 +348,20 @@
         }
       ],
       "comment": "Allow clone with CLONE_NEWNS and CLONE_NEWPID"
+    },
+    {
+      "names": [
+        "clone3"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 1,
+          "value": 2080505856,
+          "op": "SCMP_CMP_MASKED_EQ"
+        }
+      ],
+      "comment": "clone3 fallback (glibc 2.34+/go runtime): masked flags match the clone rule; without it the default-deny profile SIGSEGVs the stack before its healthcheck (QA-MUSTER-029 exit 139)"
     }
   ]
 }

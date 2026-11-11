@@ -275,12 +275,15 @@ func (e *ExecutionSandbox) RunWithTimeout(ctx context.Context, fn func(ctx conte
 	case <-time.After(e.limits.MaxExecutionTime):
 		e.Interrupt()
 		cancel()
-		<-done // wait for the goroutine to observe the interruption
+		execErr := <-done // observe the interrupted execution's outcome
+		if execErr != nil {
+			return fmt.Errorf("wasm: execution exceeded %s and failed: %w", e.limits.MaxExecutionTime, execErr)
+		}
 		return fmt.Errorf("wasm: execution interrupted after %s", e.limits.MaxExecutionTime)
 	case <-ctx.Done():
 		e.Interrupt()
 		cancel()
-		<-done
+		_ = <-done // the caller's ctx error supersedes the execution error
 		return ctx.Err()
 	}
 }

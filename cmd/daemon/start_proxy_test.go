@@ -82,7 +82,7 @@ func TestStartModeHandler_WithBackendURL_ServesProxiedData(t *testing.T) {
 
 	// Same handler run() builds from --backend-url and now passes to
 	// handleStart, which serves it via startModeHandler.
-	handler := startModeHandler(daemon.NewProxyHandler(backend.URL))
+	handler := startModeHandler(daemon.NewProxyHandler(backend.URL), backend.URL)
 
 	_, socketPath := startTestController(t, handler)
 	client := unixSocketClient(t, socketPath)
@@ -109,7 +109,7 @@ func TestStartModeHandler_WithBackendURL_ServesProxiedData(t *testing.T) {
 // `start` without --backend-url keeps serving the canned daemon handler
 // (root info + /health endpoints) — the previous behavior must not regress.
 func TestStartModeHandler_NoBackendURL_ServesCannedHandler(t *testing.T) {
-	_, socketPath := startTestController(t, startModeHandler(nil))
+	_, socketPath := startTestController(t, startModeHandler(nil, ""))
 	client := unixSocketClient(t, socketPath)
 
 	// Root catch-all serves the canned message.
@@ -125,4 +125,34 @@ func TestStartModeHandler_NoBackendURL_ServesCannedHandler(t *testing.T) {
 	code, body = getViaSocket(t, client, "/health/live")
 	require.Equal(t, http.StatusOK, code)
 	require.Contains(t, body, `"status":"alive"`)
+}
+
+// TestStartModeHandler_ReadyIsHonest (OBS-MUSTER-6): with a backend URL,
+// /health/ready must be a REAL contract — it probes the backend and reports
+// failure as 503 + JSON, never the canned 200 the daemon handler emits.
+func TestStartModeHandler_ReadyIsHonest(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"healthy"}`))
+	}))
+	handler := startModeHandler(daemon.NewProxyHandler(backend.URL), backend.URL)
+	_, socketPath := startTestController(t, handler)
+	client := unixSocketClient(t, socketPath)
+
+	// Healthy backend -> 200 with ready status and the backend's status code.
+	code, body := getViaSocket(t, client, "/health/ready")
+	require.Equal(t, http.StatusOK, code)
+	require.Contains(t, body, `"status":"ready"`)
+	require.Contains(t, body, `"backend_status":200`)
+
+	// Backend dies -> 503 not_ready (the daemon process itself is still up).
+	backend.Close()
+	code, body = getViaSocket(t, client, "/health/ready")
+	require.Equal(t, http.StatusServiceUnavailable, code)
+	require.Contains(t, body, `"status":"not_ready"`)
+	require.Contains(t, body, `"reason":"backend_unreachable"`)
+
+	// /health and /health/live stay daemon-local: the process is alive.
+	code, body = getViaSocket(t, client, "/health")
+	require.Equal(t, http.StatusOK, code)
+	require.Equal(t, `{"status":"healthy"}`, body)
 }

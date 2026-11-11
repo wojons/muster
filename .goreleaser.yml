@@ -1,4 +1,6 @@
 # .goreleaser.yml configuration for automated releases
+version: 2
+
 project_name: muster
 
 before:
@@ -7,8 +9,9 @@ before:
     - go generate ./...
 
 builds:
-  - env:
-      - CGO_ENABLED=1
+  - id: cli
+    env:
+      - CGO_ENABLED=0
     goos:
       - darwin
       - linux
@@ -16,23 +19,44 @@ builds:
     goarch:
       - amd64
       - arm64
-    dir: ./bin
-    main: ./cmd
-    binary: muster
+    main: ./cmd/openapi-cli
+    binary: openapi-cli
+  - id: daemon
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/daemon
+    binary: openapi-daemon
+  - id: mcp
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/mcp-server
+    binary: openapi-mcp
     ldflags:
       - -s -w
       - -X github.com/wojons/muster/internal/version.Version={{.Version}}
       - -X github.com/wojons/muster/internal/version.Commit={{.Commit}}
       - -X github.com/wojons/muster/internal/version.BuildDate={{.Date}}
       - -X github.com/wojons/muster/internal/version.Branch={{.Branch}}
-      - -X github.com/wojons/muster/internal/version.GoVersion={{.Env.GOVERSION}}
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
@@ -58,7 +82,7 @@ release:
     - glob: ./LICENSE
     - glob: ./CHANGELOG.md
 
-brews:
+homebrew_casks:
   - name: muster
     homepage: https://github.com/wojons/muster
     description: "OpenAPI CLI + MCP Server - Unified tool for API interaction"
@@ -66,8 +90,8 @@ brews:
     commit_author:
       name: goreleaser-bot
       email: bot@goreleaser.com
-    folder: Formula
-    tap:
+    directory: Formula
+    repository:
       owner: wojons
       name: homebrew-tap
     caveats: |
@@ -82,7 +106,7 @@ scoops:
     commit_author:
       name: goreleaser-bot
       email: bot@goreleaser.com
-    bucket:
+    repository:
       owner: wojons
       name: scoop-bucket
 
