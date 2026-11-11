@@ -1,0 +1,41 @@
+{
+  "tick_id": "muster-foreman-2026-11-11-19-48-40",
+  "row": "GAP-032",
+  "tested_commit": "3b6de28153f7726a81ebc1b10fa70d382d48c410",
+  "probe_time": "2026-11-11T19:48:40-05:00",
+  "criterion": "The repository must be public or its module must be reachable, musterflow must use github.com/wojons/muster without an absolute local replacement, and a fresh consumer with no local engine checkout must resolve github.com/wojons/muster@v0.1.1.",
+  "owner_gate": {
+    "prior_state": "Owner authorization was previously required.",
+    "current_state": "The external prerequisite is satisfied; the repository is public and the module is reachable."
+  },
+  "probes": [
+    {
+      "command": "gh api repos/wojons/muster --jq '{isPrivate, visibility}'",
+      "exit_code": 0,
+      "stdout": "{\"isPrivate\":null,\"visibility\":\"public\"}"
+    },
+    {
+      "command": "curl -sS -o /dev/null -w '%{http_code}\\n' https://proxy.golang.org/github.com/wojons/muster/@v/v0.1.0.info",
+      "exit_code": 0,
+      "stdout": "200"
+    },
+    {
+      "command": "grep -c 'github.com/wojons/muster v0' /home/kara/musterflow/go.mod",
+      "exit_code": 0,
+      "stdout": "1"
+    },
+    {
+      "command": "grep -c '=> /home/kara/muster' /home/kara/musterflow/go.mod",
+      "exit_code": 1,
+      "stdout": "0"
+    },
+    {
+      "command": "GOPROXY=https://proxy.golang.org go get github.com/wojons/muster@v0.1.1 in a fresh temporary module with no local engine checkout",
+      "exit_code": 0,
+      "stdout": "go: downloading github.com/wojons/muster v0.1.1\\ngo: github.com/wojons/muster@v0.1.1 requires go >= 1.26.6; switching to go1.26.11\\ngo: upgraded go 1.26.5 => 1.26.6\\ngo: added github.com/wojons/muster v0.1.1"
+    }
+  ],
+  "result": "All written acceptance arms are met. GAP-032 is premise-satisfied and should close; recurrence requires a new row.",
+  "wave": ".coding-hermes/waves/muster-foreman-2026-11-11-19-48-40.json",
+  "trace": "ch:trace row=GAP-032 spec=none:external-owner-action wave=.coding-hermes/waves/muster-foreman-2026-11-11-19-48-40.json#selected_row test=none:verification-only-live-probes doc=docs/verification/owner-gated/GAP-032.md evidence=.coding-hermes/evidence/gap-032-recheck-20261111-19-48-40.json witness=none:owner-action-not-authorized verdict=none:pending-verification commit=none:pending-verification memory=/project/muster/foreman/ticks/muster-foreman-2026-11-11-19-48-40"
+}

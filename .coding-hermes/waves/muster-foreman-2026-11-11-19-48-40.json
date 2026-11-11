@@ -1,0 +1,25 @@
+{
+  "tick_id": "muster-foreman-2026-11-11-19-48-40",
+  "project": "muster",
+  "mode": "verification-only",
+  "selected_row": "GAP-032",
+  "board_census": {
+    "pending_rows": 40,
+    "dispatchable_implementation_rows": 0,
+    "eligible_independent": 0
+  },
+  "wave_budget": 12,
+  "wave_size": 0,
+  "workers": [],
+  "blocker": "Cleared during this tick: repository is public and the module is reachable; no implementation worker was needed.",
+  "verification_command": "curl proxy module info; gh api repository visibility; fresh consumer go get; exact-head CI listing",
+  "next_owner_action": "None for GAP-032; close the row. Any future failure is a new recurrence row.",
+  "off_by_one": "none: verification-only; no debugging or novel fix design",
+  "sha_roles": {
+    "source_sha": "3b6de28153f7726a81ebc1b10fa70d382d48c410",
+    "verified_code_commit": "none:owner-block",
+    "evidence_commit": "pending",
+    "gitreins_judged_commit": "pending"
+  },
+  "trace": "ch:trace row=GAP-032 spec=none:external-owner-action wave=.coding-hermes/waves/muster-foreman-2026-11-11-19-48-40.json#selected_row test=none:verification-only-live-probes doc=docs/verification/owner-gated/GAP-032.md evidence=docs/verification/owner-gated/GAP-032.md witness=none:owner-action-not-authorized verdict=none:owner-block commit=none:owner-block memory=/project/muster/foreman/ticks/muster-foreman-2026-11-11-19-48-40"
+}
