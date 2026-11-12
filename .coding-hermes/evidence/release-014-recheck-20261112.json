@@ -1,0 +1,27 @@
+{
+  "tick_id": "muster-foreman-2026-11-12-20-23-27",
+  "project": "muster",
+  "row": "RELEASE-014",
+  "mode": "verification-only-owner-gated",
+  "tested_sha": "c8308fc60d839554c293fc0353b2643cc395e402",
+  "remote_sha": "c8308fc60d839554c293fc0353b2643cc395e402",
+  "remote_parity": "0 ahead / 0 behind",
+  "pending_rows": 56,
+  "wave_budget": 9,
+  "eligible_independent": 0,
+  "workers": [],
+  "ci": {
+    "exact_head_runs": 0,
+    "recent_runs_are_for_prior_shas": true,
+    "classification": "PENDING_UNVERIFIED"
+  },
+  "release_channel": {
+    "github_releases": 0,
+    "tags": ["v0.1.1", "v0.1.0"]
+  },
+  "blocker": "RELEASE-014 is a release-readiness decision record. Full green CI on one commit is not present; RELEASE-013 remains open P0; RELEASE-018 and INT-CI-9 remain pending; first GitHub Release publication requires explicit owner go-ahead.",
+  "next_owner_action": "Resolve RELEASE-018 and INT-CI-9, obtain an all-workflow green receipt on one candidate SHA, close RELEASE-013, and explicitly authorize first v0.2.0 publication before tagging or creating a Release.",
+  "off_by_one": "none:verification-only",
+  "gitreins": "none:verification-only-no-task",
+  "trace": "ch:trace row=RELEASE-014 spec=release-readiness#current-candidate wave=.coding-hermes/waves/muster-foreman-2026-11-12-20-23-27.json test=gh-run-list+gh-release-list doc=none:owner-gated-readiness prompt=none:verification-only evidence=.coding-hermes/evidence/release-014-recheck-20261112.json witness=live:HEAD+origin-parity+gh-runs+tags+releases verdict=none:verification-only-no-task commit=none:pending-closeout memory=/project/muster/foreman/ticks/muster-foreman-2026-11-12-20-23-27"
+}
