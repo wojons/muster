@@ -1,6 +1,7 @@
 package cmdstore
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -11,6 +12,31 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPrintTableOutput_SortsUnionKeysAndPreservesAlignment(t *testing.T) {
+	data := []interface{}{
+		map[string]interface{}{"gamma": "g1", "alpha": "a1", "id": "1"},
+		map[string]interface{}{"beta": "b2", "id": "2", "alpha": "a2"},
+	}
+	var want bytes.Buffer
+	printTableOutput(&want, data)
+
+	for i := 0; i < 100; i++ {
+		var got bytes.Buffer
+		printTableOutput(&got, data)
+		require.Equal(t, want.String(), got.String(), "iteration %d", i)
+	}
+	require.Contains(t, want.String(), "alpha  beta  gamma  id")
+	require.Contains(t, want.String(), "a1     -     g1     1")
+	require.Contains(t, want.String(), "a2     b2    -      2")
+}
+
+func TestPrintTableOutput_SortsSingleObjectKeys(t *testing.T) {
+	data := map[string]interface{}{"gamma": "g", "alpha": "a", "beta": "b"}
+	var got bytes.Buffer
+	printTableOutput(&got, data)
+	require.Equal(t, "alpha  a  \nbeta   b  \ngamma  g  \n", got.String())
+}
 
 // --- NewLoader ---
 
