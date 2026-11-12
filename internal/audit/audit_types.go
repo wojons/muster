@@ -189,6 +189,12 @@ func (l *AuditLogger) write(event *AuditEvent) {
 	}
 	if err := l.storage.Write(event); err != nil {
 		l.recordDrop("write_error")
+		return
+	}
+	if metrics, ok := l.metrics.(interface {
+		RecordAuditEvent(eventType, category string)
+	}); ok {
+		metrics.RecordAuditEvent(event.EventType, string(event.Category))
 	}
 }
 
