@@ -1473,8 +1473,7 @@ func printTableOutput(out io.Writer, data interface{}) {
 	_ = w.Flush()
 }
 
-// tableCollectKeys returns the ordered list of unique keys across all objects
-// in the array.
+// tableCollectKeys returns the unique keys across all objects in alphabetical order.
 func tableCollectKeys(items []interface{}) []string {
 	seen := make(map[string]bool)
 	var keys []string
@@ -1488,6 +1487,7 @@ func tableCollectKeys(items []interface{}) []string {
 			}
 		}
 	}
+	sort.Strings(keys)
 	return keys
 }
 
