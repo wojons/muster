@@ -983,3 +983,5 @@
 {"id":990,"timestamp":"2026-11-11 22:56:03","event_type":"task_completed","task_id":"OBS-MUSTER-6","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":991,"timestamp":"2026-11-11 22:56:03","event_type":"task_completed","task_id":"QA-MUSTER-029","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":992,"timestamp":"2026-11-12 09:03:20","event_type":"task_created","task_id":"INT-CI-011","actor":"foreman","detail":"{\"id\":\"INT-CI-011\",\"status\":\"pending\"}","tick_number":null}
+{"id":993,"timestamp":"2026-11-12 10:33:25","event_type":"task_created","task_id":"QA-MUSTER-030","actor":"foreman","detail":"{\"id\":\"QA-MUSTER-030\",\"status\":\"pending\"}","tick_number":null}
+{"id":994,"timestamp":"2026-11-12 10:33:25","event_type":"task_created","task_id":"QA-MUSTER-025-R2","actor":"foreman","detail":"{\"id\":\"QA-MUSTER-025-R2\",\"status\":\"pending\"}","tick_number":null}
