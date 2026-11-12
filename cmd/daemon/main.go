@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/monitoring"
 	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/auth"
@@ -187,6 +188,16 @@ func run() error {
 	if proxyHandler, ok := handler.(*daemon.ProxyHandler); ok {
 		proxyHandler.SetMetrics(metricsRecorder)
 	}
+
+	// The daemon uses the same recorder-owned registry for audit health metrics
+	// that its metrics listener serves. Passing it explicitly avoids relying on a
+	// process-global fallback and keeps audit drops visible on /metrics.
+	auditHook := audit.NewHookWithMetrics(audit.DefaultConfig(), metricsRecorder)
+	defer func() {
+		if err := auditHook.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", err)
+		}
+	}()
 
 	// Client tokens required on the socket (only meaningful with a handler that
 	// injects an upstream credential; without injection the historical

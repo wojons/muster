@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/builtin"
+	"github.com/wojons/muster/internal/monitoring"
 	"github.com/wojons/muster/pkg/config"
 )
 
@@ -105,8 +106,13 @@ func auditCommandPath(root *cobra.Command, args []string) string {
 func run() error {
 	ctx := context.Background()
 
+	// The CLI is a short-lived process and has no scrape listener, but it still
+	// uses the same recorder-owned registry and audit metrics sink as the other
+	// entrypoints while it runs.
+	metricsRecorder := monitoring.NewMetricRecorder(monitoring.DefaultTenantID, nil)
+
 	// Initialize audit hook (opt-in via MUSTER_AUDIT_ENABLED env var)
-	auditHook := audit.NewHook(audit.DefaultConfig())
+	auditHook := audit.NewHookWithMetrics(audit.DefaultConfig(), metricsRecorder)
 	defer func() {
 		if err := auditHook.Close(); err != nil {
 			fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", err)

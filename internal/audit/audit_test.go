@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -572,11 +573,14 @@ func TestHook_LogToolCall_Disabled(t *testing.T) {
 }
 
 type auditMetricsProbe struct {
+	mu           sync.Mutex
 	dropped      map[string]int
 	utilizations []float64
 }
 
 func (m *auditMetricsProbe) RecordAuditEventDropped(reason string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.dropped == nil {
 		m.dropped = make(map[string]int)
 	}
@@ -584,6 +588,8 @@ func (m *auditMetricsProbe) RecordAuditEventDropped(reason string) {
 }
 
 func (m *auditMetricsProbe) SetAuditBufferUtilization(ratio float64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.utilizations = append(m.utilizations, ratio)
 }
 
