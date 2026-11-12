@@ -22,6 +22,19 @@
   build context — `.dockerignore`'s `**/*credential*` rule had silently
   stripped them, breaking Docker builds at HEAD.
 
+## [v0.2.0] - in development
+
+### Proposed
+- **Release**: minor v0.2.0 proposed (feat=20, fix=93 since v0.1.1); not yet tagged — awaiting green Build/Cross-Platform/Docker CI on the release candidate plus an explicit owner go-ahead before the first publication on the Releases channel (see RELEASE-014 readiness row).
+- **Consumability**: v0.1.1 published to proxy.golang.org; `go get github.com/wojons/muster@v0.1.1` verified exit 0 on a fresh module.
+
+## [v0.1.1] - 2026-08-31
+
+### Changed
+- **Module consumability**: released to the public Go proxy (proxy.golang.org serves v0.1.0 and v0.1.1); `go get github.com/wojons/muster@v0.1.1` resolves anonymously — repo no longer private (GAP-032).
+- **Version injection**: shipped binaries report `v0.1.1-<n>-g<sha>` instead of `dev (unknown)` (GAP-007).
+- **MCP identity**: `openapi-mcp` initialize handshake returns `serverInfo.name == "openapi-mcp"` (GAP-010).
+
 ## [v0.1.0] - 2026-08-07
 
 ### Added

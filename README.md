@@ -48,19 +48,14 @@ from https://go.dev/dl/ instead.
 
 ## Quick start
 
-> **Note:** This repository is **PRIVATE** and is not published to the public Go proxy.
-> Only wojons org members with GitHub credentials (or a personal access token with repo
-> scope) can clone or `go get` it — anonymous access fails with a credential prompt.
-> **First**, configure GOPRIVATE and authenticate with GitHub:
-> ```bash
-> go env -w GOPRIVATE=github.com/wojons/*
-> ```
-> Then `go get github.com/wojons/muster@v0.1.0` resolves from the private repo.
+> **Note:** This repository is **PUBLIC** and is published to the public Go proxy.
+> `go get github.com/wojons/muster@v0.1.1` resolves anonymously on a fresh module
+> (proxy.golang.org serves v0.1.0 and v0.1.1). No GOPRIVATE or GitHub credentials are
+> required for consumption.
 >
-> **No public download path exists yet** (repo private, no published release assets).
-> External users: request access or wait for a public release. There is no anonymous
-> tarball/zip fallback — both `git clone` and the GitHub release assets require auth
-> while the repo stays private.
+> Latest release: v0.1.1 (2026-08-31). A v0.2.0 tag is proposed once the Build and
+> Cross-Platform CI workflows are green on the release candidate and an owner go-ahead
+> is recorded; see the RELEASE-014 readiness row on the muster board.
 
 ```bash
 # Build
@@ -282,8 +277,8 @@ docker compose --profile prod up -d
 
 ## Build from source
 
-> **Note:** The repo is **PRIVATE** — clone requires GitHub credentials (see [Quick start](#quick-start) for GOPRIVATE setup).
-> For local development without credentials, use a `replace` directive in your `go.mod`:
+> **Note:** This repository is **PUBLIC** — `git clone` and `go get github.com/wojons/muster@v0.1.1` work anonymously; no GOPRIVATE or GitHub credentials needed.
+> For local development against an unpublished checkout, use a `replace` directive in your `go.mod`:
 > ```go
 > replace github.com/wojons/muster => /path/to/local/checkout
 > ```
@@ -376,7 +371,7 @@ specs/               # 228 specification files
 
 ## Limits / known gaps
 
-- **Repository is private** — no public download path; the only install is clone + build (see [Quick start](#quick-start) for GOPRIVATE setup).
+- **No v0.2.0 release assets yet** — install v0.1.1 via `go get github.com/wojons/muster@v0.1.1` or clone + build.
 - **Demo requires Python 3 + Flask in a venv** — `demo/requirements.txt` pins Flask; on Debian 12/13 and Ubuntu 23.04+ a bare `pip install flask` is refused (PEP 668). Use `python3 -m venv .venv && .venv/bin/pip install -r demo/requirements.txt` or `./demo/run-all.sh --bootstrap`.
 - **Seccomp hardening is opt-in** — default builds are dependency-free; the hardened path needs `-tags seccomp` plus `pkg-config` + `libseccomp-dev` (see [Build from source](#build-from-source)).
 - **`bin/` is gitignored** — stale binaries survive rebuilds. Run `make clean` before debugging unexpected binary behavior.
