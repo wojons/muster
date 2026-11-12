@@ -1448,8 +1448,13 @@ func printTableOutput(out io.Writer, data interface{}) {
 
 	switch v := data.(type) {
 	case map[string]interface{}:
-		for key, val := range v {
-			_, _ = fmt.Fprintf(w, "%s	%v	\n", key, tableFormatValue(val))
+		keys := make([]string, 0, len(v))
+		for key := range v {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			_, _ = fmt.Fprintf(w, "%s	%v	\n", key, tableFormatValue(v[key]))
 		}
 	case []interface{}:
 		if len(v) == 0 {

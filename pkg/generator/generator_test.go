@@ -2138,6 +2138,39 @@ func TestTableCollectKeys_SortsUnionAlphabetically(t *testing.T) {
 	}
 }
 
+func TestPrintTableOutput_ArrayIsDeterministic(t *testing.T) {
+	data := []interface{}{
+		map[string]interface{}{"id": 1, "alpha": "first", "beta": true},
+		map[string]interface{}{"beta": false, "id": 2, "alpha": "second"},
+	}
+	const expected = "alpha   beta   id  \nfirst   true   1   \nsecond  false  2   \n"
+
+	var first bytes.Buffer
+	printTableOutput(&first, data)
+	require.Equal(t, expected, first.String())
+
+	for i := 0; i < 100; i++ {
+		var rendered bytes.Buffer
+		printTableOutput(&rendered, data)
+		require.Equal(t, first.String(), rendered.String(), "iteration %d", i)
+	}
+}
+
+func TestPrintTableOutput_SingleObjectIsDeterministic(t *testing.T) {
+	data := map[string]interface{}{"zeta": 3, "alpha": 1, "middle": 2}
+	const expected = "alpha   1  \nmiddle  2  \nzeta    3  \n"
+
+	var first bytes.Buffer
+	printTableOutput(&first, data)
+	require.Equal(t, expected, first.String())
+
+	for i := 0; i < 100; i++ {
+		var rendered bytes.Buffer
+		printTableOutput(&rendered, data)
+		require.Equal(t, first.String(), rendered.String(), "iteration %d", i)
+	}
+}
+
 func TestExecuteAndPrint_TableFormat(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
