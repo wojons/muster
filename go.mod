@@ -50,6 +50,7 @@ require (
 
 require (
 	github.com/jhump/protoreflect/v2 v2.0.0-beta.1 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/petermattis/goid v0.0.0-20260113132338-7c7de50cc741 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
