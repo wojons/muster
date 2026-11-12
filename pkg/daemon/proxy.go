@@ -26,6 +26,13 @@ type Logger interface {
 	Error(msg string, args ...interface{})
 }
 
+// AuditHook records an event after a daemon request has been served. The
+// interface keeps the controller independent of the audit package while still
+// wiring the production request path to the configured hook.
+type AuditHook interface {
+	LogCommand(ctx context.Context, command, actorID string, success bool, details map[string]string)
+}
+
 // ControllerConfig holds configuration for the daemon controller.
 type ControllerConfig struct {
 	PidFilePath string
@@ -33,6 +40,10 @@ type ControllerConfig struct {
 	Version     string
 	Logger      Logger
 	Handler     http.Handler
+	// AuditHook receives one command event for each request served by the
+	// controller. Keeping the interface here lets the controller own the real
+	// request seam without importing the audit implementation.
+	AuditHook AuditHook
 	// AuthTokens, when non-empty, makes the socket require a client token
 	// (Authorization: Bearer <token>) before any request reaches the handler.
 	// MUSTER-001: a daemon that INJECTS an upstream credential must gate its
@@ -199,6 +210,10 @@ func (c *Controller) StartWithSocket(handler http.Handler) error {
 		handler = createDefaultHandler()
 	}
 
+	// Audit the actual socket request path, after the handler has produced its
+	// response. This keeps audit tied to real daemon work rather than a startup
+	// probe or a test-only call.
+	handler = withAuditHook(handler, c.config.AuditHook)
 	c.handler = handler
 
 	// Create and start the proxy server. When the controller was given client
@@ -340,6 +355,21 @@ func NewAuthenticatedProxyServer(socketPath string, handler http.Handler, tokenM
 	}
 }
 
+func withAuditHook(next http.Handler, hook AuditHook) http.Handler {
+	if hook == nil {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		recorder := &statusRecorder{ResponseWriter: w}
+		next.ServeHTTP(recorder, r)
+		hook.LogCommand(r.Context(), "daemon.request", "daemon", recorder.Status() < http.StatusInternalServerError, map[string]string{
+			"method": r.Method,
+			"path":   r.URL.Path,
+			"status": fmt.Sprintf("%d", recorder.Status()),
+		})
+	})
+}
+
 // withTokenAuth wraps a handler with token authentication middleware
 // Excludes health check endpoints from authentication
 func withTokenAuth(next http.Handler, tokenManager *TokenManager) http.Handler {
@@ -423,16 +453,18 @@ func (p *ProxyServer) Start() error {
 
 	p.listener = listener
 
-	// Create HTTP server
-	p.server = &http.Server{
+	// Create HTTP server. Keep a local reference for the serving goroutine;
+	// p.server may be replaced by a subsequent Start call.
+	server := &http.Server{
 		Handler:      p.handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+	p.server = server
 
 	// Start serving
 	go func() {
-		if err := p.server.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Global().Error().Err(err).Msg("Proxy server error")
 		}
 	}()

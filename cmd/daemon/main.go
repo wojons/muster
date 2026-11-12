@@ -218,6 +218,7 @@ func run() error {
 		Version:     version.Get().Short(),
 		Logger:      &daemonLogger{},
 		Handler:     handler,
+		AuditHook:   auditHook,
 		AuthTokens:  authTokens,
 	})
 	if err != nil {
