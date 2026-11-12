@@ -4,6 +4,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -116,18 +117,79 @@ func DefaultFileStorageOptions() FileStorageOptions {
 }
 
 // AuditLogger is the audit logging engine.
+var (
+	// ErrBufferFull distinguishes an audit event rejected because the
+	// non-blocking buffer is saturated from other logging failures.
+	ErrBufferFull = errors.New("audit: event buffer full")
+)
+
 type AuditLogger struct {
-	config  AuditConfig
-	storage AuditStorage
-	events  chan *AuditEvent
-	done    chan struct{}
-	wg      sync.WaitGroup
+	config    AuditConfig
+	storage   AuditStorage
+	events    chan *AuditEvent
+	done      chan struct{}
+	wg        sync.WaitGroup
+	metrics   Metrics
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // AuditStorage is the interface for audit event persistence.
+// Metrics is the optional observability sink for audit health. It is kept as a
+// small interface so audit does not depend on the monitoring package.
+type Metrics interface {
+	RecordAuditEventDropped(reason string)
+	SetAuditBufferUtilization(ratio float64)
+}
+
+var defaultMetrics struct {
+	sync.RWMutex
+	metrics Metrics
+}
+
+// SetMetrics installs the process-wide audit metrics sink. Monitoring calls this
+// when it creates the registry served by /metrics; audit remains independent of
+// the monitoring package and therefore cannot create an import cycle.
+func SetMetrics(metrics Metrics) {
+	defaultMetrics.Lock()
+	defaultMetrics.metrics = metrics
+	defaultMetrics.Unlock()
+}
+
+func metricsSink() Metrics {
+	defaultMetrics.RLock()
+	defer defaultMetrics.RUnlock()
+	return defaultMetrics.metrics
+}
+
 type AuditStorage interface {
 	Write(event *AuditEvent) error
 	Close() error
+}
+
+func (l *AuditLogger) updateBufferUtilization() {
+	if l.metrics == nil || cap(l.events) == 0 {
+		if l.metrics != nil {
+			l.metrics.SetAuditBufferUtilization(0)
+		}
+		return
+	}
+	l.metrics.SetAuditBufferUtilization(float64(len(l.events)) / float64(cap(l.events)))
+}
+
+func (l *AuditLogger) recordDrop(reason string) {
+	if l.metrics != nil {
+		l.metrics.RecordAuditEventDropped(reason)
+	}
+}
+
+func (l *AuditLogger) write(event *AuditEvent) {
+	if l.storage == nil {
+		return
+	}
+	if err := l.storage.Write(event); err != nil {
+		l.recordDrop("write_error")
+	}
 }
 
 // FileStorage writes audit events to a file as JSON lines.
@@ -254,12 +316,24 @@ var _ AuditStorage = (*FileStorage)(nil)
 // NewAuditLogger creates a new audit logger and starts a background
 // goroutine that consumes events from the channel and writes them to storage.
 func NewAuditLogger(config AuditConfig, storage AuditStorage) *AuditLogger {
+	return NewAuditLoggerWithMetrics(config, storage, metricsSink())
+}
+
+// NewAuditLoggerWithMetrics creates an audit logger with an optional metrics
+// sink. The sink is injected to avoid an import cycle with monitoring.
+func NewAuditLoggerWithMetrics(config AuditConfig, storage AuditStorage, metrics Metrics) *AuditLogger {
+	bufferSize := config.BufferSize
+	if bufferSize < 1 {
+		bufferSize = 1
+	}
 	l := &AuditLogger{
 		config:  config,
 		storage: storage,
-		events:  make(chan *AuditEvent, config.BufferSize),
+		events:  make(chan *AuditEvent, bufferSize),
 		done:    make(chan struct{}),
+		metrics: metrics,
 	}
+	l.updateBufferUtilization()
 	l.wg.Add(1)
 	go l.consume()
 	return l
@@ -272,18 +346,17 @@ func (l *AuditLogger) consume() {
 	for {
 		select {
 		case event := <-l.events:
-			if l.storage != nil {
-				_ = l.storage.Write(event)
-			}
+			l.write(event)
+			l.updateBufferUtilization()
 		case <-l.done:
 			// Drain remaining events before shutting down.
 			for {
 				select {
 				case event := <-l.events:
-					if l.storage != nil {
-						_ = l.storage.Write(event)
-					}
+					l.write(event)
+					l.updateBufferUtilization()
 				default:
+					l.updateBufferUtilization()
 					return
 				}
 			}
@@ -295,21 +368,26 @@ func (l *AuditLogger) consume() {
 func (l *AuditLogger) Log(ctx context.Context, event *AuditEvent) error {
 	select {
 	case l.events <- event:
+		l.updateBufferUtilization()
 		return nil
 	default:
-		return nil
+		l.recordDrop("buffer_full")
+		l.updateBufferUtilization()
+		return ErrBufferFull
 	}
 }
 
 // Close shuts down the audit logger, waits for the consumer goroutine
 // to drain remaining events, then closes the storage.
 func (l *AuditLogger) Close() error {
-	close(l.done)
-	l.wg.Wait()
-	if l.storage != nil {
-		return l.storage.Close()
-	}
-	return nil
+	l.closeOnce.Do(func() {
+		close(l.done)
+		l.wg.Wait()
+		if l.storage != nil {
+			l.closeErr = l.storage.Close()
+		}
+	})
+	return l.closeErr
 }
 
 var _ = io.Discard

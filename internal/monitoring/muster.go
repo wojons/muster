@@ -54,8 +54,8 @@ const (
 	proxySeedStatusClass = "none"
 )
 
-// MusterMetrics holds ONE explicit *prometheus.Registry with exactly the five
-// metric families of docs/observability-spec.md §3.1 registered on it, plus
+// MusterMetrics holds ONE explicit *prometheus.Registry with the metric
+// families of docs/observability-spec.md §3.1 and §3.4 registered on it, plus
 // the recording methods that write to them.
 //
 // The registry is deliberately not prometheus.DefaultRegisterer (§4.2: "Do not
@@ -81,6 +81,10 @@ type MusterMetrics struct {
 	// AuditEventsWritten answers "is the record of truth actually being
 	// written?".
 	AuditEventsWritten *prometheus.CounterVec
+	// AuditEventsDropped counts events rejected or lost by the audit sink.
+	AuditEventsDropped *prometheus.CounterVec
+	// AuditBufferUtilization reports the fraction of the audit buffer occupied.
+	AuditBufferUtilization prometheus.Gauge
 }
 
 // NewMusterMetrics builds the explicit registry and registers the five
@@ -136,6 +140,19 @@ func NewMusterMetrics(tenantID, version, commit string) *MusterMetrics {
 			},
 			[]string{"event_type", "category"},
 		),
+		AuditEventsDropped: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: MusterNamespace,
+				Name:      "audit_events_dropped_total",
+				Help:      "Audit events rejected or lost by the audit sink, by reason.",
+			},
+			[]string{"reason"},
+		),
+		AuditBufferUtilization: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: MusterNamespace,
+			Name:      "audit_buffer_utilization_ratio",
+			Help:      "Fraction of the audit event buffer currently occupied.",
+		}),
 	}
 
 	m.registry.MustRegister(
@@ -144,6 +161,8 @@ func NewMusterMetrics(tenantID, version, commit string) *MusterMetrics {
 		m.ProxyRequests,
 		m.ProxyDuration,
 		m.AuditEventsWritten,
+		m.AuditEventsDropped,
+		m.AuditBufferUtilization,
 	)
 
 	// build_info is always 1: the process is running, so the pair
@@ -162,17 +181,12 @@ func NewMusterMetrics(tenantID, version, commit string) *MusterMetrics {
 	m.ProxyRequests.WithLabelValues(proxySeedEndpoint, proxySeedMethod, proxySeedStatusClass, tenantID)
 	m.ProxyDuration.WithLabelValues(proxySeedEndpoint, proxySeedMethod)
 
-	// Zero-value seed so the family is present in the very first scrape.
-	//
-	// TODO(OBS-MUSTER-2): wire RecordAuditEvent to a real audit write call
-	// site. Today the daemon does not write audit events itself — audit
-	// writers live in internal/builtin, cmd/openapi-cli and cmd/mcp-server
-	// (all outside this task's scope, and internal/audit is owned by
-	// OBS-MUSTER-2), so there is no daemon-side increment to wire. The
-	// placeholder series proves the exporter path works and makes the
-	// "record of truth" question answerable (0 = no events written) instead
-	// of silently absent.
+	// Zero-value seeds keep the audit health families visible in the first scrape;
+	// the audit package updates them through its injected ownership interface.
 	m.AuditEventsWritten.WithLabelValues(auditSeedEventType, auditSeedCategory).Add(0)
+	m.AuditEventsDropped.WithLabelValues("buffer_full").Add(0)
+	m.AuditEventsDropped.WithLabelValues("write_error").Add(0)
+	m.AuditBufferUtilization.Set(0)
 
 	return m
 }
@@ -242,7 +256,6 @@ func (m *MusterMetrics) RecordProxyRequest(endpoint, method string, status int, 
 }
 
 // RecordAuditEvent records one audit event written to the record of truth.
-// It has no production caller yet — see the TODO in NewMusterMetrics.
 func (m *MusterMetrics) RecordAuditEvent(eventType, category string) {
 	if m == nil {
 		return
@@ -254,6 +267,22 @@ func (m *MusterMetrics) RecordAuditEvent(eventType, category string) {
 		category = "unknown"
 	}
 	m.AuditEventsWritten.WithLabelValues(eventType, category).Inc()
+}
+
+// RecordAuditEventDropped records an event rejected or lost by the audit sink.
+func (m *MusterMetrics) RecordAuditEventDropped(reason string) {
+	if m == nil {
+		return
+	}
+	m.AuditEventsDropped.WithLabelValues(reason).Inc()
+}
+
+// SetAuditBufferUtilization records the current occupied-buffer ratio.
+func (m *MusterMetrics) SetAuditBufferUtilization(ratio float64) {
+	if m == nil {
+		return
+	}
+	m.AuditBufferUtilization.Set(ratio)
 }
 
 // StatusClass buckets an HTTP status code into a bounded label value

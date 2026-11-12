@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
+	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/log"
 )
@@ -121,7 +122,7 @@ var (
 )
 
 // MetricRecorder is the legacy recording surface for the openapi_* families
-// plus the five muster_* families of docs/observability-spec.md §3.1.
+// plus the muster_* families of docs/observability-spec.md §3.1 and §3.4.
 //
 // The openapi_* families are registered through promauto (package init), so
 // they live on the default registry; the muster_* families live on an explicit
@@ -137,10 +138,11 @@ type MetricRecorder struct {
 }
 
 // NewMetricRecorder creates a recorder. Each recorder owns a fresh explicit
-// registry holding exactly the five muster_* families, so tests never collide
-// and double registration is impossible.
+// registry holding the muster_* families, so tests never collide and double
+// registration is impossible.
 func NewMetricRecorder(tenantID string, logger *zerolog.Logger) *MetricRecorder {
 	muster := NewMusterMetrics(tenantID, version.Get().Version, version.Get().Commit)
+	audit.SetMetrics(muster)
 	return &MetricRecorder{
 		tenantID: tenantID,
 		registry: muster.Registry(),
@@ -239,6 +241,22 @@ func (mr *MetricRecorder) RecordAuditEvent(eventType, category string) {
 	defer mr.mu.Unlock()
 
 	mr.muster.RecordAuditEvent(eventType, category)
+}
+
+// RecordAuditEventDropped records an audit event lost by the audit sink.
+func (mr *MetricRecorder) RecordAuditEventDropped(reason string) {
+	mr.mu.Lock()
+	defer mr.mu.Unlock()
+
+	mr.muster.RecordAuditEventDropped(reason)
+}
+
+// SetAuditBufferUtilization records the audit buffer occupancy ratio.
+func (mr *MetricRecorder) SetAuditBufferUtilization(ratio float64) {
+	mr.mu.Lock()
+	defer mr.mu.Unlock()
+
+	mr.muster.SetAuditBufferUtilization(ratio)
 }
 
 func (mr *MetricRecorder) RecordCacheHit() {

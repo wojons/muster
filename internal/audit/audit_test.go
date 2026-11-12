@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -570,9 +571,44 @@ func TestHook_LogToolCall_Disabled(t *testing.T) {
 	}
 }
 
-// TestAuditLogger_Log_BufferFull verifies that Log returns nil (silent drop)
-// when the event channel buffer is full. Uses BufferSize=1 and sends 2 events
-// rapidly — the second hits the default branch.
+type auditMetricsProbe struct {
+	dropped      map[string]int
+	utilizations []float64
+}
+
+func (m *auditMetricsProbe) RecordAuditEventDropped(reason string) {
+	if m.dropped == nil {
+		m.dropped = make(map[string]int)
+	}
+	m.dropped[reason]++
+}
+
+func (m *auditMetricsProbe) SetAuditBufferUtilization(ratio float64) {
+	m.utilizations = append(m.utilizations, ratio)
+}
+
+type failingAuditStorage struct{}
+
+func (failingAuditStorage) Write(*AuditEvent) error { return errors.New("storage unavailable") }
+func (failingAuditStorage) Close() error            { return nil }
+
+func TestAuditLogger_Log_WriteError(t *testing.T) {
+	probe := &auditMetricsProbe{}
+	logger := NewAuditLoggerWithMetrics(AuditConfig{Enabled: true, BufferSize: 1}, failingAuditStorage{}, probe)
+	if err := logger.Log(context.Background(), &AuditEvent{Action: "test.write-error"}); err != nil {
+		t.Fatalf("Log: %v", err)
+	}
+	if err := logger.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if probe.dropped["write_error"] != 1 {
+		t.Fatalf("expected one write_error drop, got %v", probe.dropped)
+	}
+}
+
+// TestAuditLogger_Log_BufferFull verifies that Log reports a distinguishable
+// error and counts a drop when the event channel buffer is full. Uses
+// BufferSize=1 and sends a flood so persisted rows are fewer than operations.
 func TestAuditLogger_Log_BufferFull(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "audit.log")
@@ -582,9 +618,10 @@ func TestAuditLogger_Log_BufferFull(t *testing.T) {
 		t.Fatalf("NewFileStorage: %v", err)
 	}
 
-	// BufferSize=1 means only one event fits before consumer picks it up
+	// BufferSize=1 means only one event fits before consumer picks it up.
+	probe := &auditMetricsProbe{}
 	cfg := AuditConfig{Enabled: true, BufferSize: 1}
-	logger := NewAuditLogger(cfg, fs)
+	logger := NewAuditLoggerWithMetrics(cfg, fs, probe)
 
 	event1 := &AuditEvent{
 		Level:    AuditLevelInfo,
@@ -606,10 +643,28 @@ func TestAuditLogger_Log_BufferFull(t *testing.T) {
 		t.Fatalf("Log event1: %v", err)
 	}
 
-	// Send second event immediately — should hit default (buffer full)
-	// Both paths return nil, so we just verify no panic and no error
-	if err := logger.Log(context.Background(), event2); err != nil {
-		t.Fatalf("Log event2: %v", err)
+	// Send second event immediately — it may hit the full-buffer path.
+	err2 := logger.Log(context.Background(), event2)
+	if err2 != nil && !errors.Is(err2, ErrBufferFull) {
+		t.Fatalf("Log event2: unexpected error %v", err2)
+	}
+	sawBufferFull := errors.Is(err2, ErrBufferFull)
+
+	operations := 2
+	for i := 0; i < 100; i++ {
+		event := &AuditEvent{Action: "test.buffer-flood", Level: AuditLevelInfo, Category: AuditCategorySystem}
+		err := logger.Log(context.Background(), event)
+		if err != nil && !errors.Is(err, ErrBufferFull) {
+			t.Fatalf("Log flood event %d: unexpected error %v", i, err)
+		}
+		if errors.Is(err, ErrBufferFull) {
+			sawBufferFull = true
+		}
+		operations++
+	}
+
+	if !sawBufferFull {
+		t.Fatal("expected at least one distinguishable ErrBufferFull result")
 	}
 
 	// Close logger to flush remaining events
@@ -626,6 +681,16 @@ func TestAuditLogger_Log_BufferFull(t *testing.T) {
 	content := strings.TrimSpace(string(data))
 	if content == "" {
 		t.Error("expected at least one event in audit log")
+	}
+	persisted := len(strings.Split(content, "\n"))
+	if persisted >= operations {
+		t.Fatalf("expected persisted event count < operations (%d), got %d", operations, persisted)
+	}
+	if probe.dropped["buffer_full"] == 0 {
+		t.Fatalf("expected buffer_full drop counter to increment, got %v", probe.dropped)
+	}
+	if len(probe.utilizations) == 0 {
+		t.Fatal("expected buffer utilization updates")
 	}
 }
 

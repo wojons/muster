@@ -23,6 +23,8 @@ var musterFamilies = []string{
 	"muster_daemon_proxy_requests_total",
 	"muster_daemon_proxy_duration_seconds",
 	"muster_audit_events_written_total",
+	"muster_audit_events_dropped_total",
+	"muster_audit_buffer_utilization_ratio",
 }
 
 // gatherFamilyNames returns the set of metric family names a gatherer exports.
@@ -107,9 +109,8 @@ func labelsMatch(have, wanted map[string]string) bool {
 	return true
 }
 
-// TestMusterMetrics_ExposesAllFiveFamilies is the acceptance test for
-// OBS-MUSTER-1: the explicit registry must export all five spec §3.1 families
-// on a freshly constructed instance, before any traffic is recorded.
+// TestMusterMetrics_ExposesAllFamilies is the acceptance test for the explicit
+// registry: all spec §3.1 and §3.4 families must export before traffic.
 func TestMusterMetrics_ExposesAllFiveFamilies(t *testing.T) {
 	m := NewMusterMetrics("tenant-a", "v1.2.3", "abc123")
 	require.NotNil(t, m)
@@ -137,9 +138,12 @@ func TestMissingFamilies_NegativeControl(t *testing.T) {
 		prometheus.NewGauge(prometheus.GaugeOpts{Namespace: MusterNamespace, Name: "daemon_proxy_duration_seconds", Help: "x"}),
 	)
 
-	require.Equal(t, []string{"muster_audit_events_written_total"},
-		missingFamilies(t, partial, musterFamilies),
-		"the presence check must identify exactly the absent family")
+	require.Equal(t, []string{
+		"muster_audit_events_written_total",
+		"muster_audit_events_dropped_total",
+		"muster_audit_buffer_utilization_ratio",
+	}, missingFamilies(t, partial, musterFamilies),
+		"the presence check must identify exactly the absent families")
 }
 
 // TestMusterMetrics_BuildInfoIsOne checks the identity metric carries the
@@ -201,11 +205,20 @@ func TestMusterMetrics_AuditSeedIsPresentEvenWithoutCallers(t *testing.T) {
 	require.Equal(t, 0.0, sampleValue(t, m.Registry(), "muster_audit_events_written_total", map[string]string{
 		"event_type": auditSeedEventType, "category": auditSeedCategory,
 	}), "the audit seed series must exist at 0 before any event is written")
+	require.Equal(t, 0.0, sampleValue(t, m.Registry(), "muster_audit_events_dropped_total", map[string]string{"reason": "buffer_full"}))
+	require.Equal(t, 0.0, sampleValue(t, m.Registry(), "muster_audit_events_dropped_total", map[string]string{"reason": "write_error"}))
+	require.Equal(t, 0.0, sampleValue(t, m.Registry(), "muster_audit_buffer_utilization_ratio", nil))
 
 	m.RecordAuditEvent("tool_call", "mcp")
+	m.RecordAuditEventDropped("buffer_full")
+	m.RecordAuditEventDropped("write_error")
+	m.SetAuditBufferUtilization(0.75)
 	require.Equal(t, 1.0, sampleValue(t, m.Registry(), "muster_audit_events_written_total", map[string]string{
 		"event_type": "tool_call", "category": "mcp",
 	}))
+	require.Equal(t, 1.0, sampleValue(t, m.Registry(), "muster_audit_events_dropped_total", map[string]string{"reason": "buffer_full"}))
+	require.Equal(t, 1.0, sampleValue(t, m.Registry(), "muster_audit_events_dropped_total", map[string]string{"reason": "write_error"}))
+	require.Equal(t, 0.75, sampleValue(t, m.Registry(), "muster_audit_buffer_utilization_ratio", nil))
 }
 
 // TestStatusClass_Bounded is the cardinality guard: status_class must be one of

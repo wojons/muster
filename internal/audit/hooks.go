@@ -19,15 +19,21 @@ import (
 //	defer hook.Close()
 //	hook.LogCommand(ctx, "inventory fetch", "cli-user", true, nil)
 type Hook struct {
-	config AuditConfig
-	mu     sync.Mutex
-	logger *AuditLogger
+	config  AuditConfig
+	mu      sync.Mutex
+	logger  *AuditLogger
+	metrics Metrics
 }
 
 // NewHook creates an audit hook with the given configuration.
 // The logger is not initialized until the first call to Log or EnsureInit.
 func NewHook(config AuditConfig) *Hook {
-	return &Hook{config: config}
+	return NewHookWithMetrics(config, nil)
+}
+
+// NewHookWithMetrics creates a hook with an optional audit metrics sink.
+func NewHookWithMetrics(config AuditConfig, metrics Metrics) *Hook {
+	return &Hook{config: config, metrics: metrics}
 }
 
 // ensureInit lazily creates the underlying AuditLogger on first use.
@@ -70,7 +76,11 @@ func (h *Hook) ensureInit() error {
 		return fmt.Errorf("audit: open storage: %w", err)
 	}
 
-	h.logger = NewAuditLogger(h.config, storage)
+	metrics := h.metrics
+	if metrics == nil {
+		metrics = metricsSink()
+	}
+	h.logger = NewAuditLoggerWithMetrics(h.config, storage, metrics)
 	return nil
 }
 
