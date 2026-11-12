@@ -30,5 +30,17 @@
     "fresh exact-head Build workflow"
   ],
   "off_by_one": "discover dependency-vulnerability-remediation returned not_found; broad corpus search timed out before a result",
-  "trace": "ch:trace row=RELEASE-017 spec=.coding-hermes/board/tasks.jsonl test=make deps-audit+go build ./...+go vet ./...+go test -short -count=1 ./...+exact-head-build-ci wave=.coding-hermes/waves/muster-foreman-2026-11-11-21-43-13.json verdict=none:worker-handoff"
+  "trace": "ch:trace row=RELEASE-017 spec=.coding-hermes/board/tasks.jsonl test=make deps-audit+go build ./...+go vet ./...+go test -short -count=1 ./...+exact-head-build-ci wave=.coding-hermes/waves/muster-foreman-2026-11-11-21-43-13.json verdict=none:worker-handoff",
+  "finished_at": "2026-11-12T05:25:00Z",
+  "recovery": {
+    "disposition": "merged",
+    "worker_sha": "831d19a38f0ed0f9bdcc19d2f0a1a5bbed21a0de",
+    "merge_sha": "ae2170eab89ad7c9b2c13fc6290070ae5a46c5af",
+    "base_sha": "fed18fa48053d805062481f654c86d40a02903b6",
+    "merged_tree_gates": "PASS: make deps-audit, go build ./..., go vet ./..., go test -short -count=1 ./...",
+    "remote_parity": "origin/main == ae2170eab89ad7c9b2c13fc6290070ae5a46c5af",
+    "exact_head_ci": "pending/in_progress at readback; gh run list showed successful run also present for same SHA",
+    "worktree_removed": true,
+    "branch_deleted": true
+  }
 }
