@@ -982,3 +982,4 @@
 {"id":989,"timestamp":"2026-11-11 22:56:03","event_type":"task_completed","task_id":"RELEASE-015","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":990,"timestamp":"2026-11-11 22:56:03","event_type":"task_completed","task_id":"OBS-MUSTER-6","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":991,"timestamp":"2026-11-11 22:56:03","event_type":"task_completed","task_id":"QA-MUSTER-029","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":992,"timestamp":"2026-11-12 09:03:20","event_type":"task_created","task_id":"INT-CI-011","actor":"foreman","detail":"{\"id\":\"INT-CI-011\",\"status\":\"pending\"}","tick_number":null}
