@@ -21,5 +21,14 @@
     "evidence_commit": "pending",
     "gitreins_judged_commit": "pending"
   },
-  "trace": "ch:trace row=GAP-032 spec=none:external-owner-action wave=.coding-hermes/waves/muster-foreman-2026-11-11-19-48-40.json#selected_row test=none:verification-only-live-probes doc=docs/verification/owner-gated/GAP-032.md evidence=docs/verification/owner-gated/GAP-032.md witness=none:owner-action-not-authorized verdict=none:owner-block commit=none:owner-block memory=/project/muster/foreman/ticks/muster-foreman-2026-11-11-19-48-40"
+  "trace": "ch:trace row=GAP-032 spec=none:external-owner-action wave=.coding-hermes/waves/muster-foreman-2026-11-11-19-48-40.json#selected_row test=none:verification-only-live-probes doc=docs/verification/owner-gated/GAP-032.md evidence=docs/verification/owner-gated/GAP-032.md witness=none:owner-action-not-authorized verdict=none:owner-block commit=none:owner-block memory=/project/muster/foreman/ticks/muster-foreman-2026-11-11-19-48-40",
+  "finished_at": "2026-11-12T00:54:00-05:00",
+  "recovery": {
+    "disposition": "closed-no-workers",
+    "worker_count": 0,
+    "worker_gates": "none: no workers were recorded in the unfinished manifest",
+    "board_truth": "GAP-032 is complete on origin/main at 14449b1f0e41a09d6223a4d3d5325f9cc324d8c5",
+    "worktrees_removed": [],
+    "branches_deleted": []
+  }
 }
