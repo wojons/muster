@@ -1,0 +1,33 @@
+{
+  "lane": "muster-releng",
+  "project": "muster",
+  "tick": "muster-releng-2026-11-12-20-30-39",
+  "pass": 9,
+  "measured_at": "2026-11-12T22:35:00Z",
+  "repository": "/home/kara/wojons/muster",
+  "canonical_remote": "git@github.com:wojons/muster.git",
+  "default_branch": "main",
+  "baseline_tag": "v0.1.1",
+  "baseline_sha": "afe5d1281c2026867149ba1730de2d7d708ce6e4",
+  "candidate_sha": "bd0ea88147017e9a958cf8328dd7a0948b5274db",
+  "carrier_sha": "c701036ca266db4c22f08063914001e1f005caf4",
+  "remote_parity": {"origin_main": "c701036ca266db4c22f08063914001e1f005caf4", "local_head": "c701036ca266db4c22f08063914001e1f005caf4", "left_right_behind_ahead": [0, 0]},
+  "product_delta_from_candidate": {"product_files_changed": 0, "conclusion": "candidate bd0ea881 remains the installed-code candidate; c701036c is board/evidence/releng bookkeeping only relative to it"},
+  "semver": {"range": "v0.1.1..bd0ea881", "total_commits": 775, "non_merge": 685, "merges": 90, "feat": 20, "fix": 103, "perf": 0, "breaking_change_footers": 0, "bang_subjects": 0, "proposed_bump": "minor", "proposed_version": "v0.2.0"},
+  "ci": {
+    "candidate_or_carrier": "carrier c701036ca266db4c22f08063914001e1f005caf4",
+    "CI": {"run_id": 43320699399, "status": "completed", "conclusion": "success"},
+    "Build": {"run_id": 43320699793, "status": "completed", "conclusion": "failure", "failed_job": "test", "failed_step": "Run linter", "build_and_release": "skipped"},
+    "Cross-Platform Tests": {"run_id": 43320699716, "status": "completed", "conclusion": "failure", "failed_legs": ["ARM64 Compatibility (macOS Apple Silicon)", "Test macos-latest", "Test windows-latest"]},
+    "Docker Build": {"run_id": 43320699469, "status": "in_progress", "step": "Build and push"},
+    "classification": "NO-GO: exact carrier matrix is not all green; Build and Cross-Platform are terminal red; Docker remains unproven"
+  },
+  "gitreins": {"release_bound_verdict": null, "nearest_work_item_pass": {"task": "DF-MUSTER-6-R3", "sha": "bd0ea88147017e9a958cf8328dd7a0948b5274db", "path": ".gitreins/history/2026-11-12/5884496a/verdict.json"}},
+  "dogfood": {"latest": "run21 33/33 at 1ea7c54a", "current_head_verdict": null, "status": "stale/unverified for candidate"},
+  "release_surface": {"remote_tags": ["v0.1.0", "v0.1.1"], "github_releases": 0, "target": "v0.2.0", "first_publication_authorization": "absent", "tag_mutation": false, "release_mutation": false},
+  "tooling": {"goreleaser_yml": true, "make_release_target": true, "release_script": "scripts/release.sh", "goreleaser_check": "pass", "make_n_release_dry_run": "pass", "publisher_executed": false},
+  "deployed_staleness": {"supported_installed_binary": null, "systemd_unit": null, "unmanaged_process_observed": "openapi-daemon PID 803046, /usr/local/bin/openapi-daemon start --foreground --socket-path /tmp/muster.sock; ownership/version provenance not established; no mutation performed"},
+  "decision": "NO-GO",
+  "required_next_gate": ["RELEASE-019 Build fix and exact-SHA Build success", "RELEASE-018 Cross-Platform success on the same SHA", "Docker terminal success on the same SHA", "release-bound GitReins or current-head dogfood verdict", "explicit owner authorization for first GitHub Releases publication"],
+  "mutation": {"tag": "none", "release": "none", "artifact_build": "none", "deployment": "none", "board_row": "rolling RELEASE-014 refreshed in place"}
+}
