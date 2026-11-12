@@ -2125,6 +2125,19 @@ func TestExecuteAndPrint_404Response(t *testing.T) {
 // executeAndPrint format rendering tests (DF-005)
 // =============================================================================
 
+func TestTableCollectKeys_SortsUnionAlphabetically(t *testing.T) {
+	objects := []interface{}{
+		map[string]interface{}{"gamma": 3, "alpha": 1, "id": 1},
+		map[string]interface{}{"beta": 2, "id": 2, "alpha": 2},
+		map[string]interface{}{"gamma": 4, "beta": 4},
+	}
+	expected := []string{"alpha", "beta", "gamma", "id"}
+
+	for i := 0; i < 100; i++ {
+		require.Equal(t, expected, tableCollectKeys(objects), "iteration %d", i)
+	}
+}
+
 func TestExecuteAndPrint_TableFormat(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
