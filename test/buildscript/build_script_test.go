@@ -81,16 +81,23 @@ func specFence(t *testing.T, heading string) string {
 		t.Fatalf("spec section %q missing from %s", heading, specPath)
 	}
 	rest := spec[idx:]
-	open := strings.Index(rest, "```bash\n")
+	open := -1
+	var marker string
+	for _, m := range []string{"```bash\r\n", "```bash\n"} {
+		if o := strings.Index(rest, m); o >= 0 {
+			open, marker = o, m
+			break
+		}
+	}
 	if open < 0 {
 		t.Fatalf("section %q has no bash fence", heading)
 	}
-	body := rest[open+len("```bash\n"):]
-	closeIdx := strings.Index(body, "\n```")
+	tbody := rest[open+len(marker):]
+	closeIdx := strings.Index(tbody, "\n```")
 	if closeIdx < 0 {
 		t.Fatalf("section %q fence is unterminated", heading)
 	}
-	return body[:closeIdx] + "\n"
+	return tbody[:closeIdx] + "\n"
 }
 
 // TestBuildScript_SyntaxAndRealEntryPoints pins AC-2: the script parses, builds
