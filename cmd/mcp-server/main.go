@@ -17,6 +17,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/wojons/muster/internal/audit"
+	"github.com/wojons/muster/internal/monitoring"
 	"github.com/wojons/muster/internal/version"
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/mcp"
@@ -227,12 +228,17 @@ func main() {
 	ctx, cancel := setupSignalHandling()
 	defer cancel()
 
+	// Keep audit metrics on the same explicit registry that this process owns.
+	// The stdio server has no scrape listener, but the hook must still receive
+	// the recorder so drops are accounted for while it is running.
+	metricsRecorder := monitoring.NewMetricRecorder(monitoring.DefaultTenantID, nil)
+
 	// Initialize audit hook (opt-in via --audit flag or MUSTER_AUDIT_ENABLED env var)
 	auditConfig := audit.DefaultConfig()
 	if *auditFlag {
 		auditConfig.Enabled = true
 	}
-	auditHook := audit.NewHook(auditConfig)
+	auditHook := audit.NewHookWithMetrics(auditConfig, metricsRecorder)
 	defer func() {
 		if err := auditHook.Close(); err != nil {
 			fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", err)
