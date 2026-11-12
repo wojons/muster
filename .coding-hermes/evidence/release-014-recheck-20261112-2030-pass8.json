@@ -1,0 +1,155 @@
+{
+  "lane": "muster-releng",
+  "project": "muster",
+  "tick": "muster-releng-2026-11-12-20-30-39",
+  "pass": 8,
+  "measured_at": "2026-11-12T22:30:03Z",
+  "repository": "/home/kara/wojons/muster",
+  "canonical_remote": "git@github.com:wojons/muster.git",
+  "default_branch": "main",
+  "baseline_tag": "v0.1.1",
+  "baseline_sha": "afe5d1281c2026867149ba1730de2d7d708ce6e4",
+  "candidate_sha": "bd0ea88147017e9a958cf8328dd7a0948b5274db",
+  "carrier_sha": "37ae9d595f1cc6c2022e591697041d2e772f67c2",
+  "remote_parity": {
+    "origin_main": "37ae9d595f1cc6c2022e591697041d2e772f67c2",
+    "local_head": "37ae9d595f1cc6c2022e591697041d2e772f67c2",
+    "left_right_behind_ahead": [0, 0],
+    "worktree_clean": true
+  },
+  "product_delta_from_candidate": {
+    "files_changed_since_pass7_carrier": [
+      ".coding-hermes/board/events.jsonl",
+      ".coding-hermes/board/tasks.jsonl",
+      ".coding-hermes/evidence/release-014-recheck-20261112-2030-pass7.json"
+    ],
+    "product_files_changed": 0,
+    "conclusion": "carrier advanced 7d155b3f -> 37ae9d59 with board/evidence commits only; product tree identical, so the candidate census and all tree-bound gates carry by SHA identity"
+  },
+  "semver": {
+    "range": "v0.1.1..bd0ea881",
+    "total_commits": 775,
+    "non_merge": 685,
+    "merges": 90,
+    "prefixes": {
+      "feat": 20,
+      "fix": 103,
+      "perf": 0,
+      "refactor": 1,
+      "docs": 59,
+      "test": 11,
+      "chore": 10,
+      "style": 2,
+      "build": 0,
+      "ci": 0,
+      "revert": 0,
+      "other": 479
+    },
+    "bang_subjects": 0,
+    "breaking_change_footers": 0,
+    "breaking_grep_note": "a single 'BREAKING CHANGE' string exists in history but it is inside the releng meta commit 35cce8f7 ('releng(muster): pass-2 re-certification'), not product code; product breaking markers are 0",
+    "proposed_bump": "minor",
+    "proposed_version": "0.2.0",
+    "major_confirmation_required": false
+  },
+  "ci": {
+    "note": "runs for carrier 7d155b3f are now terminal (Pass 7 recorded them as in progress); runs for tip 37ae9d59 are fresh and still in progress",
+    "carrier_7d155b3f": {
+      "CI": {"run_id": 43316405357, "conclusion": "success"},
+      "Build": {
+        "run_id": 43316405267,
+        "conclusion": "failure",
+        "failed_job": "test",
+        "failed_step": "Run linter",
+        "error": "cmd/daemon/main.go:552:24: Error return value of `resp.Body.Close` is not checked (errcheck)",
+        "jobs": {"integration": "success", "security": "success", "test": "failure", "build": "skipped", "release": "skipped"}
+      },
+      "Cross-Platform Tests": {
+        "run_id": 43316405292,
+        "conclusion": "failure",
+        "failed_legs": ["ARM64 Compatibility (macOS Apple Silicon)", "Test macos-latest", "Test windows-latest"],
+        "passing_legs": ["Test ubuntu-latest", "Windows Path Separator Tests", "Platform-Specific Tests (Linux-SELinux)", "Platform-Specific Tests (Windows-Credential)", "Platform-Specific Tests (macOS-Keychain)"],
+        "failure_modes": [
+          "cmd/daemon TestDaemonRequest_EmitsAuditEventAndMetric: listen unix .../daemon.sock: bind: invalid argument (macOS + ARM64 macOS)",
+          "internal/audit windows: TestPruneRetentionRemovesOldRowsAndPreservesChains, TestPruneRetentionArchiveRowsAreNonVacuous, TestFileStorage_SurvivesRetentionRotation",
+          "internal/builtin windows: TestAuditCommand_PruneRotatesExpiredRows — rename ...: Access is denied.",
+          "pkg/dsl windows: TestRequireValueEqual_RedPin — Should not be: 1099511627776"
+        ]
+      },
+      "Docker Build": {
+        "run_id": 43316405458,
+        "status": "in_progress",
+        "step": "Build and push",
+        "started_at": "2026-11-12T22:04:18Z",
+        "comparable_success": {"run_id": 43298635042, "duration_min": 37}
+      }
+    },
+    "tip_37ae9d59": {
+      "CI": {"run_id": 43318594561, "conclusion": "success"},
+      "Build": {"run_id": 43318585156, "status": "in_progress", "test_job": "failure", "security": "in_progress", "integration": "success", "build": "skipped", "release": "skipped"},
+      "Cross-Platform Tests": {"run_id": 43318585716, "status": "in_progress", "already_failed": ["Test macos-latest", "ARM64 Compatibility (macOS Apple Silicon)"]},
+      "Docker Build": {"run_id": 43318585499, "status": "in_progress"}
+    },
+    "source": "gh api / gh run view on wojons/muster; IDs quoted above"
+  },
+  "board_carrier_ci": {"sha": "37ae9d595f1cc6c2022e591697041d2e772f67c2", "CI": {"run_id": 43318594561, "conclusion": "success"}},
+  "gitreins": {
+    "release_bound_verdict": null,
+    "nearest_work_item_pass": {"task": "DF-MUSTER-6-R3", "sha": "bd0ea88147017e9a958cf8328dd7a0948b5274db", "path": ".gitreins/history/2026-11-12/5884496a/verdict.json"},
+    "note": "no GitReins verdict is bound to a release decision; the DF-MUSTER-6-R3 pass is work-item evidence only"
+  },
+  "dogfood": {
+    "latest": "run21 33/33 at 1ea7c54a",
+    "current_head_verdict": null,
+    "status": "stale/unverified for the candidate"
+  },
+  "deployment": {
+    "supported_installed_binary": null,
+    "systemd_unit": null,
+    "note": "no supported deployed Muster binary or systemd unit found; local docker build is not tag-traceable"
+  },
+  "tooling": {
+    "goreleaser_yml": true,
+    "make_release_target": true,
+    "release_script": "scripts/release.sh",
+    "checks": {"goreleaser_check": "pass", "make_n_release_dry_run": "pass, three binaries per platform"},
+    "publisher_executed": false
+  },
+  "release_surface": {
+    "tags_on_remote": ["v0.1.0", "v0.1.1"],
+    "v020_tag_present": false,
+    "github_releases": [],
+    "first_publication_authorization": "absent — no board row authorizes the first publication",
+    "tag_move": "none"
+  },
+  "open_blockers": [
+    {"id": "RELEASE-019", "status": "pending", "premise_verified_live": true, "detail": "errcheck at cmd/daemon/main.go:552 `defer resp.Body.Close()` — line confirmed unchecked at carrier tree; Build test job red on it"},
+    {"id": "RELEASE-018", "status": "pending", "detail": "Cross-Platform Tests red on macOS, ARM64 macOS, and Windows legs"},
+    {"id": "RELEASE-013", "status": "pending", "detail": "deployed-binary/release-surface gap carried from earlier passes"},
+    {"id": "RELEASE-003", "status": "pending", "detail": "carried"},
+    {"id": "RELEASE-014", "status": "pending", "detail": "this rolling release-evidence row"},
+    {"id": "docker-in-progress", "detail": "Docker Build 43316405458 still in 'Build and push' at measurement"},
+    {"id": "missing-release-bound-evidence", "detail": "no GitReins verdict and no current-head dogfood shippable verdict bound to the candidate"},
+    {"id": "first-publication-authorization", "detail": "GitHub Releases empty; first publication requires explicit owner go-ahead"}
+  ],
+  "decision": "NO-GO",
+  "decision_detail": "Delta re-probe only: no product change since Pass 7, so gates carry by SHA identity. Evidence quality improved — the candidate's Build and Cross-Platform runs are now terminal RED (errcheck at cmd/daemon/main.go:552 and three non-Linux legs), not merely in progress. Do not tag v0.2.0 and do not create a GitHub Release.",
+  "required_next_gate": [
+    "RELEASE-019: checked Close on the readiness-handler response (or linter-clean equivalent) landed and Build green at an exact SHA",
+    "RELEASE-018: macOS/ARM64/Windows Cross-Platform legs green at the same SHA",
+    "Docker Build terminal SUCCESS at the same SHA",
+    "one GitReins or dogfood verdict bound to that exact SHA as release evidence",
+    "explicit owner authorization for first publication"
+  ],
+  "mutation": {
+    "tag": "none",
+    "release": "none",
+    "artifact_build": "none",
+    "deployment": "none",
+    "files_written": [
+      "releng/muster-releng-2026-11-11-19-48-40.md",
+      ".coding-hermes/evidence/release-014-recheck-20261112-2030-pass8.json",
+      ".coding-hermes/board/tasks.jsonl"
+    ]
+  }
+}
