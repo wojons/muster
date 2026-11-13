@@ -15,5 +15,13 @@
   "next_owner_action": "Resolve RELEASE-018 and INT-CI-9, obtain all-workflow green receipt on one candidate SHA, close RELEASE-013, and explicitly authorize first v0.2.0 publication before tagging or creating a Release.",
   "off_by_one": "none:verification-only",
   "gitreins": "none:verification-only-no-task",
-  "evidence": ".coding-hermes/evidence/release-014-recheck-20261112.json"
+  "evidence": ".coding-hermes/evidence/release-014-recheck-20261112.json",
+  "recovery": {
+    "workers_recovered": 0,
+    "branches_recovered": [],
+    "result": "complete:no-worker-branches-or-worktrees-in-manifest",
+    "gates": "gofmt=PASS; go build ./...=PASS; go vet ./...=PASS"
+  },
+  "finished_at": "2026-11-13T02:37:29-05:00",
+  "closeout_sha": "source_sha:7397f115; manifest_closeout_commit:pending"
 }
