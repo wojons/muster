@@ -1,0 +1,26 @@
+{
+  "tick_id": "muster-foreman-2026-11-13-09-38-45",
+  "selected_row": "RELEASE-014",
+  "selected_priority": "P0",
+  "tested_sha": "27f1569a941583c19f6cceb141856ee9fe488d2c",
+  "final_published_sha_before_closeout": "27f1569a941583c19f6cceb141856ee9fe488d2c",
+  "decision": "NO-GO / KEEP PENDING",
+  "owner_gate": "First GitHub Release publication of v0.2.0 requires explicit owner authorization naming the target version and candidate SHA; no such authorization is present.",
+  "current_probes": {
+    "repository_visibility": "public",
+    "proxy_v0_1_0_info_http": 200,
+    "latest_three_runs": [
+      {"id": 43371196376, "conclusion": "success", "title": "unblock: land muster-releng pass-10 board annotation stranded in the worktree", "head_sha": "27f1569a941583c19f6cceb141856ee9fe488d2c"},
+      {"id": 43371196334, "conclusion": "failure", "title": "unblock: land muster-releng pass-10 board annotation stranded in the worktree", "head_sha": "27f1569a941583c19f6cceb141856ee9fe488d2c", "failed_jobs": ["Test macos-latest", "ARM64 Compatibility (macOS Apple Silicon)", "Test windows-latest"], "failed_step": "Run tests / Run tests on ARM64"},
+      {"id": 43371196297, "conclusion": "success", "title": "unblock: land muster-releng pass-10 board annotation stranded in the worktree", "head_sha": "27f1569a941583c19f6cceb141856ee9fe488d2c"}
+    ],
+    "release_objects": 0,
+    "remote_tags": ["v0.1.0", "v0.1.1"],
+    "remote_parity_before_closeout": "0 ahead / 0 behind"
+  },
+  "classification": "The current P0 release-readiness row remains a decision/authorization record, not implementation work. Exact-head CI is not all green because Cross-Platform Tests is red on macOS, ARM64 macOS, and Windows. The current CI failure is not new; it is the same release portability class owned by RELEASE-018/INT-CI-9. No duplicate CI row filed.",
+  "local_verification": "Not run in this verification-only tick; no source implementation was selected and the current release row is not executable without owner authorization.",
+  "off_by_one": "discover owner-gated-release-readiness-recheck -> not_found; no non-trivial fix was designed",
+  "gitreins": "none:verification-only-no-task",
+  "memory": "none:deferred-due-to-project-closeout-requirements"
+}

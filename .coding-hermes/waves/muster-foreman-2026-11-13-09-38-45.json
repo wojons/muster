@@ -1,0 +1,21 @@
+{
+  "tick_id": "muster-foreman-2026-11-13-09-38-45",
+  "project": "muster",
+  "mode": "verification-only-owner-gated",
+  "wave_budget": 12,
+  "selected_row": "RELEASE-014",
+  "selected_priority": "P0",
+  "pending_rows": 56,
+  "eligible_independent": 0,
+  "workers": [],
+  "blocker": "RELEASE-014 is a release-readiness decision record. Exact-head Cross-Platform Tests is red on macOS, ARM64 macOS, and Windows, and first GitHub Release publication requires explicit owner authorization naming v0.2.0 and the candidate SHA.",
+  "next_owner_action": "Resolve RELEASE-018 and INT-CI-9, obtain all-workflow green evidence on one candidate SHA, and explicitly authorize first v0.2.0 publication before tagging or creating a GitHub Release.",
+  "off_by_one": "none:verification-only",
+  "gitreins": "none:verification-only-no-task",
+  "evidence": ".coding-hermes/evidence/muster-foreman-2026-11-13-09-38-45.json",
+  "sha_roles": {
+    "tested_sha": "27f1569a941583c19f6cceb141856ee9fe488d2c",
+    "evidence_commit": "to be published by this closeout",
+    "first_published_closeout_sha": "to be published by this closeout"
+  }
+}
