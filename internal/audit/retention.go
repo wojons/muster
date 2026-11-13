@@ -12,7 +12,7 @@ import (
 
 // PruneRetention removes records older than retentionDays from path and returns
 // the number of records removed. The removed prefix is rotated to a sibling
-// .archive-<timestamp>.jsonl file before the active sink is atomically replaced.
+// .archive-<timestamp>.jsonl file before the active sink is rewritten in place so open readers do not block retention.
 //
 // The active file is re-anchored and re-hashed after pruning, so VerifyChain
 // remains valid. The rotated prefix is a complete, independently verifiable
@@ -77,6 +77,10 @@ func PruneRetention(path string, retentionDays int, algorithm string) (int, erro
 	if keepAt == 0 {
 		return 0, nil
 	}
+	// Windows cannot replace the sink while our own reader is open.
+	if err := file.Close(); err != nil {
+		return 0, fmt.Errorf("audit: close sink for retention: %w", err)
+	}
 
 	archivePath := fmt.Sprintf("%s.archive-%d.jsonl", path, time.Now().UTC().UnixNano())
 	algorithm = normalizeHashAlgorithm(algorithm)
@@ -120,10 +124,38 @@ func PruneRetention(path string, retentionDays int, algorithm string) (int, erro
 	if err := os.Chmod(tmpPath, 0600); err != nil {
 		return 0, fmt.Errorf("audit: secure retention temp file: %w", err)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
+	if err := replaceAuditSink(tmpPath, path); err != nil {
 		return 0, fmt.Errorf("audit: replace sink after retention: %w", err)
 	}
 	return keepAt, nil
+}
+
+// replaceAuditSink copies the closed temporary sink into the existing sink.
+// Replacing bytes in place works on Windows even when another FileStorage has
+// the destination open; renaming or removing that destination does not.
+func replaceAuditSink(tmpPath, path string) error {
+	tmp, err := os.Open(tmpPath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tmp.Close() }()
+
+	destination, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(destination, tmp); err != nil {
+		_ = destination.Close()
+		return err
+	}
+	if err := destination.Sync(); err != nil {
+		_ = destination.Close()
+		return err
+	}
+	if err := destination.Close(); err != nil {
+		return err
+	}
+	return os.Remove(tmpPath)
 }
 
 // peekOldestAuditTimestamp returns the timestamp of the sink's first non-empty

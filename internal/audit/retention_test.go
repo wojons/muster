@@ -10,6 +10,7 @@ import (
 )
 
 func TestPruneRetentionRemovesOldRowsAndPreservesChains(t *testing.T) {
+	// ch:trace row=RELEASE-018 spec=none:board-acceptance wave=.coding-hermes/waves/muster-foreman-2026-11-13-10-02-16.json test=TestPruneRetentionRemovesOldRowsAndPreservesChains doc=none evidence=none:worker-local witness=none:hosted-platform-not-available verdict=none:foreman-owned commit=<worker-sha> memory=none:worker-does-not-write-memory.
 	path := filepath.Join(t.TempDir(), "audit.jsonl")
 	base := time.Now().UTC().AddDate(0, 0, -10)
 	for i, timestamp := range []time.Time{base, base.AddDate(0, 0, 2), time.Now().UTC()} {
