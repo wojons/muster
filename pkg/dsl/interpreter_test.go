@@ -434,34 +434,13 @@ print("second line")
 	require.Equal(t, "second line", captured[1])
 }
 
-// TestRequireValueEqual_RedPin guards the QA-MUSTER-8 fix. starlark.Int is
-// struct{ impl unsafe.Pointer }; testify's require.Equal resolves to
-// reflect.DeepEqual, which for UnsafePointer fields is a raw pointer
-// comparison. Small ints normally share one address in starlark's reserved
-// 4GB small-int region (so require.Equal passes on healthy hosts and hides
-// the fragility), but under a memory cap the reservation fails and each
-// small int becomes a fresh big.Int allocation. Big ints are ALWAYS fresh
-// allocations, so this pin can demonstrate the pointer-fragility on every
-// host: two MakeInt64(1<<40) are numerically equal yet pointer-distinct.
+// TestRequireValueEqual_RedPin keeps the value-based comparison regression
+// covered without asserting testify's former pointer-fragile behavior.
 func TestRequireValueEqual_RedPin(t *testing.T) {
 	big := starlark.MakeInt64(1 << 40)
 	again := starlark.MakeInt64(1 << 40)
 
-	// Sanity: two separately built big ints must not be pointer-identical.
-	// If this ever fails, starlark changed its representation and the pin
-	// below needs revisiting.
-	require.False(t, big == again,
-		"starlark.Int big values now share representation; revisit requireValueEqual pin")
-
-	// The defect itself: testify considers numerically equal big ints unequal
-	// (pointer comparison). This line is the RED that motivated
-	// requireValueEqual — it must keep failing if Equal were ever used.
-	require.NotEqual(t, big, again,
-		"require.Equal no longer distinguishes distinct big ints; pin is stale")
-
-	// The fix: value-based comparison accepts numerically equal values
-	// regardless of internal representation (small-int region pointer on
-	// healthy hosts, fresh big.Int under memory caps).
+	// Big integers may use distinct internal allocations; equality is numerical.
 	requireValueEqual(t, big, again)
 	requireValueEqual(t, starlark.MakeInt64(42), starlark.MakeInt64(42))
 }

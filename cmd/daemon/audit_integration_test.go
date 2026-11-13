@@ -22,7 +22,8 @@ func TestDaemonRequest_EmitsAuditEventAndMetric(t *testing.T) {
 	sink := filepath.Join(t.TempDir(), "audit.jsonl")
 	t.Setenv("MUSTER_AUDIT_LOG", sink)
 
-	socketPath := filepath.Join(t.TempDir(), "daemon.sock")
+	socketDir := shortSocketTempDir(t)
+	socketPath := filepath.Join(socketDir, "daemon.sock")
 	recorder := monitoring.NewMetricRecorder("daemon-test", nil)
 	hook := audit.NewHookWithMetrics(audit.DefaultConfigEnabled(), recorder)
 	controller, err := daemon.NewController(daemon.ControllerConfig{
