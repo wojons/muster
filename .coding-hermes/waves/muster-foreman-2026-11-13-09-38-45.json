@@ -15,7 +15,7 @@
   "evidence": ".coding-hermes/evidence/muster-foreman-2026-11-13-09-38-45.json",
   "sha_roles": {
     "tested_sha": "27f1569a941583c19f6cceb141856ee9fe488d2c",
-    "evidence_commit": "to be published by this closeout",
-    "first_published_closeout_sha": "to be published by this closeout"
+    "evidence_commit": "cf74f19c3bd22e190f03824986d914f1a0a7c9ac",
+    "first_published_closeout_sha": "cf74f19c3bd22e190f03824986d914f1a0a7c9ac"
   }
 }
