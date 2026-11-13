@@ -23,5 +23,13 @@
     "gates": "gofmt=PASS; go build ./...=PASS; go vet ./...=PASS"
   },
   "finished_at": "2026-11-13T02:37:29-05:00",
-  "closeout_sha": "source_sha:7397f115; first_published_bookkeeping_sha:c2bfd97d"
+  "closeout_sha": "source_sha:7397f115; first_published_bookkeeping_sha:c2bfd97d; reconciliation_commit:05b42580",
+  "reconciled_release_019": {
+    "worker_commit": "5991dda229c162b4756f0969d41a6c57e091b085",
+    "integrated_commit": "05b425803471e7c30cad39ec4f26a9ce9bf0cb07",
+    "verdict_run": ".gitreins/history/2026-11-13/5c65d11c/verdict.json",
+    "verdict": "PASS",
+    "remote_parity": "0 ahead / 0 behind",
+    "ci": "in_progress: exact-head runs started for 05b42580"
+  }
 }
