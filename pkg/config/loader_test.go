@@ -19,7 +19,10 @@ import (
 // (proven: TestLoader_ApplyEnvOverrides/empty_env_vars_do_not_override failed
 // with "Should be empty, but was localhost" whenever the real config existed).
 func TestMain(m *testing.M) {
-	isolated := filepath.Join(os.TempDir(), "muster-config-test")
+	isolated, err := os.MkdirTemp("", "muster-config-test-")
+	if err != nil {
+		panic("create isolated config-test directory: " + err.Error())
+	}
 	// Redirect all platform config/cache/data roots to an empty scratch dir.
 	// USERPROFILE matters as much as HOME on Windows: os.UserHomeDir() ignores
 	// HOME there and reads %USERPROFILE%, so without it the tests fell through
@@ -29,7 +32,10 @@ func TestMain(m *testing.M) {
 	os.Setenv("USERPROFILE", isolated)
 	os.Setenv("APPDATA", isolated)
 	os.Setenv("LOCALAPPDATA", isolated)
-	os.Exit(m.Run())
+
+	code := m.Run()
+	_ = os.RemoveAll(isolated)
+	os.Exit(code)
 }
 
 func TestLoader_BindPFlags(t *testing.T) {
