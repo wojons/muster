@@ -23,5 +23,5 @@
     "gates": "gofmt=PASS; go build ./...=PASS; go vet ./...=PASS"
   },
   "finished_at": "2026-11-13T02:37:29-05:00",
-  "closeout_sha": "source_sha:7397f115; manifest_closeout_commit:pending"
+  "closeout_sha": "source_sha:7397f115; first_published_bookkeeping_sha:c2bfd97d"
 }
