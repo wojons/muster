@@ -1,0 +1,38 @@
+{
+  "tick_id": "muster-foreman-2026-11-13-10-54-30",
+  "selected_row": "RELEASE-014",
+  "selected_priority": "P0",
+  "decision": "NO-GO / KEEP PENDING",
+  "recovery": {
+    "manifest": ".coding-hermes/waves/muster-foreman-2026-11-13-09-38-45.json",
+    "workers": [],
+    "classification": "The recovered manifest declared zero workers. The only branch named by the prior manifest was a zero-worker closeout branch fully contained in main and 3 commits behind; no implementation gate, merge, or fixup was applicable. All other historical worktrees were retained as unrelated evidence.",
+    "finished_at": "2026-11-13T11:02:53Z"
+  },
+  "tick_work": {
+    "mode": "verification-only-owner-gated",
+    "wave_size": 0,
+    "selected_row_status": "pending",
+    "owner_gate": "No explicit owner authorization to create the first v0.2.0 GitHub Release; no worker dispatched."
+  },
+  "release_probes": {
+    "inherited_evidence": ".coding-hermes/evidence/muster-foreman-2026-11-13-09-38-45.json from prior tick; not re-probed in this recovery-only pass"
+  },
+  "git": {
+    "closeout_sha_before_audit": "089acaacbe54ca228f4c77e21e7b62afee1bfde2",
+    "final_head": "089acaacbe54ca228f4c77e21e7b62afee1bfde2",
+    "origin_main": "PENDING",
+    "parity": "PENDING"
+  },
+  "ci": {
+    "status": "in_progress",
+    "conclusion": null,
+    "note": "latest run listing for 089acaac showed exact-head jobs in progress; after final reconciliation commit CI must be queried again."
+  },
+  "memory": "none:deferred-wrapper-rejected-required-payload; scoped HTTP fallback unavailable within this pass",
+  "open_items": [
+    "Run the tick\u2019s required CI-health query and reconcile any newly observed failure class with existing board rows.",
+    "Select and execute the current top pending row only after recovery reconciliation is complete.",
+    "MCP memory operation rejected an empty payload and its retry path is not safe to trust in this unattended call; memory leg unverified."
+  ]
+}

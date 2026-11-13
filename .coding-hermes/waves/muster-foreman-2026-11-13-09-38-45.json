@@ -20,7 +20,7 @@
     "reconciliation_commit": "e71cc75dd45ef70704bd58348d7d046d8fda52ca",
     "final_published_closeout_sha": "e71cc75dd45ef70704bd58348d7d046d8fda52ca"
   },
-  "finished_at": "2026-11-13T10:54:30Z",
+  "finished_at": "2026-11-13T11:02:53Z",
   "recovered_by_tick": "muster-foreman-2026-11-13-10-54-30",
   "recovery": "Zero-worker manifest; branch wt/muster-foreman-2026-11-13-09-38-45 is fully contained in main but stale by 3 commits. No worker branches to gate or merge. Preserved historical evidence; no worktree/branch cleanup performed."
 }
