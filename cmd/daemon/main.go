@@ -549,7 +549,11 @@ func backendReadinessHandler(backendURL string) http.Handler {
 			_, _ = fmt.Fprintf(w, `{"status":"not_ready","reason":"backend_unreachable","error":%q,"timestamp":%q}`, err.Error(), now)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "[WARN] backend readiness response body close: %v\n", err)
+			}
+		}()
 		if resp.StatusCode >= 500 {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_, _ = fmt.Fprintf(w, `{"status":"not_ready","reason":"backend_unhealthy","backend_status":%d,"timestamp":%q}`, resp.StatusCode, now)
