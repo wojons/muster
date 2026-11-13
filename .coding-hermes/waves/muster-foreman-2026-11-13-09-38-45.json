@@ -16,6 +16,8 @@
   "sha_roles": {
     "tested_sha": "27f1569a941583c19f6cceb141856ee9fe488d2c",
     "evidence_commit": "cf74f19c3bd22e190f03824986d914f1a0a7c9ac",
-    "first_published_closeout_sha": "cf74f19c3bd22e190f03824986d914f1a0a7c9ac"
+    "first_published_closeout_sha": "cf74f19c3bd22e190f03824986d914f1a0a7c9ac",
+    "reconciliation_commit": "e71cc75dd45ef70704bd58348d7d046d8fda52ca",
+    "final_published_closeout_sha": "e71cc75dd45ef70704bd58348d7d046d8fda52ca"
   }
 }
