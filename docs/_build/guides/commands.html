@@ -414,7 +414,8 @@ openapi-cli tenant current
 <h2 id="webhook-commands">Webhook Commands</h2>
 <h3 id="webhook"><code>webhook</code></h3>
 <p>Manage webhook subscriptions for API events. Subscriptions are stored in the
-local config directory and used by the daemon to deliver event notifications.</p>
+local config directory as inventory-only metadata; Muster does not deliver
+event notifications for these subscriptions.</p>
 <pre><code class="language-bash">openapi-cli webhook [command]
 </code></pre>
 <p><strong>Subcommands</strong>:</p>

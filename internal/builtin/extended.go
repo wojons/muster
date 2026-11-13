@@ -192,8 +192,8 @@ func newWebhookCommand(cfg *config.Config) *cobra.Command {
 		Short: "Manage webhook subscriptions",
 		Long: `Manage webhook subscriptions for API events.
 
-Subscriptions are stored in the local config directory and used by the
-daemon to deliver event notifications.`,
+Subscriptions are stored in the local config directory as inventory-only
+metadata. Muster does not deliver event notifications for these subscriptions.`,
 	}
 
 	cmd.AddCommand(&cobra.Command{

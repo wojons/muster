@@ -671,7 +671,8 @@ openapi-cli tenant current
 ### `webhook`
 
 Manage webhook subscriptions for API events. Subscriptions are stored in the
-local config directory and used by the daemon to deliver event notifications.
+local config directory as inventory-only metadata; Muster does not deliver
+event notifications for these subscriptions.
 
 ```bash
 openapi-cli webhook [command]

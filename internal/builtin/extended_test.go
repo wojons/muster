@@ -209,6 +209,34 @@ func TestWebhookCommand_TestUnreachable(t *testing.T) {
 	assert.Contains(t, err.Error(), "unreachable")
 }
 
+// TestWebhookCommand_InventoryOnlyContract keeps the shipped help and docs
+// honest: webhook CRUD stores inventory, while delivery is not implemented.
+func TestWebhookCommand_InventoryOnlyContract(t *testing.T) {
+	cmd := newWebhookCommand(&config.Config{ConfigDir: t.TempDir()})
+	assert.Contains(t, cmd.Long, "inventory-only")
+	assert.Contains(t, cmd.Long, "does not deliver event notifications")
+	assert.NotContains(t, cmd.Long, "used by the daemon to deliver event notifications")
+
+	readText := func(t *testing.T, path string) string {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		return string(data)
+	}
+
+	readme := readText(t, filepath.Join("..", "..", "README.md"))
+	assert.Contains(t, readme, "Webhook subscriptions are inventory-only")
+	assert.NotContains(t, readme, "used by the daemon to deliver event notifications")
+
+	commandsDoc := readText(t, filepath.Join("..", "..", "docs", "guides", "commands.md"))
+	assert.Contains(t, commandsDoc, "inventory-only metadata")
+	assert.NotContains(t, commandsDoc, "used by the daemon to deliver event notifications")
+
+	builtCommandsDoc := readText(t, filepath.Join("..", "..", "docs", "_build", "guides", "commands.html"))
+	assert.Contains(t, builtCommandsDoc, "inventory-only metadata")
+	assert.NotContains(t, builtCommandsDoc, "used by the daemon to deliver event notifications")
+}
+
 // TestTenantCommand_ShowDefault verifies no-tenant case.
 func TestTenantCommand_ShowDefault(t *testing.T) {
 	cfg := &config.Config{ConfigDir: t.TempDir()}
