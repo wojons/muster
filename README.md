@@ -173,6 +173,13 @@ openapi-cli request GET https://api.example.com/data --wasm-plugin ./transform.w
 openapi-cli dsl run workflow.star
 ```
 
+### Webhook subscriptions
+
+The `openapi-cli webhook` commands manage subscription metadata in the local
+config directory. Webhook subscriptions are inventory-only: Muster does not
+deliver event notifications for them. Use `webhook test <id>` to check that a
+configured URL is reachable.
+
 ## MCP Server
 
 **`openapi-mcp` is the canonical (and only) MCP server binary** — built by `make build-mcp` from `cmd/mcp-server` (Makefile `MCP_BINARY := openapi-mcp`); `make build-cli` and `make build-daemon` likewise each write exactly one named binary. The real hazard is `bin/` itself: it is **gitignored** (`.gitignore`), so a stale binary left there by an earlier build is invisible to git and silently survives every rebuild. If a binary behaves unlike the source says it should, delete `bin/` (`make clean`) and rebuild before debugging.
