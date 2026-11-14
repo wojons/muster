@@ -906,3 +906,56 @@ on exit. A sibling QA lane committed to that checkout mid-pass (`7c7a3d02`, must
 - Board: 365 task rows / 1052 event rows, `boardctl validate` → `RESULT: OK`, **264 warnings / 0 errors** —
   identical warning count to the pre-filing baseline, so nothing was added to the lint debt.
 - Probe daemon stopped and its scratch socket/pidfile removed; no process of mine left running.
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` — pass 5 (MCP surface, first walk this tick)
+
+### What I used, as a user would
+Built `cmd/mcp-server` from `75ae5494` and drove it over raw JSON-RPC stdio with the documented
+`-spec` / `-base-url` invocation, against the public petstore sandbox (spec 17,106 B,
+sha256 `00441c05add60f28`).
+
+- `initialize` → `protocolVersion 2024-11-05`, `serverInfo openapi-mcp v0.1.2-0.20261114230842-75ae54947418`.
+- `tools/list` → 19 tools, each carrying `muster/openapi-method`, `muster/openapi-path` annotations.
+- `tools/call getPetById {petId:1}` → `isError:true`, "HTTP 404: Pet not found" with
+  `structuredContent.error.class=upstream_error`. The live sandbox no longer holds pet 1, so the
+  guide's printed transcript (`{"id":1,"name":"Pet1"...}`) is stale — upstream drift, not a defect.
+- `tools/call findPetsByStatus` → 756 chars of real pets, `isError` absent.
+- Error surface is honest: unknown method `-32601`, `tools/call` with no params `-32602`, unknown
+  tool / missing argument / wrong argument type → `isError:true` with `client_error` classes.
+- Closing stdin exits 0; whole 11-call session 0.47 s.
+
+### Perf (Step 2b)
+`initialize` 11.5 ms; `tools/list` 0.4 ms (19 tools, 7 KB frame); `tools/call` 270 ms cold and
+68 ms warm, both dominated by the upstream HTTPS request to `petstore3.swagger.io`; the MCP layer
+itself is sub-millisecond. Nothing a user would feel, so no PERF row.
+
+### Finding filed
+`QA-MUSTER-040` (P2). The real-world GitHub v3 spec (14,274,027 B, sha256 `f7a3de68869181d3`)
+does not start the server at all: exit 1, zero bytes on stdout, stderr
+`Fatal error: failed to load spec: validate spec: invalid components: schema "actions-hosted-runner": invalid example: value must be a string ... Value: 20.04`,
+from `cmd/mcp-server/main.go:277`. The same file on the same tree is accepted by
+`openapi-cli discover` (rc=0, 1330 operations), and `-h` offers no `-skip-validation` /
+`MUSTER_SKIP_VALIDATION`, so the loader policy is not one policy and the surface README:3/207
+sells ("every OpenAPI operation becomes an MCP tool") is the one that refuses. Existing MCP tests
+only cover a nonexistent path (`main_test.go:1304,1350`), so this class was never tested.
+
+### Non-findings
+- No `PERF` row: 0.4 ms `tools/list` and sub-millisecond MCP overhead are not user-felt.
+- Did not re-file the 68 ms upstream latency, the orphan daemon processes (`QA-MUSTER-035` owns
+  that class), or the stale petstore transcript (upstream data drift).
+- `notifications/initialized` sent *with* an id answered `{"result":null}`; a real client sends it
+  as a notification, so no row — `DF-031`'s original symptom was not reproduced.
+
+### Boundary
+Work in the canonical checkout `/home/kara/wojons/muster` (the prompt's stand-in path still does
+not exist). Entry clean at `75ae5494`; exit clean at the pass-5 commit. A sibling releng lane
+pushed two doc commits mid-pass (`46e679ce`, `cca61d41`); I rebased onto them before pushing and
+touched only the two board files plus this log.
+
+### Artifacts
+- Board: `QA-MUSTER-040` (pending, P2); 366 task rows / 1053 event rows,
+  `boardctl validate` → `RESULT: OK`, 264 warnings / 0 errors (baseline unchanged).
+- Pass-5 commit pushed to `origin/main`; parity `0/0`, row present in the remote tree; clean tree.
+- Probe evidence in `~/.hermes/cache/scratch/dogfood-muster-162236/mcp-fresh/`
+  (`probe-abs-base.json`, `scale-github.json`, `mcp-github.err`, `discover-github.txt`).
+- No process of mine left running.
