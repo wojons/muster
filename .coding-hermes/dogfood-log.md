@@ -782,3 +782,60 @@ move product CI.
 - This log section, committed and pushed to `origin/main` (sha in the commit itself). Board untouched:
   0 rows filed, 0 rows modified, `boardctl validate` `RESULT: OK` with 264 warnings / 0 errors
   (sibling-lane drift, not this tick).
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` — pass 4 (fourth fire: resolve the CI-at-HEAD boundary, re-check the rows' premises live)
+
+Fire at 22:47Z, ~15 minutes after pass 3 closed at 22:37Z.
+
+### Why the product was not re-used this fire
+The product bytes are byte-identical to the pin: `git diff 4b42b5c0..HEAD -- . ':(exclude).coding-hermes'`
+is empty, and the only three files that moved between the pin and `d918cfd2` are `board/tasks.jsonl`,
+`board/events.jsonl` and this log. Re-walking documented paths 1–3 would re-measure those same bytes and
+re-produce the four rows already pending (`QA-MUSTER-035/036/037/038`). A fourth fire works the list the
+earlier records explicitly deferred.
+
+### Deferred check — CI at the record's own HEAD (pass 3 left this UNVERIFIED; resolved now)
+Every workflow that tests the product is green at both commits on this tick's chain. Per-workflow and
+per-job, not an eyeballed badge:
+
+| commit | CI | Build | Cross-Platform Tests | Docker Build |
+|---|---|---|---|---|
+| `a1f9b17d` (pass 2) | success | success — `test`, `integration`, `security` 22:29:25Z→22:40:19Z (10m54s), and all five `build (os,arch)` legs | success | still running (21 min at 22:50Z) |
+| `d918cfd2` (pass 3) | success | success — `test`, `integration`, `security` 22:37:58Z→22:48:37Z (10m39s), five matrix legs | success | still running (12 min at 22:50Z) |
+| `0edbd4ae` | success | success | success | still running (46 min at 22:50Z) |
+
+The one non-final item is a duration artefact, not a stalled runner — and I checked that instead of
+assuming it. Eight Docker Build runs completed today, `ff0cff82` through `4b42b5c0`, took 35, 51, 32, 35,
+47, 31, 52 and 32 minutes (created→updated). 46 minutes on `0edbd4ae` sits inside that envelope, and its
+job logs are not retrievable yet (`BlobNotFound` on `actions/jobs/132604206899/logs`) — which is what an
+unfinished job looks like, not a failed one. The "queued with no runner" reading was also rejected: every
+job in these runs has a runner assigned (`GitHub Actions 1000022345`…).
+
+Verdict: CI-at-HEAD for this tick's record is **green, with one long-running workflow still inside its
+normal duration window** — no longer UNVERIFIED, and nothing red.
+
+### Premise re-check for the four pending rows, at the pinned product tree
+- `QA-MUSTER-035` is still reproducing on this host, with better evidence than pass 2 filed. Four
+  `openapi-daemon` processes from the pass-2 probe were alive at 22:47Z, 79–81 minutes old, all with
+  PPID 7126 (the gateway) — i.e. orphaned. Detail beyond the row's text: `2294852` and `2340479` both held
+  a listen record on the *same* path `/tmp/df1794691460.sock`, so the second `start` re-bound a path that
+  was already in use and left the first unreachable-but-running. That is the defect row 035 already
+  describes, so it stays one row — no sibling filed.
+- `QA-MUSTER-036/037/038` stay pending with their premises intact for the same reason: the product tree
+  under them has not moved since they were filed.
+
+### Boundary recorded, not repaired
+Three `REBASE_HEAD` files sit in the shared checkout (Nov 11, Nov 12, and main's Nov 14 05:56) with no
+`rebase-merge`/`rebase-apply` directory and no live git process. That is residue, not a live operation:
+recorded as an unverified boundary, and clearing it is not this lane's business.
+
+### Residue from this lane, cleaned
+The four orphan daemons above were killed at 22:47Z after their evidence was captured;
+`pgrep -fa 'dogfood-muster-162236/repo/bin/openapi-daemon'` now matches only the shell's own wrapper, so
+0 survivors. The scratch tree `/home/kara/.hermes/cache/scratch/dogfood-muster-162236` is left to the
+24-hour pruner.
+
+### Artifacts
+- This log section, committed and pushed to `origin/main`.
+- Board untouched: 0 rows filed, 0 rows modified, `boardctl validate` `RESULT: OK` with 264 warnings /
+  0 errors, 363 task rows / 1047 event rows — identical to pass 3.
