@@ -13,19 +13,27 @@ import (
 	"github.com/wojons/muster/internal/version"
 )
 
-// captureStdout runs fn while capturing os.Stdout, returns the captured string
+// captureStdout runs fn while capturing os.Stdout, returns the captured string.
+// The reader runs concurrently so a command that writes more than the platform
+// pipe capacity cannot block before the callback gets a chance to close it.
 func captureStdout(fn func() error) (string, error) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
+	var buf bytes.Buffer
+	readDone := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(&buf, r)
+		close(readDone)
+	}()
+
 	err := fn()
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	<-readDone
+	_ = r.Close()
 	return buf.String(), err
 }
 

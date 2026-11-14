@@ -138,21 +138,27 @@ func replaceAuditSink(tmpPath, path string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tmp.Close() }()
 
 	destination, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
+		_ = tmp.Close()
 		return err
 	}
 	if _, err := io.Copy(destination, tmp); err != nil {
 		_ = destination.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if err := destination.Sync(); err != nil {
 		_ = destination.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if err := destination.Close(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
 		return err
 	}
 	return os.Remove(tmpPath)

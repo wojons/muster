@@ -234,31 +234,39 @@ func TestBinaryExecution_BaseURL(t *testing.T) {
 	t.Logf("Binary with base URL: %v", err)
 }
 
-// TestBinaryExecution_ContextTimeout tests binary respects context timeout
+// TestBinaryExecution_ContextTimeout tests binary respects context timeout.
 func TestBinaryExecution_ContextTimeout(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(binaryPath) }()
 
-	// Very short timeout - binary should exit quickly
-	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, binaryPath)
+	specPath := filepath.Join(t.TempDir(), "test-spec.yaml")
+	spec := []byte("openapi: 3.0.0\ninfo:\n  title: Timeout Test\n  version: 1.0.0\npaths:\n  /health:\n    get:\n      operationId: health\n      responses:\n        '200':\n          description: OK\n")
+	require.NoError(t, os.WriteFile(specPath, spec, 0600))
 
-	// Add 500ms timeout to context
-	ch := make(chan error, 1)
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		ch <- cmd.Process.Signal(os.Interrupt)
-	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binaryPath, "--spec", specPath)
+	stdin, stdinWriter, err := os.Pipe()
+	require.NoError(t, err)
+	defer func() { _ = stdin.Close() }()
+	defer func() { _ = stdinWriter.Close() }()
+	cmd.Stdin = stdin
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
+	// CommandContext owns termination across Unix and Windows. Keeping stdin
+	// open prevents a fast EOF exit, while the deadline provides deterministic
+	// bounded shutdown without depending on os.Interrupt semantics.
 	start := time.Now()
 	err = cmd.Run()
-	<-ch
 	duration := time.Since(start)
 
-	t.Logf("Binary execution duration: %v, error: %v", duration, err)
-
-	// Should timeout quickly (within 1 second including cleanup)
+	t.Logf("Binary execution duration: %v, wait error: %v", duration, err)
+	require.Error(t, err, "the stdio server should be stopped by the context deadline")
+	require.ErrorIs(t, ctx.Err(), context.DeadlineExceeded)
 	require.Less(t, duration, 2*time.Second, "Binary should exit within 2 seconds")
 }
 
