@@ -718,3 +718,67 @@ is recorded here instead. `generate`'s ~1.8 s is not a latency number — it is 
   `minrepro-raw-only.json`, `minrepro-raw-and-query.json`, `QA-MUSTER-038-ac.txt`, `QA-MUSTER-038-why.txt`
   under `/home/kara/.hermes/cache/scratch/dogfood-muster-162236/`.
 - Install leg unchanged from pass 1 of this tick (see `qa-evidence/`), not repeated here.
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` — pass 3 (records-only: install-leg grading + teardown census)
+
+Third fire at 2026-11-14T22:30Z, ~1 min after pass 2's commit `a1f9b17` (17:29:14 -05). Ownership
+checked before anything else: `git status --porcelain` empty, HEAD `a1f9b17`, `git rev-list
+--left-right --count origin/main...HEAD` = 0 0 after fetch. No product re-run, no second battery
+launch, no new rows, no code changes — this fire spent itself on the checks passes 1 and 2 left as
+inherited.
+
+### Why the product was not re-used this fire
+`git diff --stat 4b42b5c0..HEAD` touches only `.coding-hermes/board/events.jsonl`,
+`.coding-hermes/board/tasks.jsonl`, `.coding-hermes/dogfood-log.md`. The product tree is byte-identical
+to the pinned HEAD that pass 2 timed and exercised, so the perf numbers stand un-retimed and
+`QA-MUSTER-035/036/037/038` stay live by inheritance rather than by a replay.
+
+### Deferred check 1 — install-leg ledger graded in full (first written record for this tick)
+Pass 1 filed rows and left its battery result in a commit message only; the tick's install leg never got
+a log record. Agent `d16f829a` (project `muster`, launched 21:37:12Z, 24 ledger records) graded against
+the harvested per-cell logs that survived in
+`/tmp/bunker-qa-evidence-20261114T213624Z-2701200.jsonl.logs/qa-logs-689398/`:
+
+| cell | grade | substance from the log, not the status word |
+|---|---|---|
+| fresh-install | OK | `go build ./...` on the clean tree after the toolchain bootstrap took the box from go 1.22.2 to floor 1.26.11; no artifact expected for a compile leg |
+| tests | OK | full native suite — 54 packages `ok` in a 63-line `tests.log`: `test/security` 115.276s, `test/e2e` 36.044s, `test/docker` 4.535s. The tree holds 213 `_test.go` files across 54 test packages, so nothing was silently skipped. The ledger's own detail is an empty `(rc=0)`; the count lives only in `tests.log` |
+| docker_build | OK | `deployments/backup/Dockerfile` built (`220592794ae4`), legacy builder, 46934 B context |
+| compose_config | OK | `deployments/docker-compose.security.yml` validates |
+| ci-pass | OK | act ran `.github/workflows/ci.yml`, job `build-and-test` ✅ (`ACT_WF_COUNT=1`). One workflow is by design (Go repos pin `ci.yml`), not a truncated run |
+| chaos-resource | PASS | child/subshell/parent all saw the 3 GiB cap (3145728 KB each) |
+| chaos-shutdown | OK | `sd.log` KILL=0 KILLRECOVER=0 DOWN=0 |
+| upgrade | FAIL | `up1.log` untruncated: `disallowed LTO section .llvmbc in #cgo LDFLAGS` on `libwasmtime.a` **and** `Package 'libseccomp', required by 'virtual:world', not found`. Character-for-character `QA-MUSTER-034`'s cause ⇒ recurrence, no re-file (pass 1 already annotated that row) |
+| lint / ui-probe / docker-deploy / chaos-disconnect / chaos-errorpath | INFO | ran, graded nothing: `ep.log`/`ui-probe.log` hold `openapi-cli --help` text, `dc.log` did start `muster-db`/`redis`, `disc.log` is the security suite at 107.9s. INFO is neither a green nor a product red |
+
+Coverage boundaries this grading exposes — recorded here, deliberately **not** filed as rows because none
+is something a user can feel:
+- `ci-pass` covers exactly one of the repo's four workflows; `build.yml`, `cross-platform.yml` and
+  `docker-build.yml` have no cell in this battery (`docker-build` is separately covered by `docker_build`,
+  cross-platform builds are out of scope for a Linux-only clean box).
+- `lint` never ran — golangci-lint is absent on the agent, so that cell is an absence, not a pass.
+- The `collect` cell reports "per-cell logs lost with the agent user"; for this run that is wrong. 24
+  per-cell logs had already been synced by the incremental harvest before the agent was reaped, which is
+  precisely how the upgrade signature above was graded. Harness-reporting inaccuracy, not a product defect.
+
+### Deferred check 2 — teardown census
+`bunker list --server bunker-mvp --status all`: `d16f829a` absent ⇒ destroyed. Residue seen and left
+alone (not this lane's to reap): `831e48e4` in `destroy-refused:home_retained` holding 9.7 GB (that
+agent's ledger is a `crier` battery, created 21:11:25Z), plus long-lived `e9112dde`, `cf-node`,
+`ci-e2e-01`.
+
+### Deferred check 3 — CI at the record's own HEAD
+`a1f9b17` check-runs at 22:38Z: 17 completed:success, 2 in_progress, 1 skipped — not final inside this
+fire, so CI-at-HEAD is recorded **UNVERIFIED**, not green. The commit is board + log only, so it cannot
+move product CI.
+
+### Corrections to the record
+- Pass 2 cited `qa-evidence/` for the install leg; that directory holds only the 2026-10-23 tick's
+  evidence. The live evidence for this tick is the `/tmp/bunker-qa-evidence-20261114T213624Z-2701200.jsonl`
+  artifact above.
+- Pass 1 has no dogfood-log section; this section supplies it.
+
+### Artifacts
+- This log section, committed and pushed to `origin/main` (sha in the commit itself). Board untouched:
+  0 rows filed, 0 rows modified, `boardctl validate` `RESULT: OK` with 264 warnings / 0 errors
+  (sibling-lane drift, not this tick).
