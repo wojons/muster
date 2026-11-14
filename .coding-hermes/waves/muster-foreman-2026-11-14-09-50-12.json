@@ -25,5 +25,6 @@
   "worker_commit": "39f8ef104cb7b9e6973c7947c4b8a3ba3f8c3b06",
   "gitreins": "none:completion-timeout-no-verdict",
   "ci": "pending:queued-on-ff0cff82",
-  "outcome": "integrated_pending_closeout"
+  "outcome": "integrated_pending_closeout",
+  "finished_at": "2026-11-14T10:29:25-05:00"
 }

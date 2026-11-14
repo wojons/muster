@@ -11,6 +11,7 @@
     "base_sha": "56327232622664ebcd9fc4a04493d147f62b02ca",
     "tested_sha": "56327232622664ebcd9fc4a04493d147f62b02ca",
     "evidence": ".coding-hermes/evidence/release-018-recheck-20261114-090305.json",
-    "outcome": "acceptance_rechecked_exact_head_ci_green"
-  }
+    "outcome": "acceptance_rechecked_exact_head_ci_green",
+    "finished_at": "2026-11-14T10:29:25-05:00"
+    }
 }

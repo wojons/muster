@@ -12,5 +12,6 @@
   "dispatch": "none:owner-gated-release-readiness",
   "blocker": "first-publication owner authorization for v0.2.0 is absent; this tick performs read-only readiness verification only",
   "next_owner_action": "Explicitly authorize or decline first publication of v0.2.0 after reviewing current exact-head gates, release tooling, and release-object state.",
-  "status": "verification-only"
+  "status": "verification-only",
+  "finished_at": "2026-11-14T10:29:25-05:00"
 }
