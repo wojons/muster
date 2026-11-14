@@ -1067,3 +1067,14 @@ server has been stopped.
   `disc.out`, `gen.out`/`gen.err`, `mock.py`, `mock-requests.log`, `mcp-stripe.out`, `perf.txt`,
   `disp.txt`, `probe_body.py`.
 - No process of mine left running.
+
+**Correction to the install-leg line above (same tick, re-probe after commit):** I quoted "root fs
+74%" from memory rather than from this tick's probe. Re-ran it — `bunker-mvp` reachable,
+`systemctl --user is-active bunkerd` → `inactive` (rc=4), `bunker-qa.sh` absent at both
+`/usr/local/bin/` and `~/`, **root fs 79%** (150G, 113G used). Also checked the operator side: the
+skill's `scripts/` dir holds only `append-rows-verify.sh`, `doc-command-census.sh`,
+`ownership-marker-scan.sh`, `record-integrity-census.py`, and `~/.hermes/scripts/` holds only
+`bunker-qa.sh.bak-*` copies — no live harness binary anywhere I can reach. So the install leg is
+SKIPPED for a stronger reason than "daemon down": the harness itself is not present. That
+corroborates the existing **`SKIPPED-install-bunker`** row (status `complete`, which records the
+four-agent unreachability evidence from run 4); no new row filed.
