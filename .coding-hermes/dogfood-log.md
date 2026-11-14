@@ -839,3 +839,70 @@ The four orphan daemons above were killed at 22:47Z after their evidence was cap
 - This log section, committed and pushed to `origin/main`.
 - Board untouched: 0 rows filed, 0 rows modified, `boardctl validate` `RESULT: OK` with 264 warnings /
   0 errors, 363 task rows / 1047 event rows — identical to pass 3.
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` — pass 4 (cold use + CI archaeology)
+
+First pass of this tick that actually *used* the binary instead of re-reading the board. Everything below is
+measured on this host or pulled from the public CI, not inferred from source comments.
+
+### What a user gets, timed (Step 2b)
+Built `./cmd/daemon` from HEAD `7c7a3d02` into scratch, started it on a private socket, drove it, stopped it.
+
+| Operation | Command | Result |
+|---|---|---|
+| cold start → socket ready | `openapi-daemon start --socket-path <scratch>/probe.sock` | **67 ms** to live socket, rc=0 |
+| warm `status` CLI | `openapi-daemon status --socket-path …` × 10 | **10–12 ms** (mean 10.3 ms) — process spawn, stable |
+| HTTP over the unix socket | `curl --unix-socket <sock> http://localhost/health` × 5 | **0.18–0.46 ms**, connect 0.05 ms, http=200 |
+
+No profile was warranted and no PERF row was filed: the daemon answers in sub-millisecond time and starts in
+67 ms, so there is no slowness a user could feel. The slowest thing a user touches is process spawn.
+
+### Filed — 2 rows, both read back from the board
+- **`RELEASE-018-R2`** (P1) — the closed P0 `RELEASE-018` claimed cross-platform green; the same macOS/ARM64
+  red returned inside three hours. Run `43586639636` @`5b3cb342` 10:46Z: only the ARM64 macOS job failed with
+  `"138.958µs" is not less than or equal to "103.084µs"` in `TestAuditCommand_LogLimitStaysBounded`. Run
+  `43594734067` @`4b42b5c0` 12:27Z: macos-latest **and** ARM64 failed, same assertion. Locally the same test is
+  **30/30 green** (`-count=30`, 0.814 s, load 12.21) — which is exactly why the original green close proved nothing.
+  Acceptance criteria demand an injected clock or a property assertion, a measured jitter distribution, and
+  ≥3 consecutive green cross-platform runs cited by run id before it can close again.
+- **`QA-MUSTER-039`** (P2) — a bare `openapi-daemon` invocation exits **0** on Linux (measured: usage block,
+  17 lines, rc=0) but exits **1** on Windows (`integration_test.go:61`, run `43594734067` job `132446712558`),
+  and the same Windows leg passed at `5b3cb342`, so the exit code is state-dependent, not constant.
+  Cause located in the shipped tree: `cmd/daemon/main.go:194-227` builds the audit hook and `NewController`
+  *before* the dispatch `switch` at `:229`, whose `default:` help branch is `:239-257` — so the help path is not
+  side-effect-free, and when controller construction fails the usage text never prints. The test sets
+  `cmd.Stdout` but never `cmd.Stderr`, which is why CI shows only `exit status 1` and no cause.
+
+Both rows carry `acceptance_criteria` a foreman can dispatch on; the long evidence text lives in
+`events.jsonl` as audit events `1057` (`RELEASE-018-R2`) and `1058` (`QA-MUSTER-039`).
+
+### Install leg — recorded, never a silent pass
+Probed rather than assumed: `ssh bunker-mvp` succeeds (rc=0), `systemctl --user is-active bunkerd` → **inactive**,
+`/` at **80 % / 29 G free**, and there is no `bunker-qa.sh` on the host or in this lane's skill scripts
+(`…/coding-hermes-dogfood/scripts/` holds only `append-rows-verify.sh`, `doc-command-census.sh`,
+`ownership-marker-scan.sh`, `record-integrity-census.py`; the `bunker-qa-harness` skill ships only
+`classify-bunker-qa-cells.py`). Fresh-install is therefore **NOT re-proven this run**. Not filed as a new row —
+the board already carries a completed `SKIPPED-install-bunker` (P2) row for exactly this state, and rule 3
+says an existing row is worked or left alone, never re-filed.
+
+### Seen, deliberately not filed
+- Two `openapi-daemon` processes (`803046`, `1286750`, both `--socket-path /tmp/muster.sock`) and `/tmp/muster.sock`
+  is a **root-owned directory**, not a socket — the pidfile/socket-reuse defect `QA-MUSTER-035` already describes
+  is the same premise; a second row would be noise.
+- The Windows retention class is owned by pending `INT-CI-9`, and the generic Windows regression by `INT-CI-006`;
+  `QA-MUSTER-039` names a different test and a different mechanism, and says so in its reasoning rather than
+  presenting itself as a new family.
+- `QA-MUSTER-036/037/038` stay pending with their premises intact; the product tree under them did not move
+  during this pass (`git diff --stat 4b42b5c0..HEAD -- . ':(exclude).coding-hermes'` is empty).
+
+### Boundary
+The tick prompt names `Workdir: /home/kara/.hermes/stand-in/dogfood/muster`, which does not exist (exit 2, both
+this pass and the last). Work happened in the canonical checkout `/home/kara/wojons/muster`, clean on entry and
+on exit. A sibling QA lane committed to that checkout mid-pass (`7c7a3d02`, muster-qa verification-only cycle,
+18:01 local); my commit sits on top of it and touches only the two board files plus this log.
+
+### Artifacts
+- This log section, committed and pushed to `origin/main` (parity `0/0` at the end of the pass).
+- Board: 365 task rows / 1052 event rows, `boardctl validate` → `RESULT: OK`, **264 warnings / 0 errors** —
+  identical warning count to the pre-filing baseline, so nothing was added to the lint debt.
+- Probe daemon stopped and its scratch socket/pidfile removed; no process of mine left running.
