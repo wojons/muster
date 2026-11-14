@@ -76,6 +76,15 @@ PLATFORMS := \
 	windows/amd64 \
 	windows/arm64
 
+# Release package directories and their shipped binary names. Keep these
+# separate: the daemon and MCP package directories do not use their binary
+# names (./cmd/daemon and ./cmd/mcp-server).
+RELEASE_TARGETS := \
+	openapi-cli:openapi-cli \
+	daemon:openapi-daemon \
+	mcp-server:openapi-mcp
+PROJECT_NAME := muster
+
 # Default target
 .DEFAULT_GOAL := build
 
@@ -132,38 +141,42 @@ build-all: ## Build all binaries
 .PHONY: release
 release: clean generate lint test ## Create release builds (three binaries per platform)
 	@echo "Creating release $(VERSION)..."
-	@mkdir -p $(DIST_DIR)
-	@for platform in $(PLATFORMS); do \
-		GOOS=$$(echo $$platform | cut -d/ -f1); \
-		GOARCH=$$(echo $$platform | cut -d/ -f2); \
-		PLATFORM_NAME=$$GOOS-$$GOARCH; \
-		RELEASE_NAME=$(PROJECT_NAME)-$(VERSION)-$$PLATFORM_NAME; \
-		mkdir -p $(DIST_DIR)/$$RELEASE_NAME; \
-		for main in openapi-cli openapi-daemon openapi-mcp; do \
-			OUTPUT=$(DIST_DIR)/$$RELEASE_NAME/$$main; \
-			if [ "$$GOOS" = "windows" ] && [ "$$main" = "openapi-cli" -o "$$main" = "openapi-mcp" ]; then OUTPUT="$$OUTPUT.exe"; fi; \
-			echo "  → Building $$main for $$PLATFORM_NAME..."; \
-			CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH \
-				go build -trimpath $(LDFLAGS) -o $$OUTPUT ./cmd/$$main || exit 1; \
-			done; \
-		cp README.md LICENSE $(DIST_DIR)/$$RELEASE_NAME/ 2>/dev/null || true; \
-		if [ "$$GOOS" = "windows" ]; then \
-			(cd $(DIST_DIR) && zip -r $$RELEASE_NAME.zip $$RELEASE_NAME); \
-		else \
-			(cd $(DIST_DIR) && tar -czf $$RELEASE_NAME.tar.gz $$RELEASE_NAME); \
-		fi; \
-		rm -rf $(DIST_DIR)/$$RELEASE_NAME; \
-	done
-	@echo "✓ Release complete in $(DIST_DIR)/"
-	@ls -lh $(DIST_DIR)/
+	@staging=$$(mktemp -d "$(DIST_DIR).staging.XXXXXX"); \
+		trap 'rm -rf "$$staging"' EXIT INT TERM; \
+		for platform in $(PLATFORMS); do \
+			GOOS=$$(echo $$platform | cut -d/ -f1); \
+			GOARCH=$$(echo $$platform | cut -d/ -f2); \
+			PLATFORM_NAME=$$GOOS-$$GOARCH; \
+			RELEASE_NAME=$(PROJECT_NAME)-$(VERSION)-$$PLATFORM_NAME; \
+			mkdir -p "$$staging/$$RELEASE_NAME"; \
+			for target in $(RELEASE_TARGETS); do \
+				PACKAGE=$${target%%:*}; BINARY=$${target##*:}; OUTPUT="$$staging/$$RELEASE_NAME/$$BINARY"; \
+				if [ "$$GOOS" = "windows" ]; then OUTPUT="$$OUTPUT.exe"; fi; \
+				echo "  → Building $$BINARY for $$PLATFORM_NAME..."; \
+				CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH \
+					go build -trimpath $(LDFLAGS) -o "$$OUTPUT" "./cmd/$$PACKAGE" || exit 1; \
+			 done; \
+			cp README.md LICENSE "$$staging/$$RELEASE_NAME/" 2>/dev/null || true; \
+			if [ "$$GOOS" = "windows" ]; then (cd "$$staging" && zip -qr "$$RELEASE_NAME.zip" "$$RELEASE_NAME"); else (cd "$$staging" && tar -czf "$$RELEASE_NAME.tar.gz" "$$RELEASE_NAME"); fi; \
+			rm -rf "$$staging/$$RELEASE_NAME"; \
+		done; \
+		mkdir -p "$(DIST_DIR)"; \
+		find "$$staging" -maxdepth 1 -type f -exec mv {} "$(DIST_DIR)/" \;; \
+		echo "✓ Release complete in $(DIST_DIR)/"
 
 .PHONY: release-local
-release-local: ## Create release for current platform only
+release-local: ## Create all three binaries for current platform only
 	@echo "Creating local release $(VERSION)..."
-	@mkdir -p $(DIST_DIR)
-	CGO_ENABLED=$(CGO_ENABLED) go build -trimpath $(LDFLAGS) \
-		-o $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-local ./cmd/$(BINARY_NAME)
-	@echo "✓ Local release: $(DIST_DIR)/$(BINARY_NAME)-$(VERSION)-local"
+	@staging=$$(mktemp -d "$(DIST_DIR).local.staging.XXXXXX"); \
+		trap 'rm -rf "$$staging"' EXIT INT TERM; \
+		for target in $(RELEASE_TARGETS); do \
+			PACKAGE=$${target%%:*}; BINARY=$${target##*:}; \
+			CGO_ENABLED=$(CGO_ENABLED) go build -trimpath $(LDFLAGS) \
+				-o "$$staging/$$BINARY-$(VERSION)-local" "./cmd/$$PACKAGE" || exit 1; \
+		 done; \
+		mkdir -p "$(DIST_DIR)"; \
+		find "$$staging" -maxdepth 1 -type f -exec mv {} "$(DIST_DIR)/" \;; \
+		echo "✓ Local release: $(DIST_DIR)/$(CLI_BINARY)-$(VERSION)-local, $(DIST_DIR)/$(DAEMON_BINARY)-$(VERSION)-local, $(DIST_DIR)/$(MCP_BINARY)-$(VERSION)-local"
 
 # =============================================================================
 # Installation
