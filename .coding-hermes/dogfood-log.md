@@ -959,3 +959,111 @@ touched only the two board files plus this log.
 - Probe evidence in `~/.hermes/cache/scratch/dogfood-muster-162236/mcp-fresh/`
   (`probe-abs-base.json`, `scale-github.json`, `mcp-github.err`, `discover-github.txt`).
 - No process of mine left running.
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` — pass 6 (production-spec scale probe: what the generated commands actually send)
+
+Sixth fire. Product bytes are unchanged since the pass-5 build pin (`75ae5494`; only `.coding-hermes`
+and one releng markdown moved while this pass ran), so this pass did **not** re-walk passes 1–5. It
+walked the one surface no earlier pass had touched: **a production-sized spec whose writes are not
+JSON-bodied**. Pass 2 established that the 13-path petstore fixture generates fine and that the
+GitHub v3 spec dies on an `output` flag collision (`QA-MUSTER-038`). Nobody had yet asked what a
+user of a *form-encoded* API actually gets.
+
+### What I did (real use, not code reading)
+Pulled Stripe's published OpenAPI description and pointed the shipped binary at it:
+
+- `stripe-spec3.json` — **8,317,513 B**, `sha256 7cff4cc46d065410…`, `openapi 3.0.3`,
+  api version `2026-09-30.endive`, base `https://api.stripe.com/`, **612 operations**.
+- `openapi-cli discover stripe-spec3.json` → rc=0, **0.97 s cold / 0.90 s warm**, 612 operations
+  in 616 lines.
+- `openapi-cli generate stripe-spec3.json` → rc=0, **0.98 s cold / 0.99 s warm**, and
+  `openapi-cli --help` then lists **631 top-level commands**.
+- A generated typed command really reaches the wire: with a mock on `:9833`,
+  `openapi-cli delete-coupons-coupon DOGFOOD-PROBE --base-url http://127.0.0.1:9833 -o json`
+  → rc=0, `{"deleted":true,…}`, and the mock logged `DELETE /v1/coupons/DOGFOOD-PROBE`.
+  Dispatch cost **0.02 s warm** (5 runs: 0.02/0.02/0.12/0.02/0.02). Path templating, base-URL
+  override and output formatting all work.
+- Same spec through the MCP server: `Generated 612 MCP tools`; `tools/list` returned 483,426 B of
+  JSON-RPC and `initialize` answered immediately.
+
+### What broke
+**Write operations on a form-encoded API are argument-free, and the CLI never says so.**
+
+`POST /v1/customers` declares 22 body properties on `application/x-www-form-urlencoded`. Its
+generated command's `Flags:` block contains only the four generic flags (`--auth`, `--base-url`,
+`-H`, `-o`) — no `--email`, no `--description`:
+
+    $ openapi-cli post-customers --email dogfood@example.com …
+    Error: unknown flag: --email
+    $ openapi-cli post-customers -b '{"email":"a@b.c"}'
+    Error: unknown shorthand flag: 'b' in -b
+    $ openapi-cli post-customers --body '{"email":"a@b.c"}'
+    Error: unknown flag: --body
+
+There is no escape hatch either, and the omission is specific to the media type: JSON-body commands
+(petstore `update-pet`) carry both per-property flags **and** `-b, --body  Raw JSON request body
+(overrides individual body flags)`. Running the form command bare "succeeds" and sends nothing:
+
+    {"method":"POST","path":"/v1/customers","headers":{…,"Content-Length":"0"},"body":""}
+
+rc=0, no `Content-Type`, empty body — an empty write reported as success, with no warning at
+generate time and none at call time (`generate` emitted zero `warn|skip|unsupported|form` lines for
+the whole 8.3 MB spec).
+
+Scale, counted from the spec: **611 of 612 operations** declare an
+`application/x-www-form-urlencoded` body and 1 declares `multipart/form-data`; **zero** declare
+`application/json`. Of those form-bodied operations **338 are writes** (306 POST, 32 DELETE), so
+over half this spec's operation surface is unreachable, and nothing in the CLI hints that the
+parameterless command it printed is not the API.
+
+The query-parameter path is *not* affected, which is what makes the split diagnostic:
+`GET /v1/customers` declares 7 query parameters and the CLI exposes all 7 (`--email`, `--limit`,
+`--expand`, …). Only the body is lost.
+
+Root cause is a JSON-only body lookup in the two loaders:
+`internal/builtin/generate.go:566` ("Look for application/json request body content") →
+`content.Get("application/json")` at :570, and the MCP loader `pkg/openapi/parser.go:297-298`
+(same `mt := body.Content.Get("application/json")`). MCP inherits the loss: `PostCustomers` is
+advertised with `inputSchema.properties = []` and `required = []`, while `GetCustomers` correctly
+publishes its 7 query params. The tool the README promises ("every OpenAPI operation becomes an MCP
+tool") exists, is callable, and cannot be given a single argument.
+
+**Trap for whoever fixes this:** swagger petstore's `update-pet-with-form` *looks* like the form
+path works — the documented `--name/--status` example returns 200 against my mock. It worked only
+because that spec also declares `name` and `status` as **query** params; the mock logged
+`POST /pet/1?name=Rex&status=sold` with `Content-Length: 0` and an empty body. Do not "verify" a
+form fix against petstore.
+
+### Non-findings (explicitly not filed)
+- **No `PERF` row.** Headline discover/generate on an 8,317,513 B spec cost ~1 s cold and warm, and
+  command dispatch 0.02 s. Nobody would feel that; this tick's cost is capability, not latency.
+- Did not re-file generate's misleading tail (`✓ Generated 1 command groups`, `✓ Registered command:
+  v1`) for 631 commands — that is `REVIEW-MUSTER-17`'s class, already on the board.
+- `--coupon` on `delete-coupons-coupon` failing was my error, not a defect: path params are
+  positional (`Usage: … <coupon>`) and the command's own `--help` says so.
+- Cosmetic wart seen while reading `get-customers --help` and not filed (no user-visible failure):
+  three of its flags render their *type* column as the parameter name — `--email email`,
+  `--ending_before ending_before`, `--starting_after starting_after` — while `--limit int`,
+  `--expand strings`, `--test_clock string` render correctly. I did not chase the cause.
+- Install leg re-probed, unchanged from pass 4: host reachable, `bunkerd` **inactive** (rc=4), no
+  `bunker-qa.sh` on the host or in the lane scripts dir, root fs 74% — cites the existing completed
+  SKIPPED-install-bunker row; no second skip row filed.
+- No duplicate: `grep -c x-www-form` over the board = 0 before filing, and no row owns "request body
+  media type".
+
+### Boundary
+Read-only with respect to product code. I pointed the shipped binary at a downloaded spec and a
+local mock; the only writes are the two board files and this log. The generated-command store lived
+in an isolated `HOME` under scratch, so the real `~/.config/muster` was never touched, and the mock
+server has been stopped.
+
+### Artifacts
+- Board: **`QA-MUSTER-041`** (pending, P2, complexity 3) — acceptance criteria pin the media-type
+  handling on both surfaces, the wire proof through a mock that logs body and content type, the
+  regression fixtures, the scale recount, and the petstore trap. Paired `task_created` event
+  written; `boardctl validate -C /home/kara/wojons/muster` → `RESULT: OK (264 warnings)`, 0 errors
+  (baseline unchanged).
+- Probe evidence in `~/.hermes/cache/scratch/dogfood-muster-162236/pass6/`: `stripe-spec3.json`,
+  `disc.out`, `gen.out`/`gen.err`, `mock.py`, `mock-requests.log`, `mcp-stripe.out`, `perf.txt`,
+  `disp.txt`, `probe_body.py`.
+- No process of mine left running.
