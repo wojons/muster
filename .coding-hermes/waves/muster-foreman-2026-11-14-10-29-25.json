@@ -1,0 +1,49 @@
+{
+  "scheduler_tick_id": "muster-foreman-2026-11-14-10-29-25",
+  "project": "muster",
+  "wave_budget": 7,
+  "recovery": {
+    "source_ticks": [
+      "muster-foreman-2026-11-14-09-03-05",
+      "muster-foreman-2026-11-14-09-31-05"
+    ],
+    "workers": [],
+    "already_integrated_branch_recovery": [
+      {
+        "task_id": "RELEASE-018",
+        "branch": "wt/RELEASE-018-V-20261114-090305",
+        "branch_tip": "840600d5a25797cd0e405949ed0ddaee482320f4",
+        "status": "already_integrated",
+        "gate": "PASS: go build ./..., go vet ./..., go test -short -count=1 ./...; GitReins guard FAIL at go_lint with 0 issues reported",
+        "board_rule": "no branch diff against current main; no mixed board/code diff",
+        "cleanup": "preserved: worktree and branch retained as evidence"
+      },
+      {
+        "task_id": "RELEASE-014",
+        "branch": "wt/RELEASE-014-V-20261114-093105",
+        "branch_tip": "de101b08fadae5ccdd2599cd4bf6279a8edca53e",
+        "status": "already_integrated",
+        "gate": "PASS: go build ./..., go vet ./..., go test -short -count=1 ./...; GitReins guard FAIL at go_lint with 0 issues reported",
+        "board_rule": "no branch diff against current main; no mixed board/code diff",
+        "cleanup": "preserved: worktree and branch retained as evidence"
+      }
+    ],
+    "prior_tick_integrated": {
+      "task_id": "RELEASE-020",
+      "worker_commit": "39f8ef104cb7b9e6973c7947c4b8a3ba3f8c3b06",
+      "integrated_commit": "ff0cff82c42cbf2c1b2a0af3a3767b0e967e061e",
+      "current_main_contains": true,
+      "cleanup": "preserved: worktree and branch retained as evidence"
+    }
+  },
+  "current_main": "e13e25aa8a85a8f648044c7f60b8d31c613ccc6f",
+  "remote_main": "e13e25aa8a85a8f648044c7f60b8d31c613ccc6f",
+  "current_tick": {
+    "mode": "verification-only",
+    "selected_context_row": "RELEASE-014",
+    "dispatch": "none:owner-gated-release-readiness",
+    "reason": "first-publication authorization for v0.2.0 is absent; RELEASE-014 remains pending and is a pure release-readiness decision row",
+    "next_owner_action": "Authorize or decline first publication of v0.2.0 by naming the version and baseline SHA."
+  },
+  "finished_at": "2026-11-14T10:29:25-05:00"
+}
