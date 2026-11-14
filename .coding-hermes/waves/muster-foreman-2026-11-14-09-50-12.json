@@ -1,0 +1,29 @@
+{
+  "scheduler_tick_id": "muster-foreman-2026-11-14-09-50-12",
+  "project": "muster",
+  "wave_budget": 12,
+  "eligible_independent": 1,
+  "selected_context_row": "RELEASE-013",
+  "tasks": [
+    {
+      "task_id": "RELEASE-020",
+      "status": "worker_complete",
+      "worktree": "/home/kara/worktrees/muster-RELEASE-020",
+      "branch": "wt/RELEASE-020",
+      "base_sha": "de101b08fadae5ccdd2599cd4bf6279a8edca53e",
+      "worker_model": "openai/gpt-6.1-terra",
+      "worker_provider": "xkiro",
+      "worker_commit": "39f8ef104cb7b9e6973c7947c4b8a3ba3f8c3b06",
+      "worker_gate": "direct build/vet/release-local PASS; full gitreins guard go_lint FAIL (0 issues reported by guard)",
+      "worker_attempts": 3,
+      "dispatch_note": "Two xkiro worker attempts were interrupted while waiting for model response with zero diff; foreman completed the scoped Makefile fix in the worker worktree after preserving the attempts."
+    }
+  ],
+  "workers": ["RELEASE-020"],
+  "merge_order": ["RELEASE-020"],
+  "integrated_commit": "ff0cff82c42cbf2c1b2a0af3a3767b0e967e061e",
+  "worker_commit": "39f8ef104cb7b9e6973c7947c4b8a3ba3f8c3b06",
+  "gitreins": "none:completion-timeout-no-verdict",
+  "ci": "pending:queued-on-ff0cff82",
+  "outcome": "integrated_pending_closeout"
+}
