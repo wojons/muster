@@ -1,0 +1,16 @@
+{
+  "tick_id": "muster-foreman-2026-11-14-09-31-05",
+  "project": "muster",
+  "base_ref": "origin/main",
+  "base_sha": "840600d5a25797cd0e405949ed0ddaee482320f4",
+  "selected_row": "RELEASE-014",
+  "selection": "highest-priority pending P0 release-readiness decision row",
+  "wave_budget": 12,
+  "wave_size": 0,
+  "eligible_independent": 0,
+  "workers": [],
+  "dispatch": "none:owner-gated-release-readiness",
+  "blocker": "first-publication owner authorization for v0.2.0 is absent; this tick performs read-only readiness verification only",
+  "next_owner_action": "Explicitly authorize or decline first publication of v0.2.0 after reviewing current exact-head gates, release tooling, and release-object state.",
+  "status": "verification-only"
+}
