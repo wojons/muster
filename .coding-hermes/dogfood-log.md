@@ -668,3 +668,53 @@ Housekeeping left behind, deliberately: two `git stash` entries labelled `siblin
 (`pass 2` is the live one; the `pass 1` copy is superseded by it). `git stash drop` was refused by the
 unattended-command gate, so they remain for a human or a later lane to clear. Nothing is lost either way —
 the residue in the working tree is the authoritative copy.
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` — pass 2 (perf leg + production-spec probe)
+
+Follow-up pass on the same tick id, after the first pass filed `QA-MUSTER-035..037` (`0edbd4ae`).
+Still product-only: no code, no board-status edits, one new row filed.
+
+### What the user did
+Took the documented path from a clean clone against the bundled demo service
+(`localhost:9801`, 7,390 B spec): `discover` → `generate` → typed `list-tasks -o json` → generic
+`request GET /tasks`. Then did what the README actually promises — pointed it at a **real production
+spec**: GitHub v3 REST (14,274,027 B, openapi 3.0.3, 1281 operations,
+sha256 `f7a3de68…c801b31c`), served from disk and from a URL.
+
+### Corrected false alarms (recorded so they are not re-filed)
+- `discover … -o json` "failing" was my flag error: `discover` has no `-o` and the error message is clean.
+- `-o json` output is NOT polluted by the `INF HTTP response received` line — that goes to **stderr**;
+  stdout is a clean `[]\n` (verified with `od -c`).
+- `✓ Parsed spec (version: 1.1.4)` is GitHub's `info.version`, not a parser mis-read.
+
+### Finding filed
+- **`QA-MUSTER-038` (P1)** — `generate` panics on any spec with a parameter or body field named
+  `output` or `raw`: `panic: checks/create flag redefined: output`, rc=2, **zero commands persisted**.
+  Minimal repro is 855 B (one POST body property named `output`); `raw` and a GET query param named
+  `output` panic identically. Root cause `pkg/generator/generator.go:675-676` registers `-o/--output`
+  and `-r/--raw` unconditionally on a FlagSet that already holds the spec-derived flags; pflag panics
+  on the duplicate instead of returning an error. 2 of the 1281 GitHub operations trip it — one is enough
+  for total loss of the generate path.
+
+### Perf numbers (Step 2b) — measured, isolated `HOME`/`XDG_*` per run, loadavg ≈ 13.9 on 16 cores
+| operation | cold | warm |
+|---|---|---|
+| demo spec `discover` (7.4 KB, http) | 15 ms | 14-18 ms (5 runs) |
+| demo spec `generate` | 20 ms | 21-45 ms (one 144 ms outlier under host load) |
+| `list-tasks -o json` | — | 17-29 ms (one 123 ms outlier) |
+| `request GET /tasks -o json` | — | 18-20 ms |
+| GitHub spec `discover` (14.3 MB) | 1794 ms | 1763 / 1768 ms, 1330 commands listed, 0 stderr |
+| GitHub spec `generate` | 1924 ms then panic | 1767 / 1785 ms then panic |
+
+Verdict: on the demo spec nothing is slow enough that a user would notice — **no PERF row filed**.
+The 1.8 s `discover` on a 14.3 MB spec is noticeable but is the same parse cost already owned by
+`PERF-001` (double decode, 105-118 ms of it); filing a second row would devalue that one, so the number
+is recorded here instead. `generate`'s ~1.8 s is not a latency number — it is time spent before a crash.
+
+### Artifacts
+- Board row `QA-MUSTER-038` (minted via `board_next_id.py QA-MUSTER`, verified unique, board validates
+  `RESULT: OK`). Event `1053` `task_created`.
+- Scratch evidence (not committed): `evidence/perf2.sh|log`, `perf_big.sh|log`, `minrepro-output-flag.json`,
+  `minrepro-raw-only.json`, `minrepro-raw-and-query.json`, `QA-MUSTER-038-ac.txt`, `QA-MUSTER-038-why.txt`
+  under `/home/kara/.hermes/cache/scratch/dogfood-muster-162236/`.
+- Install leg unchanged from pass 1 of this tick (see `qa-evidence/`), not repeated here.
