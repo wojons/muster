@@ -1,0 +1,16 @@
+{
+  "tick_id": "muster-foreman-2026-11-14-09-03-05",
+  "project": "muster",
+  "wave_budget": 12,
+  "mode": "verification-only",
+  "selected_row": "RELEASE-018",
+  "eligible_independent_tasks": 1,
+  "workers": [],
+  "verification": {
+    "worktree": "/home/kara/worktrees/muster-RELEASE-018-V-20261114-090305",
+    "base_sha": "56327232622664ebcd9fc4a04493d147f62b02ca",
+    "tested_sha": "56327232622664ebcd9fc4a04493d147f62b02ca",
+    "evidence": ".coding-hermes/evidence/release-018-recheck-20261114-090305.json",
+    "outcome": "acceptance_rechecked_exact_head_ci_green"
+  }
+}

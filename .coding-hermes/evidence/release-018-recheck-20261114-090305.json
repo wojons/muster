@@ -1,0 +1,24 @@
+{
+  "row": "RELEASE-018",
+  "tick_id": "muster-foreman-2026-11-14-09-03-05",
+  "mode": "verification-only-premise-satisfied",
+  "tested_sha": "56327232622664ebcd9fc4a04493d147f62b02ca",
+  "remote_parity": "origin/main == HEAD",
+  "local_gates": {
+    "go_mod_tidy_diff": "PASS: empty",
+    "targeted_tests": "PASS: internal/audit internal/builtin pkg/dsl cmd/mcp-server",
+    "short_suite": "PASS: go test ./... -count=1 -short",
+    "stale_red_pin": "PASS: test remains as a value-based regression test; no stale pointer assertion",
+    "release_paths": "PASS: cmd/daemon and cmd/mcp-server are present; Makefile path defect remains separately owned by RELEASE-020"
+  },
+  "exact_head_ci": {
+    "Build": 43546075234,
+    "Docker Build": 43546075282,
+    "Cross-Platform Tests": 43546075249,
+    "CI": 43546075310,
+    "all": "completed success on tested_sha"
+  },
+  "cross_platform_jobs": "All jobs completed success, including Test windows-latest, Test macos-latest, ARM64 Compatibility (macOS Apple Silicon), and Windows Path Separator Tests.",
+  "scope": "This artifact records verification only. It does not perform release publication or close owner-gated RELEASE-014.",
+  "ch_trace": "ch:trace row=RELEASE-018 spec=board:acceptance_criteria wave=.coding-hermes/waves/muster-foreman-2026-11-14-09-03-05.json test=.coding-hermes/evidence/release-018-recheck-20261114-090305.json doc=none:verification-only prompt=none:verification-only evidence=.coding-hermes/evidence/release-018-recheck-20261114-090305.json witness=ci:43546075234,43546075282,43546075249,43546075310 verdict=pending:verification-judge commit=56327232622664ebcd9fc4a04493d147f62b02ca memory=none:pending"
+}
