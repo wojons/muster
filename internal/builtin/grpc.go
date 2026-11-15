@@ -16,12 +16,13 @@ import (
 	grpcadapter "github.com/wojons/muster/pkg/protocol/grpc"
 )
 
-// Protocol command namespace (specs/PROTOCOLS.md §5.1): OpenAPI operations
-// stay at the root; new protocols mount under their own group. Today: the
-// `grpc` group with two verbs:
+// The backwards-compatible root-level gRPC command group (specs/PROTOCOLS.md
+// §5.1). OpenAPI operations stay at the root, while JSON-RPC, GraphQL, and
+// SOAP mount under `protocol`. gRPC retains its root command with these verbs:
 //
 //	openapi-cli grpc discover <uri>          list operations from a discovery source
-//	openapi-cli grpc call <service-method>   invoke one unary operation
+//	openapi-cli grpc schema <uri>            list message and enum types
+//	openapi-cli grpc call <service-method>   invoke one unary or streaming operation
 //
 // The wiring stays thin (PROTO-002): the adapter owns transport, auth
 // metadata, deadline handling, and error mapping; this file only maps flags

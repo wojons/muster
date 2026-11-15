@@ -305,5 +305,19 @@ func TestProtocolCommand_MountedOnRoot(t *testing.T) {
 	assert.True(t, found, "protocol command must be registered on the root")
 }
 
+func TestProtocolCommand_HelpPointsToRootGrpc(t *testing.T) {
+	cmd := newProtocolCommand()
+	var output bytes.Buffer
+	cmd.SetOut(&output)
+	cmd.SetErr(&output)
+	cmd.SetArgs([]string{"--help"})
+
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, output.String(), "gRPC remains a root command")
+	assert.Contains(t, output.String(), "openapi-cli grpc discover")
+	assert.Contains(t, output.String(), "openapi-cli grpc schema")
+	assert.Contains(t, output.String(), "openapi-cli grpc call")
+}
+
 // Silence the unused-context import in constrained configurations.
 var _ = context.Background
