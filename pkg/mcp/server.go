@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/wojons/muster/internal/version"
 	apperrors "github.com/wojons/muster/pkg/errors"
@@ -46,6 +47,7 @@ type Server struct {
 	mu             sync.RWMutex
 	wg             sync.WaitGroup // CRITICAL FIX: Tracks in-flight goroutines
 	concurrencySem chan struct{}  // CRITICAL FIX: Semaphore to prevent unbounded goroutine spawn
+	toolObserver   ToolCallObserver
 	// writeCh carries marshaled responses to the dedicated responseWriter
 	// goroutine; done is closed when Run returns (or Shutdown is called) and
 	// tells the writer to drain and exit. QA-MUSTER-19-R2: a client that stops
@@ -264,6 +266,7 @@ func messageLen(chunk []byte) int {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *JSONRPCRequest) {
+	started := time.Now()
 	// JSON-RPC 2.0 notifications carry no id and MUST NOT receive any
 	// response, not even an error. MCP clients send notifications/initialized
 	// this way; answering it corrupts the response stream.
@@ -278,6 +281,7 @@ func (s *Server) handleRequest(ctx context.Context, req *JSONRPCRequest) {
 	}
 
 	result, err := handler.Handle(ctx, req.Params)
+	observeToolCall(s.toolObserver, ctx, req, result, err, started)
 
 	if err != nil {
 		if mcpErr, ok := err.(*handlers.MCPError); ok {
@@ -397,9 +401,15 @@ func (s *Server) IsInitialized() bool {
 	return s.initialized
 }
 
-// RegisterHandler adds a handler to the server
+// RegisterHandler adds a handler to the registry
 func (s *Server) RegisterHandler(handler handlers.Handler) {
 	if s.handlers != nil {
 		s.handlers.Register(handler)
 	}
+}
+
+// SetToolCallObserver installs the optional observer invoked after every
+// terminal tools/call handler result. It does not alter protocol responses.
+func (s *Server) SetToolCallObserver(observer ToolCallObserver) {
+	s.toolObserver = observer
 }

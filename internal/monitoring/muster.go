@@ -54,6 +54,11 @@ const (
 	proxySeedStatusClass = "none"
 )
 
+// mcpProductLabel is emitted INSIDE the textfile the mcp-server publishes:
+// node_exporter's textfile collector cannot attach target labels, so the
+// product identity has to travel with the samples (spec §5).
+const mcpProductLabel = "product"
+
 // MusterMetrics holds ONE explicit *prometheus.Registry with the metric
 // families of docs/observability-spec.md §3.1 and §3.4 registered on it, plus
 // the recording methods that write to them.
@@ -85,6 +90,12 @@ type MusterMetrics struct {
 	AuditEventsDropped *prometheus.CounterVec
 	// AuditBufferUtilization reports the fraction of the audit buffer occupied.
 	AuditBufferUtilization prometheus.Gauge
+	// MCPToolExecutions counts MCP tool calls by bounded tool, status and error class.
+	MCPToolExecutions *prometheus.CounterVec
+	// MCPToolDuration records MCP tool latency by bounded tool and status.
+	MCPToolDuration *prometheus.HistogramVec
+	// MCPActiveSessions reports the number of attached stdio MCP sessions.
+	MCPActiveSessions prometheus.Gauge
 }
 
 // NewMusterMetrics builds the explicit registry and registers the five
@@ -153,6 +164,33 @@ func NewMusterMetrics(tenantID, version, commit string) *MusterMetrics {
 			Name:      "audit_buffer_utilization_ratio",
 			Help:      "Fraction of the audit event buffer currently occupied.",
 		}),
+		MCPToolExecutions: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: MusterNamespace,
+				Name:      "mcp_tool_executions_total",
+				Help:      "Total MCP tool executions by tool, status and error class.",
+
+				ConstLabels: prometheus.Labels{mcpProductLabel: "muster"},
+			},
+			[]string{"tool", "status", "error_class"},
+		),
+		MCPToolDuration: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Namespace: MusterNamespace,
+				Name:      "mcp_tool_duration_seconds",
+				Help:      "MCP tool execution duration in seconds by tool and status.",
+				Buckets:   prometheus.DefBuckets,
+
+				ConstLabels: prometheus.Labels{mcpProductLabel: "muster"},
+			},
+			[]string{"tool", "status"},
+		),
+		MCPActiveSessions: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace:   MusterNamespace,
+			Name:        "mcp_active_sessions",
+			Help:        "Number of active MCP sessions.",
+			ConstLabels: prometheus.Labels{mcpProductLabel: "muster"},
+		}),
 	}
 
 	m.registry.MustRegister(
@@ -163,6 +201,9 @@ func NewMusterMetrics(tenantID, version, commit string) *MusterMetrics {
 		m.AuditEventsWritten,
 		m.AuditEventsDropped,
 		m.AuditBufferUtilization,
+		m.MCPToolExecutions,
+		m.MCPToolDuration,
+		m.MCPActiveSessions,
 	)
 
 	// build_info is always 1: the process is running, so the pair
@@ -187,6 +228,7 @@ func NewMusterMetrics(tenantID, version, commit string) *MusterMetrics {
 	m.AuditEventsDropped.WithLabelValues("buffer_full").Add(0)
 	m.AuditEventsDropped.WithLabelValues("write_error").Add(0)
 	m.AuditBufferUtilization.Set(0)
+	m.MCPActiveSessions.Set(0)
 
 	return m
 }
@@ -198,6 +240,25 @@ func (m *MusterMetrics) Registry() *prometheus.Registry {
 		return nil
 	}
 	return m.registry
+}
+
+// MCPRegistry returns a registry holding ONLY the muster_mcp_* families. The
+// mcp-server has no scrape target and publishes through a node_exporter
+// textfile (spec §4.2 option 1); publishing the whole registry there would
+// write muster_daemon_up=0 into a file that has nothing to do with the daemon,
+// which reads as "the daemon is down" on a dashboard. Scoping the registry to
+// the families this binary actually produces keeps the textfile honest.
+//
+// A collector can be registered on more than one registry (the conflict check
+// is per-registry), so these are the same live instruments the process records
+// into, not copies.
+func (m *MusterMetrics) MCPRegistry() *prometheus.Registry {
+	if m == nil {
+		return nil
+	}
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(m.MCPToolExecutions, m.MCPToolDuration, m.MCPActiveSessions)
+	return registry
 }
 
 // Handler returns the scrape handler for this registry. It is the only
@@ -232,6 +293,49 @@ func (m *MusterMetrics) MarkDown() {
 		return
 	}
 	m.DaemonUp.WithLabelValues(m.tenantID).Set(0)
+}
+
+// RecordMCPTool records one MCP tool call. tool and status are bounded by the
+// MCP registry and the success/error outcome; errorClass is always normalized
+// to the closed enum before it becomes a label.
+func (m *MusterMetrics) RecordMCPTool(tool, status, errorClass string, duration time.Duration) {
+	if m == nil {
+		return
+	}
+	if tool == "" {
+		tool = "unknown"
+	}
+	if status != "success" {
+		status = "error"
+	}
+	if status == "success" {
+		errorClass = "none"
+	} else {
+		errorClass = NormalizeMCPErrorClass(errorClass)
+	}
+	m.MCPToolExecutions.WithLabelValues(tool, status, errorClass).Inc()
+	m.MCPToolDuration.WithLabelValues(tool, status).Observe(duration.Seconds())
+}
+
+// SetMCPActiveSessions sets the current number of attached MCP sessions.
+func (m *MusterMetrics) SetMCPActiveSessions(sessions int) {
+	if m == nil {
+		return
+	}
+	if sessions < 0 {
+		sessions = 0
+	}
+	m.MCPActiveSessions.Set(float64(sessions))
+}
+
+// NormalizeMCPErrorClass maps arbitrary failures to the closed metric enum.
+func NormalizeMCPErrorClass(class string) string {
+	switch class {
+	case "auth", "upstream", "validation", "internal":
+		return class
+	default:
+		return "internal"
+	}
 }
 
 // RecordProxyRequest records one proxied request. statusClass is derived from

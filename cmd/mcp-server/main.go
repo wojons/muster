@@ -249,6 +249,19 @@ func main() {
 	stdin, stdout, stderr := setupStdio()
 
 	server := mcp.NewServer(stdin, stdout, stderr)
+	server.SetToolCallObserver(mcp.NewMCPToolObserver(metricsRecorder, auditHook, mcpActorID()))
+	textfileWriter := monitoring.NewMCPTextfileWriter(metricsRecorder.MCPRegistry(), monitoring.MCPTextfilePath())
+	if err := textfileWriter.Write(); err != nil {
+		fmt.Fprintf(os.Stderr, "mcp metrics: initial textfile write failed: %v\n", err)
+	}
+	go textfileWriter.Run(ctx, 15*time.Second, func(err error) {
+		fmt.Fprintf(os.Stderr, "mcp metrics: periodic textfile write failed: %v\n", err)
+	})
+	defer func() {
+		if err := textfileWriter.Write(); err != nil {
+			fmt.Fprintf(os.Stderr, "mcp metrics: final textfile write failed: %v\n", err)
+		}
+	}()
 
 	// Set up server
 	if err := runMCPServer(config, server); err != nil {
@@ -257,6 +270,8 @@ func main() {
 	}
 	auditHook.LogCommand(ctx, "mcp-server-start", mcpActorID(), true, nil)
 
+	metricsRecorder.SetMCPActiveSessions(1)
+	defer metricsRecorder.SetMCPActiveSessions(0)
 	if err := server.Run(ctx); err != nil && err != context.Canceled {
 		auditHook.LogCommand(ctx, "mcp-server-run", mcpActorID(), false, map[string]string{"error": err.Error()})
 		handleFatal(err)

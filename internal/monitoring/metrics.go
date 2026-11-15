@@ -201,14 +201,40 @@ func (mr *MetricRecorder) RecordMCPRequest(method string, duration time.Duration
 }
 
 func (mr *MetricRecorder) RecordToolExecution(toolName string, status string) {
+	errorClass := "internal"
+	if status == "success" {
+		errorClass = "none"
+	}
+	mr.RecordMCPTool(toolName, status, errorClass, 0)
+}
+
+// RecordMCPTool records one MCP tool execution in both the legacy recorder
+// surface and the spec-defined muster_* registry.
+func (mr *MetricRecorder) RecordMCPTool(tool, status, errorClass string, duration time.Duration) {
 	mr.mu.Lock()
 	defer mr.mu.Unlock()
 
 	MCPToolExecutions.With(prometheus.Labels{
-		"tool_name": toolName,
+		"tool_name": tool,
 		"status":    status,
 		"tenant_id": mr.tenantID,
 	}).Inc()
+	mr.muster.RecordMCPTool(tool, status, errorClass, duration)
+}
+
+// SetMCPActiveSessions records the current number of MCP sessions.
+func (mr *MetricRecorder) SetMCPActiveSessions(sessions int) {
+	mr.mu.Lock()
+	defer mr.mu.Unlock()
+	mr.muster.SetMCPActiveSessions(sessions)
+}
+
+// MCPRegistry returns the muster_mcp_* only registry the textfile writer
+// publishes (spec §4.2 option 1: the stdio server has no scrape target).
+func (mr *MetricRecorder) MCPRegistry() *prometheus.Registry {
+	mr.mu.RLock()
+	defer mr.mu.RUnlock()
+	return mr.muster.MCPRegistry()
 }
 
 func (mr *MetricRecorder) RecordProxyRequest(endpoint, method string) {
