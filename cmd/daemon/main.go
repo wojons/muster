@@ -74,6 +74,12 @@ func main() {
 	}
 }
 
+// daemonUsageHeader renders the no-command header from the same version text
+// printed by the --version flag. The version stamp already owns its prefix.
+func daemonUsageHeader(shortVersion string) string {
+	return fmt.Sprintf("Muster Daemon %s", shortVersion)
+}
+
 func run() error {
 	// Go's flag package stops parsing at the first non-flag argument.
 	// To support both "proxy --backend-url ..." and "--backend-url ... proxy",
@@ -238,7 +244,7 @@ func run() error {
 	case "status":
 		return handleStatus(controller)
 	default:
-		fmt.Printf("Muster Daemon v%s\n\n", version.Get().Short())
+		fmt.Printf("%s\n\n", daemonUsageHeader(version.Get().Short()))
 		fmt.Println("Usage: openapi-daemon [start|stop|status|restart|reload|proxy] [flags]")
 		fmt.Println("")
 		fmt.Println("Commands:")

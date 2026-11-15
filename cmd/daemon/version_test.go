@@ -147,3 +147,15 @@ func TestRun_NoActionBannerUsesInternalVersion(t *testing.T) {
 	require.Contains(t, output, version.Get().Short(),
 		"no-command banner must print the internal version string")
 }
+
+// TestDaemonUsageHeader_StampedVersionMatchesVersionOutput guards against
+// adding a second v when the linker-injected version already has one.
+func TestDaemonUsageHeader_StampedVersionMatchesVersionOutput(t *testing.T) {
+	versionOutput := "v0.1.0 (abc123)"
+	header := daemonUsageHeader(versionOutput)
+
+	require.Equal(t, "Muster Daemon "+versionOutput, header)
+	require.Equal(t, versionOutput, strings.TrimPrefix(header, "Muster Daemon "))
+	require.True(t, strings.HasPrefix(versionOutput, "v"))
+	require.False(t, strings.HasPrefix(strings.TrimPrefix(header, "Muster Daemon "), "vv"))
+}
