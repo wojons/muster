@@ -63,5 +63,17 @@
     {"id": "PERF-001", "reason": "benchmark row — needs a quiet host for credible numbers (load 7-12 during this tick); deferred"},
     {"id": "RELEASE-014", "reason": "P0 release readiness sweep, owner-gated publication decision; verification lane owns it"},
     {"id": "QA-MUSTER-024", "reason": "already satisfied on main (compose config rc=0) — closed verification-only this tick"}
-  ]
+  ],
+  "harvest": {
+    "harvested_by_tick": "muster-foreman-2026-11-15-23-02-08",
+    "note": "the 22-40 tick dispatched all six workers and ended before any returned a commit; the 23-02 tick found no live worker processes and harvested the worktrees",
+    "outcomes": [
+      {"id": "REVIEW-MUSTER-29", "outcome": "CLOSED complete", "detail": "7d27689c docs-only arm failed judge d648d84d; foreman added the mount (891c8de1) + tests; judge eda29d30 PASS"},
+      {"id": "QA-MUSTER-028", "outcome": "CLOSED complete", "detail": "34432f47 anchored the CLN-1 patterns; f262b159 untracked 6 tracked-but-ignored files; judge 54ed7a46 PASS"},
+      {"id": "OBS-MUSTER-009", "outcome": "OPEN (landed f80c261d)", "detail": "judge 28239dd3 FAIL — SYSTEMD-CONFIGURATION-GUIDE.md:444 still names openapi_cli; doc port (9090) and label sets disagree with the served daemon (:9110)"},
+      {"id": "QA-MUSTER-043", "outcome": "OPEN (landed f194761a)", "detail": "judge c48f23f5 FAIL — warning fires for bare root/help <cmd> only; --help stays silent because PERF-002 gates the decode; no test asserts the warning text"},
+      {"id": "RELEASE-023", "outcome": "OPEN, routed to releng", "detail": "recount verified exact at dfdc59a4; heading/date arm needs an authorised v0.2.0 cut; a1b46d56 left unmerged in wt/RELEASE-023"},
+      {"id": "QA-MUSTER-044", "outcome": "OPEN, no work produced", "detail": "worktree wt/QA-MUSTER-044 clean at base with zero commits — worker never wrote; needs a fresh dispatch"}
+    ]
+  }
 }
