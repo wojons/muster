@@ -147,7 +147,10 @@ func invocationNeedsPersistedCommands(root *cobra.Command, args []string) bool {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
-			return false
+			// A word after the end-of-flags separator can still name a persisted
+			// command (`openapi-cli -- generated-command`), so load when anything
+			// follows it; a trailing `--` dispatches nothing.
+			return i+1 < len(args)
 		}
 		if strings.HasPrefix(arg, "-") {
 			name := strings.TrimLeft(arg, "-")
@@ -196,7 +199,9 @@ func hasHelpTarget(root *cobra.Command, args []string) bool {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
-			return false
+			// Mirror invocationNeedsPersistedCommands: a word after the separator
+			// can still name the help target.
+			return i+1 < len(args)
 		}
 		if strings.HasPrefix(arg, "-") {
 			name := strings.TrimLeft(arg, "-")

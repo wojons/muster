@@ -35,6 +35,8 @@ func TestPersistedCommandLoadGating(t *testing.T) {
 		{name: "bare root", args: nil, want: 1},
 		{name: "generated command", args: []string{"generated-command", "--help"}, want: 1},
 		{name: "help generated command", args: []string{"help", "generated-command"}, want: 1},
+		{name: "-- separator then generated command", args: []string{"--", "generated-command", "--help"}, want: 1},
+		{name: "-- separator only", args: []string{"--"}, want: 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -46,7 +48,7 @@ func TestPersistedCommandLoadGating(t *testing.T) {
 			root := NewRootCommand(cfg)
 			require.NotNil(t, root)
 			assert.Equal(t, tc.want, storeDecodeCount)
-			if tc.name == "generated command" || tc.name == "help generated command" {
+			if tc.name == "generated command" || tc.name == "help generated command" || tc.name == "-- separator then generated command" {
 				cmd, _, err := root.Find([]string{"generated-command"})
 				require.NoError(t, err)
 				require.NotNil(t, cmd)
