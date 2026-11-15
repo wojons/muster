@@ -1,0 +1,48 @@
+commit b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb
+Author:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+AuthorDate: Sun Nov 15 09:23:23 2026 -0500
+Commit:     totalwindupflightsystems <totalwindupflightsystems@gmail.com>
+CommitDate: Sun Nov 15 09:23:23 2026 -0500
+
+    fix: correct OBS-MUSTER-4 documentation residue
+    
+    Remove stale cache-symbol wording from the observability spec and repair the metric namespace comment after integrated judge feedback. Addresses OBS-MUSTER-4.
+    
+    ch:trace row=OBS-MUSTER-4 spec=docs/observability-spec.md#metrics-names wave=none:serial-worktree test=internal/monitoring/metrics_test.go::TestMetricNamespaces evidence=none:worker-local-until-foreman-freezes witness=none:hosted-prometheus-required verdict=none:foreman-judge commit=fd37ce1c4a431a967decc23427c8d9c241670c26 memory=none:not-written
+    STATUS: partial | TIER: T2 | EVIDENCE: integrated judge b0a39d70 identified doc residue; implementation remains bound to fd37ce1c.
+---
+ docs/observability-spec.md    | 4 ++--
+ internal/monitoring/muster.go | 5 ++---
+ 2 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/docs/observability-spec.md b/docs/observability-spec.md
+index e0f5c1a2..a549d9ee 100644
+--- a/docs/observability-spec.md
++++ b/docs/observability-spec.md
+@@ -84,8 +84,8 @@ Problems with this catalogue as-is:
+   `muster_cli`/`muster_mcp` families where the process has one tenant for its whole
+   lifetime. If any future code paths a *remote/request-supplied* tenant into a
+   label, that must be capped — see §6.
+-- **`DaemonCacheHits/CacheMisses` have no cache behind them** in the daemon proxy
+-  path I could find; they would report zeros forever if wired naively.
++- **The daemon cache hit/miss pair is intentionally absent** until a cache
++  actually exists to count.
+ - `DaemonProxyRequests` uses an `endpoint` label (`metrics.go:102`). Endpoints come
+   from the OpenAPI spec, so cardinality is bounded by spec size, not by traffic —
+   acceptable, but it must be a *normalized* path template, never a filled path.
+diff --git a/internal/monitoring/muster.go b/internal/monitoring/muster.go
+index 087eb25a..12e2fb96 100644
+--- a/internal/monitoring/muster.go
++++ b/internal/monitoring/muster.go
+@@ -17,9 +17,8 @@ import (
+ )
+ 
+ // MusterNamespace is the metric namespace of the minimal viable set
+-// (docs/observability-spec.md §3.1). It supersedes the legacy
+-// the former OpenAPI-specific namespaces for measurement purposes; the
+-// process-scoped families are defined in metrics.go.
++// (docs/observability-spec.md §3.1). The process-scoped families use
++// muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.
+ const MusterNamespace = "muster"
+ 
+ // DefaultTenantID is the tenant_id label value used when the process has no

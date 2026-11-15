@@ -1,0 +1,432 @@
+{
+  "task_id": "OBS-MUSTER-4-INTEGRATED-R2",
+  "task_title": "Verify final integrated OBS-MUSTER-4 namespace rename",
+  "task_criteria": [
+    "PROOF: origin/main contains commit b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb and its five-file implementation plus two-file documentation correction; metrics.go uses muster_cli/muster_mcp/muster_daemon, CLI/MCP vectors omit tenant_id, daemon vectors retain tenant_id, cache metric declarations are absent, docs contain no stale live cache-symbol claim, and focused tests plus go build pass. FAILIF: origin/main does not contain b5cddc54, any openapi_* metric namespace or removed cache declaration remains in the touched implementation/docs, the documentation comment is malformed, or the focused tests/build fail."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-4-INTEGRATION",
+  "branch": "wt/OBS-MUSTER-4-INTEGRATION",
+  "commit": "b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "330564beabd4e44e85a212b118ea742f4f0fe1a40edea17b223ad138b9988249",
+  "working_tree_dirty_path_count": 0,
+  "items": [
+    {
+      "criterion": "PROOF: origin/main contains commit b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb and its five-file implementation plus two-file documentation correction; metrics.go uses muster_cli/muster_mcp/muster_daemon, CLI/MCP vectors omit tenant_id, daemon vectors retain tenant_id, cache metric declarations are absent, docs contain no stale live cache-symbol claim, and focused tests plus go build pass. FAILIF: origin/main does not contain b5cddc54, any openapi_* metric namespace or removed cache declaration remains in the touched implementation/docs, the documentation comment is malformed, or the focused tests/build fail.",
+      "status": "PASS",
+      "detail": "(a) origin/main contains b5cddc54: `git branch -r --contains b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb` => 'origin/main'; `git merge-base --is-ancestor b5cddc54 origin/main` => ANCESTOR_OF_ORIGIN_MAIN=YES; `git rev-parse origin/main HEAD` => both b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb. (b) five-file implementation = fd37ce1c (docs/METRICS-STANDARDIZATION.md, docs/observability-spec.md, internal/monitoring/metrics.go, internal/monitoring/metrics_test.go, internal/monitoring/muster.go); two-file doc correction = b5cddc54 (docs/observability-spec.md, internal/monitoring/muster.go). (c) internal/monitoring/metrics.go:20-22 NamespaceCLI=\"muster_cli\", NamespaceMCP=\"muster_mcp\", NamespaceDaemon=\"muster_daemon\". (d) CLI vectors metrics.go:32,42,51 = [command,status]/[command,status]/[command,error_type] and MCP vectors :68,78,87 = [method]/[method]/[tool_name,status] \u2014 no tenant_id; daemon proxy :104 = [endpoint,method,tenant_id] retains it. (e) cache declarations absent: `git grep -n 'DaemonCache\\|cache_hits\\|cache_misses' origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md` => rc=1 (no matches); TestGlobalMetricsRegistered (metrics_test.go:455-470) no longer lists them. (f) docs contain no stale live cache-symbol claim: observability-spec.md:50-51 'The daemon cache hit/miss declarations are absent because there is no cache to count.', :87-88 and :342-343 'The daemon cache hit/miss pair is intentionally absent until a cache actually exists to count.'; METRICS-STANDARDIZATION.md:15-16 'The daemon cache hit/miss families are not exported until a cache exists to count.' (g) no openapi_* in touched impl/docs: `git grep -n 'openapi_' origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md` => rc=1. (h) doc comment well-formed: muster.go:19-21 '// MusterNamespace is the metric namespace of the minimal viable set / // (docs/observability-spec.md \u00a73.1). The process-scoped families use / // muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.'; `gofmt -l internal/monitoring/` => empty; `go vet ./internal/monitoring/` => rc=0. (i) focused tests: `go test -count=1 -v -run 'TestMetricNamespaces|TestMetricRecorderLabelScopes|TestGlobalMetricsRegistered|TestMetricRecorder_DifferentTenantIDs' ./internal/monitoring/` => '--- PASS: TestMetricRecorder_DifferentTenantIDs', '--- PASS: TestMetricNamespaces', '--- PASS: TestMetricRecorderLabelScopes', '--- PASS: TestGlobalMetricsRegistered', 'ok github.com/wojons/muster/internal/monitoring 0.008s'; `go test -count=1 ./internal/monitoring/` => 'ok ... 0.188s'; `go build ./...` => rc=0, no output; full configured suite `go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security)` => EXIT_CODE=0, 50 'ok' packages, zero FAIL lines. Working tree clean (`git status --porcelain` empty)."
+    },
+    {
+      "criterion": "The muster.go doc comment on MusterNamespace is syntactically well-formed Go (gofmt-clean, no dangling/duplicated words) and names exactly the three shipped namespaces muster_cli/muster_mcp/muster_daemon.",
+      "status": "PASS",
+      "detail": "internal/monitoring/muster.go:19-21 at origin/main reads '// MusterNamespace is the metric namespace of the minimal viable set / // (docs/observability-spec.md \u00a73.1). The process-scoped families use / // muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.' \u2014 the pre-fix dangling fragment 'It supersedes the legacy / the former OpenAPI-specific namespaces' is gone (b5cddc54 diff removes it). `gofmt -l internal/monitoring/` returned no files (rc=0) and `go vet ./internal/monitoring/` rc=0.",
+      "derived": true
+    },
+    {
+      "criterion": "The rename is reachable at runtime \u2014 the muster_cli/muster_mcp/muster_daemon families are actually registered/exported by the package (not merely declared as constants), and the label scopes asserted by the tests are the ones the production vectors declare.",
+      "status": "PASS",
+      "detail": "Families are registered via promauto in internal/monitoring/metrics.go:26-105 (CommandExecutions/Duration/Errors -> NamespaceCLI; MCPConnections/Requests/RequestDuration/MCPToolExecutions -> NamespaceMCP; DaemonActiveSockets/DaemonProxyRequests -> NamespaceDaemon), and the production label slices at metrics.go:32,42,51,68,78,87,104 are exactly what TestMetricRecorderLabelScopes (metrics_test.go:418-452) asserts. Reachable from real entrypoints: cmd/daemon/main.go:187 `monitoring.NewMetricRecorder(...)` and :292 `monitoring.NewMusterMetricsServer(metricsAddr, metricsRecorder.Muster())`; cmd/mcp-server/main.go:234,253; cmd/openapi-cli/main.go:112; pkg/mcp/tool_observer.go:27. Test run: TestMetricRecorderLabelScopes --- PASS.",
+      "derived": true
+    },
+    {
+      "criterion": "No back-compat break \u2014 no remaining in-tree Go caller references the removed DaemonCacheHits/DaemonCacheMisses symbols or the old openapi_* namespace constants, so the whole module still builds and vets.",
+      "status": "PASS",
+      "detail": "`git grep -n 'DaemonCacheHits\\|DaemonCacheMisses' origin/main -- '*.go'` => no matches; `git grep -n 'openapi_cli\\|openapi_mcp\\|openapi_daemon' origin/main -- '*.go'` => no matches. `go build ./...` => rc=0 with no output; `go vet ./internal/monitoring/` => rc=0; full configured suite EXIT_CODE=0 with 50 ok packages. LSP diagnostics: 0 findings.",
+      "derived": true
+    },
+    {
+      "criterion": "The observability-spec.md catalogue table (\u00a72.2) matches the shipped metrics.go label sets exactly (CLI/MCP without tenant_id, daemon proxy with tenant_id), so the doc is not merely free of the cache claim but consistent with code.",
+      "status": "PASS",
+      "detail": "docs/observability-spec.md:57-67 table lists muster_cli_command_executions_total [command,status], muster_cli_command_duration_seconds [command,status], muster_cli_command_errors_total [command,error_type], muster_mcp_active_connections [\u2014], muster_mcp_requests_total [method], muster_mcp_request_duration_seconds [method], muster_mcp_tool_executions_total [tool_name,status], muster_daemon_active_socket_connections [\u2014], muster_daemon_proxy_requests_total [endpoint,method,tenant_id] \u2014 an exact match to metrics.go:32,42,51,68,78,87,104. No cache family appears in the table.",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 secrets: \u25cb\n  \u2713 lint: ok (no output)\n  \u2713 tests: ok  \tgithub.com/wojons/muster/alertmanager\t0.011s",
+      "steps": [
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n9:24AM INF scanned ~8913402 bytes (8.91 MB) in 751ms\n9:24AM INF no leaks found\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "ok  \tgithub.com/wojons/muster/alertmanager\t0.011s\nok  \tgithub.com/wojons/muster/cmd/daemon\t10.460s\nok  \tgithub.com/wojons/muster/cmd/mcp-server\t11.318s\nok  \tgithub.com/wojons/muster/cmd/openapi-cli\t0.108s\n?   \tgithub.com/wojons/muster/demo/services/transport-fixture\t[no test files]\nok  \tgithub.com/wojons/muster/demo/test-suites\t8.439s\nok  \tgithub.com/wojons/muster/deployments/backup\t0.032s\nok  \tgithub.com/wojons/muster/deployments/scripts\t0.143s\n?   \tgithub.com/wojons/muster/exploits/auth\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/network\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/ratelimit\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/symlink\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/wasm\t[no test files]\nok  \tgithub.com/wojons/muster/internal/audit\t0.170s\nok  \tgithub.com/wojons/muster/internal/builtin\t6.295s\nok  \tgithub.com/wojons/muster/internal/monitoring\t0.209s\n?   \tgithub.com/wojons/muster/internal/platform/linux\t[no test files]\nok  \tgithub.com/wojons/muster/internal/telemetry\t0.007s\nok  \tgithub.com/wojons/muster/internal/version\t0.005s\nok  \tgithub.com/wojons/muster/packaging\t0.194s\nok  \tgithub.com/wojons/muster/pkg/auth\t7.893s\nok  \tgithub.com/wojons/muster/pkg/auth/ratelimit\t0.268s\nok  \tgithub.com/wojons/muster/pkg/cache\t0.397s\nok  \tgithub.com/wojons/muster/pkg/cli\t0.009s\nok  \tgithub.com/wojons/muster/pkg/client\t4.165s\nok  \tgithub.com/wojons/muster/pkg/cmdstore\t0.089s\nok  \tgithub.com/wojons/muster/pkg/completion\t0.469s\nok  \tgithub.com/wojons/muster/pkg/config\t0.119s\nok  \tgithub.com/wojons/muster/pkg/daemon\t0.322s\nok  \tgithub.com/wojons/muster/pkg/dsl\t0.030s\nok  \tgithub.com/wojons/muster/pkg/errors\t0.013s\nok  \tgithub.com/wojons/muster/pkg/generator\t0.119s\nok  \tgithub.com/wojons/muster/pkg/log\t0.005s\nok  \tgithub.com/wojons/muster/pkg/mcp\t1.184s\nok  \tgithub.com/wojons/muster/pkg/mcp/handlers\t0.011s\nok  \tgithub.com/wojons/muster/pkg/openapi\t0.055s\nok  \tgithub.com/wojons/muster/pkg/protocol\t0.009s\nok  \tgithub.com/wojons/muster/pkg/protocol/graphql\t4.137s\nok  \tgithub.com/wojons/muster/pkg/protocol/grpc\t0.608s\nok  \tgithub.com/wojons/muster/pkg/protocol/jsonrpc\t0.969s\nok  \tgithub.com/wojons/muster/pkg/protocol/soap\t0.050s\nok  \tgithub.com/wojons/muster/pkg/rate\t0.460s\nok  \tgithub.com/wojons/muster/pkg/repository\t0.160s\nok  \tgithub.com/wojons/muster/pkg/repository/sql\t0.127s\nok  \tgithub.com/wojons/muster/pkg/request\t5.021s\nok  \tgithub.com/wojons/muster/pkg/response\t0.004s\nok  \tgithub.com/wojons/muster/pkg/retry\t0.068s\nok  \tgithub.com/wojons/muster/pkg/wasm\t0.260s\nok  \tgithub.com/wojons/muster/test/benchmarks\t0.005s\nok  \tgithub.com/wojons/muster/test/buildscript\t0.008s\nok  \tgithub.com/wojons/muster/test/docker\t1.537s\nok  \tgithub.com/wojons/muster/test/e2e\t4.595s\nok  \tgithub.com/wojons/muster/test/functional/behaviors\t0.017s\n?   \tgithub.com/wojons/muster/test/functional/harness\t[no test files]\nok  \tgithub.com/wojons/muster/test/functional/states\t0.005s\nok  \tgithub.com/wojons/muster/test/functional/workflows\t0.034s\nok  \tgithub.com/wojons/muster/test/production\t3.308s\nok  \tgithub.com/wojons/muster/test/upgrade\t0.006s\n?   \tgithub.com/wojons/muster/test/util\t[no test files]\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PROOF: origin/main contains commit b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb and its five-file implementation plus two-file documentation correction; metrics.go uses muster_cli/muster_mcp/muster_daemon, CLI/MCP vectors omit tenant_id, daemon vectors retain tenant_id, cache metric declarations are absent, docs contain no stale live cache-symbol claim, and focused tests plus go build pass. FAILIF: origin/main does not contain b5cddc54, any openapi_* metric namespace or removed cache declaration remains in the touched implementation/docs, the documentation comment is malformed, or the focused tests/build fail.: (a) origin/main contains b5cddc54: `git branch -r --contains b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb` => 'origin/main'; `git merge-base --is-ancestor b5cddc54 origin/main` => ANCESTOR_OF_ORIGIN_MAIN=YES; `git rev-parse origin/main HEAD` => both b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb. (b) five-file implementation = fd37ce1c (docs/METRICS-STANDARDIZATION.md, docs/observability-spec.md, internal/monitoring/metrics.go, internal/monitoring/metrics_test.go, internal/monitoring/muster.go); two-file doc correction = b5cddc54 (docs/observability-spec.md, internal/monitoring/muster.go). (c) internal/monitoring/metrics.go:20-22 NamespaceCLI=\"muster_cli\", NamespaceMCP=\"muster_mcp\", NamespaceDaemon=\"muster_daemon\". (d) CLI vectors metrics.go:32,42,51 = [command,status]/[command,status]/[command,error_type] and MCP vectors :68,78,87 = [method]/[method]/[tool_name,status] \u2014 no tenant_id; daemon proxy :104 = [endpoint,method,tenant_id] retains it. (e) cache declarations absent: `git grep -n 'DaemonCache\\|cache_hits\\|cache_misses' origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md` => rc=1 (no matches); TestGlobalMetricsRegistered (metrics_test.go:455-470) no longer lists them. (f) docs contain no stale live cache-symbol claim: observability-spec.md:50-51 'The daemon cache hit/miss declarations are absent because there is no cache to count.', :87-88 and :342-343 'The daemon cache hit/miss pair is intentionally absent until a cache actually exists to count.'; METRICS-STANDARDIZATION.md:15-16 'The daemon cache hit/miss families are not exported until a cache exists to count.' (g) no openapi_* in touched impl/docs: `git grep -n 'openapi_' origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md` => rc=1. (h) doc comment well-formed: muster.go:19-21 '// MusterNamespace is the metric namespace of the minimal viable set / // (docs/observability-spec.md \u00a73.1). The process-scoped families use / // muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.'; `gofmt -l internal/monitoring/` => empty; `go vet ./internal/monitoring/` => rc=0. (i) focused tests: `go test -count=1 -v -run 'TestMetricNamespaces|TestMetricRecorderLabelScopes|TestGlobalMetricsRegistered|TestMetricRecorder_DifferentTenantIDs' ./internal/monitoring/` => '--- PASS: TestMetricRecorder_DifferentTenantIDs', '--- PASS: TestMetricNamespaces', '--- PASS: TestMetricRecorderLabelScopes', '--- PASS: TestGlobalMetricsRegistered', 'ok github.com/wojons/muster/internal/monitoring 0.008s'; `go test -count=1 ./internal/monitoring/` => 'ok ... 0.188s'; `go build ./...` => rc=0, no output; full configured suite `go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security)` => EXIT_CODE=0, 50 'ok' packages, zero FAIL lines. Working tree clean (`git status --porcelain` empty).\n  \u2713 The muster.go doc comment on MusterNamespace is syntactically well-formed Go (gofmt-clean, no dangling/duplicated words) and names exactly the three shipped namespaces muster_cli/muster_mcp/muster_daemon.: internal/monitoring/muster.go:19-21 at origin/main reads '// MusterNamespace is the metric namespace of the minimal viable set / // (docs/observability-spec.md \u00a73.1). The process-scoped families use / // muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.' \u2014 the pre-fix dangling fragment 'It supersedes the legacy / the former OpenAPI-specific namespaces' is gone (b5cddc54 diff removes it). `gofmt -l internal/monitoring/` returned no files (rc=0) and `go vet ./internal/monitoring/` rc=0.\n  \u2713 The rename is reachable at runtime \u2014 the muster_cli/muster_mcp/muster_daemon families are actually registered/exported by the package (not merely declared as constants), and the label scopes asserted by the tests are the ones the production vectors declare.: Families are registered via promauto in internal/monitoring/metrics.go:26-105 (CommandExecutions/Duration/Errors -> NamespaceCLI; MCPConnections/Requests/RequestDuration/MCPToolExecutions -> NamespaceMCP; DaemonActiveSockets/DaemonProxyRequests -> NamespaceDaemon), and the production label slices at metrics.go:32,42,51,68,78,87,104 are exactly what TestMetricRecorderLabelScopes (metrics_test.go:418-452) asserts. Reachable from real entrypoints: cmd/daemon/main.go:187 `monitoring.NewMetricRecorder(...)` and :292 `monitoring.NewMusterMetricsServer(metricsAddr, metricsRecorder.Muster())`; cmd/mcp-server/main.go:234,253; cmd/openapi-cli/main.go:112; pkg/mcp/tool_observer.go:27. Test run: TestMetricRecorderLabelScopes --- PASS.\n  \u2713 No back-compat break \u2014 no remaining in-tree Go caller references the removed DaemonCacheHits/DaemonCacheMisses symbols or the old openapi_* namespace constants, so the whole module still builds and vets.: `git grep -n 'DaemonCacheHits\\|DaemonCacheMisses' origin/main -- '*.go'` => no matches; `git grep -n 'openapi_cli\\|openapi_mcp\\|openapi_daemon' origin/main -- '*.go'` => no matches. `go build ./...` => rc=0 with no output; `go vet ./internal/monitoring/` => rc=0; full configured suite EXIT_CODE=0 with 50 ok packages. LSP diagnostics: 0 findings.\n  \u2713 The observability-spec.md catalogue table (\u00a72.2) matches the shipped metrics.go label sets exactly (CLI/MCP without tenant_id, daemon proxy with tenant_id), so the doc is not merely free of the cache claim but consistent with code.: docs/observability-spec.md:57-67 table lists muster_cli_command_executions_total [command,status], muster_cli_command_duration_seconds [command,status], muster_cli_command_errors_total [command,error_type], muster_mcp_active_connections [\u2014], muster_mcp_requests_total [method], muster_mcp_request_duration_seconds [method], muster_mcp_tool_executions_total [tool_name,status], muster_daemon_active_socket_connections [\u2014], muster_daemon_proxy_requests_total [endpoint,method,tenant_id] \u2014 an exact match to metrics.go:32,42,51,68,78,87,104. No cache family appears in the table.\norigin/main contains b5cddc54 on top of the five-file fd37ce1c implementation; metrics.go uses muster_cli/muster_mcp/muster_daemon with tenant_id dropped from CLI/MCP and kept on the daemon proxy, the cache declarations are gone, the touched docs carry no stale live cache-symbol claim and the muster.go comment is gofmt/vet-clean, and focused tests, the full configured suite (EXIT_CODE=0, 50 ok) and go build all pass \u2014 though two untouched operational docs still advertise the old openapi_* names and cache metrics. [uncovered failure paths: failure mode 0 (Two untouched operational docs still advertise the pre-rename surface: openapi_* namespaces plus the removed openapi_daemon_cache_hits_total/cache_misses_total pair, and PromQL/alerts that select names which no longer exist, so an operator following them scrapes nothing.): detected_by is empty \u2014 uncovered failure path]",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n\n\u2026 [6595 chars omitted \u2014 5 line(s)] \u2026\norigin/main contains b5cddc54 on top of the five-file fd37ce1c implementation; metrics.go uses muster_cli/muster_mcp/muster_daemon with tenant_id dropped from CLI/MCP and kept on the daemon proxy, the cache declarations are gone, the touched docs carry no stale live cache-symbol claim and the muster.go comment is gofmt/vet-clean, and focused tests, the full configured suite (EXIT_CODE=0, 50 ok) and go build all pass \u2014 though two untouched operational docs still advertise the old openapi_* names and cache metrics. [uncovered failure paths: failure mode 0 (Two untouched operational docs still advertise the pre-rename surface: openapi_* namespaces plus the removed openapi_daemon_cache_hits_total/cache_misses_total pair, and PromQL/alerts that select names which no longer exist, so an operator following them scrapes nothing.): detected_by is empty \u2014 uncovered failure path]",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PROOF: origin/main contains commit b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb and its five-file implementation plus two-file documentation correction; metrics.go uses muster_cli/muster_mcp/muster_daemon, CLI/MCP vectors omit tenant_id, daemon vectors retain tenant_id, cache metric declarations are absent, docs contain no stale live cache-symbol claim, and focused tests plus go build pass. FAILIF: origin/main does not contain b5cddc54, any openapi_* metric namespace or removed cache declaration remains in the touched implementation/docs, the documentation comment is malformed, or the focused tests/build fail.",
+                "status": "PASS",
+                "detail": "(a) origin/main contains b5cddc54: `git branch -r --contains b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb` => 'origin/main'; `git merge-base --is-ancestor b5cddc54 origin/main` => ANCESTOR_OF_ORIGIN_MAIN=YES; `git rev-parse origin/main HEAD` => both b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb. (b) five-file implementation = fd37ce1c (docs/METRICS-STANDARDIZATION.md, docs/observability-spec.md, internal/monitoring/metrics.go, internal/monitoring/metrics_test.go, internal/monitoring/muster.go); two-file doc correction = b5cddc54 (docs/observability-spec.md, internal/monitoring/muster.go). (c) internal/monitoring/metrics.go:20-22 NamespaceCLI=\"muster_cli\", NamespaceMCP=\"muster_mcp\", NamespaceDaemon=\"muster_daemon\". (d) CLI vectors metrics.go:32,42,51 = [command,status]/[command,status]/[command,error_type] and MCP vectors :68,78,87 = [method]/[method]/[tool_name,status] \u2014 no tenant_id; daemon proxy :104 = [endpoint,method,tenant_id] retains it. (e) cache declarations absent: `git grep -n 'DaemonCache\\|cache_hits\\|cache_misses' origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md` => rc=1 (no matches); TestGlobalMetricsRegistered (metrics_test.go:455-470) no longer lists them. (f) docs contain no stale live cache-symbol claim: observability-spec.md:50-51 'The daemon cache hit/miss declarations are absent because there is no cache to count.', :87-88 and :342-343 'The daemon cache hit/miss pair is intentionally absent until a cache actually exists to count.'; METRICS-STANDARDIZATION.md:15-16 'The daemon cache hit/miss families are not exported until a cache exists to count.' (g) no openapi_* in touched impl/docs: `git grep -n 'openapi_' origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md` => rc=1. (h) doc comment well-formed: muster.go:19-21 '// MusterNamespace is the metric namespace of the minimal viable set / // (docs/observability-spec.md \u00a73.1). The process-scoped families use / // muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.'; `gofmt -l internal/monitoring/` => empty; `go vet ./internal/monitoring/` => rc=0. (i) focused tests: `go test -count=1 -v -run 'TestMetricNamespaces|TestMetricRecorderLabelScopes|TestGlobalMetricsRegistered|TestMetricRecorder_DifferentTenantIDs' ./internal/monitoring/` => '--- PASS: TestMetricRecorder_DifferentTenantIDs', '--- PASS: TestMetricNamespaces', '--- PASS: TestMetricRecorderLabelScopes', '--- PASS: TestGlobalMetricsRegistered', 'ok github.com/wojons/muster/internal/monitoring 0.008s'; `go test -count=1 ./internal/monitoring/` => 'ok ... 0.188s'; `go build ./...` => rc=0, no output; full configured suite `go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security)` => EXIT_CODE=0, 50 'ok' packages, zero FAIL lines. Working tree clean (`git status --porcelain` empty)."
+              },
+              {
+                "criterion": "The muster.go doc comment on MusterNamespace is syntactically well-formed Go (gofmt-clean, no dangling/duplicated words) and names exactly the three shipped namespaces muster_cli/muster_mcp/muster_daemon.",
+                "status": "PASS",
+                "detail": "internal/monitoring/muster.go:19-21 at origin/main reads '// MusterNamespace is the metric namespace of the minimal viable set / // (docs/observability-spec.md \u00a73.1). The process-scoped families use / // muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.' \u2014 the pre-fix dangling fragment 'It supersedes the legacy / the former OpenAPI-specific namespaces' is gone (b5cddc54 diff removes it). `gofmt -l internal/monitoring/` returned no files (rc=0) and `go vet ./internal/monitoring/` rc=0.",
+                "derived": true
+              },
+              {
+                "criterion": "The rename is reachable at runtime \u2014 the muster_cli/muster_mcp/muster_daemon families are actually registered/exported by the package (not merely declared as constants), and the label scopes asserted by the tests are the ones the production vectors declare.",
+                "status": "PASS",
+                "detail": "Families are registered via promauto in internal/monitoring/metrics.go:26-105 (CommandExecutions/Duration/Errors -> NamespaceCLI; MCPConnections/Requests/RequestDuration/MCPToolExecutions -> NamespaceMCP; DaemonActiveSockets/DaemonProxyRequests -> NamespaceDaemon), and the production label slices at metrics.go:32,42,51,68,78,87,104 are exactly what TestMetricRecorderLabelScopes (metrics_test.go:418-452) asserts. Reachable from real entrypoints: cmd/daemon/main.go:187 `monitoring.NewMetricRecorder(...)` and :292 `monitoring.NewMusterMetricsServer(metricsAddr, metricsRecorder.Muster())`; cmd/mcp-server/main.go:234,253; cmd/openapi-cli/main.go:112; pkg/mcp/tool_observer.go:27. Test run: TestMetricRecorderLabelScopes --- PASS.",
+                "derived": true
+              },
+              {
+                "criterion": "No back-compat break \u2014 no remaining in-tree Go caller references the removed DaemonCacheHits/DaemonCacheMisses symbols or the old openapi_* namespace constants, so the whole module still builds and vets.",
+                "status": "PASS",
+                "detail": "`git grep -n 'DaemonCacheHits\\|DaemonCacheMisses' origin/main -- '*.go'` => no matches; `git grep -n 'openapi_cli\\|openapi_mcp\\|openapi_daemon' origin/main -- '*.go'` => no matches. `go build ./...` => rc=0 with no output; `go vet ./internal/monitoring/` => rc=0; full configured suite EXIT_CODE=0 with 50 ok packages. LSP diagnostics: 0 findings.",
+                "derived": true
+              },
+              {
+                "criterion": "The observability-spec.md catalogue table (\u00a72.2) matches the shipped metrics.go label sets exactly (CLI/MCP without tenant_id, daemon proxy with tenant_id), so the doc is not merely free of the cache claim but consistent with code.",
+                "status": "PASS",
+                "detail": "docs/observability-spec.md:57-67 table lists muster_cli_command_executions_total [command,status], muster_cli_command_duration_seconds [command,status], muster_cli_command_errors_total [command,error_type], muster_mcp_active_connections [\u2014], muster_mcp_requests_total [method], muster_mcp_request_duration_seconds [method], muster_mcp_tool_executions_total [tool_name,status], muster_daemon_active_socket_connections [\u2014], muster_daemon_proxy_requests_total [endpoint,method,tenant_id] \u2014 an exact match to metrics.go:32,42,51,68,78,87,104. No cache family appears in the table.",
+                "derived": true
+              }
+            ],
+            "summary": "origin/main contains b5cddc54 on top of the five-file fd37ce1c implementation; metrics.go uses muster_cli/muster_mcp/muster_daemon with tenant_id dropped from CLI/MCP and kept on the daemon proxy, the cache declarations are gone, the touched docs carry no stale live cache-symbol claim and the muster.go comment is gofmt/vet-clean, and focused tests, the full configured suite (EXIT_CODE=0, 50 ok) and go build all pass \u2014 though two untouched operational docs still advertise the old openapi_* names and cache metrics. [uncovered failure paths: failure mode 0 (Two untouched operational docs still advertise the pre-rename surface: openapi_* namespaces plus the removed openapi_daemon_cache_hits_total/cache_misses_total pair, and PromQL/alerts that select names which no longer exist, so an operator following them scrapes nothing.): detected_by is empty \u2014 uncovered failure path]",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"OBS-MUSTER-4-INTEGRATED-R2\"}",
+          "exit_code": 0,
+          "output_sha": "1e2762f4cb52c2a6346b76a225c4fa9b79496d7468e2ca6cf595a078ec124ddc"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel 2>/dev/null || echo .) && git log --oneline -5 && echo \"---BRANCHES---\" && git branch -a && echo \"---REMOTES---\" && git remote -v",
+          "exit_code": 0,
+          "output_sha": "a0a37eae113f727f63b30cae9f869efc6f11668d65191adff20c7ed827cb0fd5"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== origin/main contains b5cddc54? ===\" && git branch -r --contains b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb 2>&1 && echo \"=== merge-base check ===\" && git merge-base --is-ancestor b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb origin/main && echo \"ANCESTOR_OF_ORIGIN_MAIN=YES\" || echo \"ANCESTOR_OF_ORIGIN_MAIN=NO\"",
+          "exit_code": 0,
+          "output_sha": "fd78a0e5a919ac96f8ca0faf0041f8b6f364ab4270d4a99624977f482faf98e5"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== commit b5cddc54 files ===\" && git show --stat --format=\"%H%n%an%n%s\" b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb && echo \"=== parent fd37ce1c files ===\" && git show --stat --format=\"%H%n%s\" fd37ce1c",
+          "exit_code": 0,
+          "output_sha": "2ff5491cab51089550c6b844f54cbb3997b28f5b40f4dffac83f0f9abae2f440"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"origin/main contains b5cddc54 (git branch -r --contains => origin/main; merge-base --is-ancestor => YES).\\nb5cddc54 = 2 files: docs/observability-spec.md, internal/monitoring/muster.go (doc correction).\\nparent fd37ce1c = 5 files: docs/METRICS-STANDARDIZATION.md, docs/observability-spec.md, internal/monitoring/metrics.go, internal/monitoring/metrics_test.go, internal/monitoring/muster.go (implementation).\\nTotal = 5-file implementation + 2-file doc correction. Matches criterion.\\n\", \"key\": \"git_state\"}",
+          "exit_code": 0,
+          "output_sha": "4394e64bbb334158930da1bcf275c395c809221db8f9eae760fef1f5b4345e66"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== b5cddc54 full diff ===\" && git show b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb",
+          "exit_code": 0,
+          "output_sha": "97a37fa220ba914f896ba24fdf5cf118658396b5a08f6b498e0febf786609b07"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== fd37ce1c full diff ===\" && git show fd37ce1c",
+          "exit_code": 0,
+          "output_sha": "0a555c1c7cb74d4fd9ad904bea5a28277d0e61e5f1e3dc0bdc86a557286bbf1e"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== metrics.go at origin/main ===\" && git show origin/main:internal/monitoring/metrics.go",
+          "exit_code": 0,
+          "output_sha": "bf640cade7a3daad567b500109c6d56cef6bfca2dc259bd576ee209a6589835b"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && git show origin/main:internal/monitoring/metrics.go | sed -n '95,200p'",
+          "exit_code": 0,
+          "output_sha": "128aa046f8c731b2f9a68dcf915b25505b296440fe0c966cbebe8a8805dfb5bd"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && git show origin/main:internal/monitoring/metrics.go | sed -n '60,100p'",
+          "exit_code": 0,
+          "output_sha": "6307f13a0f5a89208d44114d64bfa8d40a497f86d5ec1a7c478b8f6907d96712"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== openapi_ in touched impl/docs at origin/main ===\" && git grep -n \"openapi_\" origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md ; echo \"rc=$?\" ; echo \"=== DaemonCache in touched files ===\" && git grep -n \"DaemonCache\\|cache_hits\\|cache_misses\" origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md ; echo \"rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "359afb2752032f7fcba841736720705ba6681c737340ca112e2cf8038aa6c4db"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"metrics.go at origin/main: NamespaceCLI=\\\"muster_cli\\\", NamespaceMCP=\\\"muster_mcp\\\", NamespaceDaemon=\\\"muster_daemon\\\" (lines ~19-23).\\nCLI vectors: CommandExecutions/CommandDuration labels [\\\"command\\\",\\\"status\\\"], CommandErrors [\\\"command\\\",\\\"error_type\\\"] -> no tenant_id.\\nMCP vectors: MCPRequests/MCPRequestDuration [\\\"method\\\"], MCPToolExecutions [\\\"tool_name\\\",\\\"status\\\"] -> no tenant_id.\\nDaemon: DaemonProxyRequests labels [\\\"endpoint\\\",\\\"method\\\",\\\"tenant_id\\\"] -> retains tenant_id. DaemonActiveSockets gauge no labels.\\nNo DaemonCacheHits/DaemonCacheMisses declarations.\\ngit grep openapi_ in internal/monitoring + 2 docs at origin/main => rc=1 (none).\\ngit grep DaemonCache|cache_hits|cache_misses in same => rc=1 (none).\\n\", \"key\": \"metrics_verified\"}",
+          "exit_code": 0,
+          "output_sha": "9b64dfd4d3b0848eec4bd1804714a705f0536a853a14dca844653e0142490add"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== muster.go at origin/main (head) ===\" && git show origin/main:internal/monitoring/muster.go | sed -n '1,40p'",
+          "exit_code": 0,
+          "output_sha": "267251a8f6ac50d5e9a23910bdee3982cbc00633e6c60d22f90bba6b9bfaced3"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== observability-spec.md cache mentions at origin/main ===\" && git show origin/main:docs/observability-spec.md | grep -n -i \"cache\" ; echo \"---\"; echo \"=== METRICS-STANDARDIZATION cache mentions ===\" && git show origin/main:docs/METRICS-STANDARDIZATION.md | grep -n -i \"cache\"",
+          "exit_code": 0,
+          "output_sha": "87e0719456cd57b62a4168fa10e8636fd6d474dc1b5f7fb9e432992e2648b479"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== observability-spec.md lines 70-110 ===\" && git show origin/main:docs/observability-spec.md | sed -n '70,110p'",
+          "exit_code": 0,
+          "output_sha": "293ab724c65b0b6067a6c81dede596898d5a8fff8e05914d0ae7b01731186bb2"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== spec lines 40-60 ===\" && git show origin/main:docs/observability-spec.md | sed -n '40,60p' && echo \"=== spec lines 330-355 ===\" && git show origin/main:docs/observability-spec.md | sed -n '330,355p'",
+          "exit_code": 0,
+          "output_sha": "9b3116019105c611cc82eb791772a0578e16c691c1afe3489389ffb556be6312"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== spec catalogue table lines 55-100 ===\" && git show origin/main:docs/observability-spec.md | sed -n '55,72p'",
+          "exit_code": 0,
+          "output_sha": "1111ccfacab4d6c6c040eef9f348961a3c9097d8c426ba7ef1b4b267d27ac907"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== metrics_test.go at origin/main ===\" && git show origin/main:internal/monitoring/metrics_test.go | grep -n \"func Test\\|tenant_id\\|muster_cli\\|muster_mcp\\|muster_daemon\\|openapi\" | head -80",
+          "exit_code": 0,
+          "output_sha": "623eaaf0f882d3355f688ddfed73a347da6869a4a7a2d06de526b95c2157f06b"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && git show origin/main:internal/monitoring/metrics_test.go | sed -n '400,480p'",
+          "exit_code": 0,
+          "output_sha": "0a437aad2eac549f56687f8aba618d69a2c0ab6a7b602982a6009c105e4805f9"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && cat .gitreins/config.yaml 2>/dev/null | head -40; echo \"---\"; ls",
+          "exit_code": 0,
+          "output_sha": "d21f27a53f65abdaa1c1cd2f895b322da3e8c3b7dc69ef688943929ce525b217"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== HEAD ===\" && git rev-parse HEAD && echo \"=== focused tests ===\" && go test -count=1 -v -run 'TestMetricNamespaces|TestMetricRecorderLabelScopes|TestGlobalMetricsRegistered|TestMetricRecorder_DifferentTenantIDs' ./internal/monitoring/ 2>&1 | tail -40",
+          "exit_code": 0,
+          "output_sha": "5c206d6dd781afcd75610d74f5053ffa997df2aec37fc240892f0ee0f4af1af4"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== go build ./... ===\" && go build ./... 2>&1 | tail -20; echo \"build_rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "f71bdfb5cdc5da142c1650a711bffaa2574b59b15432b28bf440094f5f5e874f"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== full monitoring package tests ===\" && go test -count=1 ./internal/monitoring/ 2>&1 | tail -20",
+          "exit_code": 0,
+          "output_sha": "00f9b5e5ed4c9c76564beba1d8ccdb68134cb58cbfd78e0af2d1bf8fcedef3a0"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"FOCUSED TESTS: go test -count=1 -v -run 'TestMetricNamespaces|TestMetricRecorderLabelScopes|TestGlobalMetricsRegistered|TestMetricRecorder_DifferentTenantIDs' ./internal/monitoring/ => all 4 PASS, \\\"ok github.com/wojons/muster/internal/monitoring 0.008s\\\"\\nFULL PKG: go test -count=1 ./internal/monitoring/ => ok 0.188s\\nBUILD: go build ./... => rc=0, no output\\nHEAD == b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb\\n\", \"key\": \"tests_build\"}",
+          "exit_code": 0,
+          "output_sha": "ea00bb606c937496e879070c8d4f9030b781a64b99834a0854be779697099833"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== repo-wide openapi_ metric namespace refs ===\" && git grep -n \"openapi_cli\\|openapi_mcp\\|openapi_daemon\" origin/main | head -30; echo \"rc=$?\"; echo \"=== repo-wide DaemonCacheHits/Misses ===\" && git grep -n \"DaemonCacheHits\\|DaemonCacheMisses\" origin/main | head -20; echo \"rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "e32364e78f07160ee9312d0e2f1dc29047cbaa5070b17275b601f9bd344efffb"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== daemon-operations.md 250-290 ===\" && git show origin/main:docs/guides/daemon-operations.md | sed -n '250,290p'",
+          "exit_code": 0,
+          "output_sha": "67c5cb8c73e0538df9892ef75cf4b1ad0158305d0da881a2c6a543b395cb35ff"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== MONITORING-SETUP.md 155-190 ===\" && git show origin/main:specs/MONITORING-SETUP.md | sed -n '155,190p'",
+          "exit_code": 0,
+          "output_sha": "573d571439a558cee36630cedca30cb538e0a0ee2ab2c5b95e201e04c891c1b9"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== MONITORING-SETUP.md header ===\" && git show origin/main:specs/MONITORING-SETUP.md | sed -n '1,40p'",
+          "exit_code": 0,
+          "output_sha": "949243d81779368d4753cd464425c50035bc370fc9a0296ff1f03339a3429d87"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== daemon-operations.md header ===\" && git show origin/main:docs/guides/daemon-operations.md | sed -n '1,30p'",
+          "exit_code": 0,
+          "output_sha": "69ec12260b5d236aebd7028f49c713dd756e5b75994a536bc9bf460ba1188bcb"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== git log for daemon-operations.md ===\" && git log --oneline -3 origin/main -- docs/guides/daemon-operations.md && echo \"=== git log for MONITORING-SETUP.md ===\" && git log --oneline -3 origin/main -- specs/MONITORING-SETUP.md && echo \"=== git log for observability-spec.md ===\" && git log --oneline -5 origin/main -- docs/observability-spec.md",
+          "exit_code": 0,
+          "output_sha": "d81fc9330538a9e64c7141ef97e96d3bb5fe19321ff51e2efd309c6a6ba1c569"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== muster.go comment gofmt/vet check ===\" && gofmt -l internal/monitoring/ ; echo \"gofmt_rc=$?\"; echo \"=== go vet monitoring ===\" && go vet ./internal/monitoring/ 2>&1 | tail -10; echo \"vet_rc=$?\"",
+          "exit_code": 0,
+          "output_sha": "c45c853bb7510d79de2095d6f9fa4069b6663d30a17afda8809b0e112658490f"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"DOCS: observability-spec.md at origin/main has NO stale live cache-symbol claim:\\n- L50-51 \\\"The daemon cache hit/miss declarations are absent because there is no cache to count.\\\"\\n- L87-88 \\\"The daemon cache hit/miss pair is intentionally absent until a cache actually exists to count.\\\"\\n- L342-343 same in \\u00a76.\\nMETRICS-STANDARDIZATION.md L15-16 \\\"The daemon cache hit/miss families are not exported until a cache exists to count.\\\"\\nNo `DaemonCacheHits`/`DaemonCacheMisses` symbol names in either doc (git grep rc=1).\\nmuster.go comment at origin/main L19-21 is well-formed: \\\"// MusterNamespace is the metric namespace of the minimal viable set\\\\n// (docs/observability-spec.md \\u00a73.1). The process-scoped families use\\\\n// muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.\\\" gofmt -l internal/monitoring/ => empty; go vet ./internal/monitoring/ => rc=0.\\n\\nOUT-OF-SCOPE RESIDUE (not in the 7 touched files): docs/guides/daemon-operations.md:261-276 still lists openapi_* namespaces + openapi_daemon_cache_hits_total/cache_misses_total; specs/MONITORING-SETUP.md:167-180 still declares DaemonCacheHits/DaemonCacheMisses and uses openapi_* in PromQL. Criterion FAILIF is scoped to \\\"touched implementation/docs\\\", so these are not graded FAIL but are a real residual inconsistency.\\n\", \"key\": \"docs_verified\"}",
+          "exit_code": 0,
+          "output_sha": "db08f0fa175e26d0e969dab7744cc50f86ae1f2d4737c5eeaad1b384b29cbdd6"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== working tree clean? ===\" && git status --porcelain && echo \"(end)\" && echo \"=== origin/main vs HEAD ===\" && git rev-parse origin/main HEAD",
+          "exit_code": 0,
+          "output_sha": "bc880de9b10fe3a6902153a8c72d5a8cbb0768211282324812bc868765ede12e"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== full configured test command ===\" && go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security) 2>&1 | grep -v \"^ok\\|no test files\" | head -30; echo \"PIPE_DONE\"",
+          "exit_code": 0,
+          "output_sha": "ba0d572bbad041f95c429fa1973342748b221c71b2db6fbf41bb1a4474f77484"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security) > /tmp/full_test.log 2>&1; echo \"EXIT_CODE=$?\"; grep -c \"^ok\" /tmp/full_test.log; grep -E \"^(FAIL|---)\" /tmp/full_test.log | head -10; echo \"END\"",
+          "exit_code": 0,
+          "output_sha": "703926d42f9ece7013c06bccd9954b46389d99ade7763743fe93c98237a5e878"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"FULL SUITE: go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security) => EXIT_CODE=0, 50 \\\"ok\\\" packages, zero FAIL lines.\\nWorking tree clean; HEAD == origin/main == b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb.\\n\", \"key\": \"full_suite\"}",
+          "exit_code": 0,
+          "output_sha": "a23cd482107a551e7fafe0da8a79f007f74915ee7e994138886b8774676d4812"
+        },
+        {
+          "tool": "read_lsp_diagnostics",
+          "command": "read_lsp_diagnostics {}",
+          "exit_code": 0,
+          "output_sha": "ef420cbeebd549fc8c5438d6ea41a3e521fa58e29563c4cae80f491b9bfe2143"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"DERIVED CRITERIA (proposed before grading):\\nderived_0: The muster.go doc comment on MusterNamespace is syntactically well-formed Go (gofmt-clean, no dangling/duplicated words) and names exactly the three shipped namespaces muster_cli/muster_mcp/muster_daemon.\\nderived_1: The rename is reachable at runtime \\u2014 the muster_cli/muster_mcp/muster_daemon families are actually registered/exported by the package (not merely declared as constants), and the label scopes asserted by the tests are the ones the production vectors declare.\\nderived_2: No back-compat break \\u2014 no remaining in-tree Go caller references the removed DaemonCacheHits/DaemonCacheMisses symbols or the old openapi_* namespace constants, so the whole module still builds and vets.\\nderived_3: The observability-spec.md catalogue table (\\u00a72.2) matches the shipped metrics.go label sets exactly (CLI/MCP without tenant_id, daemon proxy with tenant_id), so the doc is not merely free of the cache claim but consistent with code.\\n\", \"key\": \"derived_criteria\"}",
+          "exit_code": 0,
+          "output_sha": "5d6c9531c9a4b3261a37357c932a5b4ff5b6301d16f3aee3881c2aae679723e4"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== any Go caller of removed symbols / old constants ===\" && git grep -n \"DaemonCacheHits\\|DaemonCacheMisses\\|NamespaceCLI\\|NamespaceMCP\\|NamespaceDaemon\" origin/main -- '*.go' | head -30; echo \"---\"; echo \"=== non-test importers of internal/monitoring ===\" && git grep -ln \"internal/monitoring\" origin/main -- '*.go' | head -20",
+          "exit_code": 0,
+          "output_sha": "79003f20719446260050b47199f2f8ae556690eaca48ef70f939d138116cfb97"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== monitoring usage in cmd/daemon/main.go ===\" && git grep -n \"monitoring\\.\" origin/main -- cmd/daemon/main.go cmd/mcp-server/main.go cmd/openapi-cli/main.go pkg/mcp/tool_observer.go | head -30",
+          "exit_code": 0,
+          "output_sha": "9b977c36a8fc23859075bbcddd0807d6e49a4672bdf97cbc6a4eed25853ecab9"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"verified_derived_0: PASS \\u2014 muster.go:19-21 comment is gofmt-clean (gofmt -l internal/monitoring/ empty) and names exactly muster_cli/muster_mcp/muster_daemon; no dangling \\\"the former OpenAPI-specific namespaces\\\" fragment remains.\\nverified_derived_1: PASS \\u2014 families are registered via promauto in metrics.go:26-105 (CommandExecutions/Duration/Errors -> NamespaceCLI; MCPConnections/Requests/RequestDuration/MCPToolExecutions -> NamespaceMCP; DaemonActiveSockets/DaemonProxyRequests -> NamespaceDaemon), and the production label sets (metrics.go:33,43,51,62,70,78,86,104) are exactly what TestMetricRecorderLabelScopes asserts. Reachable from cmd/daemon/main.go:187,292 (NewMetricRecorder + NewMusterMetricsServer), cmd/mcp-server/main.go:234,253, cmd/openapi-cli/main.go:112, pkg/mcp/tool_observer.go:27.\\nverified_derived_2: PASS \\u2014 git grep DaemonCacheHits|DaemonCacheMisses over *.go at origin/main returns nothing; go build ./... rc=0; go vet ./internal/monitoring/ rc=0; full suite EXIT_CODE=0 (50 ok).\\nverified_derived_3: PASS \\u2014 observability-spec.md \\u00a72.2 table (L57-67) lists muster_cli_* with command/status, command/error_type; muster_mcp_* with method, tool_name/status; muster_daemon_proxy_requests_total with endpoint, method, tenant_id \\u2014 exactly matching metrics.go label slices.\\n\", \"key\": \"verified_derived\"}",
+          "exit_code": 0,
+          "output_sha": "f7469d3b9b53bdc24cf880e65a2ea2939f3014b251aab896ec1ac193f8b58808"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd $(git rev-parse --show-toplevel) && echo \"=== spec table vs metrics.go label cross-check ===\" && git show origin/main:docs/observability-spec.md | sed -n '57,68p' && echo \"=== metrics.go label slices ===\" && git show origin/main:internal/monitoring/metrics.go | grep -n '\\[\\]string{' ",
+          "exit_code": 0,
+          "output_sha": "6790a1ab0114380bb20c7098bf35f6483d4936980f2d0dffc1bd8ec06ccd618b"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"verified_0: PASS \\u2014 all sub-claims of the single PROOF criterion hold:\\n(a) origin/main contains b5cddc54: `git branch -r --contains b5cddc54` => origin/main; `git merge-base --is-ancestor b5cddc54 origin/main` => YES; HEAD == origin/main == b5cddc54.\\n(b) five-file implementation = fd37ce1c (docs/METRICS-STANDARDIZATION.md, docs/observability-spec.md, internal/monitoring/metrics.go, internal/monitoring/metrics_test.go, internal/monitoring/muster.go); two-file doc correction = b5cddc54 (docs/observability-spec.md, internal/monitoring/muster.go).\\n(c) metrics.go:20-22 NamespaceCLI=\\\"muster_cli\\\", NamespaceMCP=\\\"muster_mcp\\\", NamespaceDaemon=\\\"muster_daemon\\\".\\n(d) CLI vectors metrics.go:32,42,51 and MCP vectors :68,78,87 omit tenant_id; daemon proxy :104 retains tenant_id.\\n(e) cache declarations absent: no DaemonCacheHits/DaemonCacheMisses in internal/monitoring (git grep rc=1); TestGlobalMetricsRegistered no longer lists them.\\n(f) docs: observability-spec.md L50-51, L87-88, L342-343 and METRICS-STANDARDIZATION.md L15-16 all state the cache pair is intentionally absent \\u2014 no stale live cache-symbol claim; no DaemonCacheHits symbol name in either doc.\\n(g) no openapi_* in internal/monitoring or the two touched docs (git grep rc=1).\\n(h) doc comment well-formed: muster.go:19-21, gofmt -l empty, go vet rc=0.\\n(i) focused tests: go test -count=1 -v -run 'TestMetricNamespaces|TestMetricRecorderLabelScopes|TestGlobalMetricsRegistered|TestMetricRecorder_DifferentTenantIDs' ./internal/monitoring/ => 4x PASS, \\\"ok ... 0.008s\\\"; full pkg ok 0.188s; go build ./... rc=0; full configured suite EXIT_CODE=0 with 50 ok packages.\\n\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "3f0b84638f143463008d5c107daeb6bee667e1eb07c40a62808753bdd9a01e00"
+        }
+      ]
+    }
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "The diff only rewrites two documentation/comment passages to describe the daemon cache hit/miss metrics as intentionally absent and to fix a garbled comment; no code, wiring, or test behaviour changes, so no evidenced defects."
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 secrets: \u25cb\n  \u2713 lint: ok (no output)\n  \u2713 tests: ok  \tgithub.com/wojons/muster/alertmanager\t0.011s\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PROOF: origin/main contains commit b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb and its five-file implementation plus two-file documentation correction; metrics.go uses muster_cli/muster_mcp/muster_daemon, CLI/MCP vectors omit tenant_id, daemon vectors retain tenant_id, cache metric declarations are absent, docs contain no stale live cache-symbol claim, and focused tests plus go build pass. FAILIF: origin/main does not contain b5cddc54, any openapi_* metric namespace or removed cache declaration remains in the touched implementation/docs, the documentation comment is malformed, or the focused tests/build fail.: (a) origin/main contains b5cddc54: `git branch -r --contains b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb` => 'origin/main'; `git merge-base --is-ancestor b5cddc54 origin/main` => ANCESTOR_OF_ORIGIN_MAIN=YES; `git rev-parse origin/main HEAD` => both b5cddc5443c9cd731fcb2e0091bcb0d7cbc8aacb. (b) five-file implementation = fd37ce1c (docs/METRICS-STANDARDIZATION.md, docs/observability-spec.md, internal/monitoring/metrics.go, internal/monitoring/metrics_test.go, internal/monitoring/muster.go); two-file doc correction = b5cddc54 (docs/observability-spec.md, internal/monitoring/muster.go). (c) internal/monitoring/metrics.go:20-22 NamespaceCLI=\"muster_cli\", NamespaceMCP=\"muster_mcp\", NamespaceDaemon=\"muster_daemon\". (d) CLI vectors metrics.go:32,42,51 = [command,status]/[command,status]/[command,error_type] and MCP vectors :68,78,87 = [method]/[method]/[tool_name,status] \u2014 no tenant_id; daemon proxy :104 = [endpoint,method,tenant_id] retains it. (e) cache declarations absent: `git grep -n 'DaemonCache\\|cache_hits\\|cache_misses' origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md` => rc=1 (no matches); TestGlobalMetricsRegistered (metrics_test.go:455-470) no longer lists them. (f) docs contain no stale live cache-symbol claim: observability-spec.md:50-51 'The daemon cache hit/miss declarations are absent because there is no cache to count.', :87-88 and :342-343 'The daemon cache hit/miss pair is intentionally absent until a cache actually exists to count.'; METRICS-STANDARDIZATION.md:15-16 'The daemon cache hit/miss families are not exported until a cache exists to count.' (g) no openapi_* in touched impl/docs: `git grep -n 'openapi_' origin/main -- internal/monitoring/ docs/observability-spec.md docs/METRICS-STANDARDIZATION.md` => rc=1. (h) doc comment well-formed: muster.go:19-21 '// MusterNamespace is the metric namespace of the minimal viable set / // (docs/observability-spec.md \u00a73.1). The process-scoped families use / // muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.'; `gofmt -l internal/monitoring/` => empty; `go vet ./internal/monitoring/` => rc=0. (i) focused tests: `go test -count=1 -v -run 'TestMetricNamespaces|TestMetricRecorderLabelScopes|TestGlobalMetricsRegistered|TestMetricRecorder_DifferentTenantIDs' ./internal/monitoring/` => '--- PASS: TestMetricRecorder_DifferentTenantIDs', '--- PASS: TestMetricNamespaces', '--- PASS: TestMetricRecorderLabelScopes', '--- PASS: TestGlobalMetricsRegistered', 'ok github.com/wojons/muster/internal/monitoring 0.008s'; `go test -count=1 ./internal/monitoring/` => 'ok ... 0.188s'; `go build ./...` => rc=0, no output; full configured suite `go test -short -count=1 $(go list ./... | grep -v -e test/stability -e pkg/platform -e test/security)` => EXIT_CODE=0, 50 'ok' packages, zero FAIL lines. Working tree clean (`git status --porcelain` empty).\n  \u2713 The muster.go doc comment on MusterNamespace is syntactically well-formed Go (gofmt-clean, no dangling/duplicated words) and names exactly the three shipped namespaces muster_cli/muster_mcp/muster_daemon.: internal/monitoring/muster.go:19-21 at origin/main reads '// MusterNamespace is the metric namespace of the minimal viable set / // (docs/observability-spec.md \u00a73.1). The process-scoped families use / // muster_cli, muster_mcp, and muster_daemon as defined in metrics.go.' \u2014 the pre-fix dangling fragment 'It supersedes the legacy / the former OpenAPI-specific namespaces' is gone (b5cddc54 diff removes it). `gofmt -l internal/monitoring/` returned no files (rc=0) and `go vet ./internal/monitoring/` rc=0.\n  \u2713 The rename is reachable at runtime \u2014 the muster_cli/muster_mcp/muster_daemon families are actually registered/exported by the package (not merely declared as constants), and the label scopes asserted by the tests are the ones the production vectors declare.: Families are registered via promauto in internal/monitoring/metrics.go:26-105 (CommandExecutions/Duration/Errors -> NamespaceCLI; MCPConnections/Requests/RequestDuration/MCPToolExecutions -> NamespaceMCP; DaemonActiveSockets/DaemonProxyRequests -> NamespaceDaemon), and the production label slices at metrics.go:32,42,51,68,78,87,104 are exactly what TestMetricRecorderLabelScopes (metrics_test.go:418-452) asserts. Reachable from real entrypoints: cmd/daemon/main.go:187 `monitoring.NewMetricRecorder(...)` and :292 `monitoring.NewMusterMetricsServer(metricsAddr, metricsRecorder.Muster())`; cmd/mcp-server/main.go:234,253; cmd/openapi-cli/main.go:112; pkg/mcp/tool_observer.go:27. Test run: TestMetricRecorderLabelScopes --- PASS.\n  \u2713 No back-compat break \u2014 no remaining in-tree Go caller references the removed DaemonCacheHits/DaemonCacheMisses symbols or the old openapi_* namespace constants, so the whole module still builds and vets.: `git grep -n 'DaemonCacheHits\\|DaemonCacheMisses' origin/main -- '*.go'` => no matches; `git grep -n 'openapi_cli\\|openapi_mcp\\|openapi_daemon' origin/main -- '*.go'` => no matches. `go build ./...` => rc=0 with no output; `go vet ./internal/monitoring/` => rc=0; full configured suite EXIT_CODE=0 with 50 ok packages. LSP diagnostics: 0 findings.\n  \u2713 The observability-spec.md catalogue table (\u00a72.2) matches the shipped metrics.go label sets exactly (CLI/MCP without tenant_id, daemon proxy with tenant_id), so the doc is not merely free of the cache claim but consistent with code.: docs/observability-spec.md:57-67 table lists muster_cli_command_executions_total [command,status], muster_cli_command_duration_seconds [command,status], muster_cli_command_errors_total [command,error_type], muster_mcp_active_connections [\u2014], muster_mcp_requests_total [method], muster_mcp_request_duration_seconds [method], muster_mcp_tool_executions_total [tool_name,status], muster_daemon_active_socket_connections [\u2014], muster_daemon_proxy_requests_total [endpoint,method,tenant_id] \u2014 an exact match to metrics.go:32,42,51,68,78,87,104. No cache family appears in the table.\norigin/main contains b5cddc54 on top of the five-file fd37ce1c implementation; metrics.go uses muster_cli/muster_mcp/muster_daemon with tenant_id dropped from CLI/MCP and kept on the daemon proxy, the cache declarations are gone, the touched docs carry no stale live cache-symbol claim and the muster.go comment is gofmt/vet-clean, and focused tests, the full configured suite (EXIT_CODE=0, 50 ok) and go build all pass \u2014 though two untouched operational docs still advertise the old openapi_* names and cache metrics. [uncovered failure paths: failure mode 0 (Two untouched operational docs still advertise the pre-rename surface: openapi_* namespaces plus the removed openapi_daemon_cache_hits_total/cache_misses_total pair, and PromQL/alerts that select names which no longer exist, so an operator following them scrapes nothing.): detected_by is empty \u2014 uncovered failure path]\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-15T14:26:06.113645",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-15T14:26:06.129115+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 2804,
+        "truncated": false,
+        "source": "git show b5cddc5443c9"
+      }
+    ],
+    "task_id": "OBS-MUSTER-4-INTEGRATED-R2"
+  }
+}
