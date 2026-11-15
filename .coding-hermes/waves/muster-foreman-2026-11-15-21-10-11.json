@@ -20,11 +20,14 @@
       "branch": "wt/QA-MUSTER-030-tidy2",
       "base_sha": "486dcf92e17e5b3d9359a69988a48c7afb9c9ac5",
       "gitreins_task": "QA-MUSTER-030",
-      "gitreins_status": "in_progress",
+      "gitreins_status": "complete",
+      "gitreins_run": "a31ca794",
+      "gitreins_verdict": "PASS",
+      "gitreins_fingerprint": "74894c19abcd6de9d95bd0c56242f5f47f01c9f1cf10aa6d00b39d9aac22be46",
       "scope": "go.mod / go.sum only",
-      "worker_commit": null,
-      "integrated_commit": null,
-      "status": "dispatched"
+      "worker_commit": "4616c8910c4767dff948e47162f94e174b148d99",
+      "integrated_commit": "fdaa3451",
+      "status": "merged"
     },
     {
       "task_id": "PERF-002",
@@ -32,11 +35,14 @@
       "branch": "wt/PERF-002",
       "base_sha": "486dcf92e17e5b3d9359a69988a48c7afb9c9ac5",
       "gitreins_task": "PERF-002",
-      "gitreins_status": "in_progress",
+      "gitreins_status": "complete",
+      "gitreins_run": "b50568f3",
+      "gitreins_verdict": "INCOMPLETE (evaluator iteration cap, not a merits FAIL)",
       "scope": "internal/builtin/root.go, pkg/cmdstore, cmd/openapi-cli — must not touch go.mod",
-      "worker_commit": null,
-      "integrated_commit": null,
-      "status": "dispatched"
+      "worker_commit": "4a584a84",
+      "integrated_commit": "d273ed54 + 79bb6671 (worker final iteration replayed onto main so main carries the judged tree)",
+      "status": "merged",
+      "notes": "Foreman-measured with 8.3MB/1063-command store: version 60ms->10ms, --help 60ms->10ms. --help now matches `help`: persisted generated commands stay hidden (existing hide-intent in root.go), and `help <persisted>` / persisted dispatch still resolve."
     },
     {
       "task_id": "QA-MUSTER-032",
@@ -44,11 +50,14 @@
       "branch": "wt/QA-MUSTER-032",
       "base_sha": "486dcf92e17e5b3d9359a69988a48c7afb9c9ac5",
       "gitreins_task": "QA-MUSTER-032",
-      "gitreins_status": "in_progress",
+      "gitreins_status": "complete",
+      "gitreins_run": "6ed21657",
+      "gitreins_verdict": "PASS",
+      "gitreins_fingerprint": "b6852e9ae83453663641993d3e48c23d901bd03d68ef3392e82acc1a7c47b4f2",
       "scope": "cmd/daemon only",
-      "worker_commit": null,
-      "integrated_commit": null,
-      "status": "dispatched"
+      "worker_commit": "18d5a54a31a6671e18b62b11f857b10721696f98",
+      "integrated_commit": "37bbd11e",
+      "status": "merged"
     }
   ]
 }
