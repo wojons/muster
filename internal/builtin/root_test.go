@@ -1,15 +1,83 @@
 package builtin
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wojons/muster/internal/audit"
+	"github.com/wojons/muster/pkg/cmdstore"
 	"github.com/wojons/muster/pkg/config"
 )
+
+func TestPersistedCommandLoadGating(t *testing.T) {
+	storePath := filepath.Join(t.TempDir(), "commands.json")
+	require.NoError(t, os.WriteFile(storePath, mustMarshalStoredData(t), 0o600))
+	cfg := &config.Config{PersistedCommandsPath: storePath}
+
+	cases := []struct {
+		name string
+		args []string
+		want int
+	}{
+		{name: "version", args: []string{"version"}, want: 0},
+		{name: "completion", args: []string{"completion", "bash"}, want: 0},
+		{name: "completion hidden command", args: []string{"__complete", ""}, want: 0},
+		{name: "root help", args: []string{"--help"}, want: 0},
+		{name: "short root help", args: []string{"-h"}, want: 0},
+		{name: "bare help", args: []string{"help"}, want: 0},
+		{name: "generated command", args: []string{"generated-command", "--help"}, want: 1},
+		{name: "help generated command", args: []string{"help", "generated-command"}, want: 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			storeDecodeCount = 0
+			oldArgs := os.Args
+			defer func() { os.Args = oldArgs }()
+			os.Args = append([]string{"openapi-cli"}, tc.args...)
+
+			root := NewRootCommand(cfg)
+			require.NotNil(t, root)
+			assert.Equal(t, tc.want, storeDecodeCount)
+			if tc.name == "generated command" || tc.name == "help generated command" {
+				cmd, _, err := root.Find([]string{"generated-command"})
+				require.NoError(t, err)
+				require.NotNil(t, cmd)
+				assert.Equal(t, "generated-command", cmd.Name())
+			} else if tc.name == "root help" {
+				var output bytes.Buffer
+				root.SetOut(&output)
+				root.SetErr(&output)
+				root.SetArgs(tc.args)
+				require.NoError(t, root.Execute())
+				assert.NotContains(t, output.String(), "generated-command")
+			}
+		})
+	}
+}
+
+func mustMarshalStoredData(t *testing.T) []byte {
+	t.Helper()
+	data, err := json.Marshal(cmdstore.StoredData{
+		Version:     "1.0",
+		BaseURL:     "http://127.0.0.1:1",
+		GeneratedAt: time.Now(),
+		Commands: []cmdstore.CommandMetadata{{
+			Name:   "generated-command",
+			Use:    "generated-command",
+			Short:  "generated command",
+			Method: "GET",
+			Path:   "/generated",
+		}},
+	})
+	require.NoError(t, err)
+	return data
+}
 
 func TestNewRootCommand(t *testing.T) {
 	t.Run("creates root command", func(t *testing.T) {

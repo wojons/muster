@@ -29,8 +29,22 @@ func NewRootCommandWithAudit(cfg *config.Config, auditHook *audit.Hook) *cobra.C
 // where they would otherwise pollute the output.
 var persistedCommands []*cobra.Command
 
+// storeDecodeCount counts construction-time persisted-store loads. It is
+// intentionally package-local so tests can prove meta-command invocations do
+// not read the store without relying on timing.
+var storeDecodeCount int
+
+// reset persisted command state before constructing a new root. Commands are
+// owned by their root, so retaining the previous root's slice would make a
+// later root hide commands it never added.
+func resetPersistedCommandState() {
+	persistedCommands = nil
+}
+
 // newRootCommand is the shared implementation for both constructors.
 func newRootCommand(cfg *config.Config, auditHook *audit.Hook) *cobra.Command {
+	resetPersistedCommandState()
+
 	root := &cobra.Command{
 		Use:   "openapi-cli",
 		Short: "OpenAPI-powered CLI and MCP server",
@@ -79,8 +93,10 @@ and serves them via MCP protocol.`,
 	// control of argv. Without this, `openapi-cli <alias>` failed with
 	// `unknown command "<alias>"` even though the alias was configured and
 	// documented (DF-024).
-	if expanded, ok := expandAliasArgs(cfg, os.Args[1:]); ok {
-		root.SetArgs(expanded)
+	effectiveArgs := os.Args[1:]
+	if expanded, ok := expandAliasArgs(cfg, effectiveArgs); ok {
+		effectiveArgs = expanded
+		root.SetArgs(effectiveArgs)
 	}
 
 	// Add built-in commands
@@ -105,10 +121,127 @@ and serves them via MCP protocol.`,
 	root.AddCommand(newProtocolCommand())
 	root.AddCommand(newGrpcCommand())
 
-	// Load and add persisted commands from storage
-	loadPersistedCommands(root, cfg)
+	// Load and add persisted commands from storage only when this invocation
+	// can dispatch one. Meta-command invocations never consult the generated
+	// command list, so avoid decoding the potentially large store for them.
+	if invocationNeedsPersistedCommands(root, effectiveArgs) {
+		loadPersistedCommands(root, cfg)
+	}
 
 	return root
+}
+
+// invocationNeedsPersistedCommands reports whether argv can dispatch a
+// persisted command. It deliberately errs on the side of loading for unknown
+// flags and command words because Cobra may need the generated command list to
+// report or resolve them.
+func invocationNeedsPersistedCommands(root *cobra.Command, args []string) bool {
+	if len(args) == 0 {
+		// Preserve the existing bare-root help output, which includes persisted
+		// commands because no meta-command was explicitly requested.
+		return true
+	}
+
+	helpRequested := false
+	versionRequested := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			return false
+		}
+		if strings.HasPrefix(arg, "-") {
+			name := strings.TrimLeft(arg, "-")
+			if index := strings.IndexByte(name, '='); index >= 0 {
+				name = name[:index]
+			}
+			// Cobra installs these meta flags during command initialization,
+			// after this construction-time decision is made.
+			if name == "help" || name == "h" {
+				helpRequested = true
+				continue
+			}
+			if name == "version" {
+				versionRequested = true
+				continue
+			}
+			known, takesValue := rootFlagArity(root, arg)
+			if !known {
+				return true
+			}
+			if takesValue && !strings.Contains(arg, "=") {
+				if i+1 >= len(args) {
+					return true
+				}
+				i++
+			}
+			continue
+		}
+
+		switch arg {
+		case "version", "completion", "__complete":
+			return false
+		case "help":
+			// The default help command's next word is a command target, so
+			// `help <generated-command>` must load persisted commands.
+			return hasHelpTarget(root, args[i+1:])
+		default:
+			return true
+		}
+	}
+
+	return !helpRequested && !versionRequested
+}
+
+func hasHelpTarget(root *cobra.Command, args []string) bool {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			return false
+		}
+		if strings.HasPrefix(arg, "-") {
+			name := strings.TrimLeft(arg, "-")
+			if index := strings.IndexByte(name, '='); index >= 0 {
+				name = name[:index]
+			}
+			if name == "help" || name == "h" || name == "version" {
+				continue
+			}
+			known, takesValue := rootFlagArity(root, arg)
+			if !known {
+				return true
+			}
+			if takesValue && !strings.Contains(arg, "=") {
+				i++
+			}
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func rootFlagArity(root *cobra.Command, arg string) (known, takesValue bool) {
+	name := strings.TrimLeft(arg, "-")
+	if index := strings.IndexByte(name, '='); index >= 0 {
+		name = name[:index]
+	}
+	shorthand := len(arg) == 2 && arg[0] == '-' && arg[1] != '-'
+	if shorthand {
+		if flag := root.Flags().ShorthandLookup(name); flag != nil {
+			return true, flag.NoOptDefVal == ""
+		}
+		if flag := root.PersistentFlags().ShorthandLookup(name); flag != nil {
+			return true, flag.NoOptDefVal == ""
+		}
+		return false, false
+	}
+	if flag := root.Flags().Lookup(name); flag != nil {
+		return true, flag.NoOptDefVal == ""
+	}
+	if flag := root.PersistentFlags().Lookup(name); flag != nil {
+		return true, flag.NoOptDefVal == ""
+	}
+	return false, false
 }
 
 // isMetaCommandName reports whether the named command is a meta-command
@@ -192,6 +325,7 @@ func CliActorID() string {
 // slice so newRootCommand can hide it when a meta-command (help, version,
 // completion, __complete) is being executed.
 func loadPersistedCommands(root *cobra.Command, cfg *config.Config) {
+	storeDecodeCount++
 	dataPath := resolvePersistedCommandsPath(cfg)
 
 	// Create command store and loader
