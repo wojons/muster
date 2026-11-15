@@ -1366,3 +1366,62 @@ No new product finding: pass 9's two findings still stand and are untouched, and
 either new (the residue and the missing events are this lane's own bookkeeping) or user-visible. No row status
 changed, no row reopened, no product code touched, no credential minted or recorded, no repository visibility or
 permission change, no disabled project touched.
+
+## Tick muster-dogfood-2026-11-14-21-06-01 (pass 11) — duplicate fire: record correction, all legs INHERITED
+
+This is the eleventh fire of this tick. Pass 10 was itself a duplicate (teardown + event backfill). This fire re-derived every
+record surface at HEAD `2178133e` and delivered one correction of the committed record. Product use, the install leg and the
+perf leg were **not** re-walked, and did not need to be: the product tree has not moved since pass 9 measured it.
+
+### Drift proof (why inheritance is valid)
+
+`git diff --stat 7987a103..HEAD` → only `.coding-hermes/board/events.jsonl` (+2) and `.coding-hermes/dogfood-log.md` (+50).
+Zero product, test, doc or releng drift since the tree pass 9 built and measured. The most recent product-side code commit is
+still `39f8ef10` ("fix: repair atomic release package mapping"); everything after it is releng prose and board bookkeeping.
+HEAD == `origin/main` (0/0 after `git fetch`), porcelain clean, no `REBASE_HEAD`/`MERGE_HEAD`/`CHERRY_PICK_HEAD` marker, no
+`index.lock`, no process whose cwd is under the workdir.
+
+### Correction — pass 9's install paragraph cites two row ids that never existed
+
+Pass 9's install section (this file, "Install leg — RAN this fire") ends: "…exactly what pending `QA-MUSTER-034` and
+`QA-MUSTER-013-R2` describe, and what completed `QA-MUSTER-013` already established."
+
+`QA-MUSTER-013` and `QA-MUSTER-013-R2` do not exist on this board and never have: `grep -c 'QA-MUSTER-013'` → **0** across all
+375 rows, **0** in `events.jsonl`, and `git log -S 'QA-MUSTER-013' -- .coding-hermes/board/tasks.jsonl` returns no commit.
+The correct citations for the same upgrade-cell cause are **QA-MUSTER-034** (pending — "upgrade-from-v0.1.0 path cannot build
+on a clean modern toolchain") and **QA-MUSTER-12** (complete — fresh-install wasmtime link failure). The cause itself was
+re-read from the harvested `up1.log` and holds: `wasmtime-go/v8@v8.0.0/build/linux-x86_64/libwasmtime.a` rejected for a
+disallowed LTO section `.llvmbc`, plus `libseccomp.pc` absent from pkg-config. The finding, its cause and its evidence are
+unaffected — only the row references were wrong, and a foreman following them would hunt two ids that were never minted.
+
+Second, smaller: the same paragraph's write line "`wc -l` 372 → 374 after" does not re-derive. The tree at pass 9's own commit
+`e712a6d9` carries **375** rows (the commit before it, `f410ea98`, carries 373), with `QA-MUSTER-044`/`045` present exactly
+once each. A sibling releng commit (`f410ea98`, RELEASE-025) landed in the same window and is the likeliest source of the
+stale pre-count; the appended rows themselves are intact and are not in question.
+
+### Re-derived record surfaces (no repair needed)
+
+* Rows: `git show HEAD:.coding-hermes/board/tasks.jsonl | grep -cE '"id": *"QA-MUSTER-04[45]"'` → **2**; 375 rows at HEAD and
+  375 in the working tree.
+* Paired events: ids **1076**/**1077**, `"event_type":"task_created"`, actor `dogfood:lane`, each carrying the backfill note;
+  `events.jsonl` 1071 lines at HEAD and 1071 in the working tree, `jq -c .` parsing clean.
+* Validator: `boardctl validate -C .coding-hermes/board` → `RESULT: OK (264 warning(s))`, the unchanged legacy-shape count.
+* Install evidence re-read independently rather than quoted: `/tmp/bunker-qa-evidence-20261115T014227Z-2610703.jsonl` is still
+  on disk at 6947 bytes, **25** rows = 23 cells + `launch` + `collect`, tally **17 OK / 1 PASS / 5 INFO / 1 N/A / 1 FAIL** —
+  it matches pass 9's claim, and the single FAIL is `upgrade`, whose cause is corrected above. Leg class **INHERITED**; this
+  line is not a fresh pass and must not be read as one.
+* CI at HEAD `2178133e`: every check `completed`/`success` except `security` and `build` still `in_progress` and `release`
+  `skipped` — inside the historical 30–51 min band for those workflows, so not a hang and not filed.
+* Teardown: no listener on the run's ports 18641/18642 (nor any listener attributed to this user), no process with cwd under
+  `dogfood-muster-p9`, and `bunker list --server bunker-mvp --status all` shows 4 agents with **none** matching pass 9's
+  `75b01ba1` — the ephemeral install agent is gone. Foreign agents left running: `ae4fc551` (22.9 GB, created 00:26:39Z),
+  `701c2ee0` (3.4 GB, created 02:06:37Z, home holds `qa-heading/` — the heading QA lane's battery), plus the long-lived
+  `ci-e2e-01` and `cf-node`. Reaping any of them would destroy a sibling lane's work.
+
+### Not filed
+
+No new product finding: nothing this fire observed is new or user-visible, and the only defects found are in this lane's own
+record, which is why the correction above is prose rather than a board row. No `PERF` row either — no product operation was
+executed this fire, pass 9's 14–121 ms warm/cold numbers already sit below any user-noticeable threshold, and the empty
+product diff means they still describe HEAD. No row status changed, no row reopened, no product code touched, no credential
+minted or recorded, no repository visibility or permission changed, no disabled project touched.
