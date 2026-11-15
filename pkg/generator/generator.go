@@ -486,10 +486,37 @@ func uniqueCommandName(base, method string, used map[string]bool) string {
 	return candidate
 }
 
+func (g *Generator) uniqueSpecFlagName(cmd *cobra.Command, base string) string {
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s-%d", base, i)
+		if cmd.Flags().Lookup(candidate) == nil {
+			return candidate
+		}
+	}
+}
+
 // addFlags adds CLI flags for the operation's parameters and request body properties.
 // For multipart operations, adds a --file flag instead of per-property body flags.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/generator/generator.go
 func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
+	// Register Muster-owned flags first so spec-derived names are allocated
+	// around them rather than shadowing or disabling the global controls.
+	hasJSONBody := len(op.RequestBody) > 0 &&
+		(op.Method == http.MethodPost || op.Method == http.MethodPut || op.Method == http.MethodPatch)
+	if hasJSONBody && cmd.Flags().Lookup(RawBodyFlagName) == nil {
+		cmd.Flags().StringP(RawBodyFlagName, "b", "", "Raw JSON request body (overrides individual body flags)")
+		if cmd.Annotations == nil {
+			cmd.Annotations = make(map[string]string)
+		}
+		cmd.Annotations[RawBodyAnnotation] = "true"
+	}
+	if cmd.Flags().Lookup("output") == nil {
+		cmd.Flags().StringP("output", "o", g.config.DefaultFormat, fmt.Sprintf("Output format (%s)", strings.Join(g.config.SupportedFormats, ", ")))
+	}
+	if cmd.Flags().Lookup("raw") == nil {
+		cmd.Flags().BoolP("raw", "r", false, "Output raw API response")
+	}
+
 	for _, param := range op.Parameters {
 		if param.In == "path" {
 			continue
@@ -505,7 +532,7 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		// first registration of a name and drop later ones; drop a shorthand
 		// that is already taken instead of crashing.
 		if cmd.Flags().Lookup(flagName) != nil {
-			continue
+			flagName = g.uniqueSpecFlagName(cmd, flagName)
 		}
 		if shorthand != "" && cmd.Flags().ShorthandLookup(shorthand) != nil {
 			shorthand = ""
@@ -584,7 +611,7 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		// parameter takes precedence over the optional body namespace field").
 		// Pass --body '{...}' when the two positions must differ.
 		if cmd.Flags().Lookup(flagName) != nil {
-			continue
+			flagName = g.uniqueSpecFlagName(cmd, flagName)
 		}
 		shorthand := g.inferShorthand(bodyProp.Name)
 		if shorthand != "" && cmd.Flags().ShorthandLookup(shorthand) != nil {
@@ -654,26 +681,6 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		// "--body '{...}'" before the handler ever runs (DF-MUSTER-5).
 	}
 
-	// Raw JSON body flag (--body/-b): when set, the value is sent verbatim
-	// as the request body and the per-property body flags above are ignored
-	// (DF-MUSTER-5). Registered only for the JSON-body operations the run
-	// handler serves (POST/PUT/PATCH with parsed body properties), and
-	// skipped when a spec property/parameter already produced a "body" flag
-	// (collision — the spec-declared flag wins). The RawBodyAnnotation
-	// stamp lets the persistence layer tag the flag as body-kind metadata
-	// so reloaded commands send it as the body, not as a query param.
-	hasJSONBody := len(op.RequestBody) > 0 &&
-		(op.Method == http.MethodPost || op.Method == http.MethodPut || op.Method == http.MethodPatch)
-	if hasJSONBody && cmd.Flags().Lookup(RawBodyFlagName) == nil {
-		cmd.Flags().StringP(RawBodyFlagName, "b", "", "Raw JSON request body (overrides individual body flags)")
-		if cmd.Annotations == nil {
-			cmd.Annotations = make(map[string]string)
-		}
-		cmd.Annotations[RawBodyAnnotation] = "true"
-	}
-
-	cmd.Flags().StringP("output", "o", g.config.DefaultFormat, fmt.Sprintf("Output format (%s)", strings.Join(g.config.SupportedFormats, ", ")))
-	cmd.Flags().BoolP("raw", "r", false, "Output raw API response")
 }
 
 func (g *Generator) addStringFlag(cmd *cobra.Command, name, shorthand string, param *openapi.Parameter, description string) {

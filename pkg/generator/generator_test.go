@@ -3616,3 +3616,28 @@ func TestAddFlags_DuplicateParameterName_NoPanic(t *testing.T) {
 	require.NotPanics(t, func() { gen.addFlags(cmd, op) })
 	require.NotNil(t, cmd.Flags().Lookup("id"))
 }
+
+func TestAddFlags_ReservedGlobalNamesAreRenamed(t *testing.T) {
+	gen := makeTestGen(t)
+	cmd := &cobra.Command{Use: "create-thing"}
+	op := &openapi.Operation{
+		Method: http.MethodPost,
+		Path:   "/things",
+		Parameters: openapi.Parameters{
+			{Name: "output", In: "query", Type: "string"},
+			{Name: "raw", In: "query", Type: "string"},
+			{Name: "body", In: "query", Type: "string"},
+		},
+		RequestBody: []openapi.RequestBodyProperty{{Name: "output", Type: "string"}, {Name: "raw", Type: "string"}, {Name: "body", Type: "string"}},
+	}
+	require.NotPanics(t, func() { gen.addFlags(cmd, op) })
+	for _, name := range []string{"output", "raw", RawBodyFlagName} {
+		require.NotNil(t, cmd.Flags().Lookup(name), "global flag %s must remain registered", name)
+	}
+	require.NotNil(t, cmd.Flags().Lookup("output-2"))
+	require.NotNil(t, cmd.Flags().Lookup("raw-2"))
+	require.NotNil(t, cmd.Flags().Lookup("body-2"))
+	require.NotNil(t, cmd.Flags().Lookup("output-3"))
+	require.NotNil(t, cmd.Flags().Lookup("raw-3"))
+	require.NotNil(t, cmd.Flags().Lookup("body-3"))
+}

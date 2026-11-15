@@ -792,7 +792,11 @@ openapi-cli get-pet 83165 -o yaml
 ```
 
 Generated commands additionally accept `--raw` (`-r`) to dump the response
-body verbatim, bypassing formatting:
+body verbatim, bypassing formatting. The generated command flags `--output`/`-o`,
+`--raw`/`-r`, and `--body`/`-b` are reserved for Muster controls. If a spec
+parameter or body property uses one of those names, the API field is renamed
+with a deterministic numeric suffix (`output-2`, `raw-2`, `body-2`, then `-3`,
+and so on); generated help shows the renamed flag.
 
 ```bash
 openapi-cli get-pet 83165 --raw

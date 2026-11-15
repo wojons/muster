@@ -46,7 +46,11 @@ sudo apt-get update && sudo apt-get install -y golang gcc make git curl
 building. If it is behind, install the toolchain
 from https://go.dev/dl/ instead.
 
-## Quick start
+## Generated command flag names
+
+Generated commands reserve `--output`/`-o`, `--raw`/`-r`, and `--body`/`-b` for Muster's global output and raw-body controls. If an API parameter or request-body property uses one of those names, Muster keeps the global flag and renames the API field deterministically with a numeric suffix (`output-2`, `raw-2`, `body-2`, then `-3`, and so on). The generated command help shows the resulting names.
+
+## Quick Start
 
 > **Note:** This repository is **PUBLIC** and is published to the public Go proxy.
 > `go get github.com/wojons/muster@v0.1.1` resolves anonymously on a fresh module
