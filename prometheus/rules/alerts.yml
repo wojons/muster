@@ -101,23 +101,6 @@ groups:
           description: "95th percentile MCP latency is {{ $value }}s"
           runbook_url: "https://wiki/runbooks/high-mcp-latency"
 
-      # WARNING: Cache hit ratio low
-      - alert: LowCacheHitRatio
-        expr: |
-          (
-            sum(rate(cache_hits_total[5m]))
-            /
-            sum(rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
-          ) < 0.5
-        for: 10m
-        labels:
-          severity: warning
-          service: cache
-        annotations:
-          summary: "Low cache hit ratio"
-          description: "Cache hit ratio is {{ $value | humanizePercentage }}"
-          runbook_url: "https://wiki/runbooks/low-cache-hit-ratio"
-
       # INFO: High CPU usage
       - alert: HighCPUUsage
         expr: |
