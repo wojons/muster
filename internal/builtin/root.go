@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -342,9 +343,19 @@ func loadPersistedCommands(root *cobra.Command, cfg *config.Config) {
 		return
 	}
 
-	// Load the base URL from storage
+	// Load the base URL from storage. This is the first call that decodes the
+	// store, so it is also where a torn/partially written file surfaces. That
+	// error used to return silently, which made a corrupt store look exactly
+	// like a user who had never generated anything: every generated command
+	// vanished from help with rc=0 and zero bytes on stderr. Report it with the
+	// same warning used below, and leave the file alone — it is the user's
+	// data and may still be recoverable.
 	baseURL, err := loader.GetBaseURL()
 	if err != nil {
+		var storeErr *cmdstore.StoreLoadError
+		if errors.As(err, &storeErr) {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to load stored commands: %v\n", err)
+		}
 		return
 	}
 

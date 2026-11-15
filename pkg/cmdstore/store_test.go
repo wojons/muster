@@ -2,9 +2,12 @@ package cmdstore_test
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -745,4 +748,111 @@ func TestCommandStore_StoredData_Empty(t *testing.T) {
 	store := cmdstore.NewCommandStore()
 	sd := store.StoredData()
 	assert.Nil(t, sd)
+}
+
+// ── Torn store reporting ─────────────────────────────────────────
+
+// tornStoreBytes returns a valid persisted store truncated mid-document, the
+// shape a crash, full disk or interrupted write leaves behind.
+func tornStoreBytes(t *testing.T) []byte {
+	t.Helper()
+	intact, err := json.Marshal(cmdstore.StoredData{
+		Version:     "1.0",
+		BaseURL:     "http://127.0.0.1:1",
+		GeneratedAt: time.Now(),
+		Commands: []cmdstore.CommandMetadata{
+			{Name: "generated-command", Use: "generated-command", Method: "GET", Path: "/generated"},
+		},
+	})
+	require.NoError(t, err)
+	require.Greater(t, len(intact), 16, "intact store must be long enough to truncate")
+	return intact[:len(intact)/2]
+}
+
+func TestCommandStore_TornStore_ReportsPathSizeAndFailure(t *testing.T) {
+	storePath := filepath.Join(t.TempDir(), "commands.json")
+	torn := tornStoreBytes(t)
+	require.NoError(t, os.WriteFile(storePath, torn, 0o600))
+
+	// HasData deliberately treats any non-empty file as data; decoding it is
+	// where the tear surfaces.
+	store := cmdstore.NewCommandStore(storePath)
+	require.True(t, store.HasData())
+
+	_, err := store.Load()
+	require.Error(t, err)
+
+	var loadErr *cmdstore.StoreLoadError
+	require.ErrorAs(t, err, &loadErr, "a torn store must be reported as a StoreLoadError, got %v", err)
+	assert.Equal(t, storePath, loadErr.Path)
+	assert.Equal(t, int64(len(torn)), loadErr.Size)
+
+	msg := err.Error()
+	assert.Contains(t, msg, storePath, "the diagnostic must name the store file")
+	assert.Contains(t, msg, fmt.Sprintf("%d bytes", len(torn)), "the diagnostic must name the byte size")
+	assert.Contains(t, msg, "unmarshal stored data", "the diagnostic must carry the parse failure")
+	assert.Contains(t, msg, "unexpected end of JSON input")
+
+	// Reporting is not repairing: the file must still be there, byte for byte.
+	after, readErr := os.ReadFile(storePath)
+	require.NoError(t, readErr)
+	assert.Equal(t, torn, after, "a torn store must be left untouched")
+}
+
+func TestCommandStore_TornStore_EveryLoadPathCarriesTheTypedError(t *testing.T) {
+	storePath := filepath.Join(t.TempDir(), "commands.json")
+	require.NoError(t, os.WriteFile(storePath, tornStoreBytes(t), 0o600))
+
+	var loadErr *cmdstore.StoreLoadError
+
+	// Commands() wraps the error; the wrapper must keep it discoverable.
+	_, err := cmdstore.NewCommandStore(storePath).Commands()
+	require.Error(t, err)
+	require.ErrorAs(t, err, &loadErr)
+
+	// GetBaseURL is the first caller the root command reaches, so it is the
+	// path that must be able to name the failure.
+	loader := cmdstore.NewLoader(cmdstore.NewCommandStore(storePath), "")
+	_, err = loader.GetBaseURL()
+	require.Error(t, err)
+	require.ErrorAs(t, err, &loadErr)
+}
+
+func TestCommandStore_HealthyStores_AreNotReportedAsLoadFailures(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	intactPath := filepath.Join(tmpDir, "intact.json")
+	intact, err := json.Marshal(cmdstore.StoredData{
+		Version:  "1.0",
+		BaseURL:  "http://127.0.0.1:1",
+		Commands: []cmdstore.CommandMetadata{{Name: "generated-command", Method: "GET", Path: "/generated"}},
+	})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(intactPath, intact, 0o600))
+
+	// A store that parses loads without error at all.
+	meta, err := cmdstore.NewCommandStore(intactPath).Load()
+	require.NoError(t, err)
+	require.NotNil(t, meta)
+	assert.Equal(t, "generated-command", meta.Name)
+
+	// An absent store and a store that parses but holds no commands both
+	// answer "no stored data" — that is not a torn store and must not be
+	// reported as one, or every empty install would warn on every invocation.
+	for name, path := range map[string]string{
+		"absent":      filepath.Join(tmpDir, "absent.json"),
+		"zero-command": filepath.Join(tmpDir, "zero.json"),
+	} {
+		if name == "zero-command" {
+			require.NoError(t, os.WriteFile(path, []byte(`{"version":"1.0","commands":[]}`), 0o600))
+		}
+		t.Run(name, func(t *testing.T) {
+			_, err := cmdstore.NewCommandStore(path).Load()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "no stored data")
+
+			var loadErr *cmdstore.StoreLoadError
+			assert.False(t, errors.As(err, &loadErr), "%s store must not be reported as unreadable: %v", name, err)
+		})
+	}
 }
