@@ -1153,3 +1153,66 @@ row can never be read as carrying numbers this fire did not measure.
 recorded. Specs used were the public petstore v2 and Kubernetes v1.20.0 documents; wire assertions came from a
 local echo server on `127.0.0.1:8731` (scratch, stopped). No repository visibility or permission touched, no
 credentials minted, no disabled project touched.
+## Tick muster-dogfood-2026-11-14-21-06-01 (pass 8) — the persisted command store: what it costs, and what it silently destroys
+
+**What I actually did (use, not code reading).** Built `openapi-cli` from a clean `git archive HEAD`
+snapshot (`270a282a`, tree `tree-194213`, binary `cli-head`) so every number below belongs to one
+immutable commit, then drove it the way a user does: `generate` a petstore registry, `--help`,
+`version`, `discover`, and the four shipped `.star` demos, each run with its own private
+`HOME`/`XDG_CONFIG_HOME`/`XDG_DATA_HOME`/`XDG_CACHE_HOME` so "cold" really means empty state.
+Host loadavg was 24-31 on 16 cores throughout, so every figure is quoted as **min as well as mean**
+and min is the statistic I compare — mean on this box is scheduler noise.
+
+**The user-visible cost — every invocation parses the whole store first.** The CLI keeps its
+generated commands in `$HOME/.local/share/openapi-cli/commands.json`. One real `generate` of a
+kubernetes-sized spec produced **8,429,003 B / 1,063 commands**, and `internal/builtin/root.go:109`
+(`loadPersistedCommands`) reads and `json.Unmarshal`s that file on *every* invocation, before the
+argument is even dispatched — `version` and `--help` included. Measured `version` against store size
+(`scaling.txt`, loadavg 28.30 31.38 28.69):
+
+| store | bytes | mean | min |
+|---|---|---|---|
+| 0 cmds | 191 B | 30 ms | 16 ms |
+| 25 | 146,428 B | 19 ms | 19 ms |
+| 100 | 661,046 B | 36 ms | 23 ms |
+| 400 | 2,554,911 B | 46 ms | 41 ms |
+| 1,063 | 7,038,064 B | 96 ms | 78 ms |
+
+`discover` on petstore tracks the same curve (min 18 ms → 83 ms), so real builtins pay it too. With
+the full 8.4 MB store, `--help` is mean 94 ms / min 80 ms vs mean 23 ms / min 15 ms empty
+(`help.txt`). The shape a user feels is the loop (`impact.txt`): **100 sequential `version` calls =
+1,626 ms empty vs 9,787 ms with the 8.4 MB store — +81.6 ms each, 6.0x.** Decomposition
+(`decompose.txt`) says the bytes are the cost, not the command count: 1,063 records stripped to
+`Name` only (60,713 B) → min 21 ms, while 100 records padded to 7.66 MB → min 58 ms. Filed as
+**PERF-002** (with the file:line chain, the acceptance numbers, and the note that PERF-001 is a
+different cost — the `discover` double-decode — so the two must not be folded).
+
+**The defect found while measuring it.** I used a truncated store (first 4,000,000 of 8,429,003 B)
+as a noise control and it turned out to be a data-loss surface: `--help` drops from 1,095 lines to
+32, `version` and `discover` also exit 0, and **stderr is 0 bytes in every case** — a corrupt store
+is indistinguishable from no store at all. Cause is visible in the path already read for the perf
+row: `pkg/cmdstore/store.go:98-108` (`HasData`) passes any file with size>0, `store.go:184-195`
+unmarshals the whole thing, and `internal/builtin/root.go:207-210` swallows the resulting error with
+a bare `return`; the warning at `root.go:216-221` is downstream of it and unreachable. Filed as
+**QA-MUSTER-043** (`--recur` not used — new finding, not a recurrence).
+
+**Shipped demos.** All four `.star` assets exist and run (`star-check.txt`); nothing new to file
+there beyond what the board already carries.
+
+**Install leg — SKIPPED, no new row (fresh evidence this fire).** `ssh bunker-mvp` → `SSH_OK`,
+`systemctl --user is-active bunkerd` → `inactive`, `~/bunker-qa.sh` → `No such file or directory`,
+root fs 90% (150 G total, 15 G free). Cites the existing `SKIPPED-install-bunker` row, which is
+already `complete`; not re-filed.
+
+**Verify-the-write (filed is not proof).** `board_append.py` reported `APPENDED=1 PRIOR=370
+TOTAL=371` then `… TOTAL=372`; re-read of the board tail shows `PERF-002` and `QA-MUSTER-043` both
+`pending`/`P2`; `jq -r .id | sort | uniq -d` → empty; `boardctl validate` → `RESULT: OK
+(264 warning(s))`, all pre-existing legacy event shapes (the two rows landed after that run and the
+validator was re-run clean of new findings). `task_created` events were appended for both rows.
+
+**Hygiene.** No product code changed, no existing row's status changed, no row reopened, no
+credential values recorded, no repository visibility or permission touched, no credential minted, no
+disabled project touched. All artifacts live under
+`/home/kara/.hermes/cache/scratch/dogfood-muster-p8/` (`scaling.txt`, `decompose.txt`,
+`impact.txt`, `help.txt`, `star-check.txt`), never in the repo tree.
+
