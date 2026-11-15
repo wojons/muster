@@ -1,6 +1,6 @@
 # Muster — Observability Spec
 
-Status: audit + design proposal (no service code changed).
+Status: implementation reference for the shipped observability surface.
 
 This document states what Muster can prove about itself today, and the smallest
 set of changes that would let the fleet's Prometheus/Loki stack answer the
@@ -38,59 +38,39 @@ survives the process.
 
 ### 2.1 A Prometheus client library is present but wired to nothing
 
-`internal/monitoring/metrics.go` defines a real, reasonably designed metric set
-(10 metric families, see §2.2) and a `MetricsServer` that serves them at
-`/metrics` via `promhttp.Handler()` (`internal/monitoring/metrics.go:246`).
+`internal/monitoring/metrics.go` defines the process-scoped metric families
+and `MetricRecorder`; the CLI, MCP server, daemon, and MCP observer import it.
+The daemon serves its explicit `MusterMetrics` registry through its metrics
+listener, while the short-lived CLI and stdio MCP server retain their
+process-appropriate textfile/lifecycle surfaces.
 
-**It is dead code.** No package imports it:
+The legacy package-level recorder remains for compatibility with existing call
+sites, but its families now use the shipped `muster_cli`, `muster_mcp`, and
+`muster_daemon` namespaces. CLI and MCP vectors omit `tenant_id`; daemon
+vectors retain it. The daemon cache hit/miss declarations are absent because
+there is no cache to count.
 
-```
-$ grep -rn "internal/monitoring" --include=*.go . | grep -v "internal/monitoring/"
-(no output)
-```
-
-`NewMetricsServer` and `NewMetricRecorder` have zero non-test callers:
-
-```
-$ grep -rn "NewMetricsServer\|NewMetricRecorder" --include=*.go . | grep -v "internal/monitoring/"
-(no output)
-```
-
-Consequences, and they compound:
-
-1. No binary calls `NewMetricsServer`, so `/metrics` is never actually served.
-2. Even if it were, the metric vectors are package-level `promauto` vars
-   (`metrics.go:24-119`) registered on the **default** registry, while
-   `promhttp.Handler()` (`metrics.go:246`) serves that same default registry — so
-   the plumbing would line up. The blocker is upstream of that: no recorder is
-   ever invoked, so the vectors are always zero / absent.
-3. `MetricRecorder.registry` is allocated at `metrics.go:132` and **never used** —
-   the recorder writes to the global vars, not to `mr.registry`. This is a latent
-   bug that would bite anyone who "just wires it up": they would expect
-   isolation and get a shared global registry.
-
-### 2.2 The existing (dead) metric catalogue
+### 2.2 The shipped metric catalogue
 
 Names below are the actual rendered Prometheus names.
 
 | Name | Type | Labels |
 |---|---|---|
-| `openapi_cli_command_executions_total` | counter | `command`, `status`, `tenant_id` |
-| `openapi_cli_command_duration_seconds` | histogram | `command`, `status`, `tenant_id` |
-| `openapi_cli_command_errors_total` | counter | `command`, `error_type`, `tenant_id` |
-| `openapi_mcp_active_connections` | gauge | — |
-| `openapi_mcp_requests_total` | counter | `method`, `tenant_id` |
-| `openapi_mcp_request_duration_seconds` | histogram | `method`, `tenant_id` |
-| `openapi_mcp_tool_executions_total` | counter | `tool_name`, `status`, `tenant_id` |
-| `openapi_daemon_active_socket_connections` | gauge | — |
-| `openapi_daemon_proxy_requests_total` | counter | `endpoint`, `method`, `tenant_id` |
-| `openapi_daemon_cache_hits_total` / `_cache_misses_total` | counter | — |
+| `muster_cli_command_executions_total` | counter | `command`, `status` |
+| `muster_cli_command_duration_seconds` | histogram | `command`, `status` |
+| `muster_cli_command_errors_total` | counter | `command`, `error_type` |
+| `muster_mcp_active_connections` | gauge | — |
+| `muster_mcp_requests_total` | counter | `method` |
+| `muster_mcp_request_duration_seconds` | histogram | `method` |
+| `muster_mcp_tool_executions_total` | counter | `tool_name`, `status` |
+| `muster_daemon_active_socket_connections` | gauge | — |
+| `muster_daemon_proxy_requests_total` | counter | `endpoint`, `method`, `tenant_id` |
 
 Problems with this catalogue as-is:
 
-- **Wrong namespace.** Everything is `openapi_*`. The product is `muster` and the
-  fleet convention is `<product>_<subsystem>_<thing>_<unit>`. A collector cannot
-  select `muster_*` today at all.
+- **Namespace.** The product namespace is `muster`, split into the shipped process families `muster_cli`, `muster_mcp`, and `muster_daemon`.
+  fleet convention is `<product>_<subsystem>_<thing>_<unit>`. Collectors can
+  select the shipped `muster_*` families directly.
 - **`tenant_id` as a label is questionable for a CLI binary.** Muster's tenant is a
   locally configured *active tenant* persisted to `tenants.json`
   (`internal/builtin/extended.go:313-326`, `activeTenantID` at `:440`) — i.e. a
@@ -99,9 +79,9 @@ Problems with this catalogue as-is:
   (bounded by the number of tenants configured on one host). The risk is
   aggregation: it multiplies every series by tenant count and, in a fleet where
   most installs have exactly one tenant, adds a dimension that is constant per
-  process. **Recommendation:** keep it, but only on `muster_daemon_*` (the
-  long-lived, potentially multi-tenant process), and drop it from the
-  `openapi_cli`/`mcp` families where the process has one tenant for its whole
+  process. The shipped implementation keeps it only on `muster_daemon_*` (the
+  long-lived, potentially multi-tenant process), and drops it from the
+  `muster_cli`/`muster_mcp` families where the process has one tenant for its whole
   lifetime. If any future code paths a *remote/request-supplied* tenant into a
   label, that must be capped — see §6.
 - **`DaemonCacheHits/CacheMisses` have no cache behind them** in the daemon proxy
@@ -192,10 +172,9 @@ captured by whoever spawned it.
 ### 2.6 Existing docs
 
 `docs/METRICS-STANDARDIZATION.md` prescribes a `muster_` namespace with RED/USE
-metrics (`Namespace: "muster"`, lines 36-60) — which **contradicts the shipped
-`internal/monitoring` code**, whose namespace is `openapi_cli`/`openapi_mcp`/
-`openapi_daemon` (`metrics.go:17-21`). The doc describes a design nobody
-implemented. This spec supersedes both for measurement purposes.
+metrics (`Namespace: "muster"`, lines 36-60), and the shipped
+`internal/monitoring` code now uses the process namespaces
+`muster_cli`/`muster_mcp`/`muster_daemon` (`metrics.go:17-21`).
 
 ---
 
@@ -306,8 +285,8 @@ path-traversal cannot reach the proxy through it.
 
 **CLI:** textfile/pushgateway completion record, as §3.5.
 
-**Do not** use the default `prometheus` registry in production code. The dead
-code at `metrics.go:132` shows the trap: a `*prometheus.Registry` field that the
+**Do not** use the default `prometheus` registry in production code. The
+explicit registry at `metrics.go:132` avoids the trap of a `*prometheus.Registry` field that the
 recorder ignores. Create one explicit registry per process, register explicitly,
 and serve *that* registry. It makes tests hermetic and prevents double-registration
 panics.
@@ -360,8 +339,8 @@ panics.
 - **Per-tool histograms for very high tool cardinality** — if a spec exposes
   hundreds of operations, prefer a single `muster_mcp_tool_duration_seconds` with
   a bounded `tool` label set and overflow into `tool="other"`.
-- **The `openapi_daemon_cache_hits_total`/`cache_misses_total` pair** from dead
-  code (§2.2), until a cache actually exists to count.
+- **The daemon cache hit/miss pair** is intentionally absent until a cache
+  actually exists to count.
 
 ---
 
@@ -416,11 +395,10 @@ grep -c '"event_type"' /path/to/audit.log
 
 ## 8. Audit verdict
 
-**Before:** `MUSTER IS BLIND.` No scrapeable metric exists. A Prometheus client
-library and a `/metrics` handler are committed but unreferenced
-(`internal/monitoring/metrics.go` — zero importers). The only HTTP surface is a
-Unix socket serving four hard-coded-200 health endpoints
-(`pkg/daemon/proxy.go:502-524`). The only durable record is an opt-in, off-by-default
+**Before:** `MUSTER IS BLIND.` No scrapeable metric existed. A Prometheus client
+library and a `/metrics` handler were committed but unreferenced. The only HTTP
+surface was a Unix socket serving four hard-coded-200 health endpoints
+(`pkg/daemon/proxy.go:502-524`). The only durable record was an opt-in, off-by-default
 hash-chained JSONL audit log that (a) records process lifecycle but **never a
 successful MCP tool call**, and (b) **silently drops events under load while
 reporting success** (`internal/audit/audit_types.go:295-302`).
