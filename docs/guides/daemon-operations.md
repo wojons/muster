@@ -258,21 +258,19 @@ HTTP 200. Mark the node out of rotation on non-200/connection failure.
 ### Metric families defined by the daemon libraries
 
 Registered globally via `promauto` in `internal/monitoring` (namespaces:
-`openapi_cli`, `openapi_mcp`, `openapi_daemon`):
+`muster_cli`, `muster_mcp`, `muster_daemon`):
 
 | Metric | Type | Labels |
 |---|---|---|
-| `openapi_cli_command_executions_total` | counter | `command`, `status`, `tenant_id` |
-| `openapi_cli_command_duration_seconds` | histogram | `command`, `status`, `tenant_id` |
-| `openapi_cli_command_errors_total` | counter | `command`, `error_type`, `tenant_id` |
-| `openapi_mcp_active_connections` | gauge | — |
-| `openapi_mcp_requests_total` | counter | `method`, `tenant_id` |
-| `openapi_mcp_request_duration_seconds` | histogram | `method`, `tenant_id` |
-| `openapi_mcp_tool_executions_total` | counter | `tool_name`, `status`, `tenant_id` |
-| `openapi_daemon_active_socket_connections` | gauge | — |
-| `openapi_daemon_proxy_requests_total` | counter | `endpoint`, `method`, `tenant_id` |
-| `openapi_daemon_cache_hits_total` | counter | — |
-| `openapi_daemon_cache_misses_total` | counter | — |
+| `muster_cli_command_executions_total` | counter | `command`, `status` |
+| `muster_cli_command_duration_seconds` | histogram | `command`, `status` |
+| `muster_cli_command_errors_total` | counter | `command`, `error_type` |
+| `muster_mcp_active_connections` | gauge | — |
+| `muster_mcp_requests_total` | counter | `method` |
+| `muster_mcp_request_duration_seconds` | histogram | `method` |
+| `muster_mcp_tool_executions_total` | counter | `tool_name`, `status` |
+| `muster_daemon_active_socket_connections` | gauge | — |
+| `muster_daemon_proxy_requests_total` | counter | `endpoint`, `method`, `tenant_id` |
 
 Note: because these use `promauto.New*` (the default registry), a
 `MetricsServer` scrape returns them **plus** the Go runtime and process
@@ -313,7 +311,7 @@ Notes for operators:
 
 ```bash
 # Confirm exposition format and families:
-curl -fsS http://127.0.0.1:9090/metrics | grep -E '^openapi_(cli|mcp|daemon)_'
+curl -fsS http://127.0.0.1:9090/metrics | grep -E '^muster_(cli|mcp|daemon)_'
 
 # Confirm Prometheus accepts the target (in the Prometheus web UI or):
 promtool check config /etc/prometheus/prometheus.yml
