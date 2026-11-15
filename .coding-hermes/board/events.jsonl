@@ -1055,3 +1055,4 @@
 {"id":1061,"timestamp":"2026-11-14 23:39:55","event_type":"task_updated","task_id":"RELEASE-014","actor":"foreman","detail":"{\"status\":\"pending\"}","tick_number":null}
 {"id":1062,"timestamp":"2026-11-14 23:45:02","event_type":"task_created","task_id":"QA-MUSTER-041","actor":"foreman","detail":"{\"id\":\"QA-MUSTER-041\",\"status\":\"pending\"}","tick_number":null}
 {"id":1063,"timestamp":"2026-11-14 23:48:57","event_type":"task_updated","task_id":"QA-MUSTER-041","actor":"foreman","detail":"{\"title\":\"[dogfood:P2] Form-encoded request bodies are silently dropped: 611 of the 612 operations in Stripe spec3 declare a urlencoded body (338 of them writes) and every generated command for them is argument-free, sending Content-Length: 0 (CLI and MCP)\"}","tick_number":null}
+{"id":1064,"timestamp":"2026-11-15 00:00:01","event_type":"task_updated","task_id":"RELEASE-013","actor":"foreman","detail":"{\"status\":\"failed\"}","tick_number":null}
