@@ -178,7 +178,7 @@ func invocationNeedsPersistedCommands(root *cobra.Command, args []string) bool {
 		}
 
 		switch arg {
-		case "version", "completion", "__complete":
+		case "version", "completion", "__complete", "__completeNoDesc":
 			return false
 		case "help":
 			// The default help command's next word is a command target, so

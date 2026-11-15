@@ -28,9 +28,11 @@ func TestPersistedCommandLoadGating(t *testing.T) {
 		{name: "version", args: []string{"version"}, want: 0},
 		{name: "completion", args: []string{"completion", "bash"}, want: 0},
 		{name: "completion hidden command", args: []string{"__complete", ""}, want: 0},
+		{name: "completion hidden command no descriptions", args: []string{"__completeNoDesc", ""}, want: 0},
 		{name: "root help", args: []string{"--help"}, want: 0},
 		{name: "short root help", args: []string{"-h"}, want: 0},
 		{name: "bare help", args: []string{"help"}, want: 0},
+		{name: "bare root", args: nil, want: 1},
 		{name: "generated command", args: []string{"generated-command", "--help"}, want: 1},
 		{name: "help generated command", args: []string{"help", "generated-command"}, want: 1},
 	}
@@ -49,6 +51,12 @@ func TestPersistedCommandLoadGating(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, cmd)
 				assert.Equal(t, "generated-command", cmd.Name())
+				var output bytes.Buffer
+				root.SetOut(&output)
+				root.SetErr(&output)
+				root.SetArgs(tc.args)
+				require.NoError(t, root.Execute())
+				assert.Contains(t, output.String(), "Usage:")
 			} else if tc.name == "root help" {
 				var output bytes.Buffer
 				root.SetOut(&output)
