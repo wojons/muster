@@ -18,9 +18,8 @@ import (
 // ── protocol ─────────────────────────────────────────────────────────────
 // The protocol subcommand namespace (specs/PROTOCOLS.md §5.1: protocol
 // adapters mount additively while root OpenAPI verbs stay frozen). Members:
-// JSON-RPC 2.0 / OpenRPC (PROTO-004), GraphQL (PROTO-005), and SOAP (PROTO-008)
-// register here. gRPC remains a separate root command for backwards
-// compatibility; protocol help points users to its discover/schema/call verbs.
+// JSON-RPC 2.0 / OpenRPC (PROTO-004), GraphQL (PROTO-005), SOAP (PROTO-008), and
+// gRPC, which additionally keeps its backwards-compatible root command.
 
 // jsonrpcDefaultTimeout bounds each Execute call when the caller's context
 // carries no deadline (the caller's own deadline always wins per
@@ -35,12 +34,12 @@ func newProtocolCommand() *cobra.Command {
 		Short: "Discover and call operations from non-OpenAPI protocols",
 		Long: `Discover and call operations from protocol families other than OpenAPI.
 
-Protocol adapters are exposed in two namespaces. JSON-RPC, GraphQL, and SOAP
-mount here as subcommands. gRPC remains a root command for backwards
-compatibility; use openapi-cli grpc discover, openapi-cli grpc schema, or
-openapi-cli grpc call. Discovery ingests the protocol's discovery document
-and prints the neutral operation model; calls execute one operation and print
-the JSON result.
+Protocol adapters are exposed additively. JSON-RPC, GraphQL, SOAP, and gRPC
+all mount here as subcommands. gRPC also keeps its backwards-compatible root
+form (openapi-cli grpc discover, openapi-cli grpc schema, openapi-cli grpc
+call), so existing scripts and docs keep working. Discovery ingests the
+protocol's discovery document and prints the neutral operation model; calls
+execute one operation and print the JSON result.
 
 Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 	}
@@ -48,6 +47,10 @@ Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 	cmd.AddCommand(newProtocolJSONRPCCommand())
 	cmd.AddCommand(newProtocolGraphQLCommand())
 	cmd.AddCommand(newProtocolSOAPCommand())
+	// gRPC is mounted here so the documented protocol entry point lists every
+	// adapter; the root `grpc` command stays as the backwards-compatible form
+	// (specs/PROTOCOLS.md §5.1).
+	cmd.AddCommand(newGrpcCommand())
 	return cmd
 }
 

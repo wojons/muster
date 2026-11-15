@@ -305,7 +305,9 @@ func TestProtocolCommand_MountedOnRoot(t *testing.T) {
 	assert.True(t, found, "protocol command must be registered on the root")
 }
 
-func TestProtocolCommand_HelpPointsToRootGrpc(t *testing.T) {
+// The documented protocol entry point must list every adapter, including the
+// one that keeps a backwards-compatible root form.
+func TestProtocolCommand_HelpListsEveryAdapter(t *testing.T) {
 	cmd := newProtocolCommand()
 	var output bytes.Buffer
 	cmd.SetOut(&output)
@@ -313,10 +315,33 @@ func TestProtocolCommand_HelpPointsToRootGrpc(t *testing.T) {
 	cmd.SetArgs([]string{"--help"})
 
 	require.NoError(t, cmd.Execute())
-	assert.Contains(t, output.String(), "gRPC remains a root command")
-	assert.Contains(t, output.String(), "openapi-cli grpc discover")
-	assert.Contains(t, output.String(), "openapi-cli grpc schema")
-	assert.Contains(t, output.String(), "openapi-cli grpc call")
+	help := output.String()
+	for _, adapter := range []string{"jsonrpc", "graphql", "soap", "grpc"} {
+		assert.Contains(t, help, adapter, "protocol --help must list the %s adapter", adapter)
+	}
+	// The root form is documented, not silently dropped.
+	assert.Contains(t, help, "openapi-cli grpc discover")
+}
+
+// grpc must be reachable both under protocol and at the root.
+func TestGrpcCommand_MountedOnRootAndUnderProtocol(t *testing.T) {
+	root := NewRootCommand(nil)
+	var rootGrpc, protocolGrpc bool
+	for _, c := range root.Commands() {
+		switch c.Name() {
+		case "grpc":
+			rootGrpc = true
+		case "protocol":
+			for _, sub := range c.Commands() {
+				if sub.Name() == "grpc" {
+					protocolGrpc = true
+					assert.NotEmpty(t, sub.Commands(), "protocol grpc must carry the discover/schema/call verbs")
+				}
+			}
+		}
+	}
+	assert.True(t, rootGrpc, "the backwards-compatible root grpc command must stay mounted")
+	assert.True(t, protocolGrpc, "protocol must also mount grpc so protocol --help lists it")
 }
 
 // Silence the unused-context import in constrained configurations.

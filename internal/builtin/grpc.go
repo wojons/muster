@@ -16,9 +16,9 @@ import (
 	grpcadapter "github.com/wojons/muster/pkg/protocol/grpc"
 )
 
-// The backwards-compatible root-level gRPC command group (specs/PROTOCOLS.md
-// §5.1). OpenAPI operations stay at the root, while JSON-RPC, GraphQL, and
-// SOAP mount under `protocol`. gRPC retains its root command with these verbs:
+// The gRPC command group (specs/PROTOCOLS.md §5.1). It mounts twice: under
+// `protocol` (so the documented protocol entry point lists every adapter) and
+// at the root, where these verbs stay backwards-compatible:
 //
 //	openapi-cli grpc discover <uri>          list operations from a discovery source
 //	openapi-cli grpc schema <uri>            list message and enum types
