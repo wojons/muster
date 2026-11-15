@@ -1,0 +1,54 @@
+{
+  "scheduler_tick_id": "muster-foreman-2026-11-15-21-10-11",
+  "project": "muster",
+  "wave_budget": 12,
+  "current_main": "486dcf92e17e5b3d9359a69988a48c7afb9c9ac5",
+  "remote_main": "486dcf92e17e5b3d9359a69988a48c7afb9c9ac5",
+  "started_at": "2026-11-15T21:10:11-05:00",
+  "barriers": [
+    {
+      "path": ".gitreins/rescued-20261115/",
+      "state": "preserved, historical",
+      "producer": "muster-REVIEW-MUSTER-21-integration lifecycle (verdicts 2026-10-25 CI-BILLING-002-recheck PASS, 2026-11-13 REVIEW-MUSTER-21-R1 PASS)",
+      "disposition": "board row REVIEW-MUSTER-21 is complete; artifacts are 2 days old, no live producer process; left untracked and unmodified"
+    }
+  ],
+  "workers": [
+    {
+      "task_id": "QA-MUSTER-030",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-030-tidy2",
+      "branch": "wt/QA-MUSTER-030-tidy2",
+      "base_sha": "486dcf92e17e5b3d9359a69988a48c7afb9c9ac5",
+      "gitreins_task": "QA-MUSTER-030",
+      "gitreins_status": "in_progress",
+      "scope": "go.mod / go.sum only",
+      "worker_commit": null,
+      "integrated_commit": null,
+      "status": "dispatched"
+    },
+    {
+      "task_id": "PERF-002",
+      "worktree": "/home/kara/worktrees/muster-PERF-002",
+      "branch": "wt/PERF-002",
+      "base_sha": "486dcf92e17e5b3d9359a69988a48c7afb9c9ac5",
+      "gitreins_task": "PERF-002",
+      "gitreins_status": "in_progress",
+      "scope": "internal/builtin/root.go, pkg/cmdstore, cmd/openapi-cli — must not touch go.mod",
+      "worker_commit": null,
+      "integrated_commit": null,
+      "status": "dispatched"
+    },
+    {
+      "task_id": "QA-MUSTER-032",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-032",
+      "branch": "wt/QA-MUSTER-032",
+      "base_sha": "486dcf92e17e5b3d9359a69988a48c7afb9c9ac5",
+      "gitreins_task": "QA-MUSTER-032",
+      "gitreins_status": "in_progress",
+      "scope": "cmd/daemon only",
+      "worker_commit": null,
+      "integrated_commit": null,
+      "status": "dispatched"
+    }
+  ]
+}
