@@ -1,0 +1,288 @@
+{
+  "task_id": "RELEASE-025-V-20261115-060428",
+  "task_title": "Verify RELEASE-025 premise is dead",
+  "task_criteria": [
+    "PROOF: In a clean worktree at published HEAD 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, go mod tidy -diff exits 0 with zero output and go test ./... -count=1 exits 0 with per-package results. FAILIF: go mod tidy -diff emits any diff or go test exits nonzero. This verifies the evidence artifact only; no product code changes are expected and the still-pending RELEASE-025 row is not a defect of this verification commit."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/worktrees/muster-RELEASE-025-V-20261115-060428",
+  "branch": "wt/RELEASE-025-V-20261115-060428",
+  "commit": "7ac6a20db5f7949546d48c5be7b8a2d81fed2922",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "82df028f5c9b13d6a0230e2bcb08108ad6c6bac5f578c73476a523a0854b28ef",
+  "working_tree_dirty_path_count": 1,
+  "items": [
+    {
+      "criterion": "PROOF: In a clean worktree at published HEAD 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, go mod tidy -diff exits 0 with zero output and go test ./... -count=1 exits 0 with per-package results. FAILIF: go mod tidy -diff emits any diff or go test exits nonzero. This verifies the evidence artifact only; no product code changes are expected and the still-pending RELEASE-025 row is not a defect of this verification commit.",
+      "status": "PASS",
+      "detail": "Both gates reproduced at the exact published HEAD. `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. (1) `go mod tidy -diff` -> RC=0, stdout_bytes=0, stderr_bytes=0 (zero output, no diff); `git status --porcelain go.mod go.sum` empty afterwards, so tidy made no changes. (2) `go test ./... -count=1` -> RC=0 with 62 output lines: 52 `^ok` per-package lines, 9 `[no test files]` lines, 0 `^FAIL` lines (e.g. `ok github.com/wojons/muster/alertmanager 0.018s`, `ok github.com/wojons/muster/cmd/daemon 28.254s`, `ok github.com/wojons/muster/test/security 44.443s`). Neither FAILIF condition triggered. Note: the first in-tool attempt hit the 30s command timeout and was truncated (no RC line); I re-ran detached via setsid and the complete run finished with RC=0. `go vet ./...` also exits 0. This matches the evidence artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json (go_mod_tidy_diff PASS rc=0 output_bytes=0; go_test_all PASS rc=0, 52 ok lines, 9 no-test lines)."
+    },
+    {
+      "criterion": "The verification is reproducible at the exact published HEAD (git rev-parse HEAD == 7ac6a20d...) and the worktree has no uncommitted product-code changes that could mask the result.",
+      "status": "PASS",
+      "detail": "`git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, exactly the published SHA named in the criterion. `git diff HEAD --stat` is EMPTY and `git status --porcelain` shows only `?? .coding-hermes/evidence/release-025-verify-20261115-060428.json` (the untracked evidence artifact) \u2014 no uncommitted product-code changes that could mask the gate results. HEAD's own commit touches only `.gitreins/history/2026-11-15/17cad3b1/summary.md` and `verdict.json` (board bookkeeping), consistent with the criterion's statement that no product code changes are expected.",
+      "derived": true
+    },
+    {
+      "criterion": "The evidence artifact's recorded gate results match what the commands actually produce now (no stale or fabricated evidence).",
+      "status": "PASS",
+      "detail": "Artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json records `direct_gates.go_mod_tidy_diff: \"PASS rc=0 output_bytes=0\"` and `go_test_all: \"PASS rc=0; 52 package ok lines; 9 no-test package lines; output_bytes=3270\"`, with `tested_sha` == `published_sha` == 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. My independent reproduction produced rc=0 with 0 output bytes for tidy, and RC=0 with exactly 52 `^ok` lines and 9 `no test files` lines for the test run \u2014 the counts agree exactly, and tested_sha matches `git rev-parse HEAD`. The artifact is accurate, not stale.",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 secrets: \u25cb\n  \u2713 lint: ok (no output)\n  \u2713 tests: ok  \tgithub.com/wojons/muster/alertmanager\t0.010s",
+      "steps": [
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n1:14AM INF scanned ~8838222 bytes (8.84 MB) in 608ms\n1:14AM INF no leaks found\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "ok  \tgithub.com/wojons/muster/alertmanager\t0.010s\nok  \tgithub.com/wojons/muster/cmd/daemon\t12.405s\nok  \tgithub.com/wojons/muster/cmd/mcp-server\t15.026s\nok  \tgithub.com/wojons/muster/cmd/openapi-cli\t0.062s\n?   \tgithub.com/wojons/muster/demo/services/transport-fixture\t[no test files]\nok  \tgithub.com/wojons/muster/demo/test-suites\t11.711s\nok  \tgithub.com/wojons/muster/deployments/backup\t0.017s\nok  \tgithub.com/wojons/muster/deployments/scripts\t2.194s\n?   \tgithub.com/wojons/muster/exploits/auth\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/network\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/ratelimit\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/symlink\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/wasm\t[no test files]\nok  \tgithub.com/wojons/muster/internal/audit\t0.894s\nok  \tgithub.com/wojons/muster/internal/builtin\t6.689s\nok  \tgithub.com/wojons/muster/internal/monitoring\t0.127s\n?   \tgithub.com/wojons/muster/internal/platform/linux\t[no test files]\nok  \tgithub.com/wojons/muster/internal/telemetry\t0.004s\nok  \tgithub.com/wojons/muster/internal/version\t0.007s\nok  \tgithub.com/wojons/muster/packaging\t0.361s\nok  \tgithub.com/wojons/muster/pkg/auth\t7.980s\nok  \tgithub.com/wojons/muster/pkg/auth/ratelimit\t0.255s\nok  \tgithub.com/wojons/muster/pkg/cache\t0.386s\nok  \tgithub.com/wojons/muster/pkg/cli\t0.003s\nok  \tgithub.com/wojons/muster/pkg/client\t4.071s\nok  \tgithub.com/wojons/muster/pkg/cmdstore\t0.067s\nok  \tgithub.com/wojons/muster/pkg/completion\t0.447s\nok  \tgithub.com/wojons/muster/pkg/config\t0.526s\nok  \tgithub.com/wojons/muster/pkg/daemon\t0.322s\nok  \tgithub.com/wojons/muster/pkg/dsl\t0.047s\nok  \tgithub.com/wojons/muster/pkg/errors\t0.002s\nok  \tgithub.com/wojons/muster/pkg/generator\t0.139s\nok  \tgithub.com/wojons/muster/pkg/log\t0.004s\nok  \tgithub.com/wojons/muster/pkg/mcp\t1.072s\nok  \tgithub.com/wojons/muster/pkg/mcp/handlers\t0.006s\nok  \tgithub.com/wojons/muster/pkg/openapi\t0.025s\nok  \tgithub.com/wojons/muster/pkg/protocol\t0.004s\nok  \tgithub.com/wojons/muster/pkg/protocol/graphql\t4.080s\nok  \tgithub.com/wojons/muster/pkg/protocol/grpc\t0.652s\nok  \tgithub.com/wojons/muster/pkg/protocol/jsonrpc\t0.951s\nok  \tgithub.com/wojons/muster/pkg/protocol/soap\t0.039s\nok  \tgithub.com/wojons/muster/pkg/rate\t0.458s\nok  \tgithub.com/wojons/muster/pkg/repository\t0.185s\nok  \tgithub.com/wojons/muster/pkg/repository/sql\t0.138s\nok  \tgithub.com/wojons/muster/pkg/request\t5.019s\nok  \tgithub.com/wojons/muster/pkg/response\t0.006s\nok  \tgithub.com/wojons/muster/pkg/retry\t0.069s\nok  \tgithub.com/wojons/muster/pkg/wasm\t0.260s\nok  \tgithub.com/wojons/muster/test/benchmarks\t0.005s\nok  \tgithub.com/wojons/muster/test/buildscript\t0.006s\nok  \tgithub.com/wojons/muster/test/docker\t1.339s\nok  \tgithub.com/wojons/muster/test/e2e\t6.439s\nok  \tgithub.com/wojons/muster/test/functional/behaviors\t0.014s\n?   \tgithub.com/wojons/muster/test/functional/harness\t[no test files]\nok  \tgithub.com/wojons/muster/test/functional/states\t0.004s\nok  \tgithub.com/wojons/muster/test/functional/workflows\t0.032s\nok  \tgithub.com/wojons/muster/test/production\t5.358s\nok  \tgithub.com/wojons/muster/test/upgrade\t0.009s\n?   \tgithub.com/wojons/muster/test/util\t[no test files]\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PROOF: In a clean worktree at published HEAD 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, go mod tidy -diff exits 0 with zero output and go test ./... -count=1 exits 0 with per-package results. FAILIF: go mod tidy -diff emits any diff or go test exits nonzero. This verifies the evidence artifact only; no product code changes are expected and the still-pending RELEASE-025 row is not a defect of this verification commit.: Both gates reproduced at the exact published HEAD. `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. (1) `go mod tidy -diff` -> RC=0, stdout_bytes=0, stderr_bytes=0 (zero output, no diff); `git status --porcelain go.mod go.sum` empty afterwards, so tidy made no changes. (2) `go test ./... -count=1` -> RC=0 with 62 output lines: 52 `^ok` per-package lines, 9 `[no test files]` lines, 0 `^FAIL` lines (e.g. `ok github.com/wojons/muster/alertmanager 0.018s`, `ok github.com/wojons/muster/cmd/daemon 28.254s`, `ok github.com/wojons/muster/test/security 44.443s`). Neither FAILIF condition triggered. Note: the first in-tool attempt hit the 30s command timeout and was truncated (no RC line); I re-ran detached via setsid and the complete run finished with RC=0. `go vet ./...` also exits 0. This matches the evidence artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json (go_mod_tidy_diff PASS rc=0 output_bytes=0; go_test_all PASS rc=0, 52 ok lines, 9 no-test lines).\n  \u2713 The verification is reproducible at the exact published HEAD (git rev-parse HEAD == 7ac6a20d...) and the worktree has no uncommitted product-code changes that could mask the result.: `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, exactly the published SHA named in the criterion. `git diff HEAD --stat` is EMPTY and `git status --porcelain` shows only `?? .coding-hermes/evidence/release-025-verify-20261115-060428.json` (the untracked evidence artifact) \u2014 no uncommitted product-code changes that could mask the gate results. HEAD's own commit touches only `.gitreins/history/2026-11-15/17cad3b1/summary.md` and `verdict.json` (board bookkeeping), consistent with the criterion's statement that no product code changes are expected.\n  \u2713 The evidence artifact's recorded gate results match what the commands actually produce now (no stale or fabricated evidence).: Artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json records `direct_gates.go_mod_tidy_diff: \"PASS rc=0 output_bytes=0\"` and `go_test_all: \"PASS rc=0; 52 package ok lines; 9 no-test package lines; output_bytes=3270\"`, with `tested_sha` == `published_sha` == 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. My independent reproduction produced rc=0 with 0 output bytes for tidy, and RC=0 with exactly 52 `^ok` lines and 9 `no test files` lines for the test run \u2014 the counts agree exactly, and tested_sha matches `git rev-parse HEAD`. The artifact is accurate, not stale.\nBoth gates reproduce exactly at published HEAD 7ac6a20d \u2014 `go mod tidy -diff` exits 0 with zero bytes of output and `go test ./... -count=1` exits 0 with 52 ok / 9 no-test / 0 FAIL per-package lines \u2014 confirming the RELEASE-025 premise is dead and the evidence artifact is accurate.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 PROOF: In a clean worktree at published HEAD 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, go mod tidy -diff exits 0 with zero output and go test ./... -count=1 exits 0 with per-package results. FAILIF: go mod tidy -diff emits any diff or go test exits nonzero. This verifies the evidence artifact only; no product code changes are expected and the still-pending RELEASE-025 row is not a defect of this verification commit.: Both gates reproduced at the exact published HEAD. `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. (1) `go mod tidy -diff` -> RC=0, stdout_bytes=0, stderr_bytes=0 (zero output, no diff); `git status --porcelain go.mod go.sum` empty afterwards, so tidy made no changes. (2) `go test ./... -count=1` -> RC=0 with 62 output lines: 52 `^ok` per-package lines, 9 `[no test files]` lines, 0 `^FAIL` lines (e.g. `ok github.com/wojons/muster/alertmanager 0.018s`, `ok github.com/wojons/muster/cmd/daemon 28.254s`, `ok github.com/wojons/muster/test/security 44.443s`). Neither FAILIF condition triggered. Note: the first in-tool attempt hit the 30s command timeout and was truncated (no RC line); I re-ran detached via setsid and the complete run finished with RC=0. `go vet ./...` also exits 0. This matches the evidence artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json (go_mod_tidy_diff PASS rc=0 output_bytes=0; go_test_all PASS rc=0, 52 ok lines, 9 no-test lines).\n  \u2713 The verification is reproducible at the exact published HEAD (git rev-parse HEAD == 7ac6a20d...) and the worktree has no uncommitted product-code changes that could mask the result.: `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, exactly the published SHA named in the criterion. `git diff HEAD --stat` is EMPTY and `git status --porcelain` shows only `?? .coding-hermes/evidence/release-025-verify-20261115-060428.json` (the untracked evidence artifact) \u2014 no uncommitted product-code changes that could mask the gate results. HEAD's own commit touches only `.gitreins/history/2026-11-15/17cad3b1/summary.md` and `verdict.json` (board bookkeeping), consistent with the criterion's statement that no product code changes are expected.\n  \u2713 The evidence artifact's recorded gate results match what the commands actually produce now (no stale or fabricated evidence).: Artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json records `direct_gates.go_mod_tidy_diff: \"PASS rc=0 output_bytes=0\"` and `go_test_all: \"PASS rc=0; 52 package ok lines; 9 no-test package lines; output_bytes=3270\"`, with `tested_sha` == `published_sha` == 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. My independent reproduction produced rc=0 with 0 output bytes for tidy, and RC=0 with exactly 52 `^ok` lines and 9 `no test files` lines for the test run \u2014 the counts agree exactly, and tested_sha matches `git rev-parse HEAD`. The artifact is accurate, not stale.\nBoth gates reproduce exactly at published HEAD 7ac6a20d \u2014 `go mod tidy -diff` exits 0 with zero bytes of output and `go test ./... -count=1` exits 0 with 52 ok / 9 no-test / 0 FAIL per-package lines \u2014 confirming the RELEASE-025 premise is dead and the evidence artifact is accurate.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PROOF: In a clean worktree at published HEAD 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, go mod tidy -diff exits 0 with zero output and go test ./... -count=1 exits 0 with per-package results. FAILIF: go mod tidy -diff emits any diff or go test exits nonzero. This verifies the evidence artifact only; no product code changes are expected and the still-pending RELEASE-025 row is not a defect of this verification commit.",
+                "status": "PASS",
+                "detail": "Both gates reproduced at the exact published HEAD. `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. (1) `go mod tidy -diff` -> RC=0, stdout_bytes=0, stderr_bytes=0 (zero output, no diff); `git status --porcelain go.mod go.sum` empty afterwards, so tidy made no changes. (2) `go test ./... -count=1` -> RC=0 with 62 output lines: 52 `^ok` per-package lines, 9 `[no test files]` lines, 0 `^FAIL` lines (e.g. `ok github.com/wojons/muster/alertmanager 0.018s`, `ok github.com/wojons/muster/cmd/daemon 28.254s`, `ok github.com/wojons/muster/test/security 44.443s`). Neither FAILIF condition triggered. Note: the first in-tool attempt hit the 30s command timeout and was truncated (no RC line); I re-ran detached via setsid and the complete run finished with RC=0. `go vet ./...` also exits 0. This matches the evidence artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json (go_mod_tidy_diff PASS rc=0 output_bytes=0; go_test_all PASS rc=0, 52 ok lines, 9 no-test lines)."
+              },
+              {
+                "criterion": "The verification is reproducible at the exact published HEAD (git rev-parse HEAD == 7ac6a20d...) and the worktree has no uncommitted product-code changes that could mask the result.",
+                "status": "PASS",
+                "detail": "`git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, exactly the published SHA named in the criterion. `git diff HEAD --stat` is EMPTY and `git status --porcelain` shows only `?? .coding-hermes/evidence/release-025-verify-20261115-060428.json` (the untracked evidence artifact) \u2014 no uncommitted product-code changes that could mask the gate results. HEAD's own commit touches only `.gitreins/history/2026-11-15/17cad3b1/summary.md` and `verdict.json` (board bookkeeping), consistent with the criterion's statement that no product code changes are expected.",
+                "derived": true
+              },
+              {
+                "criterion": "The evidence artifact's recorded gate results match what the commands actually produce now (no stale or fabricated evidence).",
+                "status": "PASS",
+                "detail": "Artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json records `direct_gates.go_mod_tidy_diff: \"PASS rc=0 output_bytes=0\"` and `go_test_all: \"PASS rc=0; 52 package ok lines; 9 no-test package lines; output_bytes=3270\"`, with `tested_sha` == `published_sha` == 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. My independent reproduction produced rc=0 with 0 output bytes for tidy, and RC=0 with exactly 52 `^ok` lines and 9 `no test files` lines for the test run \u2014 the counts agree exactly, and tested_sha matches `git rev-parse HEAD`. The artifact is accurate, not stale.",
+                "derived": true
+              }
+            ],
+            "summary": "Both gates reproduce exactly at published HEAD 7ac6a20d \u2014 `go mod tidy -diff` exits 0 with zero bytes of output and `go test ./... -count=1` exits 0 with 52 ok / 9 no-test / 0 FAIL per-package lines \u2014 confirming the RELEASE-025 premise is dead and the evidence artifact is accurate.",
+            "provenance": {
+              "model": "deepseek-v4-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            }
+          }
+        }
+      ],
+      "model": "deepseek-v4-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"RELEASE-025-V-20261115-060428\"}",
+          "exit_code": 0,
+          "output_sha": "c2651ab92baa24087fbd699c54b0c1bf575251603f08f10f83794a84e6f9f674"
+        },
+        {
+          "tool": "run_command",
+          "command": "git log --oneline -3 && git status --porcelain && git rev-parse HEAD",
+          "exit_code": 0,
+          "output_sha": "d9ec1195b06a6f32f7c941cf6c9592db7c711c6376745dc324432ee440a4051b"
+        },
+        {
+          "tool": "run_command",
+          "command": "cat .coding-hermes/evidence/release-025-verify-20261115-060428.json; echo \"---\"; ls; echo \"---\"; cat .gitreins/config.yaml 2>/dev/null",
+          "exit_code": 0,
+          "output_sha": "5d0998efc9cd062b2d6d1ca4f6578f5d0b046381f0f38d0ca87d263da2840813"
+        },
+        {
+          "tool": "run_command",
+          "command": "cat go.mod; echo \"---\"; go version",
+          "exit_code": 0,
+          "output_sha": "2aa663b7a4c0f3f7aebef893810c75e9f6bafbb66017c9855530be4b3c27a82d"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /$(pwd) 2>/dev/null; go mod tidy -diff; echo \"TIDY_RC=$?\"",
+          "exit_code": 0,
+          "output_sha": "4786698f554ab138e184039bb629d292c9d08b9748e768f898c2318187996309"
+        },
+        {
+          "tool": "run_command",
+          "command": "go test ./... -count=1 2>&1 | tail -80; echo \"TEST_PIPE_RC=${PIPESTATUS[0]}\"",
+          "exit_code": -15,
+          "output_sha": "115f6d7cabe72683a411334d4c5bb920f596593edc510db9c2f4f6a3e237956d"
+        },
+        {
+          "tool": "run_command",
+          "command": "nohup sh -c 'go test ./... -count=1 > /tmp/gotest.out 2>&1; echo \"RC=$?\" >> /tmp/gotest.out' > /dev/null 2>&1 &\necho started; sleep 25; tail -5 /tmp/gotest.out 2>/dev/null; wc -l /tmp/gotest.out 2>/dev/null",
+          "exit_code": 0,
+          "output_sha": "36093e0d41bff5841496c6be946c40bacccfdf3ee614de6705e4f533c8b885f2"
+        },
+        {
+          "tool": "run_command",
+          "command": "sleep 28; tail -3 /tmp/gotest.out; echo \"---\"; grep -c '^ok' /tmp/gotest.out; grep -E '^(FAIL|---|RC=)' /tmp/gotest.out | head -20",
+          "exit_code": 0,
+          "output_sha": "5b015d0ba9013fa7a6556ede5a56a8ae235b4929bc89899477e42804affcfb25"
+        },
+        {
+          "tool": "run_command",
+          "command": "sleep 29; tail -3 /tmp/gotest.out; echo \"--- ok count:\"; grep -c '^ok' /tmp/gotest.out; echo \"--- fails:\"; grep -E '^(FAIL|RC=)' /tmp/gotest.out | head",
+          "exit_code": 0,
+          "output_sha": "20f2e24b59484369a8249754eba1d4486b0a07c999e99f1fea339b930f3085d2"
+        },
+        {
+          "tool": "run_command",
+          "command": "ps aux | grep -E 'go test|\\.test' | grep -v grep | head -20; echo \"---\"; wc -l /tmp/gotest.out; ls -la /tmp/gotest.out",
+          "exit_code": 0,
+          "output_sha": "2abae512557f462052167605846f5cdd17b6eb712a3ae0b2c1b858f16bbb8eba"
+        },
+        {
+          "tool": "run_command",
+          "command": "rm -f /tmp/gt2.out; setsid nohup sh -c 'cd \"'\"$(pwd)\"'\" && go test ./... -count=1 > /tmp/gt2.out 2>&1; echo \"RC=$?\" >> /tmp/gt2.out' < /dev/null > /dev/null 2>&1 & disown; sleep 20; echo \"lines:\"; wc -l < /tmp/gt2.out",
+          "exit_code": 0,
+          "output_sha": "9898686d7e471aa07429300dfb230f888164f7dbf096d5c23a0b298cc0a77e5c"
+        },
+        {
+          "tool": "run_command",
+          "command": "sleep 29; wc -l < /tmp/gt2.out; tail -2 /tmp/gt2.out; ps aux | grep -c '[g]o test'",
+          "exit_code": 0,
+          "output_sha": "a95d3363854e9e77fe2e2ef0795affad7733c2c06797ca2f8d2e69c5787d32ab"
+        },
+        {
+          "tool": "run_command",
+          "command": "echo \"=== RC line ===\"; grep '^RC=' /tmp/gt2.out; echo \"=== ok count ===\"; grep -c '^ok' /tmp/gt2.out; echo \"=== no-test count ===\"; grep -c 'no test files' /tmp/gt2.out; echo \"=== FAIL lines ===\"; grep -c '^FAIL' /tmp/gt2.out; echo \"=== total lines ===\"; wc -l < /tmp/gt2.out; echo \"=== sample per-package ===\"; head -6 /tmp/gt2.out; echo \"...\"; tail -4 /tmp/gt2.out",
+          "exit_code": 0,
+          "output_sha": "b291af6bd8ea26f3f5e93d614f6591db66a06df0d84448cba25af24c6133ce38"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: At HEAD 7ac6a20db5f7949546d48c5be7b8a2d81fed2922 (git rev-parse HEAD confirms).\\n- `go mod tidy -diff` -> exit_code 0, ZERO output (only \\\"TIDY_RC=0\\\" echoed). No diff emitted.\\n- `go test ./... -count=1` -> RC=0, 62 output lines: 52 \\\"ok\\\" package lines, 9 \\\"[no test files]\\\" lines, 0 \\\"^FAIL\\\" lines. Per-package results present (e.g. ok github.com/wojons/muster/alertmanager 0.018s ... ok github.com/wojons/muster/test/security 44.443s).\\nMatches the evidence artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json which claims go_mod_tidy_diff PASS rc=0 output_bytes=0 and go_test_all PASS rc=0; 52 ok lines; 9 no-test lines.\\nNote: first attempt timed out at tool 30s limit; re-ran detached via setsid, full run completed with RC=0.\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "0ce9fc38f142057ac5d20692137c20e66e1d92fe23ac05cd9f976aa6cd792200"
+        },
+        {
+          "tool": "run_command",
+          "command": "echo \"=== tracked changes vs HEAD ===\"; git status --porcelain; echo \"=== diff stat HEAD ===\"; git diff HEAD --stat; echo \"=== last commit files ===\"; git show --stat --oneline HEAD | head -10",
+          "exit_code": 0,
+          "output_sha": "2143937b1cef085128e15839dd06b326e61082463b8d63c86a7b3712abd6a068"
+        },
+        {
+          "tool": "run_command",
+          "command": "grep -rn \"RELEASE-025\" --include=*.md --include=*.json --include=*.yaml . 2>/dev/null | grep -v '.coding-hermes/evidence' | head -20",
+          "exit_code": 0,
+          "output_sha": "a2be0ca44040a27828b29c92b086b42007119d56cc6f65bd83775f41aa6d6b83"
+        },
+        {
+          "tool": "run_command",
+          "command": "go vet ./... 2>&1 | tail -5; echo \"VET_RC=$?\"",
+          "exit_code": 0,
+          "output_sha": "f0b1229d496c00e2c240b44b9318eff2720f9b64980c9112a99f4567a83b6ae5"
+        },
+        {
+          "tool": "run_command",
+          "command": "sed -n '1,20p' .gitreins/tasks.yaml; echo \"=== releng context ===\"; sed -n '78,95p' releng/muster-releng-2026-11-14-23-03-21.md",
+          "exit_code": 0,
+          "output_sha": "0d937a2bffaef46a92ad76d01c0fe25e76d4fe077186ade85cc9fb69f625838b"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Derived criteria for this verification-only task:\\n0. The verification is reproducible at the exact published HEAD (git rev-parse HEAD == 7ac6a20d...) and the worktree has no uncommitted product-code changes that could mask the result.\\n1. The evidence artifact's recorded gate results match what the commands actually produce now (no stale/fabricated evidence).\", \"key\": \"derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "5131d473233c81e98a5a9d965836b851846f8f2f90640f563635758b041feb75"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Derived 1: evidence artifact claims match reproduced output.\", \"key\": \"derived_1\"}",
+          "exit_code": 0,
+          "output_sha": "7e7cc5e83f028a39e399c649609c1b65208b3ce89e262aa160435b568bd3295d"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922 (exact published HEAD). `git status --porcelain` shows only `?? .coding-hermes/evidence/release-025-verify-20261115-060428.json` (untracked evidence artifact); `git diff HEAD --stat` is EMPTY -> no uncommitted product-code changes that could mask the result. HEAD commit itself touches only .gitreins/history/... summary.md + verdict.json (board bookkeeping), consistent with \\\"no product code changes are expected\\\".\", \"key\": \"verified_derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "550327c1cdf75f1daf3f431d89cd8594f2ba9eef0a30c397d2cae91b10e5ebb2"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json records direct_gates.go_mod_tidy_diff=\\\"PASS rc=0 output_bytes=0\\\" and go_test_all=\\\"PASS rc=0; 52 package ok lines; 9 no-test package lines; output_bytes=3270\\\". Reproduced independently: tidy rc=0 with zero output; go test RC=0 with exactly 52 \\\"^ok\\\" lines and 9 \\\"no test files\\\" lines, 0 \\\"^FAIL\\\". tested_sha == published_sha == 7ac6a20d... matches git rev-parse HEAD. Numbers agree exactly.\", \"key\": \"verified_derived_1\"}",
+          "exit_code": 0,
+          "output_sha": "731129fa9632af71b1fd6ff63c1220fba770dfbd76f9cf83f7e9b19928c83883"
+        },
+        {
+          "tool": "run_command",
+          "command": "go mod tidy -diff > /tmp/tidy.out 2>/tmp/tidy.err; echo \"RC=$?\"; echo \"stdout_bytes=$(wc -c < /tmp/tidy.out)\"; echo \"stderr_bytes=$(wc -c < /tmp/tidy.err)\"; echo \"--- git clean check after tidy ---\"; git status --porcelain go.mod go.sum",
+          "exit_code": 0,
+          "output_sha": "0568a030d463aa4290cefa4a225bf62191f131ce86892b0f8139acf01779fde4"
+        }
+      ]
+    }
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "The diff only adds gitreins history artifacts (a verdict summary and its JSON record) for an already-landed commit; it contains no executable code, so there is nothing in it to break behaviour or leave unwired."
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 secrets: \u25cb\n  \u2713 lint: ok (no output)\n  \u2713 tests: ok  \tgithub.com/wojons/muster/alertmanager\t0.010s\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PROOF: In a clean worktree at published HEAD 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, go mod tidy -diff exits 0 with zero output and go test ./... -count=1 exits 0 with per-package results. FAILIF: go mod tidy -diff emits any diff or go test exits nonzero. This verifies the evidence artifact only; no product code changes are expected and the still-pending RELEASE-025 row is not a defect of this verification commit.: Both gates reproduced at the exact published HEAD. `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. (1) `go mod tidy -diff` -> RC=0, stdout_bytes=0, stderr_bytes=0 (zero output, no diff); `git status --porcelain go.mod go.sum` empty afterwards, so tidy made no changes. (2) `go test ./... -count=1` -> RC=0 with 62 output lines: 52 `^ok` per-package lines, 9 `[no test files]` lines, 0 `^FAIL` lines (e.g. `ok github.com/wojons/muster/alertmanager 0.018s`, `ok github.com/wojons/muster/cmd/daemon 28.254s`, `ok github.com/wojons/muster/test/security 44.443s`). Neither FAILIF condition triggered. Note: the first in-tool attempt hit the 30s command timeout and was truncated (no RC line); I re-ran detached via setsid and the complete run finished with RC=0. `go vet ./...` also exits 0. This matches the evidence artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json (go_mod_tidy_diff PASS rc=0 output_bytes=0; go_test_all PASS rc=0, 52 ok lines, 9 no-test lines).\n  \u2713 The verification is reproducible at the exact published HEAD (git rev-parse HEAD == 7ac6a20d...) and the worktree has no uncommitted product-code changes that could mask the result.: `git rev-parse HEAD` = 7ac6a20db5f7949546d48c5be7b8a2d81fed2922, exactly the published SHA named in the criterion. `git diff HEAD --stat` is EMPTY and `git status --porcelain` shows only `?? .coding-hermes/evidence/release-025-verify-20261115-060428.json` (the untracked evidence artifact) \u2014 no uncommitted product-code changes that could mask the gate results. HEAD's own commit touches only `.gitreins/history/2026-11-15/17cad3b1/summary.md` and `verdict.json` (board bookkeeping), consistent with the criterion's statement that no product code changes are expected.\n  \u2713 The evidence artifact's recorded gate results match what the commands actually produce now (no stale or fabricated evidence).: Artifact .coding-hermes/evidence/release-025-verify-20261115-060428.json records `direct_gates.go_mod_tidy_diff: \"PASS rc=0 output_bytes=0\"` and `go_test_all: \"PASS rc=0; 52 package ok lines; 9 no-test package lines; output_bytes=3270\"`, with `tested_sha` == `published_sha` == 7ac6a20db5f7949546d48c5be7b8a2d81fed2922. My independent reproduction produced rc=0 with 0 output bytes for tidy, and RC=0 with exactly 52 `^ok` lines and 9 `no test files` lines for the test run \u2014 the counts agree exactly, and tested_sha matches `git rev-parse HEAD`. The artifact is accurate, not stale.\nBoth gates reproduce exactly at published HEAD 7ac6a20d \u2014 `go mod tidy -diff` exits 0 with zero bytes of output and `go test ./... -count=1` exits 0 with 52 ok / 9 no-test / 0 FAIL per-package lines \u2014 confirming the RELEASE-025 premise is dead and the evidence artifact is accurate.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-15T06:18:18.505378",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-15T06:18:18.521847+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 76864,
+        "truncated": false,
+        "source": "git show 7ac6a20db5f7"
+      }
+    ],
+    "task_id": "RELEASE-025-V-20261115-060428"
+  }
+}
