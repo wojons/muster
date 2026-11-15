@@ -1316,3 +1316,53 @@ visibility or permission changed, no credential minted, no disabled project touc
 `/home/kara/.hermes/cache/scratch/dogfood-muster-p9/` (`server.py`, `hang.py`, `spec.yaml`, `drive.sh`, `evidence.sh`,
 `evidence.txt`, `append_rows.py`, `hperf9/`), and the battery output under `/tmp/`; nothing added to the repo tree except
 this log entry and the two board rows.
+
+## Tick muster-dogfood-2026-11-14-21-06-01 (pass 10, continuation of pass 9) — duplicate fire: teardown action, one write-integrity repair, no new findings
+
+This is the tenth fire of this tick and a **true duplicate** of pass 9 (`e712a6d9` rows, `7987a103` log). Product use,
+the install leg and the perf leg were all walked by pass 9 and are **INHERITED** here, not re-run; what this fire
+delivers is the teardown pass 9 left behind, the record re-derivation, and one repair of pass 9's own write.
+
+### Drift proof for inheriting the legs
+
+`git diff --stat 270a282a..HEAD -- . ':!.coding-hermes'` → one file, `releng/muster-releng-2026-11-14-23-03-21.md`
+(+355, a releng-lane document). Excluding `releng/` the same range is **empty (0 lines)**: no product-code drift since
+the tree pass 9 built its binary from, so its measurements still describe HEAD. HEAD `7987a103` == `origin/main`
+(`git rev-list --count` ahead 0 / behind 0 after `git fetch`).
+
+### Teardown — an action, not an assertion
+
+* **Run-owned residue found and killed.** `ss -ltnp` on the run's ports showed `LISTEN 127.0.0.1:18642` held by pid
+  **2337245** (`python3 hang.py`), cwd `/home/kara/.hermes/cache/scratch/dogfood-muster-p9` — pass 9's never-answer
+  server, started 20:23:37, up 51:59, stdout to `hang.out`. Killed by pid; `ss` on 18641/18642 → **none**; the wrapper
+  shell 2337108 exited with it. Port 18641 (pass 9's probe server) already had no listener.
+* **Pass 9's install agent is gone.** `bunker list --server bunker-mvp --status all` → 4 agents, none is `75b01ba1`;
+  the ephemeral leg's teardown is proven, not assumed.
+* **One in-window agent is FOREIGN and was left running.** `701c2ee0` (3.4 GB, created 2026-11-15T02:06:37Z, expires
+  06:06:37Z) was created 36 s after this tick's nominal fire, so age alone looks like residue. Its home contains
+  `qa-heading/`, `qa-act-wf/`, `qa-evidence.jsonl` — it is the **heading** QA lane's battery, not muster's. Reported,
+  not reaped: killing it would destroy a sibling lane's in-flight probe.
+
+### Record re-derivation at `e712a6d9` / `7987a103`
+
+Rows: `git show e712a6d9:.coding-hermes/board/tasks.jsonl | grep -cE '"id": *"QA-MUSTER-04[45]"'` → **2**, and **2**
+at HEAD. Validator: `boardctl validate -C .coding-hermes/board` → `RESULT: OK (264 warning(s))`, before and after this
+fire's append. CI at HEAD `7987a103`: **CI** and **Cross-Platform Tests** success; **Build** and **Docker Build**
+in_progress — 17 min in against a historical 30–51 min band for that workflow, so not a hang and not filed.
+
+### The gap this fire repaired
+
+Pass 9 appended **rows without paired events**: `jq 'select(.task_id=="QA-MUSTER-044" or .task_id=="QA-MUSTER-045")'`
+on `events.jsonl` returned **0**, while the same reads for pass 8's `QA-MUSTER-043` (event 1074) and pass 7's
+`QA-MUSTER-042` (1065) return one each — so the omission is pass 9's, not this board's convention. `boardctl event
+--type task_created` backfilled ids **1076** and **1077** (actor `dogfood:lane`, `--no-tick-write` so no header counter
+moved); `events.jsonl` 1069 → 1071 lines, `jq -c .` parses clean, validator unchanged at 264 warnings, `git status`
+showed only `events.jsonl` modified. Detail on both events names the backfill so no future reader mistakes the event
+timestamp for the row's creation time.
+
+### Not filed
+
+No new product finding: pass 9's two findings still stand and are untouched, and nothing else this fire observed is
+either new (the residue and the missing events are this lane's own bookkeeping) or user-visible. No row status
+changed, no row reopened, no product code touched, no credential minted or recorded, no repository visibility or
+permission change, no disabled project touched.
