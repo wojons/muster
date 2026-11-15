@@ -1216,3 +1216,15 @@ disabled project touched. All artifacts live under
 `/home/kara/.hermes/cache/scratch/dogfood-muster-p8/` (`scaling.txt`, `decompose.txt`,
 `impact.txt`, `help.txt`, `star-check.txt`), never in the repo tree.
 
+**Addendum — reconciling this tick's two fires.** This tick fired earlier (closeout at 22:04 UTC) and that
+fire already filed `QA-MUSTER-035/036/037` and ran the bunker battery; its perf leg reported "no finding,
+discover/list-tasks/generate all 0.010 s warm and cold at load 11.5". That is consistent with the numbers
+above, not contradictory: it measured with an **empty** state root, which is exactly my N=0 arm (min 16 ms),
+and none of those three commands is `version`/`--help` against a **populated** store. The tax documented in
+`PERF-002` only exists once a user has actually generated commands — which is why the previous fire could
+honestly report "nothing slow" and this one files a real number. The two rows filed in this fire are additive:
+`PERF-002` and `QA-MUSTER-043` were both absent from the board before the append (`grep -c` → 0 / 0,
+`PRIOR=370 TOTAL=371/372`). Also note this fire's install leg differs from the earlier fire's working battery:
+`bunkerd` is now `inactive` and `~/bunker-qa.sh` is gone, so the leg is a documented skip citing the existing
+`SKIPPED-install-bunker` row (verified `complete` on the board), not a silent pass.
+
