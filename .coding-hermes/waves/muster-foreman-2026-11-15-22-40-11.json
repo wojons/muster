@@ -1,0 +1,67 @@
+{
+  "tick": "muster-foreman-2026-11-15-22-40-11",
+  "project": "muster",
+  "repo": "/home/kara/wojons/muster",
+  "base_ref": "origin/main",
+  "base_sha": "dfdc59a4656850e1b95e691f9fac892dd9f5260d",
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "wave_budget": 7,
+  "dispatched": 6,
+  "composed_independence": "no depends_on edges between rows; distinct file sets except internal/builtin/root.go touched by QA-MUSTER-043 (warning on load error) only",
+  "workers": [
+    {
+      "id": "QA-MUSTER-028",
+      "title": ".gitignore: scope the bare SKILL.md rule to the repo root",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-028",
+      "branch": "wt/QA-MUSTER-028",
+      "files": [".gitignore"],
+      "kind": "repo-hygiene"
+    },
+    {
+      "id": "QA-MUSTER-043",
+      "title": "torn persisted command store must warn, not silently drop commands",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-043",
+      "branch": "wt/QA-MUSTER-043",
+      "files": ["internal/builtin/root.go", "pkg/cmdstore/store.go", "pkg/cmdstore/loader.go"],
+      "kind": "robustness"
+    },
+    {
+      "id": "QA-MUSTER-044",
+      "title": "wire retry into request + generated commands; MUSTER_MAX_RETRIES as ceiling",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-044",
+      "branch": "wt/QA-MUSTER-044",
+      "files": ["pkg/request/builder.go", "pkg/client/client.go", "pkg/config/loader.go"],
+      "kind": "reliability"
+    },
+    {
+      "id": "OBS-MUSTER-009",
+      "title": "operator docs + LowCacheHitRatio alert onto the shipped muster_* surface",
+      "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-009",
+      "branch": "wt/OBS-MUSTER-009",
+      "files": ["docs/guides/daemon-operations.md", "docs/SYSTEMD-CONFIGURATION-GUIDE.md", "prometheus/rules/alerts.yml"],
+      "kind": "docs-observability"
+    },
+    {
+      "id": "REVIEW-MUSTER-29",
+      "title": "grpc discoverable from protocol --help",
+      "worktree": "/home/kara/worktrees/muster-REVIEW-MUSTER-29",
+      "branch": "wt/REVIEW-MUSTER-29",
+      "files": ["internal/builtin/protocol.go", "internal/builtin/root.go"],
+      "kind": "cli-ux"
+    },
+    {
+      "id": "RELEASE-023",
+      "title": "CHANGELOG v0.2.0 release-ready recount",
+      "worktree": "/home/kara/worktrees/muster-RELEASE-023",
+      "branch": "wt/RELEASE-023",
+      "files": ["CHANGELOG.md"],
+      "kind": "docs-release"
+    }
+  ],
+  "held_back": [
+    {"id": "PERF-001", "reason": "benchmark row — needs a quiet host for credible numbers (load 7-12 during this tick); deferred"},
+    {"id": "RELEASE-014", "reason": "P0 release readiness sweep, owner-gated publication decision; verification lane owns it"},
+    {"id": "QA-MUSTER-024", "reason": "already satisfied on main (compose config rc=0) — closed verification-only this tick"}
+  ]
+}
