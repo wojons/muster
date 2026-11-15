@@ -84,8 +84,8 @@ Problems with this catalogue as-is:
   `muster_cli`/`muster_mcp` families where the process has one tenant for its whole
   lifetime. If any future code paths a *remote/request-supplied* tenant into a
   label, that must be capped — see §6.
-- **`DaemonCacheHits/CacheMisses` have no cache behind them** in the daemon proxy
-  path I could find; they would report zeros forever if wired naively.
+- **The daemon cache hit/miss pair is intentionally absent** until a cache
+  actually exists to count.
 - `DaemonProxyRequests` uses an `endpoint` label (`metrics.go:102`). Endpoints come
   from the OpenAPI spec, so cardinality is bounded by spec size, not by traffic —
   acceptable, but it must be a *normalized* path template, never a filled path.
