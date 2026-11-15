@@ -176,6 +176,42 @@ func (cs *CommandStore) persistToDisk() error {
 	return os.WriteFile(cs.path, data, 0644)
 }
 
+// StoreLoadError reports a persisted store file that exists but could not be
+// read or decoded. Path and Size describe the offending file so callers can
+// name it in a diagnostic instead of guessing which store failed; Size is -1
+// when the file's size could not be determined. Err is the underlying
+// read/unmarshal failure.
+//
+// The error text carries the path and byte size because a store that exists
+// but cannot be parsed must be distinguishable from one that was never
+// written: without the file name and size the operator has no way to find the
+// torn file.
+type StoreLoadError struct {
+	Path string
+	Size int64
+	Err  error
+}
+
+// Error reports the parse failure plus the store path and byte size.
+func (e *StoreLoadError) Error() string {
+	if e.Size < 0 {
+		return fmt.Sprintf("%v (store: %s)", e.Err, e.Path)
+	}
+	return fmt.Sprintf("%v (store: %s, %d bytes)", e.Err, e.Path, e.Size)
+}
+
+// Unwrap exposes the underlying read/unmarshal error.
+func (e *StoreLoadError) Unwrap() error { return e.Err }
+
+// fileSize returns the on-disk size of path, or -1 when it cannot be read.
+func fileSize(path string) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return -1
+	}
+	return info.Size()
+}
+
 // loadFromDisk reads the stored data from the JSON file on disk.
 func (cs *CommandStore) loadFromDisk() error {
 	if cs.path == "" {
@@ -187,11 +223,15 @@ func (cs *CommandStore) loadFromDisk() error {
 			cs.loaded = true // Mark as loaded (empty)
 			return nil
 		}
-		return fmt.Errorf("read store file: %w", err)
+		return &StoreLoadError{Path: cs.path, Size: fileSize(cs.path), Err: fmt.Errorf("read store file: %w", err)}
 	}
 	var stored StoredData
 	if err := json.Unmarshal(data, &stored); err != nil {
-		return fmt.Errorf("unmarshal stored data: %w", err)
+		// A torn store (crash, full disk, interrupted write) fails here.
+		// Report it as a StoreLoadError so callers can surface a warning that
+		// names the file, its size and the parse failure, instead of silently
+		// behaving as though the user had never generated anything.
+		return &StoreLoadError{Path: cs.path, Size: int64(len(data)), Err: fmt.Errorf("unmarshal stored data: %w", err)}
 	}
 	cs.commands = stored.Commands
 	if len(stored.Commands) > 0 {
