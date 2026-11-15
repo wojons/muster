@@ -18,9 +18,8 @@ import (
 
 // MusterNamespace is the metric namespace of the minimal viable set
 // (docs/observability-spec.md §3.1). It supersedes the legacy
-// openapi_cli/openapi_mcp/openapi_daemon namespaces for measurement purposes;
-// those legacy families stay registered (other packages and tests reference
-// them) but nothing in the daemon serves them.
+// the former OpenAPI-specific namespaces for measurement purposes; the
+// process-scoped families are defined in metrics.go.
 const MusterNamespace = "muster"
 
 // DefaultTenantID is the tenant_id label value used when the process has no

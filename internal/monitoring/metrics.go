@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	NamespaceCLI    = "openapi_cli"
-	NamespaceMCP    = "openapi_mcp"
-	NamespaceDaemon = "openapi_daemon"
+	NamespaceCLI    = "muster_cli"
+	NamespaceMCP    = "muster_mcp"
+	NamespaceDaemon = "muster_daemon"
 )
 
 var (
@@ -29,7 +29,7 @@ var (
 			Name:      "command_executions_total",
 			Help:      "Total number of command executions",
 		},
-		[]string{"command", "status", "tenant_id"},
+		[]string{"command", "status"},
 	)
 
 	CommandDuration = promauto.NewHistogramVec(
@@ -39,7 +39,7 @@ var (
 			Help:      "Command execution duration in seconds",
 			Buckets:   prometheus.DefBuckets,
 		},
-		[]string{"command", "status", "tenant_id"},
+		[]string{"command", "status"},
 	)
 
 	CommandErrors = promauto.NewCounterVec(
@@ -48,7 +48,7 @@ var (
 			Name:      "command_errors_total",
 			Help:      "Total number of command execution errors",
 		},
-		[]string{"command", "error_type", "tenant_id"},
+		[]string{"command", "error_type"},
 	)
 
 	MCPConnections = promauto.NewGauge(
@@ -65,7 +65,7 @@ var (
 			Name:      "requests_total",
 			Help:      "Total number of MCP requests",
 		},
-		[]string{"method", "tenant_id"},
+		[]string{"method"},
 	)
 
 	MCPRequestDuration = promauto.NewHistogramVec(
@@ -75,7 +75,7 @@ var (
 			Help:      "MCP request duration in seconds",
 			Buckets:   []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 		},
-		[]string{"method", "tenant_id"},
+		[]string{"method"},
 	)
 
 	MCPToolExecutions = promauto.NewCounterVec(
@@ -84,7 +84,7 @@ var (
 			Name:      "tool_executions_total",
 			Help:      "Total number of tool executions",
 		},
-		[]string{"tool_name", "status", "tenant_id"},
+		[]string{"tool_name", "status"},
 	)
 
 	DaemonActiveSockets = promauto.NewGauge(
@@ -103,32 +103,15 @@ var (
 		},
 		[]string{"endpoint", "method", "tenant_id"},
 	)
-
-	DaemonCacheHits = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: NamespaceDaemon,
-			Name:      "cache_hits_total",
-			Help:      "Total number of cache hits",
-		},
-	)
-
-	DaemonCacheMisses = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: NamespaceDaemon,
-			Name:      "cache_misses_total",
-			Help:      "Total number of cache misses",
-		},
-	)
 )
 
-// MetricRecorder is the legacy recording surface for the openapi_* families
-// plus the muster_* families of docs/observability-spec.md §3.1 and §3.4.
+// MetricRecorder is the recording surface for the muster_* families of
+// docs/observability-spec.md §3.1 and §3.4.
 //
-// The openapi_* families are registered through promauto (package init), so
-// they live on the default registry; the muster_* families live on an explicit
-// registry owned by this recorder (spec §4.2 — the previous code held a
-// registry field nothing ever served, so the field was dead). Registry()
-// returns that explicit registry and is what a caller must serve.
+// The process-scoped muster_cli/muster_mcp/muster_daemon families are
+// registered through promauto (package init), while the spec-defined families
+// live on an explicit registry owned by this recorder. Registry() returns that
+// explicit registry and is what a caller must serve.
 type MetricRecorder struct {
 	tenantID string
 	registry *prometheus.Registry
@@ -166,11 +149,7 @@ func (mr *MetricRecorder) RecordCommandExecution(command string, status string, 
 	mr.mu.Lock()
 	defer mr.mu.Unlock()
 
-	labels := prometheus.Labels{
-		"command":   command,
-		"status":    status,
-		"tenant_id": mr.tenantID,
-	}
+	labels := prometheus.Labels{"command": command, "status": status}
 	CommandExecutions.With(labels).Inc()
 	CommandDuration.With(labels).Observe(duration.Seconds())
 }
@@ -182,7 +161,6 @@ func (mr *MetricRecorder) RecordCommandError(command string, errorType string) {
 	CommandErrors.With(prometheus.Labels{
 		"command":    command,
 		"error_type": errorType,
-		"tenant_id":  mr.tenantID,
 	}).Inc()
 }
 
@@ -191,12 +169,10 @@ func (mr *MetricRecorder) RecordMCPRequest(method string, duration time.Duration
 	defer mr.mu.Unlock()
 
 	MCPRequests.With(prometheus.Labels{
-		"method":    method,
-		"tenant_id": mr.tenantID,
+		"method": method,
 	}).Inc()
 	MCPRequestDuration.With(prometheus.Labels{
-		"method":    method,
-		"tenant_id": mr.tenantID,
+		"method": method,
 	}).Observe(duration.Seconds())
 }
 
@@ -217,7 +193,6 @@ func (mr *MetricRecorder) RecordMCPTool(tool, status, errorClass string, duratio
 	MCPToolExecutions.With(prometheus.Labels{
 		"tool_name": tool,
 		"status":    status,
-		"tenant_id": mr.tenantID,
 	}).Inc()
 	mr.muster.RecordMCPTool(tool, status, errorClass, duration)
 }
@@ -283,18 +258,6 @@ func (mr *MetricRecorder) SetAuditBufferUtilization(ratio float64) {
 	defer mr.mu.Unlock()
 
 	mr.muster.SetAuditBufferUtilization(ratio)
-}
-
-func (mr *MetricRecorder) RecordCacheHit() {
-	mr.mu.Lock()
-	defer mr.mu.Unlock()
-	DaemonCacheHits.Inc()
-}
-
-func (mr *MetricRecorder) RecordCacheMiss() {
-	mr.mu.Lock()
-	defer mr.mu.Unlock()
-	DaemonCacheMisses.Inc()
 }
 
 func (mr *MetricRecorder) IncMCPConnections() {

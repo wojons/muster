@@ -8,6 +8,13 @@ This document describes the standardized metrics naming convention and methodolo
 
 All metrics follow the format: `<namespace>_<subsystem>_<name>_<unit>_<suffix>`
 
+Muster's shipped process-scoped namespaces are `muster_cli`, `muster_mcp`, and
+`muster_daemon`. CLI and MCP families omit the locally configured `tenant_id`
+label because it is constant for the lifetime of those processes. Daemon
+families retain `tenant_id` because the long-lived daemon is the process that
+may need to distinguish tenants. The daemon cache hit/miss families are not
+exported until a cache exists to count.
+
 ### Metric Types and Suffixes
 
 | Type | Suffix | Example |

@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,12 +50,12 @@ func TestMetricRecorder_RecordCommandExecution(t *testing.T) {
 	var foundExec, foundDur bool
 	for _, mf := range metrics {
 		switch mf.GetName() {
-		case "openapi_cli_command_executions_total":
+		case "muster_cli_command_executions_total":
 			foundExec = true
 			if len(mf.GetMetric()) == 0 {
 				t.Error("command_executions_total has no metrics")
 			}
-		case "openapi_cli_command_duration_seconds":
+		case "muster_cli_command_duration_seconds":
 			foundDur = true
 			if len(mf.GetMetric()) == 0 {
 				t.Error("command_duration_seconds has no metrics")
@@ -82,7 +83,7 @@ func TestMetricRecorder_RecordCommandError(t *testing.T) {
 
 	found := false
 	for _, mf := range metrics {
-		if mf.GetName() == "openapi_cli_command_errors_total" {
+		if mf.GetName() == "muster_cli_command_errors_total" {
 			found = true
 			if len(mf.GetMetric()) == 0 {
 				t.Error("command_errors_total has no metrics")
@@ -108,9 +109,9 @@ func TestMetricRecorder_RecordMCPRequest(t *testing.T) {
 	var foundReq, foundDur bool
 	for _, mf := range metrics {
 		switch mf.GetName() {
-		case "openapi_mcp_requests_total":
+		case "muster_mcp_requests_total":
 			foundReq = true
-		case "openapi_mcp_request_duration_seconds":
+		case "muster_mcp_request_duration_seconds":
 			foundDur = true
 		}
 	}
@@ -135,7 +136,7 @@ func TestMetricRecorder_RecordToolExecution(t *testing.T) {
 
 	found := false
 	for _, mf := range metrics {
-		if mf.GetName() == "openapi_mcp_tool_executions_total" {
+		if mf.GetName() == "muster_mcp_tool_executions_total" {
 			found = true
 			if len(mf.GetMetric()) == 0 {
 				t.Error("tool_executions_total has no metrics")
@@ -160,7 +161,7 @@ func TestMetricRecorder_RecordProxyRequest(t *testing.T) {
 
 	found := false
 	for _, mf := range metrics {
-		if mf.GetName() == "openapi_daemon_proxy_requests_total" {
+		if mf.GetName() == "muster_daemon_proxy_requests_total" {
 			found = true
 			if len(mf.GetMetric()) == 0 {
 				t.Error("proxy_requests_total has no metrics")
@@ -169,53 +170,6 @@ func TestMetricRecorder_RecordProxyRequest(t *testing.T) {
 	}
 	if !found {
 		t.Error("proxy_requests_total not found")
-	}
-}
-
-func TestMetricRecorder_RecordCacheHit(t *testing.T) {
-	mr := NewMetricRecorder("t1", nopLogger())
-	mr.RecordCacheHit()
-	mr.RecordCacheHit()
-
-	metrics, err := prometheus.DefaultGatherer.Gather()
-	if err != nil {
-		t.Fatalf("Gather failed: %v", err)
-	}
-
-	found := false
-	for _, mf := range metrics {
-		if mf.GetName() == "openapi_daemon_cache_hits_total" {
-			found = true
-			if len(mf.GetMetric()) > 0 && mf.GetMetric()[0].GetCounter().GetValue() != 2 {
-				t.Errorf("cache_hits = %v, want 2", mf.GetMetric()[0].GetCounter().GetValue())
-			}
-		}
-	}
-	if !found {
-		t.Error("cache_hits_total not found")
-	}
-}
-
-func TestMetricRecorder_RecordCacheMiss(t *testing.T) {
-	mr := NewMetricRecorder("t1", nopLogger())
-	mr.RecordCacheMiss()
-
-	metrics, err := prometheus.DefaultGatherer.Gather()
-	if err != nil {
-		t.Fatalf("Gather failed: %v", err)
-	}
-
-	found := false
-	for _, mf := range metrics {
-		if mf.GetName() == "openapi_daemon_cache_misses_total" {
-			found = true
-			if len(mf.GetMetric()) > 0 && mf.GetMetric()[0].GetCounter().GetValue() != 1 {
-				t.Errorf("cache_misses = %v, want 1", mf.GetMetric()[0].GetCounter().GetValue())
-			}
-		}
-	}
-	if !found {
-		t.Error("cache_misses_total not found")
 	}
 }
 
@@ -233,7 +187,7 @@ func TestMetricRecorder_IncDecMCPConnections(t *testing.T) {
 
 	found := false
 	for _, mf := range metrics {
-		if mf.GetName() == "openapi_mcp_active_connections" {
+		if mf.GetName() == "muster_mcp_active_connections" {
 			found = true
 			if len(mf.GetMetric()) > 0 && mf.GetMetric()[0].GetGauge().GetValue() != 1 {
 				t.Errorf("active_connections = %v, want 1", mf.GetMetric()[0].GetGauge().GetValue())
@@ -260,7 +214,7 @@ func TestMetricRecorder_IncDecDaemonSocketConnections(t *testing.T) {
 
 	found := false
 	for _, mf := range metrics {
-		if mf.GetName() == "openapi_daemon_active_socket_connections" {
+		if mf.GetName() == "muster_daemon_active_socket_connections" {
 			found = true
 			if len(mf.GetMetric()) > 0 && mf.GetMetric()[0].GetGauge().GetValue() != 2 {
 				t.Errorf("active_socket_connections = %v, want 2", mf.GetMetric()[0].GetGauge().GetValue())
@@ -281,7 +235,7 @@ func TestMetricRecorder_ConcurrentAccess(t *testing.T) {
 		go func() {
 			mr.RecordCommandExecution("cmd", "success", time.Millisecond)
 			mr.IncMCPConnections()
-			mr.RecordCacheHit()
+
 			mr.DecMCPConnections()
 			done <- struct{}{}
 		}()
@@ -318,10 +272,15 @@ func TestMetricRecorder_DifferentTenantIDs(t *testing.T) {
 
 	found := false
 	for _, mf := range metrics {
-		if mf.GetName() == "openapi_cli_command_executions_total" {
+		if mf.GetName() == "muster_cli_command_executions_total" {
 			found = true
 			if len(mf.GetMetric()) == 0 {
 				t.Error("command_executions_total has no metrics")
+			}
+			for _, label := range mf.GetMetric()[0].GetLabel() {
+				if label.GetName() == "tenant_id" {
+					t.Error("CLI metrics must not carry tenant_id")
+				}
 			}
 		}
 	}
@@ -444,15 +403,52 @@ func TestMetricsServer_ShutdownNilServer(t *testing.T) {
 	}
 }
 
-func TestNamespaceConstants(t *testing.T) {
-	if NamespaceCLI != "openapi_cli" {
-		t.Errorf("NamespaceCLI = %q, want openapi_cli", NamespaceCLI)
+func TestMetricNamespaces(t *testing.T) {
+	if NamespaceCLI != "muster_cli" {
+		t.Errorf("NamespaceCLI = %q, want muster_cli", NamespaceCLI)
 	}
-	if NamespaceMCP != "openapi_mcp" {
-		t.Errorf("NamespaceMCP = %q, want openapi_mcp", NamespaceMCP)
+	if NamespaceMCP != "muster_mcp" {
+		t.Errorf("NamespaceMCP = %q, want muster_mcp", NamespaceMCP)
 	}
-	if NamespaceDaemon != "openapi_daemon" {
-		t.Errorf("NamespaceDaemon = %q, want openapi_daemon", NamespaceDaemon)
+	if NamespaceDaemon != "muster_daemon" {
+		t.Errorf("NamespaceDaemon = %q, want muster_daemon", NamespaceDaemon)
+	}
+}
+
+func TestMetricRecorderLabelScopes(t *testing.T) {
+	mr := NewMetricRecorder("tenant-a", nopLogger())
+	mr.RecordCommandExecution("discover", "success", 0)
+	mr.RecordMCPRequest("tools/list", 0)
+	mr.RecordProxyRequest("/projects/123", "GET")
+
+	defaultMetrics, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("Gather failed: %v", err)
+	}
+	for _, mf := range defaultMetrics {
+		if strings.HasPrefix(mf.GetName(), NamespaceCLI+"_") || strings.HasPrefix(mf.GetName(), NamespaceMCP+"_") {
+			for _, metric := range mf.GetMetric() {
+				for _, label := range metric.GetLabel() {
+					if label.GetName() == "tenant_id" {
+						t.Errorf("%s must not carry tenant_id", mf.GetName())
+					}
+				}
+			}
+		}
+	}
+	for _, mf := range defaultMetrics {
+		if mf.GetName() == "muster_daemon_proxy_requests_total" {
+			if len(mf.GetMetric()) == 0 {
+				t.Fatal("daemon proxy metric has no samples")
+			}
+			foundTenant := false
+			for _, label := range mf.GetMetric()[0].GetLabel() {
+				foundTenant = foundTenant || label.GetName() == "tenant_id"
+			}
+			if !foundTenant {
+				t.Error("daemon metrics must carry tenant_id")
+			}
+		}
 	}
 }
 
@@ -468,8 +464,6 @@ func TestGlobalMetricsRegistered(t *testing.T) {
 		MCPToolExecutions,
 		DaemonActiveSockets,
 		DaemonProxyRequests,
-		DaemonCacheHits,
-		DaemonCacheMisses,
 	}
 
 	for i, c := range globals {
