@@ -1078,3 +1078,78 @@ skill's `scripts/` dir holds only `append-rows-verify.sh`, `doc-command-census.s
 SKIPPED for a stronger reason than "daemon down": the harness itself is not present. That
 corroborates the existing **`SKIPPED-install-bunker`** row (status `complete`, which records the
 four-agent unreachability evidence from run 4); no new row filed.
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` — pass 7 (seventh fire: the shipped `.star` examples and the DSL guide)
+
+**State at fire.** `/home/kara/wojons/muster`, branch `main`, HEAD `79d322f6` ("board(releng): bind pass 18
+evidence commit 614687fd to RELEASE-014", 2026-11-14 19:00:56 -0500). Local is **1 ahead / 0 behind**
+`origin/main` — a sibling releng lane committed board state and has not pushed it, so this pass's push publishes
+that commit too (disclosed here deliberately). Working tree clean at probe time. Product-only drift since the
+pass-5 pin `75ae5494`: `git diff --stat 75ae5494..HEAD -- . ':(exclude).coding-hermes'` = **two releng markdown
+records, zero product bytes** (`releng/muster-releng-2026-11-13-21-51-31.md`,
+`releng/muster-releng-2026-11-14-23-03-21.md`). Board: `SKIPPED-install-bunker` complete, `QA-MUSTER-041`
+pending, nothing pending on the DSL/examples surface.
+
+**Why this pass.** Passes 1–6 walked MCP, the production-spec scale probe, the install leg and CI. None of them
+ran the shipped `.star` examples or followed the DSL guide as a user would. This fire does that, and it is where
+the pass found its one new defect.
+
+**The finding — a shipped example that cannot run, presented four times as runnable → `QA-MUSTER-042`.**
+
+    $ openapi-cli dsl run demo/scripts/workflow.star --verbose
+    Error: compile error: demo/scripts/workflow.star:15:1: if statement not within a function
+    $ echo $?
+    1
+
+Zero bytes on stdout — not even the `print("Input:", …)` on line 13, because Starlark rejects the top-level
+`if` at **compile** time, before the script starts. This is not a file nobody points at: `README.md:173`
+quick-start lists `openapi-cli dsl run workflow.star`; `docs/guides/commands.md:402` uses this exact path as the
+`dsl` example; `docs/guides/starlark-dsl.md:148` names it as one of three "runnable example scripts"; and
+`docs/guides/starlark-dsl.md:222-231` (Example 5, Verbose Variable Dump) prints the transcript a user should
+expect — `Input: hello world`, `Output: HELLO WORLD`, `Success: Data validated and transformed` plus binding
+lines — output no build of this product can produce. A user following the guide hits a compile error on the
+guide's own example while the guide pre-prints the success transcript; that reads as a broken install, which is
+why it is a row and not a typo.
+
+Filed as `QA-MUSTER-042` (P3, complexity 1, ids from the minter, never hand-chosen) with five acceptance
+criteria: make it compile *or* stop calling it runnable; add a guard that compiles every `demo/scripts/*.star` so
+examples cannot rot silently; make Example 5 reproduce the real `--verbose` output byte-for-byte; do not close it
+by redirecting readers to `demo/dsl/workflow.star` (a different script that does run, while all four references
+name `demo/scripts/workflow.star`); and re-run `boardctl validate`.
+
+**Corroboration, deliberately not re-filed → note on `QA-MUSTER-041`.** The 2.0 form-encoding case reproduced:
+petstore v2 declares `updatePetWithForm` with `name`/`status` as `in: formData`, the generated command
+`update-pet-with-form 1` exposes only the path argument (`--name Rex` → `unknown flag`, rc=1), and the bare call
+sends `POST /pet/1` with no body and no content-type, as captured by a local echo server. Multipart operations
+on the same spec (`upload-file`) do expose file flags, so the gap is specifically non-file form data.
+`QA-MUSTER-041` is still pending, so per the filing doctrine this went in as a `--note` — with three anchors
+re-read and confirmed in this fire: `pkg/openapi/swagger2.go:161` claims `in:formData → form request bodies`
+conversion, `internal/builtin/generate.go:503-519` (`detectMultipartOperation`, content lookup at :519) only ever
+looks for `multipart/form-data`, and `pkg/openapi/parser.go:306` (`hasMultipartBody`) does the same — not as a
+sibling row.
+
+**Step 2b (perf) — nothing user-noticeable, and no number I am willing to certify from this fire.** The
+measurements visible to this pass are from this tick's earlier legs, whose tool output was compressed out of
+context; two attempts to re-measure in this fire were gated without operator consent and **did not run**, so
+those figures are recorded in `QA-MUSTER-042` as explicitly unverified and are not restated as fact here. What
+this pass can stand behind: the failing path above returns in milliseconds (compile error, no network), and the
+5.4 MB Kubernetes spec does generate a full command registry rather than dropping operations. Per the tick's own
+rule — a win nobody can feel is not a finding — **no PERF row is filed.**
+
+**Install leg — SKIPPED, no second row (fresh evidence this fire).** `ssh bunker-mvp` rc=0,
+`systemctl --user is-active bunkerd` → `inactive`, `bunker-qa.sh` not found (`no-bunker-qa-sh`), root fs 76%
+(150 G total, 36 G free). Cites the existing `SKIPPED-install-bunker` row (complete). The install leg is a
+documented skip with current evidence, never a silent pass.
+
+**Verify-the-write (filed is not proof).** `boardctl create` printed `created task QA-MUSTER-042`; re-read the
+board and the row is there with `status=pending`, `priority=P3`, `complexity=1`, non-empty
+`acceptance_criteria`, and the paired `task_created` event is the board tail (event 1065). `boardctl update
+QA-MUSTER-041` was re-read back with the new note attached. `boardctl validate -C /home/kara/wojons/muster` →
+`RESULT: OK (264 warning(s))`, all warnings being legacy event shapes that predate this tick. Two notes were
+appended to `QA-MUSTER-042` — the second is the correction that withdraws the unverified perf figures, so the
+row can never be read as carrying numbers this fire did not measure.
+
+**Hygiene.** No product code changed, no existing row status changed, no row reopened, no credential values
+recorded. Specs used were the public petstore v2 and Kubernetes v1.20.0 documents; wire assertions came from a
+local echo server on `127.0.0.1:8731` (scratch, stopped). No repository visibility or permission touched, no
+credentials minted, no disabled project touched.
