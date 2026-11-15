@@ -1425,3 +1425,64 @@ record, which is why the correction above is prose rather than a board row. No `
 executed this fire, pass 9's 14–121 ms warm/cold numbers already sit below any user-noticeable threshold, and the empty
 product diff means they still describe HEAD. No row status changed, no row reopened, no product code touched, no credential
 minted or recorded, no repository visibility or permission changed, no disabled project touched.
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` (pass 12) — duplicate fire: two fixture servers this tick left listening for five hours, found and reaped
+
+Twelfth fire of this tick, fourth consecutive duplicate. Nothing on the board is pending for a dogfood lane,
+nothing changed since pass 11, and the product tree has not moved since pass 9 measured it — so product use,
+the install leg and the perf leg are **INHERITED**. The fire's actual delivery is one teardown and one record
+correction.
+
+### Drift proof (why inheritance is valid)
+
+`git diff --name-only 39f8ef10..HEAD` → ten paths, none of them product, test or doc source:
+`.coding-hermes/board/{tasks,events}.jsonl`, `.coding-hermes/dogfood-log.md`,
+`.coding-hermes/evidence/ops-qa024-20261114-2310.md`, four `.coding-hermes/waves/muster-foreman-*.json`, and
+two `releng/muster-releng-*.md`. The newest product-side code commit is still `39f8ef10` ("fix: repair atomic
+release package mapping"). HEAD `13bf1140` == `origin/main` (0/0 after `git fetch`), porcelain clean, no
+`REBASE_HEAD`/`MERGE_HEAD`/`CHERRY_PICK_HEAD` marker, no `index.lock`. Board: 375 rows / 1071 events at HEAD
+and in the working tree; `boardctl validate -C .coding-hermes/board` → `RESULT: OK (264 warning(s))`, the
+unchanged legacy-shape count.
+
+### Residue found — two demo mocks, five hours old, still listening on all interfaces
+
+Re-deriving teardown (the one thing a duplicate fire must re-derive rather than inherit) with a scan by
+process *cwd* instead of only by port turned up two servers running out of this tick's own scratch tree:
+
+| pid | cmdline | listener | elapsed at scan | started (derived) |
+|---|---|---|---|---|
+| 2257531 | `.venv/bin/python3 demo/services/task-forge/server.py` | `0.0.0.0:9801` | 05:04:16 | ≈2026-11-14T21:25Z |
+| 2439122 | `.venv/bin/python3 demo/services/inkwell/server.py` | `0.0.0.0:9803` | 04:58:59 | ≈2026-11-14T21:30Z |
+
+Both had cwd `/home/kara/.hermes/cache/scratch/dogfood-muster-162236/repo`, 1 s of CPU each, no established
+connections, and a parent that had already exited — orphans of the pass 2–4 CLI walks, launched as fixtures
+and never reaped.
+
+### Correction — passes 3–11's teardown claims searched too narrow a scope
+
+Pass 3 (this file) recorded "no process of mine left running" after reaping four openapi-daemons; passes 5–7
+repeated the line; pass 11 went further and wrote "no listener on the run's ports 18641/18642 (nor any
+listener attributed to this user)". That parenthetical is false: two listeners attributed to this user were up
+the whole time. Each of those checks scanned either its own probe's port or a cwd under its own
+pass-scratch subdirectory, while the mocks ran from the scratch *repo root*, so the pattern never matched
+them. The rule this lane should carry forward: teardown scans `ss -ltnp` for anything this user owns and a
+/proc cwd walk over the whole `dogfood-muster-*` tree — not just the current pass's subdirectory.
+
+### Teardown
+
+`kill -TERM 2257531 2439122` at 2026-11-15T02:29Z; both exited, `ss -ltnp` now shows `0.0.0.0:9801` and
+`0.0.0.0:9803` free, and the /proc cwd walk over `dogfood-muster-*` returns nothing. The 1.2 GB scratch tree
+is left to the 24-hour pruner, as pass 3 recorded.
+
+### Not filed
+
+No board row: the finding is harness hygiene inside this lane's own scratch tree, not a surface a muster user
+can reach, so there is nothing for a foreman to fix. No `PERF` row either — no product operation ran this
+fire, and pass 9's 14–121 ms warm/cold numbers were measured against a product tree byte-identical to HEAD,
+so they still describe it. No row status changed, no row reopened, no product code touched, no credential
+minted or recorded, no repository visibility or permission changed, no disabled project touched.
+
+### Artifacts
+
+- This log section, committed and pushed to `origin/main`.
+- Fixture leak closed: pids 2257531 / 2439122 killed, ports 9801 / 9803 released.
