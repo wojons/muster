@@ -1228,3 +1228,91 @@ honestly report "nothing slow" and this one files a real number. The two rows fi
 `bunkerd` is now `inactive` and `~/bunker-qa.sh` is gone, so the leg is a documented skip citing the existing
 `SKIPPED-install-bunker` row (verified `complete` on the board), not a silent pass.
 
+
+## Tick muster-dogfood-2026-11-14-21-06-01 (pass 9) — transient failures: the product retries nothing, and the documented way to cap a hung request is silently ignored
+
+Product tree `270a282a` (unchanged since pass 8; `git diff --stat 270a282a..HEAD -- . ':!.coding-hermes'` → empty), binary
+`/home/kara/.hermes/cache/scratch/dogfood-muster-p8/cli-head` built by `git archive` from that tree. Board rows committed
+as `e712a6d9`. Passes 1–8 covered the DSL, the store, MCP, scale and the install leg; this pass took the failure paths a
+user hits on a bad network day, because "all tests green" says nothing about what happens when an upstream answers 503.
+
+### What I did (real use, not code reading)
+
+Built a 120-line local probe server (`dogfood-muster-p9/server.py`) that mimics the ugly half of real APIs, generated a CLI
+from a spec covering it (`spec.yaml`), and drove the *generated* commands plus the built-in `request` command:
+
+| endpoint | behaviour | used to test |
+|---|---|---|
+| `/ok` | 200 JSON | baseline, output modes |
+| `/flaky` | 503, 503, then 200 (attempt counter in body) | retry expectation |
+| `/ratelimited` | 429 + `Retry-After: 3` | rate-limit handling |
+| `/always500` | permanent 500 | error exit path |
+| `/redirect`, `/gzip`, `/chunked`, `/slow` (2 s), `/delete` (204), `/big` (2 MB) | protocol basics | non-findings below |
+| `hang.py` on :18642 | accepts TCP, never answers | timeout knobs |
+
+Arms were run with a private `HOME`/`XDG` root each, and `/flaky` is reset via `/reset` between arms so the second arm
+cannot inherit a served counter — otherwise the comparison proves nothing.
+
+### What broke
+
+**1. `QA-MUSTER-044` (P2) — retries never happen, and `MUSTER_MAX_RETRIES` is inert.** A transient 503 fails on the first
+attempt: generated `get-flaky` → `rc=1`, 16 ms, **1** request; with `MUSTER_MAX_RETRIES=3` → `rc=1`, 17 ms, **1** request.
+The built-in `request GET /flaky` behaves identically (18 ms / 16 ms, 1 request). A 429 with `Retry-After: 3` also dies
+instantly (`Error: HTTP error: 429 Too Many Requests`), and the header value never reaches the user. Attribution:
+`pkg/request/builder.go:260-261` calls `client.Do` with no retry wrapper; `pkg/client/client.go:106 WithRetryConfig` /
+`:399 doWithRetry` exist but have **zero non-comment call sites**; `pkg/config/loader.go:208-213` parses
+`MUSTER_MAX_RETRIES` into `cfg.MaxRetries`, which nothing consumes. So the docs advertise retry logic and a retry knob
+that both do nothing. Filed as a product row, with the repro as its acceptance criterion.
+
+**2. `QA-MUSTER-045` (P3) — the documented hung-request fix is silently ignored.** `docs/guides/troubleshooting.md:232`
+tells the user to `export MUSTER_HTTP_TIMEOUT=30s`; `docs/api/README.md:345` uses `60s`; the API card says the default is
+`30s`. `pkg/request/builder.go:272-280` parses that variable with `strconv.Atoi`, so any suffixed value fails to parse and
+falls back to 30 s **without a word**. Measured against a server that never answers: unset → 30,024 ms, `=3` → **3,113 ms**
+(integer works), `=2s` → **30,033 ms** (identical to unset). The one doc that is right (`configuration.md:138`, integer
+form) is the one a panicking user does not open.
+
+### Non-findings (explicitly not filed)
+
+Redirect follow, gzip decoding, chunked transfer, 204 with no body, a 2 MB body, generating from an `http://` spec URL
+(and a clean non-zero exit with a readable message on a 404 spec URL), typed vs generic output, and the documented table
+truncation flag all behaved correctly on the first try. Non-zero exit codes are correct on 4xx/5xx — the problem is only
+that nothing retries.
+
+### Install leg — RAN this fire (not a skip)
+
+Last pass had `bunkerd` `inactive` and cited the existing `SKIPPED-install-bunker` row. This fire the agents are up again,
+so the leg was actually executed: `bunker-qa.sh launch /home/kara/wojons/muster` → agent `75b01ba1` on `bunker-mvp`
+(ttl 4 h), collected to `/tmp/bunker-qa-evidence-20261115T014227Z-2610703.jsonl` (23 rows, per-cell logs in
+`.logs/qa-logs-1132479/`). Verdicts: **17 OK, 1 PASS, 5 INFO, 1 N/A, 1 FAIL** — toolchain bootstrap (Go 1.27.4, gcc,
+node 22.15, docker+compose+buildx) OK, **fresh-install OK** (compile from a streamed tree on a clean agent), tests OK,
+ci-pass OK (`act`, 1 job green), docker_build OK, compose_config OK, chaos-shutdown OK, chaos-resource PASS under a 3 GB
+cap. The single FAIL is the **upgrade** cell and it is already tracked: `up1.log` shows the real cause is
+`wasmtime-go/v8 … disallowed LTO section ".llvmbc"` plus libseccomp missing from pkg-config — exactly what pending
+`QA-MUSTER-034` and `QA-MUSTER-013-R2` describe, and what completed `QA-MUSTER-013` already established. **Not re-filed.**
+The `chaos-errorpath` INFO ("started but exited cleanly on missing config") is just `openapi-daemon` printing usage and
+exiting 0 on no arguments — conventional, not filed. The `lint` INFO is the agent lacking `golangci-lint`; lint did not run,
+so this fire proves nothing about lint.
+
+### Performance (Step 2b) — no row filed, and here is the number that says why
+
+Warm/cold on a clean `git archive` build with a private `HOME`, load 3.50: `version` 14 ms cold (fresh config root) and
+14 ms warm, `generate spec.yaml` 15 ms, `get-ok` 15 ms, `get-big` (2 MB body over loopback) **121 ms**. Startup is
+dominated by process spawn, nothing here is slow enough for a user to feel, so no `PERF` row — the store-size tax that
+`PERF-002` tracks only appears once the command store is large, which this pass did not touch. (The prior fire's
+"0.010 s" figure measured a different, empty-store configuration; both can be true.)
+
+### Verify-the-write (filed is not proof)
+
+`grep -c '"id": "QA-MUSTER-044"'` → 0 and `...045` → 0 before the append; `wc -l` 372 → 374 after; both ids present
+exactly once; `git show e712a6d9:.coding-hermes/board/tasks.jsonl | grep -c '"id": "QA-MUSTER-04[45]"'` → **2**
+(the committed tree, not the working copy); `boardctl validate` → `RESULT: OK (264 warning(s))`, the same count as
+before the append, all pre-existing legacy shapes; `git status --porcelain` → clean; GitReins Tier 1 (secrets, go build)
+PASS on the commit.
+
+### Hygiene
+
+No product code touched, no row status changed, no row reopened, no credential values recorded, no repository
+visibility or permission changed, no credential minted, no disabled project touched. Every artifact lives under
+`/home/kara/.hermes/cache/scratch/dogfood-muster-p9/` (`server.py`, `hang.py`, `spec.yaml`, `drive.sh`, `evidence.sh`,
+`evidence.txt`, `append_rows.py`, `hperf9/`), and the battery output under `/tmp/`; nothing added to the repo tree except
+this log entry and the two board rows.
