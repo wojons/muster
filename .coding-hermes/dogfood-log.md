@@ -1486,3 +1486,82 @@ minted or recorded, no repository visibility or permission changed, no disabled 
 
 - This log section, committed and pushed to `origin/main`.
 - Fixture leak closed: pids 2257531 / 2439122 killed, ports 9801 / 9803 released.
+
+## Tick `muster-dogfood-2026-11-14-21-06-01` (pass 13) — the install leg finally runs, and the reason it never had was this lane's own script
+
+HEAD `fd516459f4bd`. The product-side tip is still `39f8ef10` (2026-11-14 05:12), i.e. `internal/ pkg/ cmd/
+Makefile go.mod` are byte-identical to pass 9's measurement and to passes 10-12. So the USE walk was not
+re-run; pass 9's rows still describe this tree. What pass 13 added is the leg that thirteen fires had
+recorded as impossible: a real ephemeral install battery on a clean host.
+
+### The blocker was local, and the board said otherwise
+
+Row `SKIPPED-install-bunker` (complete) reads "all four bunker agents unreachable or daemon down". At
+21:46Z `bunker list --server bunker-las-03 --status all` returned zero agents on a host with 4 cores, 48G
+free and 78% disk — the install leg was runnable the whole time. Two consecutive `bunker-qa.sh launch`
+calls died differently: not on the network, but inside the script's own orphan reaper
+(`~/.hermes/scripts/bunker-qa.sh:3570-3595`). It walks `/tmp/bunker-qa-orphans/*.lock` and issues
+`bunker destroy <id> --server <server>` before spawning. On this box that produced two concurrent
+`bunker destroy ae4fc551 --server bunker-mvp` processes, both ESTAB on `100.115.67.116:19090` in
+`futex_wait` for over four minutes — past the whole 420s launch budget — and the launch never reached
+`spawn_agent`. A bounded control (`timeout 20 bunker destroy ae4fc551 --server bunker-mvp`) finished in
+0.66s, so destroy is not the slow part; the unbounded wait on a lock naming an agent of a *different
+server* is. Third attempt with `BUNKER_QA_ORPHAN_LOCK_DIR` pointed at an empty directory launched in ~70s.
+That workaround is disclosed here because it is a workaround: the script asked me to reap, the locks were
+stale and named a server I was not launching against, and the honest reading is that the reaper wedged
+itself, not that the fleet was down.
+
+### Install leg — first real run in thirteen fires
+
+Agent `9b8b5f4d` on `bunker-las-03`, evidence `/tmp/bunker-qa-evidence-20261115T024838Z-3432051.jsonl`,
+23 lines, 15 distinct cells: **15 OK, 1 PASS, 5 INFO, 1 N/A, 1 FAIL.**
+
+- `toolchain-bootstrap` OK — Go 1.27.4 installed on a bare host (floor 1.26.11), plus compose, buildx, node.
+- `fresh-install` OK — `go build ./...` from a synced tree, dependencies resolved from scratch.
+- `tests` OK — 52 `ok` package lines, 0 `^FAIL`, from `~/qa-logs-140666/tests.log`: `test/e2e` 35.1s,
+  `test/security` 127.9s, `test/production` 4.6s, `test/buildscript` 3.8s.
+- `docker_build` OK, `compose_config` OK, `ci-pass` OK (act: 1 job, green).
+- `chaos-resource` PASS (suite survives a 3G cap), `chaos-shutdown` OK, `chaos-corruption` N/A.
+- `lint` INFO — "golangci-lint unavailable on agent, lint was not run". The clean-machine gate never lints.
+- `docker-deploy` INFO — "compose up OK, probe 000". Not a defect: `README.md:274` says plain
+  `docker compose up -d` starts core dependencies only and the app needs `--profile prod`, so a 000 probe
+  is the documented shape. Docs and behaviour agree here.
+- `upgrade` FAIL — the `v0.1.0` tag tree does not build on Go 1.27.4 ("disallowed LTO section .llvmbc" in
+  wasmtime-go's precompiled lib) and the agent has no libseccomp. This is exactly what QA-MUSTER-13 and
+  QA-MUSTER-17 already cover and closed, so it is not re-filed; it is recorded because a reader of the
+  evidence file will see one FAIL and should know it is the known one.
+
+### Product controls
+
+Because `chaos-errorpath` reported "application started but exited cleanly on missing config (rc=0)", I
+probed the CLI directly against the same HEAD build: `--config /nonexistent/muster.yaml version` → rc=1,
+`frobnicate` → rc=1 `unknown command`, `generate --spec /nonexistent/petstore.yaml` → rc=1, `generate`
+(no args) → rc=1. The product's error paths are correct through the CLI, so the INFO is not reproducible
+as a user-facing defect and no row was filed for it.
+
+### Performance
+
+Fresh `go build` at HEAD, empty state root: `--help` cold **10 ms** (maxrss 25,864 KB), warm n=20
+min/mean/max **10 ms**; `version` 10 ms; 100 sequential `version` calls **1,321 ms** → 13.2 ms/call
+(pass 9 measured 1,626 ms / 16.3 ms with the same tree, so this is the same number inside noise). Nothing
+here is slow enough that a user would feel it. The populated-store tax stays filed as PERF-002 against an
+unchanged tree, so no new PERF row: a second row for the same 60–80 ms would devalue the first.
+
+### Filed
+
+- `QA-MUSTER-046` P1 [HARNESS] — the orphan reaper wedges every launch on a stale/foreign lock.
+- `QA-MUSTER-047` P2 [HARNESS] — the battery reports coverage it does not have: lint never runs and is
+  graded INFO, and the `tests` cell detail is an empty string, so 52 green packages look identical to a
+  vacuous run.
+
+`boardctl validate` → RESULT: OK (264 pre-existing legacy warnings), 377 rows. No row status changed, no
+row reopened, no product code touched, no visibility or permission changed, no credential minted, no
+disabled project touched. The stale `SKIPPED-install-bunker` row is left exactly as it is; this section and
+QA-MUSTER-046 are the correction.
+
+### Teardown
+
+`bunker-qa.sh collect` aborted with `cannot reach agent=9b8b5f4d (ssh probe returned no state) — agent left
+intact`, after the run had already finished. All per-cell logs and the evidence JSONL were harvested off the
+agent *before* that attempt (`p13-cell-logs-final.tgz`, 25 KB, 23 evidence lines) per the rule that logs
+must be collected before any destroy trap.
