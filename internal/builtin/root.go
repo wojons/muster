@@ -345,7 +345,7 @@ func probePersistedCommands(cfg *config.Config) {
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	if _, err := file.Seek(info.Size()-readSize, io.SeekStart); err != nil {
 		return
 	}
