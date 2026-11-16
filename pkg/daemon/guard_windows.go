@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+
+	"golang.org/x/sys/windows"
 )
 
 // PROCESS_QUERY_LIMITED_INFORMATION (0x1000) is the minimal access right needed
@@ -17,15 +19,18 @@ const processQueryLimitedInformation uint32 = 0x1000
 // GetExitCodeProcess reports while the process is still running.
 const processStillActive uint32 = 259
 
-// ERROR_SHARING_VIOLATION is returned when another handle already holds the
-// file without permitting shared access.
-const errorSharingViolation = syscall.Errno(32)
+const (
+	// The guard byte is outside the PID text at offset 0. Windows byte-range
+	// locks are mandatory, so readers of the PID remain possible while this
+	// byte stays locked.
+	guardLockOffset uint32 = 0x7fffffff
+	guardLockFlags         = windows.LOCKFILE_EXCLUSIVE_LOCK | windows.LOCKFILE_FAIL_IMMEDIATELY
+)
 
-// acquireGuardLock opens (creating if needed) the guard file with NO sharing
-// permitted: on Windows the exclusive OPEN is the lock, so a second opener gets
-// ERROR_SHARING_VIOLATION and busy == true. Windows has no shared-probe mode
-// here, so a probe is exclusive too — it is held for microseconds either way,
-// and AcquireStartGuard retries through a concurrent probe.
+// acquireGuardLock opens (creating if needed) the guard file with read/write
+// sharing and takes an exclusive, non-blocking lock on a byte beyond the PID
+// text. The file remains readable for attribution while the guard byte provides
+// exclusion, including between two handles in one process.
 func acquireGuardLock(path string, _ bool) (*os.File, bool, error) {
 	ptr, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
@@ -34,27 +39,49 @@ func acquireGuardLock(path string, _ bool) (*os.File, bool, error) {
 	handle, err := syscall.CreateFile(
 		ptr,
 		syscall.GENERIC_READ|syscall.GENERIC_WRITE,
-		0,   // no sharing: this IS the lock
+		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE,
 		nil, // default security
 		syscall.OPEN_ALWAYS,
 		syscall.FILE_ATTRIBUTE_NORMAL,
 		0,
 	)
 	if err != nil {
-		if errors.Is(err, errorSharingViolation) {
+		return nil, false, fmt.Errorf("open guard file %s: %w", path, err)
+	}
+
+	overlapped := windows.Overlapped{Offset: guardLockOffset}
+	if err := windows.LockFileEx(
+		windows.Handle(handle),
+		guardLockFlags,
+		0,
+		1,
+		0,
+		&overlapped,
+	); err != nil {
+		_ = syscall.CloseHandle(handle)
+		if errors.Is(err, windows.ERROR_LOCK_VIOLATION) {
 			return nil, true, nil
 		}
-		return nil, false, fmt.Errorf("open guard file %s: %w", path, err)
+		return nil, false, fmt.Errorf("lock guard file %s: %w", path, err)
 	}
 	return os.NewFile(uintptr(handle), path), false, nil
 }
 
-// releaseGuardLock closes the guard handle, releasing the exclusive open.
+// releaseGuardLock unlocks the guard byte before closing the guard handle.
 func releaseGuardLock(file *os.File) error {
 	if file == nil {
 		return nil
 	}
-	return file.Close()
+	overlapped := windows.Overlapped{Offset: guardLockOffset}
+	unlockErr := windows.UnlockFileEx(
+		windows.Handle(file.Fd()),
+		0,
+		1,
+		0,
+		&overlapped,
+	)
+	closeErr := file.Close()
+	return errors.Join(unlockErr, closeErr)
 }
 
 // processAlive reports whether a process with the given PID is running. Only
