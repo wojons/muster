@@ -18,6 +18,40 @@ type Loader struct {
 	sources    []ConfigSource
 	v          *viper.Viper
 	configFile string // explicit config file path (from --config flag)
+
+	// Platform seams. All three are zero-valued in production, in which case
+	// they resolve to runtime.GOOS, os.Getenv and os.UserHomeDir exactly as
+	// before. Tests inject them so platform-specific branches — notably the
+	// Windows APPDATA/LOCALAPPDATA fallbacks — are reachable on any host.
+	goos        string
+	getenv      func(string) string
+	userHomeDir func() (string, error)
+}
+
+// platformGOOS reports the injected OS name, or the host's when none is set.
+func (l *Loader) platformGOOS() string {
+	if l.goos != "" {
+		return l.goos
+	}
+	return runtime.GOOS
+}
+
+// lookupEnv reads an environment variable through the injected seam when one
+// is present.
+func (l *Loader) lookupEnv(key string) string {
+	if l.getenv != nil {
+		return l.getenv(key)
+	}
+	return os.Getenv(key)
+}
+
+// homeDir resolves the user home directory through the injected seam when one
+// is present.
+func (l *Loader) homeDir() (string, error) {
+	if l.userHomeDir != nil {
+		return l.userHomeDir()
+	}
+	return os.UserHomeDir()
 }
 
 // NewLoader creates a new configuration loader
@@ -240,17 +274,17 @@ func parseInt(s string) (int, error)                { var n int; _, err := fmt.S
 
 // setDefaultPaths sets platform-specific default paths
 func (l *Loader) setDefaultPaths(cfg *Config) {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, _ := l.homeDir()
 
 	var configDir, cacheDir, dataDir string
 
-	switch runtime.GOOS {
+	switch l.platformGOOS() {
 	case "darwin":
 		configDir = filepath.Join(homeDir, "Library", "Application Support", "muster")
 		cacheDir = filepath.Join(homeDir, "Library", "Caches", "muster")
 		dataDir = filepath.Join(homeDir, "Library", "Application Support", "muster")
 	case "windows":
-		appDataDir := os.Getenv("APPDATA")
+		appDataDir := l.lookupEnv("APPDATA")
 		if appDataDir == "" {
 			configDir = filepath.Join(homeDir, ".config", "muster")
 			dataDir = filepath.Join(homeDir, ".local", "share", "muster")
@@ -259,7 +293,7 @@ func (l *Loader) setDefaultPaths(cfg *Config) {
 			dataDir = filepath.Join(appDataDir, "muster", "data")
 		}
 
-		localAppDataDir := os.Getenv("LOCALAPPDATA")
+		localAppDataDir := l.lookupEnv("LOCALAPPDATA")
 		if localAppDataDir == "" {
 			cacheDir = filepath.Join(homeDir, ".cache", "muster")
 		} else {

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -230,6 +231,94 @@ func TestSetDefaultPaths_NeverBuildsRelativePathsFromUnsetEnv(t *testing.T) {
 	require.NotEqual(t, "..", relativeConfigDir)
 	require.False(t, len(relativeConfigDir) >= 3 && relativeConfigDir[:3] == ".."+string(filepath.Separator),
 		"config dir must be a descendant of home: home=%q config=%q", homeDir, cfg.ConfigDir)
+}
+
+// TestSetDefaultPaths_WindowsEnvSeam exercises the Windows branch of
+// setDefaultPaths on any host by injecting the platform and environment seams.
+// Without the seam the branch is unreachable on linux/darwin: the test process
+// cannot change runtime.GOOS, so a Windows-only fallback is never executed.
+func TestSetDefaultPaths_WindowsEnvSeam(t *testing.T) {
+	const syntheticHome = "/synthetic/home"
+
+	// windowsLoader builds a Loader that claims to run on Windows and whose
+	// whole environment is env, with home pinned to a synthetic directory so
+	// no real filesystem state can influence the result.
+	windowsLoader := func(env map[string]string) *Loader {
+		return &Loader{
+			goos: "windows",
+			getenv: func(key string) string {
+				return env[key]
+			},
+			userHomeDir: func() (string, error) {
+				return syntheticHome, nil
+			},
+		}
+	}
+
+	t.Run("APPDATA and LOCALAPPDATA set", func(t *testing.T) {
+		appData := filepath.Join(syntheticHome, "AppData", "Roaming")
+		localAppData := filepath.Join(syntheticHome, "AppData", "Local")
+
+		cfg := &Config{}
+		windowsLoader(map[string]string{
+			"APPDATA":      appData,
+			"LOCALAPPDATA": localAppData,
+		}).setDefaultPaths(cfg)
+
+		assert.Equal(t, filepath.Join(appData, "muster"), cfg.ConfigDir)
+		assert.Equal(t, filepath.Join(appData, "muster", "data"), cfg.DataDir)
+		assert.Equal(t, filepath.Join(localAppData, "muster", "cache"), cfg.CacheDir)
+	})
+
+	t.Run("APPDATA and LOCALAPPDATA unset fall back under home", func(t *testing.T) {
+		// The env seam answers "" for every key: both Windows variables are
+		// unset, which is the branch the pre-seam code could only reach on a
+		// real Windows host.
+		cfg := &Config{}
+		windowsLoader(nil).setDefaultPaths(cfg)
+
+		assert.Equal(t, filepath.Join(syntheticHome, ".config", "muster"), cfg.ConfigDir)
+		assert.Equal(t, filepath.Join(syntheticHome, ".local", "share", "muster"), cfg.DataDir)
+		assert.Equal(t, filepath.Join(syntheticHome, ".cache", "muster"), cfg.CacheDir)
+
+		for name, path := range map[string]string{
+			"config": cfg.ConfigDir,
+			"cache":  cfg.CacheDir,
+			"data":   cfg.DataDir,
+		} {
+			t.Run(name, func(t *testing.T) {
+				require.NotEmpty(t, path)
+				require.True(t, filepath.IsAbs(path), "derived path must be absolute: %q", path)
+				require.NotEqual(t, filepath.Clean(path), filepath.Base(path),
+					"derived path must not be relative to the working directory: %q", path)
+				require.True(t, strings.HasPrefix(filepath.Clean(path), filepath.Clean(syntheticHome)+string(filepath.Separator)),
+					"fallback must live under the injected home: home=%q path=%q", syntheticHome, path)
+			})
+		}
+	})
+
+	t.Run("zero-value seams keep host behaviour", func(t *testing.T) {
+		// A Loader with no injected seams must resolve exactly like the host:
+		// this is the no-behaviour-change guard for production callers.
+		hostCfg := &Config{}
+		(&Loader{}).setDefaultPaths(hostCfg)
+
+		homeDir, err := os.UserHomeDir()
+		require.NoError(t, err)
+
+		switch runtime.GOOS {
+		case "windows":
+			// Only the shape is stable on the host: APPDATA is either set or not.
+			assert.Contains(t, hostCfg.ConfigDir, "muster")
+		case "darwin":
+			assert.Equal(t, filepath.Join(homeDir, "Library", "Application Support", "muster"), hostCfg.ConfigDir)
+			assert.Equal(t, filepath.Join(homeDir, "Library", "Caches", "muster"), hostCfg.CacheDir)
+		default:
+			assert.Equal(t, filepath.Join(homeDir, ".config", "muster"), hostCfg.ConfigDir)
+			assert.Equal(t, filepath.Join(homeDir, ".cache", "muster"), hostCfg.CacheDir)
+			assert.Equal(t, filepath.Join(homeDir, ".local", "share", "muster"), hostCfg.DataDir)
+		}
+	})
 }
 
 func TestLoader_Load(t *testing.T) {
