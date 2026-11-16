@@ -118,3 +118,6 @@ demo/.venv/
 /spec-validation-report.json
 /.session-*-complete.md
 /.tmp-spec-analysis.txt
+
+# gitreins rescue/recovery snapshots (generated)
+.gitreins/rescued-*/
