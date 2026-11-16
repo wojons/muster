@@ -1099,3 +1099,4 @@
 {"id":1105,"timestamp":"2026-11-16 01:00:25.007631","event_type":"task_completed","task_id":"REVIEW-MUSTER-22","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":1106,"timestamp":"2026-11-16 01:00:25.133036","event_type":"task_completed","task_id":"QA-MUSTER-035","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
 {"id":1107,"timestamp":"2026-11-16 01:00:25.219945","event_type":"task_completed","task_id":"REVIEW-MUSTER-28","actor":"foreman","detail":"{\"status\":\"complete\"}","tick_number":null}
+{"id":1108,"timestamp":"2026-11-16 01:11:20.115587","event_type":"task_created","task_id":"INT-CI-14","actor":"foreman","detail":"{\"id\":\"INT-CI-14\",\"status\":\"pending\"}","tick_number":null}
