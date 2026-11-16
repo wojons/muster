@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -300,6 +302,12 @@ func TestLoadAndRegisterTools_UnparseableSpecStaysFatal(t *testing.T) {
 // The same fixture driven through the real binary: the server starts (rc=0),
 // warns on stderr, and answers the handshake on stdout. Strict mode is proven
 // next to it with -strict-validation.
+//
+// The handshake is driven interactively (write a line, wait for its response,
+// keep stdin open) rather than by piping a fixed script and closing stdin: a
+// closed stdin makes the server free to exit while its responses are still
+// in flight, which is how this test flaked to 1-of-2 and 0-of-2 responses on
+// the CI runners while passing on a local host.
 func TestBinary_InvalidExampleWarnsAndServes(t *testing.T) {
 	binaryPath, err := buildMCPServer()
 	require.NoError(t, err, "failed to build MCP server binary")
@@ -311,21 +319,74 @@ func TestBinary_InvalidExampleWarnsAndServes(t *testing.T) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, binaryPath, "-spec", specPath)
-	cmd.Stdin = strings.NewReader(mcpHandshake)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
+	stdin, err := cmd.StdinPipe()
+	require.NoError(t, err)
+	stdout, err := cmd.StdoutPipe()
+	require.NoError(t, err)
+	var stderr syncBuffer
 	cmd.Stderr = &stderr
-	require.NoError(t, cmd.Run(), "the server must start on a spec with one invalid example")
+
+	require.NoError(t, cmd.Start(), "the server must start on a spec with one invalid example")
+
+	lines := make(chan string, 8)
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+		for scanner.Scan() {
+			lines <- scanner.Text()
+		}
+		close(lines)
+	}()
+
+	send := func(payload string) {
+		t.Helper()
+		_, writeErr := io.WriteString(stdin, payload+"\n")
+		require.NoError(t, writeErr, "writing to the server stdin failed; stderr: %s", stderr.String())
+	}
+
+	expectResponse := func(wantID float64) jsonrpcResponse {
+		t.Helper()
+		deadline := time.After(30 * time.Second)
+		for {
+			select {
+			case line, ok := <-lines:
+				if !ok {
+					t.Fatalf("stdout closed before the response to id %v arrived; stderr: %s", wantID, stderr.String())
+				}
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				var resp jsonrpcResponse
+				require.NoError(t, json.Unmarshal([]byte(line), &resp), "stdout must carry only JSON-RPC: %q", line)
+				if id, isNumber := resp.ID.(float64); isNumber && id == wantID {
+					return resp
+				}
+			case <-deadline:
+				t.Fatalf("timed out waiting for the response to id %v; stderr: %s", wantID, stderr.String())
+			}
+		}
+	}
+
+	handshake := strings.Split(strings.TrimSpace(mcpHandshake), "\n")
+	require.Len(t, handshake, 3, "the handshake is initialize + initialized + tools/list")
+
+	send(handshake[0])
+	initializeResp := expectResponse(1)
+	require.Nil(t, initializeResp.Error, "initialize must succeed")
+
+	send(handshake[1])
+	send(handshake[2])
+	toolsResp := expectResponse(2)
+	require.Nil(t, toolsResp.Error, "tools/list must succeed")
+
+	require.NoError(t, stdin.Close(), "closing stdin lets the server finish")
+	require.NoError(t, cmd.Wait(), "the server must exit cleanly once stdin closes")
 
 	require.Contains(t, stderr.String(), "Warning:", "the warning goes to stderr")
 	require.Contains(t, stderr.String(), `components/schema "Widget"`)
 	require.Contains(t, stderr.String(), "Widget.properties.version")
-	require.NotContains(t, stdout.String(), "Warning:", "stdout is the JSON-RPC wire only")
-
-	responses := parseJSONRPCLines(t, stdout.String())
-	require.Len(t, responses, 2, "initialize and tools/list must both be answered; stderr: %s", stderr.String())
-	require.Nil(t, responses[0].Error)
-	require.Nil(t, responses[1].Error)
+	require.NotContains(t, stderr.String(), "Fatal error:", "warn-and-continue must not refuse startup")
+	require.Contains(t, stderr.String(), "Generated 1 MCP tools", "the tool that can be built is still registered")
 }
 
 func TestBinary_InvalidExampleStrictRefuses(t *testing.T) {
