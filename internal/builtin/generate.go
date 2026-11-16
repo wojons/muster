@@ -173,7 +173,7 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&baseURL, "base-url", "u", "", "Base URL for the API (e.g., https://api.example.com)")
+	cmd.Flags().StringVarP(&baseURL, "base-url", "u", "", "Base URL for the API (e.g., https://api.example.com); overrides servers[0] declared by the spec")
 	cmd.Flags().BoolVar(&listStore, "list", false, "List the current persisted command store")
 	cmd.Flags().BoolVar(&clearStore, "clear", false, "Remove the persisted command store")
 	cmd.Flags().StringArrayVar(&specHeaders, "header", nil, "Header for the spec request (format: 'Name: Value', repeatable) — for authenticated spec URLs")

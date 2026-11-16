@@ -56,7 +56,7 @@ openapi-cli generate [<spec-path-or-url>] [flags]
 ```
 
 **Options**:
-- `-u, --base-url <url>` - Base URL for the API (e.g., `https://api.example.com`)
+- `-u, --base-url <url>` - Base URL for the API (e.g., `https://api.example.com`). Takes precedence over the `servers[0]` URL declared in the spec; when it displaces one, `generate` prints which server it overrode.
 - `--list` - List the current persisted command store (spec path, hash, generated at, command count)
 - `--clear` - Remove the persisted command store
 
