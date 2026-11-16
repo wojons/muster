@@ -4,12 +4,16 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // musterFamilies is the exact set docs/observability-spec.md §3.1 requires on
@@ -299,4 +303,64 @@ func httpGet(t *testing.T, url string) string {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode, "GET %s", url)
 	return string(body)
+}
+
+// TestAlertRulesOnlyReferenceShippedMetrics keeps prometheus/rules/alerts.yml in
+// lockstep with the registry this package serves. A rule that names a metric the
+// daemon never emits can never fire, which is how this file once documented
+// "LowCacheHitRatio" over a cache that does not exist. Every muster_* token in
+// the rules must therefore resolve to a family on the served registry.
+func TestAlertRulesOnlyReferenceShippedMetrics(t *testing.T) {
+	rulesPath := filepath.Join("..", "..", "prometheus", "rules", "alerts.yml")
+	raw, err := os.ReadFile(rulesPath)
+	require.NoError(t, err, "read %s", rulesPath)
+
+	m := NewMusterMetrics("tenant-a", "v1", "abc123")
+	// Materialise every family before gathering: a *Vec with no child series is
+	// absent from a scrape, so an unseeded gather would report a shipped family
+	// as missing and mask the real drift.
+	m.RecordProxyRequest("/pets/{id}", http.MethodGet, 200, time.Millisecond)
+	m.RecordAuditEvent("command.execute", "system")
+	m.RecordMCPTool("search", "ok", "none", time.Millisecond)
+	m.MarkUp()
+
+	families, err := m.Registry().Gather()
+	require.NoError(t, err)
+	shipped := make(map[string]bool, len(families))
+	for _, family := range families {
+		shipped[family.GetName()] = true
+	}
+
+	// node_exporter and Prometheus builtins (up, node_*) are deliberately not
+	// checked: this package only owns the muster_* namespace. Parsing the YAML
+	// (rather than grepping the file) keeps group and alert NAMES out of the
+	// metric scan and fails on a malformed rules file too.
+	var rulesFile struct {
+		Groups []struct {
+			Name  string `yaml:"name"`
+			Rules []struct {
+				Alert string `yaml:"alert"`
+				Expr  string `yaml:"expr"`
+			} `yaml:"rules"`
+		} `yaml:"groups"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &rulesFile), "parse %s", rulesPath)
+	require.NotEmpty(t, rulesFile.Groups, "no rule groups in %s", rulesPath)
+
+	token := regexp.MustCompile(`muster_[a-z0-9_]+`)
+	var unknown []string
+	for _, group := range rulesFile.Groups {
+		for _, rule := range group.Rules {
+			for _, tok := range token.FindAllString(rule.Expr, -1) {
+				name := strings.TrimSuffix(tok, "_bucket")
+				name = strings.TrimSuffix(name, "_sum")
+				name = strings.TrimSuffix(name, "_count")
+				if !shipped[name] {
+					unknown = append(unknown, rule.Alert+": "+tok)
+				}
+			}
+		}
+	}
+	require.Empty(t, unknown,
+		"prometheus/rules/alerts.yml references muster metrics the daemon does not serve: %v", unknown)
 }

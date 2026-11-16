@@ -50,9 +50,23 @@ sites, but its families now use the shipped `muster_cli`, `muster_mcp`, and
 vectors retain it. The daemon cache hit/miss declarations are absent because
 there is no cache to count.
 
-### 2.2 The shipped metric catalogue
+### 2.2 The legacy process-scoped catalogue
 
-Names below are the actual rendered Prometheus names.
+These are the families registered on the DEFAULT registry by
+`internal/monitoring/metrics.go` through `promauto`; the CLI and the stdio MCP
+server surface them through their process-appropriate textfile/lifecycle
+handlers, **not** through the daemon's metrics listener. Names below are the
+actual rendered Prometheus names.
+
+The daemon serves a separate explicit registry (`MusterMetrics`,
+`internal/monitoring/muster.go`) whose families differ: in that registry
+`muster_daemon_proxy_requests_total` carries `status_class`,
+`muster_mcp_tool_executions_total` uses `tool`/`status`/`error_class` plus a
+const `product="muster"`, and `muster_build_info`, `muster_daemon_up`, the two
+audit counters, the audit utilization gauge, `muster_mcp_tool_duration_seconds`
+and `muster_mcp_active_sessions` exist only there. The authoritative served
+table — names, types, label sets, port and path — is
+`docs/guides/daemon-operations.md` § "Metric families served on 127.0.0.1:9110".
 
 | Name | Type | Labels |
 |---|---|---|

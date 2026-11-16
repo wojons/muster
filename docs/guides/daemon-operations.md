@@ -21,15 +21,17 @@ surface is identical; examples here use the standalone form.
 | `/` | daemon socket | any | `200 OK` | `{"status":"ok","message":"Muster daemon is running"}` |
 | `/health/startup` | daemon socket | any | falls through to `/` | root body, `200 OK` |
 | `/metrics` | daemon socket | any | falls through to `/` | root body, `200 OK` (JSON, not Prometheus) |
-| `/metrics` | `monitoring.MetricsServer` (TCP) | GET | `200 OK` | Prometheus text exposition |
+| `/metrics` | metrics listener, `127.0.0.1:9110` | GET/HEAD | `200 OK` | Prometheus text exposition |
+| any other path | metrics listener, `127.0.0.1:9110` | any | `404 Not Found` | `404 page not found` (plain text) |
 
-Important asymmetry: **`/metrics` is not part of the daemon's socket handler
-at all.** The only Prometheus HTTP handler in the tree
-(`internal/monitoring.MetricsServer`) is currently not constructed by any
-binary — it exists as a library (`NewMetricsServer(addr)`), so nothing
-listens on a TCP metrics port unless an operator embeds it. Do not point a
-scrape job at the daemon socket expecting Prometheus format; the socket's
-`/metrics` path answers with the canned root JSON.
+Two different servers: **`/metrics` is not part of the daemon's socket handler**
+— on the socket that path falls through to the canned root JSON. Prometheus
+format comes from a separate loopback TCP listener
+(`internal/monitoring.MusterMetricsServer`) that the daemon starts itself once
+the socket answers: default `127.0.0.1:9110`, override with `--metrics-addr`.
+That listener serves `/metrics` and nothing else (no `/health*`, no proxied
+path). See "Prometheus scrape configuration" below for the flag, the
+loopback-only rule, and the exact families and label sets it exposes.
 
 ### Auth exemption
 
@@ -240,80 +242,195 @@ HTTP 200. Mark the node out of rotation on non-200/connection failure.
 
 ## Prometheus scrape configuration
 
-### The asymmetry, restated
+### The metrics listener
 
 - The daemon **socket** does not expose Prometheus format — its `/metrics`
   path falls through to the root JSON info handler.
-- `internal/monitoring.MetricsServer` (`NewMetricsServer(addr)`) is the
-  component that serves `GET /metrics` in Prometheus text format (via
-  `promhttp.Handler()`) on a **TCP** address. It also serves `/health`,
-  `/health/live`, `/health/ready`, and `/health/startup` (all unconditional
-  JSON 200s with a `timestamp` field; `/health` body is
-  `{"status":"healthy","timestamp":"..."}`).
-- As of this writing **no shipped binary constructs `MetricsServer`**, so
-  there is no default TCP metrics port. Embedding it (a one-liner in the
-  daemon main) is the intended path; until your build does so, the scrape
-  config below has nothing to scrape.
+- Prometheus format is served by `internal/monitoring.MusterMetricsServer`,
+  which the daemon starts itself once the socket answers so the first scrape
+  already reports the truth. Construction:
+  `monitoring.NewMusterMetricsServer(metricsAddr, metricsRecorder.Muster())` —
+  `cmd/daemon/main.go:294-305`.
+- Default address `127.0.0.1:9110` — `internal/monitoring/muster.go:495`
+  (`monitoring.DefaultMetricsAddr`). It is the `--metrics-addr` flag default
+  (`cmd/daemon/main.go:115`) and appears in `--help`
+  (`cmd/daemon/main.go:261`).
+- Path `/metrics` only (`internal/monitoring/muster.go:536-537`); every other
+  path on that port answers `404 page not found`.
+- The address must be loopback — `127.0.0.0/8`, `::1`, or `localhost` —
+  enforced at startup by `ValidateLoopbackAddr`
+  (`internal/monitoring/muster.go:500-522`, called from
+  `cmd/daemon/main.go:154-156`). `--metrics-addr 0.0.0.0:9110` exits with
+  `Error: metrics addr "0.0.0.0:9110": 0.0.0.0 is not a loopback address; the
+  metrics listener binds loopback only`.
+- A busy port is a WARNING, not a fatal: the daemon keeps serving the socket
+  and prints `[WARN] metrics listener not started on …`
+  (`cmd/daemon/main.go:299-302`). On success it prints
+  `Metrics: http://127.0.0.1:9110/metrics` (`cmd/daemon/main.go:303`).
+- Listener timeouts are `ReadHeaderTimeout: 5s`, `ReadTimeout: 10s`,
+  `WriteTimeout: 10s` (`internal/monitoring/muster.go:544-549`), so keep
+  `scrape_timeout` at or below 10s.
+- The legacy `internal/monitoring.MetricsServer`
+  (`internal/monitoring/metrics.go:292-325`, which serves the DEFAULT
+  registry plus `/health*`) is retained as a library and is **not**
+  constructed by any binary. Do not point a scrape at it.
 
-### Metric families defined by the daemon libraries
+### Metric families served on 127.0.0.1:9110
 
-Registered globally via `promauto` in `internal/monitoring` (namespaces:
-`muster_cli`, `muster_mcp`, `muster_daemon`):
+One explicit registry per daemon process, built by
+`monitoring.NewMusterMetrics` (`internal/monitoring/muster.go:102-232`) and
+served with `promhttp.HandlerFor` (`internal/monitoring/muster.go:264-268`).
+Only these instruments are registered (`internal/monitoring/muster.go:194-205`),
+so the scrape contains no `go_*` or `process_*` collectors.
 
-| Metric | Type | Labels |
-|---|---|---|
-| `muster_cli_command_executions_total` | counter | `command`, `status` |
-| `muster_cli_command_duration_seconds` | histogram | `command`, `status` |
-| `muster_cli_command_errors_total` | counter | `command`, `error_type` |
-| `muster_mcp_active_connections` | gauge | — |
-| `muster_mcp_requests_total` | counter | `method` |
-| `muster_mcp_request_duration_seconds` | histogram | `method` |
-| `muster_mcp_tool_executions_total` | counter | `tool_name`, `status` |
-| `muster_daemon_active_socket_connections` | gauge | — |
-| `muster_daemon_proxy_requests_total` | counter | `endpoint`, `method`, `tenant_id` |
+| Metric | Type | Labels | Defined at |
+|---|---|---|---|
+| `muster_build_info` | gauge (always 1) | `version`, `commit` | `internal/monitoring/muster.go:111-118` (set to 1 at `:209`) |
+| `muster_daemon_up` | gauge | `tenant_id` | `internal/monitoring/muster.go:119-126` (`MarkUp` `:279-284`, `MarkDown` `:289-294`) |
+| `muster_daemon_proxy_requests_total` | counter | `endpoint`, `method`, `status_class`, `tenant_id` | `internal/monitoring/muster.go:127-134` |
+| `muster_daemon_proxy_duration_seconds` | histogram | `endpoint`, `method` | `internal/monitoring/muster.go:135-143` |
+| `muster_audit_events_written_total` | counter | `event_type`, `category` | `internal/monitoring/muster.go:144-151` |
+| `muster_audit_events_dropped_total` | counter | `reason` (`buffer_full`, `write_error`) | `internal/monitoring/muster.go:152-159` |
+| `muster_audit_buffer_utilization_ratio` | gauge | — | `internal/monitoring/muster.go:160-164` |
+| `muster_mcp_tool_executions_total` | counter | `tool`, `status`, `error_class` + const `product="muster"` | `internal/monitoring/muster.go:165-174` |
+| `muster_mcp_tool_duration_seconds` | histogram | `tool`, `status` + const `product="muster"` | `internal/monitoring/muster.go:175-185` |
+| `muster_mcp_active_sessions` | gauge | const `product="muster"` | `internal/monitoring/muster.go:186-191` |
 
-Note: because these use `promauto.New*` (the default registry), a
-`MetricsServer` scrape returns them **plus** the Go runtime and process
-collectors (`go_goroutines`, `process_resident_memory_bytes`, etc.).
-Per-request recording goes through `MetricRecorder` methods
-(`RecordCommandExecution`, `RecordProxyRequest`, ...); counters stay at
-their zero values until those paths execute.
+Label values are bounded by construction: `status_class` is `1xx`…`5xx` or
+`unknown` (`StatusClass`, `internal/monitoring/muster.go:394-409`);
+`endpoint` collapses opaque path segments to `{id}`
+(`NormalizeEndpoint`, `internal/monitoring/muster.go:415-430`);
+`error_class` is one of `none`/`auth`/`upstream`/`validation`/`internal`
+(`NormalizeMCPErrorClass`, `internal/monitoring/muster.go:330-337`); and
+`tenant_id` is `MUSTER_TENANT_ID` when set, otherwise `default`
+(`cmd/daemon/main.go:63-68`, `internal/monitoring/muster.go:28`).
+
+### Series present on a freshly started daemon
+
+`NewMusterMetrics` seeds the series that must be visible before anything has
+been recorded (`internal/monitoring/muster.go:207-229`). Verified against a
+daemon started from this tree (`--backend-url` pointing at a local upstream,
+then three proxied requests). Histogram bucket lines are elided — all twelve
+`le` buckets sit at 0:
+
+```
+muster_build_info{commit="unknown",version="dev"} 1
+muster_daemon_up{tenant_id="default"} 1
+muster_daemon_proxy_requests_total{endpoint="/",method="none",status_class="none",tenant_id="default"} 0
+muster_daemon_proxy_duration_seconds_count{endpoint="/",method="none"} 0
+muster_audit_events_written_total{category="none",event_type="none"} 0
+muster_audit_events_dropped_total{reason="buffer_full"} 0
+muster_audit_events_dropped_total{reason="write_error"} 0
+muster_audit_buffer_utilization_ratio 0
+muster_mcp_active_sessions{product="muster"} 0
+```
+
+### Observed label values under real traffic
+
+The same daemon after three proxied requests (upstream unreachable, so every
+call is a 5xx) and with `MUSTER_AUDIT_ENABLED=1`:
+
+```
+muster_daemon_proxy_requests_total{endpoint="/",method="GET",status_class="5xx",tenant_id="default"} 1
+muster_daemon_proxy_requests_total{endpoint="/",method="none",status_class="none",tenant_id="default"} 0
+muster_daemon_proxy_requests_total{endpoint="/missing.txt",method="GET",status_class="5xx",tenant_id="default"} 1
+muster_daemon_proxy_duration_seconds_count{endpoint="/missing.txt",method="GET"} 1
+muster_audit_events_written_total{category="none",event_type="none"} 0
+muster_audit_events_written_total{category="system",event_type="command.execute"} 3
+```
+
+Two details worth knowing when writing queries: the seed series keeps its
+zero value alongside the real ones (so an unfiltered `sum()` is still correct),
+and `endpoint` is the sanitized request path — `{id}` substitution applies only
+to opaque identifier segments, so a static path like `/missing.txt` is
+reported verbatim.
+
+`daemon_up` starts at `0` and is raised to `1` once the socket answers, so a
+scrape during startup reports "not answering yet" rather than a lie. The
+`none`/`{id}` label values never come from real traffic, so a seed series is
+unambiguous in a dashboard. `muster_mcp_tool_executions_total` and
+`muster_mcp_tool_duration_seconds` are registered but have no child series
+until something records a tool call — a fresh daemon does not expose them.
+
+### Who records what
+
+- **Proxy traffic:** `pkg/daemon` observes one point per proxied request
+  through `SetMetrics`/`RecordDaemonProxyRequest`
+  (`pkg/daemon/proxy.go:579-592`; deferred call at `pkg/daemon/proxy.go:716-726`),
+  landing on `muster_daemon_proxy_requests_total` (with `status_class`) and
+  `muster_daemon_proxy_duration_seconds`.
+- **Audit health:** the daemon builds `audit.NewHookWithMetrics(...)` on the
+  same recorder (`cmd/daemon/main.go:198-206`), so
+  `muster_audit_events_written_total`, `muster_audit_events_dropped_total` and
+  `muster_audit_buffer_utilization_ratio` are live — but audit is off unless
+  `MUSTER_AUDIT_ENABLED=1` (`internal/audit/hooks.go:218-229`), so a default
+  install exposes only the seed series.
+- **MCP families:** the three `muster_mcp_*` instruments live on the same
+  registry, but the daemon never records MCP tool calls. Their real producer
+  is the stdio `mcp-server`, which publishes a registry scoped to just those
+  families (`MusterMetrics.MCPRegistry`, `internal/monitoring/muster.go:253-260`)
+  into a node_exporter textfile (`cmd/mcp-server/main.go:253-262`; default
+  path `/var/lib/node_exporter/textfile/muster_mcp.prom`, override with
+  `MUSTER_MCP_METRICS_PATH` or `MUSTER_TEXTFILE_DIR` —
+  `internal/monitoring/textfile.go:16-31`).
+
+### Families that are NOT on this port
+
+The process-scoped families declared with `promauto` in
+`internal/monitoring/metrics.go:25-105` register on the DEFAULT prometheus
+registry, not on the daemon's explicit one, so they never appear at
+`127.0.0.1:9110`: `muster_cli_command_executions_total`,
+`muster_cli_command_duration_seconds`, `muster_cli_command_errors_total`,
+`muster_mcp_active_connections`, `muster_mcp_requests_total`,
+`muster_mcp_request_duration_seconds`,
+`muster_mcp_tool_executions_total{tool_name,status}` (the legacy `tool_name`
+spelling), `muster_daemon_active_socket_connections`, and
+`muster_daemon_proxy_requests_total{endpoint,method,tenant_id}` (the legacy
+spelling without `status_class`). Two of those names collide with served
+families under a different label set; whatever a scrape of `:9110` returns
+carries the label sets in the table above.
 
 ### prometheus.yml
-
-Once your build serves the metrics server (example assumes `:9090` was
-chosen when constructing `NewMetricsServer(":9090")`):
 
 ```yaml
 scrape_configs:
   - job_name: "muster-daemon"
     scrape_interval: 15s
-    scrape_timeout: 10s       # server WriteTimeout is 10s; do not exceed
+    scrape_timeout: 10s       # listener WriteTimeout is 10s; do not exceed
     metrics_path: /metrics
     static_configs:
-      - targets: ["127.0.0.1:9090"]
+      - targets: ["127.0.0.1:9110"]
         labels:
           service: "muster-daemon"
 ```
 
 Notes for operators:
 
-- The metrics server has `ReadTimeout: 5s` / `WriteTimeout: 10s`; keep
-  `scrape_timeout` at or below 10s.
-- The `/health*` routes on the metrics TCP server can also serve as
-  network-reachable probes if you front the metrics port with an LB —
-  bodies match the socket ones plus a `timestamp` (and `/health` gains a
-  timestamp there).
-- If you scrape through a socket relay instead, the target becomes the
-  relay's TCP address; everything else is identical.
+- The listener binds loopback only (enforced at startup), so Prometheus must
+  run on the same host or reach it through an SSH tunnel / socket relay.
+- `--metrics-addr` has no environment-variable equivalent; put it on the unit's
+  `ExecStart` line if you need a different port.
+- Running several daemons on one host? Give each its own `--metrics-addr`; the
+  second bind fails with the warning above and that daemon simply has no
+  metrics endpoint.
+- `/health*` is on the Unix socket only; the metrics port answers `404` for it.
 
 ### Verifying a scrape
 
 ```bash
-# Confirm exposition format and families:
-curl -fsS http://127.0.0.1:9090/metrics | grep -E '^muster_(cli|mcp|daemon)_'
+# Families, label sets and values:
+curl -fsS http://127.0.0.1:9110/metrics | grep -E '^muster_'
 
-# Confirm Prometheus accepts the target (in the Prometheus web UI or):
+# Build identity of the running binary:
+curl -fsS http://127.0.0.1:9110/metrics | grep '^muster_build_info'
+
+# What the socket answers on the same path (root JSON, not Prometheus):
+curl --unix-socket /tmp/openapi-cli.sock http://localhost/metrics
+
+# Anything other than /metrics is not served on the metrics port:
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9110/health   # 404
+
+# Prometheus accepts the target (in the Prometheus web UI or):
 promtool check config /etc/prometheus/prometheus.yml
 ```
 
@@ -324,8 +441,10 @@ promtool check config /etc/prometheus/prometheus.yml
 | `/health` 200 but API calls 502 | backend down (proxy paths are remote) | restart backend; health is daemon-local in `start` mode |
 | `/health` returns backend's HTML/404 | you're on `proxy` mode — health is proxied there | switch to `start --backend-url` for daemon-local health |
 | `curl --unix-socket` fails to connect | socket path wrong, or wrong user (socket is 0600) | check `openapi-daemon status`; run curl as daemon user |
-| `/metrics` returns JSON not Prometheus text | that's the socket fall-through to `/` | scrape the `MetricsServer` TCP port, not the socket |
-| No process listening on metrics port | no binary constructs `MetricsServer` yet | embed it in your build; until then there is no TCP metrics surface |
+| `/metrics` returns JSON not Prometheus text | you scraped the Unix socket; that path falls through to `/` | scrape `http://127.0.0.1:9110/metrics` instead of the socket |
+| `curl 127.0.0.1:9110/metrics` → connection refused | the listener never bound (port already taken) or the daemon is not running in `start`/`proxy` mode | look for `[WARN] metrics listener not started` in the startup log; free the port or pass a different `--metrics-addr` |
+| daemon exits with `is not a loopback address` | `--metrics-addr` named a non-loopback host | use `127.0.0.1:<port>`, `[::1]:<port>`, or `localhost:<port>` |
+| `404` when probing `/health` on the metrics port | the metrics listener serves `/metrics` only | probe `/health` on the Unix socket |
 | LB marks node down though daemon runs | LB can't reach a Unix socket | add a TCP relay or probe the backend |
 | systemd unit flaps at start | daemonize delay before socket exists | poll socket in `ExecStartPost` (see unit above) |
 
@@ -335,9 +454,11 @@ Reproduce any claim in this document:
 
 ```bash
 go build -o /tmp/muster-daemon ./cmd/daemon
-/tmp/muster-daemon start --foreground --socket-path /tmp/doc.sock &
+/tmp/muster-daemon start --foreground --socket-path /tmp/doc.sock --metrics-addr 127.0.0.1:19110 &
 curl --unix-socket /tmp/doc.sock http://localhost/health          # {"status":"healthy"}
 curl --unix-socket /tmp/doc.sock http://localhost/health/live     # {"status":"alive",...}
 curl --unix-socket /tmp/doc.sock http://localhost/health/ready    # {"status":"ready",...}
 curl --unix-socket /tmp/doc.sock http://localhost/metrics         # JSON root body, not Prometheus
+curl -fsS http://127.0.0.1:19110/metrics | grep -E '^muster_'    # the 10 families/seed series above
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:19110/health   # 404
 ```

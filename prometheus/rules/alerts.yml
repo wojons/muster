@@ -1,41 +1,109 @@
 # Prometheus Alert Rules for Muster
 # Reference: specs/OPS-ALERTING.md
+#
+# Every muster_* metric referenced below is defined in internal/monitoring and
+# served by the daemon's loopback listener (default 127.0.0.1:9110, path
+# /metrics). Source of truth for names and label sets:
+#   internal/monitoring/muster.go:111-191  (family definitions)
+#   internal/monitoring/muster.go:194-205  (registration on the served registry)
+# Rule/expr pairings:
+#   muster_daemon_proxy_requests_total{status_class}   -> muster.go:127-134
+#   muster_daemon_proxy_duration_seconds               -> muster.go:135-143
+#   muster_daemon_up                                   -> muster.go:119-126
+#   muster_audit_events_dropped_total{reason}          -> muster.go:152-159
+#   muster_mcp_tool_duration_seconds                   -> muster.go:175-185
+# Rules that referenced metrics Muster never emits (a bare HTTP request counter
+# and request-duration histogram, a database-connection error counter, and a
+# non-muster-prefixed MCP request-duration histogram) were removed or repointed
+# at the shipped families; keep this file in lockstep with internal/monitoring.
 
 groups:
   - name: muster_alerts
     interval: 30s
     rules:
-      # CRITICAL: High error rate (>5%)
+      # CRITICAL: High proxy error rate (>5% of proxied requests are 5xx)
       - alert: HighErrorRate
         expr: |
           (
-            sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+            sum(rate(muster_daemon_proxy_requests_total{status_class="5xx"}[5m]))
             /
-            sum(rate(http_requests_total[5m]))
+            sum(rate(muster_daemon_proxy_requests_total[5m]))
           ) > 0.05
         for: 5m
         labels:
           severity: critical
-          service: api
+          service: daemon
         annotations:
-          summary: "High error rate detected"
-          description: "Error rate is {{ $value | humanizePercentage }}"
+          summary: "High proxy error rate detected"
+          description: "5xx share of proxied daemon requests is {{ $value | humanizePercentage }}"
           runbook_url: "https://wiki/runbooks/high-error-rate"
 
-      # WARNING: High latency (95th percentile >500ms)
+      # WARNING: Proxy latency (95th percentile >500ms)
       - alert: HighLatency
         expr: |
           histogram_quantile(0.95,
-            sum(rate(request_duration_seconds_bucket[5m])) by (le)
+            sum(rate(muster_daemon_proxy_duration_seconds_bucket[5m])) by (le)
           ) > 0.5
         for: 10m
         labels:
           severity: warning
-          service: api
+          service: daemon
         annotations:
-          summary: "High latency detected"
-          description: "95th percentile latency is {{ $value }}s"
+          summary: "High proxy latency detected"
+          description: "95th percentile proxied-request latency is {{ $value }}s"
           runbook_url: "https://wiki/runbooks/high-latency"
+
+      # CRITICAL: The daemon stopped reporting itself as serving
+      # (muster_daemon_up is 0 from startup until the socket answers, and again
+      # on the shutdown path -- main.go markDaemonUp/markDaemonDown).
+      - alert: MusterDaemonDown
+        expr: muster_daemon_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: daemon
+        annotations:
+          summary: "Muster daemon is not serving ({{ $labels.tenant_id }})"
+          description: "muster_daemon_up has been 0 for more than 1 minute"
+          runbook_url: "https://wiki/runbooks/daemon-down"
+
+      # WARNING: The audit sink is shedding or failing writes
+      - alert: MusterAuditEventsDropped
+        expr: increase(muster_audit_events_dropped_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: daemon
+        annotations:
+          summary: "Audit events dropped ({{ $labels.reason }})"
+          description: "{{ $value }} audit events were dropped in the last 5 minutes; the audit trail is lossy"
+          runbook_url: "https://wiki/runbooks/audit-events-dropped"
+
+      # CRITICAL: Scrape target is down (Prometheus builtin)
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service has been down for more than 1 minute"
+          runbook_url: "https://wiki/runbooks/service-down"
+
+      # WARNING: MCP tool latency (shipped via the mcp-server textfile)
+      - alert: HighMCPToolLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(muster_mcp_tool_duration_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: mcp
+        annotations:
+          summary: "High MCP tool latency"
+          description: "95th percentile MCP tool latency is {{ $value }}s"
+          runbook_url: "https://wiki/runbooks/high-mcp-latency"
 
       # WARNING: Low disk space (<10% available)
       - alert: LowDiskSpace
@@ -62,44 +130,6 @@ groups:
           summary: "High memory usage on {{ $labels.instance }}"
           description: "Memory usage is above 85%"
           runbook_url: "https://wiki/runbooks/high-memory-usage"
-
-      # CRITICAL: Database connection failures
-      - alert: DatabaseConnectionFailures
-        expr: increase(db_connection_errors_total[5m]) > 10
-        for: 2m
-        labels:
-          severity: critical
-          service: database
-        annotations:
-          summary: "Database connection failures"
-          description: "{{ $value }} connection failures in 5 minutes"
-          runbook_url: "https://wiki/runbooks/database-connection-failures"
-
-      # CRITICAL: Service down
-      - alert: ServiceDown
-        expr: up == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Service {{ $labels.job }} is down"
-          description: "Service has been down for more than 1 minute"
-          runbook_url: "https://wiki/runbooks/service-down"
-
-      # WARNING: MCP request latency
-      - alert: HighMCPRequestLatency
-        expr: |
-          histogram_quantile(0.95,
-            sum(rate(mcp_request_duration_seconds_bucket[5m])) by (le)
-          ) > 1.0
-        for: 5m
-        labels:
-          severity: warning
-          service: mcp
-        annotations:
-          summary: "High MCP request latency"
-          description: "95th percentile MCP latency is {{ $value }}s"
-          runbook_url: "https://wiki/runbooks/high-mcp-latency"
 
       # INFO: High CPU usage
       - alert: HighCPUUsage
