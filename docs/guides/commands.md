@@ -641,9 +641,20 @@ openapi-cli audit status
 
 ### `tenant`
 
-Manage the multi-tenant context for this CLI. Each tenant maps to a named
-config profile with isolated settings, quotas, and audit records. The active
-tenant persists to disk.
+Manage the tenant context recorded for this CLI installation.
+
+A tenant is a local label. The selection and its metadata (display name,
+tier, timestamp) are stored in `tenants.json` under the config directory, and
+that file is the single source of truth every tenant reader resolves from:
+`show`, `current` and `list` always agree, in the same process or in the next
+one. The config file's `default_profile` is only a fallback for installs that
+never ran `tenant set`.
+
+Tenants do not gate or partition anything today: no quotas are enforced per
+tenant, audit records are not partitioned per tenant (a tenant mutation emits
+one audit event that names it), and the request pipeline reads the config
+file, not the tenant store. A tenant whose id matches a config profile is
+displayed with that profile's tier.
 
 ```bash
 openapi-cli tenant [command]
@@ -653,14 +664,16 @@ openapi-cli tenant [command]
 
 | Command | Description |
 |---------|-------------|
+| `add` | Register a tenant without activating it (`<tenant-id>`, `--name`, `--tier`) |
 | `current` | Show the active tenant with name, tier, and timestamp |
-| `list` | List known tenants |
+| `list` | List known tenants (the active one is marked `*`) |
 | `set` | Set the active tenant (`<tenant-id>`) |
-| `show` | Show current tenant |
+| `show` | Print the active tenant id (same resolution as `current`) |
 | `switch` | Switch current tenant (`<tenant-id>`) |
 
 **Examples**:
 ```bash
+openapi-cli tenant add production --name "Production" --tier pro
 openapi-cli tenant list
 openapi-cli tenant set production
 openapi-cli tenant current

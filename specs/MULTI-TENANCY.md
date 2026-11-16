@@ -1,11 +1,23 @@
 # Multi‑Tenancy Specification
 
-**Status**: ✅ COMPLETE  
+**Status**: 📐 DESIGN ONLY — NOT IMPLEMENTED  
 **Version**: 1.0.0  
 **Last Updated**: 2026-03-01  
 **Component**: Tenant Isolation & Resource Management  
 **Referenced Files**: 5  
 **Adversarial Review Addressed**: ✅ Missing multi‑tenancy support
+
+> **Implementation status (2026-11-16, REVIEW-MUSTER-22)**: nothing below is
+> implemented beyond a local tenant label. The CLI persists one selected
+> tenant id plus display name, tier and timestamp in `tenants.json`, and
+> `tenant show` / `tenant current` / `tenant list` read that file. There is no
+> tenant hierarchy, no quota enforcement, no per-tenant configuration, cache or
+> database partitioning, no cross-tenant security boundary, no `--tenant`
+> flag, and no MCP tenant context — the request pipeline, generator and daemon
+> read the config file and `MUSTER_TENANT_ID` only, and audit records are not
+> partitioned per tenant (a tenant mutation emits one event naming it). Treat
+> the sections below as the design target, not as a description of shipped
+> behavior.
 
 ## Overview
 
