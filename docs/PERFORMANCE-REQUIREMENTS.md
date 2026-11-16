@@ -151,9 +151,10 @@ Maximum growth: **<10MB** after 1000 iterations
 
 ### 9.1 Key Metrics
 
-- `muster_request_duration_seconds` - Request latency histogram
-- `muster_command_generation_duration_seconds` - Command generation time
-- `muster_wasm_execution_duration_seconds` - WASM execution time
+- `muster_daemon_proxy_duration_seconds` - Proxied request latency histogram
+  (served by the daemon on `127.0.0.1:9110/metrics`)
+- `muster_cli_command_duration_seconds` - CLI command execution time
+- `muster_mcp_tool_duration_seconds` - MCP tool execution time
 - `process_resident_memory_bytes` - Memory usage
 
 ### 9.2 Alert Thresholds

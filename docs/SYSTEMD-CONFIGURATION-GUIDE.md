@@ -440,9 +440,13 @@ DeviceAllow=/dev/null rw
 DeviceAllow=/dev/zero rw
 
 # AppArmor/SELinux integration
-# AppArmorProfile=openapi-cli-daemon
-# SELinuxContext=system_u:object_r:openapi_cli_daemon_exec_t:s0
+# AppArmorProfile=muster
+# SELinuxContext=system_u:object_r:muster_exec_t:s0
 ```
+
+The profile and type names are the shipped ones: `packaging/apparmor/usr.bin.muster`
+declares `profile muster`, and `specs/PLATFORM-LINUX.md` declares `muster_exec_t`
+(`application_domain(muster_t, muster_exec_t)`).
 
 ### Resource Limits
 
@@ -717,6 +721,49 @@ sudo systemctl start openapi-cli-daemon@staging.service
 ---
 
 ## Monitoring and Debugging
+
+### Prometheus metrics listener
+
+The daemon serves Prometheus text on its own loopback TCP listener, so the unit
+needs no extra socket or port configuration to be scrapable:
+
+- Address: `127.0.0.1:9110` by default (`internal/monitoring/muster.go:495`),
+  overridable with the daemon flag `--metrics-addr`
+  (`cmd/daemon/main.go:115`). A non-loopback address is refused at startup
+  (`internal/monitoring/muster.go:500-522`), so keep `127.0.0.1` in the unit.
+- Path: `/metrics` only; every other path on that port answers `404`
+  (`internal/monitoring/muster.go:536-537`).
+- The listener starts once the socket answers and prints
+  `Metrics: http://127.0.0.1:9110/metrics`. A busy port logs
+  `[WARN] metrics listener not started` and the daemon keeps serving the
+  socket (`cmd/daemon/main.go:294-305`) — a metrics failure never takes the
+  unit down.
+- The hardening above already permits it: `RestrictAddressFamilies=AF_UNIX
+  AF_INET AF_INET6` allows the loopback bind, `PrivateTmp`/`ProtectSystem`
+  do not touch it, and no capability is needed for a port above 1024.
+- The legacy `internal/monitoring.MetricsServer` type is not constructed by any
+  binary; do not point a scrape at it.
+
+```bash
+# Confirm the unit's daemon is the process answering (build identity):
+curl -fsS http://127.0.0.1:9110/metrics | grep '^muster_build_info'
+systemctl show openapi-cli-daemon.service -p MainPID -p ExecMainStartTimestamp
+```
+
+Scrape target for `/etc/prometheus/prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: "muster-daemon"
+    scrape_interval: 15s
+    scrape_timeout: 10s       # listener WriteTimeout is 10s; do not exceed
+    static_configs:
+      - targets: ["127.0.0.1:9110"]
+```
+
+The metric families, label sets and seed series a fresh daemon exposes are
+documented in `docs/guides/daemon-operations.md` ("Prometheus scrape
+configuration").
 
 ### Service Monitoring
 

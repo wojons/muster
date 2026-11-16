@@ -179,13 +179,17 @@ func TestAlertRulesContainCriticalAlerts(t *testing.T) {
 		}
 	}
 
-	// Verify expected critical alerts
+	// Verify expected critical alerts. The set is aligned with the metrics the
+	// daemon actually serves (internal/monitoring/muster.go): the old
+	// DatabaseConnectionFailures rule referenced db_connection_errors_total,
+	// which no Muster code path emits, and was replaced by MusterDaemonDown on
+	// muster_daemon_up.
 	expected := []string{
 		"HighErrorRate",
 		"HighLatency",
 		"LowDiskSpace",
 		"HighMemoryUsage",
-		"DatabaseConnectionFailures",
+		"MusterDaemonDown",
 		"ServiceDown",
 	}
 
