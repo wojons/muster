@@ -158,6 +158,14 @@ type Config struct {
 	// the help Examples are directly runnable. When empty, the legacy
 	// "AppName resource op …" format is preserved (backward compat).
 	APIName string
+
+	// BaseURLOverride marks BaseURL as EXPLICITLY supplied by the caller
+	// (e.g. `generate --base-url`) and therefore authoritative: every
+	// generated operation command targets it, even when the spec declares
+	// its own root/path/operation servers[0]. Without it the spec's server
+	// keeps its historical precedence and BaseURL is only the fallback for
+	// operations that declare no server (DF-007 semantics).
+	BaseURLOverride bool
 }
 
 // Annotation keys stamped onto generated leaf commands so downstream
@@ -447,8 +455,8 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation, usedNames map[s
 		AnnotationOperationMethod:  op.Method,
 		AnnotationOperationExample: g.buildFlatExample(name, op),
 	}
-	if op.ServerURL != "" {
-		cmd.Annotations[AnnotationOperationServer] = op.ServerURL
+	if serverURL := g.effectiveBaseURL(op); serverURL != "" {
+		cmd.Annotations[AnnotationOperationServer] = serverURL
 	}
 
 	g.addFlags(cmd, op)
@@ -1065,6 +1073,30 @@ func (g *Generator) normalizeOperationID(id string) string {
 	return strings.ToLower(string(result))
 }
 
+// effectiveBaseURL resolves the base URL a generated operation command
+// targets, in precedence order:
+//
+//  1. Config.BaseURL when Config.BaseURLOverride is set — an EXPLICIT
+//     caller-supplied URL (e.g. `generate --base-url`) outranks whatever
+//     the spec declares, for every operation. A flag that promises an
+//     override must not be silently discarded because the spec happens to
+//     ship a servers[] entry.
+//  2. op.ServerURL — the spec's operation/path/root servers[0].
+//  3. Config.BaseURL — the fallback for specs that declare no server.
+//
+// Runtime overrides (--base-url on the generated command, MUSTER_BASE_URL)
+// are applied by createRunHandler AFTER this resolution and still win over
+// everything here.
+func (g *Generator) effectiveBaseURL(op *openapi.Operation) string {
+	if g.config.BaseURLOverride && g.config.BaseURL != "" {
+		return g.config.BaseURL
+	}
+	if op != nil && op.ServerURL != "" {
+		return op.ServerURL
+	}
+	return g.config.BaseURL
+}
+
 // runtimeBaseURL resolves the runtime base-URL override for generated
 // commands: an explicit --base-url persistent flag (registered on the
 // resource command) wins, then the MUSTER_BASE_URL env var, then "" (no
@@ -1090,11 +1122,10 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 	return func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
-		// Use per-operation server URL if available, falling back to config-level base URL
-		baseURL := op.ServerURL
-		if baseURL == "" {
-			baseURL = g.config.BaseURL
-		}
+		// Target base URL: an explicit generate-time override wins over the
+		// spec's servers[0] (see effectiveBaseURL); the spec's own server
+		// wins otherwise, with the config URL as the fallback.
+		baseURL := g.effectiveBaseURL(op)
 
 		// Runtime override: --base-url flag wins, then MUSTER_BASE_URL env
 		// var, then the spec/generate-time URL above.
