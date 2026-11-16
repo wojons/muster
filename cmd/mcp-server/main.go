@@ -22,6 +22,7 @@ import (
 	"github.com/wojons/muster/pkg/client"
 	"github.com/wojons/muster/pkg/mcp"
 	"github.com/wojons/muster/pkg/mcp/handlers"
+	"github.com/wojons/muster/pkg/openapi"
 	"github.com/wojons/muster/pkg/protocol/jsonrpc"
 )
 
@@ -42,6 +43,17 @@ type MCPServerConfig struct {
 	EnableResources       bool
 	EnablePrompts         bool
 	OpenRPCDocPath        string // Path or URL to an OpenRPC discovery document (JSON-RPC tools)
+	// ValidationPolicy is how a spec that fails openapi3 schema validation
+	// is handled. The zero value (ValidationWarnAndContinue) keeps the
+	// server up: real-world specs (GitHub's v3 REST spec among them) carry
+	// cosmetic example/type defects and still describe thousands of usable
+	// operations. -strict-validation / MUSTER_STRICT_VALIDATION=1 restores
+	// the refuse-to-start behaviour.
+	ValidationPolicy openapi.ValidationPolicy
+	// ValidationDiagnostics receives the warn-and-continue report. It is
+	// os.Stderr in production (settings, not the JSON-RPC wire) and a
+	// buffer in tests. A nil value falls back to os.Stderr.
+	ValidationDiagnostics io.Writer
 }
 
 var (
@@ -54,6 +66,7 @@ var (
 	auditFlag         = flag.Bool("audit", false, "Enable audit logging (also set MUSTER_AUDIT_ENABLED=1)")
 	wasmPluginFlag    = flag.String("wasm-plugin", "", "Path to WASM plugin for response transformation")
 	openrpcDocFlag    = flag.String("openrpc-doc", "", "Path or http(s) URL to an OpenRPC 1.x discovery document; registers discovered JSON-RPC methods as MCP tools")
+	strictSpecFlag    = flag.Bool("strict-validation", false, "Refuse to start when the OpenAPI spec fails schema validation (env: MUSTER_STRICT_VALIDATION=1). Default: warn on stderr and continue")
 	versionFlag       = flag.Bool("version", false, "Print version information and exit")
 )
 
@@ -79,6 +92,46 @@ func resolveAuthType() string {
 	return "bearer"
 }
 
+// resolveValidationPolicy resolves how a spec that fails schema validation is
+// handled. An explicitly passed -strict-validation wins in either direction
+// (so `-strict-validation=false` overrides an inherited
+// MUSTER_STRICT_VALIDATION=1), then the env var, then the default
+// warn-and-continue policy.
+func resolveValidationPolicy() openapi.ValidationPolicy {
+	explicit := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "strict-validation" {
+			explicit = true
+		}
+	})
+	return validationPolicyFor(explicit, *strictSpecFlag, os.Getenv("MUSTER_STRICT_VALIDATION"))
+}
+
+// validationPolicyFor is the pure decision behind resolveValidationPolicy:
+// explicit flag > env var > warn-and-continue.
+func validationPolicyFor(flagExplicit, strictFlag bool, env string) openapi.ValidationPolicy {
+	if flagExplicit {
+		if strictFlag {
+			return openapi.ValidationStrict
+		}
+		return openapi.ValidationWarnAndContinue
+	}
+	if envTruthy(env) {
+		return openapi.ValidationStrict
+	}
+	return openapi.ValidationWarnAndContinue
+}
+
+// envTruthy reports whether an environment value opts in (1/true/yes/on).
+func envTruthy(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 func loadConfig() *MCPServerConfig {
 	return &MCPServerConfig{
 		LogLevel:              *logLevelFlag,
@@ -95,6 +148,8 @@ func loadConfig() *MCPServerConfig {
 		AuthTokenFile:         *authTokenFileFlag,
 		AuthType:              resolveAuthType(),
 		OpenRPCDocPath:        *openrpcDocFlag,
+		ValidationPolicy:      resolveValidationPolicy(),
+		ValidationDiagnostics: os.Stderr,
 	}
 }
 
@@ -289,8 +344,28 @@ func loadAndRegisterTools(server *mcp.Server, config *MCPServerConfig) (int, err
 		return 0, fmt.Errorf("load spec: %w", err)
 	}
 
-	if validateErr := doc.Validate(context.Background()); validateErr != nil {
+	// Parse errors above stay fatal: a document that cannot be loaded is not
+	// a spec at all. Schema-level validation is different — real-world specs
+	// carry cosmetic defects (GitHub's v3 REST spec has a string property
+	// whose example is the number 20.04) and still describe thousands of
+	// usable operations, so the default policy reports them on stderr and
+	// keeps going. -strict-validation / MUSTER_STRICT_VALIDATION=1 restores
+	// the refuse-to-start behaviour. This is the same policy the CLI states
+	// for the same file: one validation policy per document, not per surface.
+	diagnostics := config.ValidationDiagnostics
+	if diagnostics == nil {
+		diagnostics = os.Stderr
+	}
+	if validateErr := openapi.ValidateDocument(context.Background(), doc, config.ValidationPolicy, diagnostics); validateErr != nil {
 		return 0, fmt.Errorf("validate spec: %w", validateErr)
+	}
+
+	// Warn-and-continue still needs the metadata the startup banner and the
+	// converter read. A document without an info section is structurally
+	// unusable on every surface (pkg/openapi.Parse refuses it too), so it
+	// stays fatal instead of panicking later.
+	if doc.Info == nil {
+		return 0, fmt.Errorf("load spec: not a valid OpenAPI document: missing info section")
 	}
 
 	fmt.Fprintf(os.Stderr, "Loaded spec: %s (%s)\n", doc.Info.Title, doc.Info.Version)

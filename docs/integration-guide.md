@@ -157,6 +157,7 @@ Flags:
 | `-base-url` | Base URL override for API operations (env: `MUSTER_BASE_URL`). Optional: when omitted, `openapi-mcp` uses the spec's own `servers[].url` (operation- → path- → root-level), so `--spec` alone works for specs declaring an absolute server URL. Relative `servers[].url` values (e.g. `/api/v3`) cannot be dereferenced standalone — supply `-base-url` for those. |
 | `-wasm-plugin` | WASM response-transformation plugin (see §6) |
 | `-audit` | Enable audit logging (or `MUSTER_AUDIT_ENABLED=1`) |
+| `-strict-validation` | Refuse to start when the spec fails schema validation (or `MUSTER_STRICT_VALIDATION=1`). Default: warn on stderr and continue — see §2.3 |
 | `-log-level`, `-log-output` | Logging control (default: `info` to `stderr`) |
 
 **Base URL resolution order (DF-MUSTER-1):** `--base-url` flag →
@@ -205,6 +206,42 @@ Real output: the tool result content carries the pet JSON
 Protocol details: [docs/api/mcp-protocol.md](api/mcp-protocol.md).
 Go API for building MCP servers programmatically:
 [docs/examples/mcp-handlers-examples.md](examples/mcp-handlers-examples.md).
+
+### 2.3 Spec validation policy (one policy, every surface)
+
+`openapi-mcp` validates the spec it is given and, by default, **warns and
+continues**: a schema-level validation problem is reported on stderr — naming
+the offending component and field — and the server still starts with every
+operation it can convert. Real-world specs need this: GitHub's published v3
+REST spec (14 MB, 1281 operations) carries a string property whose `example` is
+the number `20.04`, and refusing to start would hide 1281 operations behind
+one cosmetic defect.
+
+```
+Warning: OpenAPI spec failed schema validation; continuing (warn-and-continue policy — pass -strict-validation or set MUSTER_STRICT_VALIDATION=1 to refuse startup)
+Warning:   components/schema "actions-hosted-runner": invalid example: field "type": value must be a string (property actions-hosted-runner.properties.image_details.properties.display_name, value 20.04)
+```
+
+Warnings go to **stderr only**; stdout stays the JSON-RPC wire, so `initialize`
+and `tools/list` complete normally after a warning. At most 10 issues are
+listed, with the remaining count stated on the last line.
+
+To refuse to start instead: pass `-strict-validation`, or set
+`MUSTER_STRICT_VALIDATION=1`. An explicit `-strict-validation=false` overrides
+an inherited env var.
+
+What validates where:
+
+| Surface | Schema-level validation | Behaviour |
+|---|---|---|
+| `openapi-mcp` (`cmd/mcp-server`) | yes — `doc.Validate` | warn-and-continue by default; strict with the flag or env var |
+| `openapi-cli discover` / `generate` | no — `pkg/openapi.Parse` loads without validating | loads the same file and reports its operations, with no warning |
+| `openapi-daemon` | no spec is loaded on this path | not applicable |
+| Swagger 2.0 conversion (`pkg/openapi`) | yes — the converted 3.x document | always fatal: a failed conversion is a conversion bug, not a cosmetic spec defect |
+
+Parse errors are always fatal on every surface: a document that cannot be read
+or parsed at all is not a spec, and the policy covers schema-level validation
+only.
 
 ---
 
