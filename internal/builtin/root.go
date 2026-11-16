@@ -3,6 +3,7 @@ package builtin
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -127,6 +128,8 @@ and serves them via MCP protocol.`,
 	// command list, so avoid decoding the potentially large store for them.
 	if invocationNeedsPersistedCommands(root, effectiveArgs) {
 		loadPersistedCommands(root, cfg)
+	} else {
+		probePersistedCommands(cfg)
 	}
 
 	return root
@@ -320,6 +323,49 @@ func CliActorID() string {
 		return user
 	}
 	return "unknown"
+}
+
+// probePersistedCommands checks the persisted store on meta-command paths
+// without decoding it into command metadata. It reads only a bounded tail so
+// help remains cheap even when the store is large, while still detecting a
+// truncated JSON document and using the same diagnostic as the full loader.
+func probePersistedCommands(cfg *config.Config) {
+	dataPath := resolvePersistedCommandsPath(cfg)
+	info, err := os.Stat(dataPath)
+	if err != nil || info.Size() == 0 {
+		return
+	}
+
+	const maxProbeBytes = 4096
+	readSize := info.Size()
+	if readSize > maxProbeBytes {
+		readSize = maxProbeBytes
+	}
+	file, err := os.Open(dataPath)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	if _, err := file.Seek(info.Size()-readSize, io.SeekStart); err != nil {
+		return
+	}
+	tail := make([]byte, readSize)
+	if _, err := io.ReadFull(file, tail); err != nil {
+		return
+	}
+	trimmed := strings.TrimRight(string(tail), " 	\r\n")
+	// A suffix check is only a truncation heuristic: a nested object can
+	// end with '}' even if the outer document is incomplete. Do not claim
+	// that stores passing it are otherwise valid.
+	if trimmed == "" || strings.HasSuffix(trimmed, "}") {
+		return
+	}
+	storeErr := &cmdstore.StoreLoadError{
+		Path: dataPath,
+		Size: info.Size(),
+		Err:  errors.New("unmarshal stored data: unexpected end of JSON input"),
+	}
+	fmt.Fprintf(os.Stderr, "Warning: Failed to load stored commands: %v\n", storeErr)
 }
 
 // loadPersistedCommands loads previously generated commands from storage.

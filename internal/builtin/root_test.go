@@ -3,6 +3,7 @@ package builtin
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,6 +72,62 @@ func TestPersistedCommandLoadGating(t *testing.T) {
 	}
 }
 
+func TestRootHelpWarnsForTornStore(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", "")
+	storePath := filepath.Join(home, ".local", "share", "openapi-cli", "commands.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(storePath), 0o700))
+	intact := append(mustMarshalStoredData(t), []byte(" \n	")...)
+	torn := []byte(`{"version":"1.0","commands":[`)
+	// largeIntact/largeTorn exceed the probe's bounded tail read, so they exercise
+	// the seek-to-tail path: an intact large store must stay silent and a large
+	// torn store must name its FULL byte size, not the tail length.
+	largeIntact := mustMarshalLargeStoredData(t, 5000)
+	largeTorn := append(append([]byte{}, largeIntact[:len(largeIntact)-1]...), []byte(`,"name":"trunc`)...)
+	require.Greater(t, len(largeIntact), 4096)
+	require.Greater(t, len(largeTorn), 4096)
+
+	oldArgs := os.Args
+	t.Cleanup(func() { os.Args = oldArgs })
+	for _, flag := range []string{"--help", "-h"} {
+		for _, tc := range []struct {
+			name string
+			data []byte
+			torn bool
+		}{
+			{name: "torn", data: torn, torn: true},
+			{name: "intact", data: intact},
+			{name: "large torn", data: largeTorn, torn: true},
+			{name: "large intact", data: largeIntact},
+		} {
+			t.Run(flag+"/"+tc.name, func(t *testing.T) {
+				require.NoError(t, os.WriteFile(storePath, tc.data, 0o600))
+				os.Args = []string{"openapi-cli", flag}
+				storeDecodeCount = 0
+				var runErr error
+				var output bytes.Buffer
+				stderr := captureStderrRequest(func() {
+					root := NewRootCommand(&config.Config{})
+					root.SetOut(&output)
+					root.SetErr(os.Stderr)
+					runErr = root.Execute()
+				})
+				require.NoError(t, runErr) // Successful execution is CLI exit code 0.
+				assert.Equal(t, 0, storeDecodeCount)
+				assert.Contains(t, output.String(), "Usage:")
+				if tc.torn {
+					assert.Contains(t, stderr, "Warning: Failed to load stored commands:")
+					assert.Contains(t, stderr, storePath)
+					assert.Contains(t, stderr, fmt.Sprintf("%d bytes", len(tc.data)))
+				} else {
+					assert.Empty(t, stderr)
+				}
+			})
+		}
+	}
+}
+
 func mustMarshalStoredData(t *testing.T) []byte {
 	t.Helper()
 	data, err := json.Marshal(cmdstore.StoredData{
@@ -84,6 +141,31 @@ func mustMarshalStoredData(t *testing.T) []byte {
 			Method: "GET",
 			Path:   "/generated",
 		}},
+	})
+	require.NoError(t, err)
+	return data
+}
+
+// mustMarshalLargeStoredData marshals a synthetic store holding count commands,
+// used to prove the meta-path probe stays silent on a store larger than its
+// bounded tail read without decoding it.
+func mustMarshalLargeStoredData(t *testing.T, count int) []byte {
+	t.Helper()
+	commands := make([]cmdstore.CommandMetadata, 0, count)
+	for i := 0; i < count; i++ {
+		commands = append(commands, cmdstore.CommandMetadata{
+			Name:   fmt.Sprintf("generated-command-%05d", i),
+			Use:    fmt.Sprintf("generated-command-%05d", i),
+			Short:  "generated command",
+			Method: "GET",
+			Path:   fmt.Sprintf("/generated/%d", i),
+		})
+	}
+	data, err := json.Marshal(cmdstore.StoredData{
+		Version:     "1.0",
+		BaseURL:     "http://127.0.0.1:1",
+		GeneratedAt: time.Now(),
+		Commands:    commands,
 	})
 	require.NoError(t, err)
 	return data
