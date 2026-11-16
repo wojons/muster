@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -155,8 +156,12 @@ func socketDaemonPIDs(t *testing.T, socketPath string) []int {
 		}
 	}
 
-	// Portable fallback (macOS and anywhere /proc is absent).
-	out, err := exec.Command("pgrep", "-f", "--", "--socket-path\x00"+socketPath).Output()
+	// Portable fallback (macOS and anywhere /proc is absent). pgrep -f matches
+	// the whole command line with arguments joined by single spaces, so the
+	// pattern must use a space, not the NUL that separates argv in /proc, and it
+	// must be regex-quoted: socket paths legitimately contain dots.
+	pattern := "--socket-path " + regexp.QuoteMeta(socketPath)
+	out, err := exec.Command("pgrep", "-f", "--", pattern).Output()
 	if err != nil && len(out) == 0 {
 		if _, lookErr := exec.LookPath("pgrep"); lookErr == nil {
 			// pgrep exits 1 when nothing matches; that is an empty set.
