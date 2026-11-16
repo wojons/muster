@@ -238,7 +238,14 @@ func TestSetDefaultPaths_NeverBuildsRelativePathsFromUnsetEnv(t *testing.T) {
 // Without the seam the branch is unreachable on linux/darwin: the test process
 // cannot change runtime.GOOS, so a Windows-only fallback is never executed.
 func TestSetDefaultPaths_WindowsEnvSeam(t *testing.T) {
-	const syntheticHome = "/synthetic/home"
+	// syntheticHome must be a path that filepath.IsAbs accepts on the host that
+	// runs the test: a Windows host treats a volume-less "/synthetic/home" as
+	// relative, which would make the absolute-path assertions below fail for the
+	// wrong reason. The directory is never created; only its shape matters.
+	syntheticHome := "/synthetic/home"
+	if runtime.GOOS == "windows" {
+		syntheticHome = `C:\synthetic\home`
+	}
 
 	// windowsLoader builds a Loader that claims to run on Windows and whose
 	// whole environment is env, with home pinned to a synthetic directory so
