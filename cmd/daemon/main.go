@@ -348,8 +348,24 @@ func handleStart(controller *daemon.Controller, handler http.Handler) error {
 	// control workflow unreachable from scripts. Pass --foreground (or set
 	// MUSTER_DAEMON_CHILD=1) to run in the foreground instead.
 	if os.Getenv("MUSTER_DAEMON_CHILD") != "1" && !foreground {
+		// Refuse BEFORE spawning. The guard is held by the daemon process (the
+		// child), so the parent only probes it; the refusal has to be printed
+		// here because the child's own stderr is /dev/null.
+		if err := daemon.ProbeStartGuard(socketPath, pidFile); err != nil {
+			return err
+		}
 		return spawnDaemonChild(controller)
 	}
+
+	// The one pre-bind guard: an exclusive OS-level lock on the socket path,
+	// taken BEFORE the listener exists and held for this process's whole
+	// lifetime. A second start cannot reach the bind, so it cannot steal the
+	// socket and orphan this daemon (QA-MUSTER-035).
+	guard, err := daemon.AcquireStartGuard(socketPath, pidFile)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = guard.Release() }()
 
 	// Start the controller with the socket handler so the Unix socket is
 	// actually created and endpoints are served. With --backend-url the
@@ -358,7 +374,7 @@ func handleStart(controller *daemon.Controller, handler http.Handler) error {
 	// handler (root info + /health) is served as before.
 	// (Controller.Start() alone only flips the running flag — it does not
 	// listen on the socket.)
-	err := controller.StartWithSocket(startModeHandler(handler, backendURL))
+	err = controller.StartWithSocket(startModeHandler(handler, backendURL))
 	if err != nil {
 		return fmt.Errorf("start daemon: %w", err)
 	}
@@ -442,6 +458,12 @@ func spawnDaemonChildWithArgs(controller *daemon.Controller, args []string) erro
 	_ = cmd.Process.Release()
 
 	if err := waitForDaemonReady(socketPath, pidFile, 5*time.Second); err != nil {
+		// A concurrent start can win the guard between our probe and the
+		// child's acquire. Name the live PID instead of reporting a bare
+		// timeout — the socket IS owned, just not by our child.
+		if guardErr := daemon.ProbeStartGuard(socketPath, pidFile); guardErr != nil {
+			return guardErr
+		}
 		return err
 	}
 
@@ -583,6 +605,14 @@ func handleProxyStart(controller *daemon.Controller, handler http.Handler) error
 		return fmt.Errorf("handler is required; use --backend-url to specify the backend URL")
 	}
 
+	// Same pre-bind guard as `start`: proxy mode binds the same socket, so it
+	// must lose the same race the same way (QA-MUSTER-035).
+	guard, err := daemon.AcquireStartGuard(socketPath, pidFile)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = guard.Release() }()
+
 	if err := controller.StartWithSocket(handler); err != nil {
 		return fmt.Errorf("start proxy: %w", err)
 	}
@@ -630,55 +660,20 @@ func handleStop(controller *daemon.Controller) error {
 		return fmt.Errorf("controller is required")
 	}
 
-	// Prefer PID-file based stop when available.
-	if _, err := os.Stat(pidFile); err == nil {
-		pid, err := readPIDFile(pidFile)
-		if err != nil || !isProcessRunning(pid) {
-			// Stale PID file / not running.
-			_ = os.Remove(pidFile)
-			_ = os.Remove(socketPath)
-			fmt.Println("Daemon is not running")
-			return nil
-		}
-
-		if err := terminateProcess(pid); err != nil {
-			return fmt.Errorf("send SIGTERM to PID %d: %w", pid, err)
-		}
-
-		deadline := time.Now().Add(5 * time.Second)
-		for time.Now().Before(deadline) {
-			if !isProcessRunning(pid) {
-				break
-			}
-			time.Sleep(50 * time.Millisecond)
-		}
-
-		if isProcessRunning(pid) {
-			return fmt.Errorf("daemon (PID %d) did not exit after SIGTERM", pid)
-		}
-
-		_ = os.Remove(pidFile)
-		_ = os.Remove(socketPath)
-		fmt.Println("Daemon stopped successfully")
-		return nil
-	}
-
-	// Fall back to in-process Controller when no PID file exists.
-	status, err := controller.Status()
+	// The guard lock is the authority, the pid file the fallback: a stop that
+	// trusted the pid file alone could not reap a daemon whose pid file was
+	// clobbered by a second start — the orphan this task exists to prevent.
+	// Only a PID recorded by this daemon's own lock/pid file is signalled.
+	pid, running, err := daemon.StopRunningDaemon(socketPath, pidFile, 5*time.Second)
 	if err != nil {
-		return fmt.Errorf("get status: %w", err)
+		return err
 	}
-
-	if !status.Running {
+	if !running {
 		fmt.Println("Daemon is not running")
 		return nil
 	}
 
-	if err := controller.Stop(); err != nil {
-		return fmt.Errorf("stop daemon: %w", err)
-	}
-
-	fmt.Println("Daemon stopped successfully")
+	fmt.Printf("Daemon stopped successfully (PID %d)\n", pid)
 	return nil
 }
 
@@ -698,33 +693,14 @@ func handleRestart(controller *daemon.Controller) error {
 		return fmt.Errorf("controller is required")
 	}
 
-	// Stop the running daemon first (PID-file based, same as `stop`) so the
-	// socket is released before the fresh daemon binds it.
-	if _, err := os.Stat(pidFile); err == nil {
-		pid, err := readPIDFile(pidFile)
-		if err != nil || !isProcessRunning(pid) {
-			// Stale PID file — clean up and start fresh below.
-			_ = os.Remove(pidFile)
-			_ = os.Remove(socketPath)
-			fmt.Println("Daemon is not running; starting fresh")
-		} else {
-			if err := terminateProcess(pid); err != nil {
-				return fmt.Errorf("send SIGTERM to PID %d: %w", pid, err)
-			}
-			deadline := time.Now().Add(5 * time.Second)
-			for time.Now().Before(deadline) {
-				if !isProcessRunning(pid) {
-					break
-				}
-				time.Sleep(50 * time.Millisecond)
-			}
-			if isProcessRunning(pid) {
-				return fmt.Errorf("daemon (PID %d) did not exit after SIGTERM", pid)
-			}
-			_ = os.Remove(pidFile)
-			_ = os.Remove(socketPath)
-			fmt.Println("Daemon stopped successfully")
-		}
+	// Stop the running daemon first (guard lock or PID file, same as `stop`) so
+	// the socket is released before the fresh daemon binds it.
+	pid, running, err := daemon.StopRunningDaemon(socketPath, pidFile, 5*time.Second)
+	if err != nil {
+		return err
+	}
+	if running {
+		fmt.Printf("Daemon stopped successfully (PID %d)\n", pid)
 	} else {
 		fmt.Println("Daemon is not running; starting fresh")
 	}
@@ -740,42 +716,25 @@ func handleStatus(controller *daemon.Controller) error {
 		return fmt.Errorf("controller is required")
 	}
 
-	// Prefer PID-file based status when available.
-	if _, err := os.Stat(pidFile); err == nil {
-		pid, err := readPIDFile(pidFile)
-		if err != nil {
-			fmt.Println("Daemon Status:")
-			fmt.Println("  Running:     false")
-			fmt.Printf("  Socket:      %s\n", socketPath)
-			return nil
-		}
-		if isProcessRunning(pid) {
-			fmt.Println("Daemon Status:")
-			fmt.Printf("  Running:     true\n")
-			fmt.Printf("  PID:         %d\n", pid)
-			fmt.Printf("  Start time:  %s\n", processStartTime(pid))
-			fmt.Printf("  Socket:      %s\n", socketPath)
-			fmt.Printf("  Version:     %s\n", version.Get().Short())
-			return nil
-		}
-		fmt.Println("Daemon Status:")
-		fmt.Println("  Running:     false")
+	// The guard lock (then the pid file) names the live daemon. The in-process
+	// Controller fallback that used to run here is meaningless in a CLI
+	// process: it reported THIS process's PID and a zero Start time, so a
+	// stopped daemon looked alive with a nonsense placeholder (QA-MUSTER-035).
+	fmt.Println("Daemon Status:")
+	if pid, running := daemon.RunningDaemonPID(socketPath, pidFile); running {
+		fmt.Printf("  Running:     true\n")
+		fmt.Printf("  PID:         %d\n", pid)
+		fmt.Printf("  Start time:  %s\n", processStartTime(pid))
 		fmt.Printf("  Socket:      %s\n", socketPath)
+		fmt.Printf("  Version:     %s\n", version.Get().Short())
 		return nil
 	}
 
-	// Fall back to in-process Controller when no PID file exists.
-	status, err := controller.Status()
-	if err != nil {
-		return fmt.Errorf("get status: %w", err)
-	}
-
-	fmt.Printf("Daemon Status:\n")
-	fmt.Printf("  Running:     %v\n", status.Running)
-	fmt.Printf("  PID:         %d\n", status.PID)
-	fmt.Printf("  Start time:  %v\n", status.StartTime)
+	// Not running: no PID line and no zero-time placeholder. The version is a
+	// property of the binary, not of the process, so it is still reported.
+	fmt.Printf("  Running:     false\n")
 	fmt.Printf("  Socket:      %s\n", socketPath)
-	fmt.Printf("  Version:     %s\n", status.Version)
+	fmt.Printf("  Version:     %s\n", version.Get().Short())
 	return nil
 }
 

@@ -19,7 +19,7 @@ import (
 
 // socketTestDir returns a SHORT temp directory for Unix socket tests.
 // t.TempDir() embeds the test name under a long TMPDIR (e.g. GitHub's
-// /var/folders/.../T/TestProxyServer_Start_ReplacesOldListener123456/001),
+// /var/folders/.../T/TestProxyServer_Start_RefusesLiveListener123456/001),
 // pushing the socket path past macOS's 104-byte sockaddr_un.sun_path limit —
 // bind() then fails with EINVAL ("bind: invalid argument").
 func socketTestDir(t *testing.T) string {
@@ -364,22 +364,24 @@ func TestProxyServer_Start(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestProxyServer_Start_ReplacesOldListener verifies that calling Start() a second
-// time replaces the old listener — no error is returned. The old socket is removed
-// and a new listener is created.
-func TestProxyServer_Start_ReplacesOldListener(t *testing.T) {
+// TestProxyServer_Start_RefusesLiveListener verifies that a second Start() on a
+// socket that is already served by a live listener FAILS instead of replacing
+// that listener. Replacing it would leave the first server accepting on an
+// anonymous socket that nothing can stop (QA-MUSTER-035).
+func TestProxyServer_Start_RefusesLiveListener(t *testing.T) {
 	socketDir := socketTestDir(t)
 	socketPath := filepath.Join(socketDir, "muster.sock")
 
 	ps := NewProxyServer(socketPath, nil)
 	require.NoError(t, ps.Start())
+	t.Cleanup(func() { _ = ps.Stop() })
 
-	// Second Start replaces the old listener (no error — Start()
-	// removes the existing socket and binds again).
-	err := ps.Start()
-	require.NoError(t, err)
+	second := NewProxyServer(socketPath, nil)
+	err := second.Start()
+	require.Error(t, err, "a second server must not bind a live socket")
+	require.Contains(t, err.Error(), "already served by a live process")
 
-	// The socket should exist and accept connections.
+	// The original listener must still be the one answering.
 	client := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
@@ -390,8 +392,30 @@ func TestProxyServer_Start_ReplacesOldListener(t *testing.T) {
 	}
 	resp, err := client.Get("http://unix/health")
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp.Body.Close()
+
+	require.NoError(t, ps.Stop())
+}
+
+// TestProxyServer_Start_ReplacesStaleSocket verifies the stale case that must
+// keep working: a socket FILE with no listener behind it (a crashed daemon) is
+// removed and rebound. Only a live listener is protected.
+func TestProxyServer_Start_ReplacesStaleSocket(t *testing.T) {
+	socketDir := socketTestDir(t)
+	socketPath := filepath.Join(socketDir, "muster.sock")
+
+	// A leftover regular file at the socket path: nothing accepts on it, so it
+	// is stale and must be replaced.
+	require.NoError(t, os.WriteFile(socketPath, []byte("stale"), 0o600))
+
+	ps := NewProxyServer(socketPath, nil)
+	require.NoError(t, ps.Start())
+	t.Cleanup(func() { _ = ps.Stop() })
+
+	conn, err := net.Dial("unix", socketPath)
+	require.NoError(t, err, "a live listener must accept on the rebound path")
+	_ = conn.Close()
 
 	require.NoError(t, ps.Stop())
 }

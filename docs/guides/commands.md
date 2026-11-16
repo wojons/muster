@@ -413,6 +413,41 @@ the socket flag (`--socket` on the wrapper, `--socket-path` on the binary).
 Operational detail — the socket route table, health endpoints, and the auth
 exemption — lives in [Daemon Operations](daemon-operations.md).
 
+### Single-daemon guard
+
+Both entry points take the **same** guard before they bind the socket, so a
+second start is refused instead of silently replacing the listener of the daemon
+that is already running:
+
+- **One OS-level lock.** The guard is an exclusive `flock` (Unix) / exclusive
+  open (Windows) on `<socket>.lock`, taken *before* the socket is bound and held
+  for the daemon's whole lifetime. The winner writes its PID into the lock file;
+  a loser never reaches the bind. It is an atomic lock, not a check-then-bind
+  window, and it never kills anything by guessing.
+- **One derivation, both surfaces.** `openapi-daemon start`, `openapi-daemon
+  proxy` and `openapi-cli daemon start` compute the lock path from the socket
+  path the same way, so either surface refuses the duplicate. The wrapper probes
+  the lock first because the daemon it spawns has its stderr discarded — the
+  refusal has to be printed by the process the operator is actually running.
+- **Refusal.** Exit code 1 and `Error: daemon already running (PID <pid>)` on
+  stderr, naming the live holder. The running daemon's PID file is not rewritten
+  (content and mtime unchanged) and its socket is untouched. `--foreground` is
+  refused the same way; before the guard it unlinked the live socket and blocked
+  forever on the stolen path.
+- **Stale sockets only.** A socket file that answers a connect belongs to a live
+  process and is never removed; only a file with no listener behind it is
+  unlinked before bind.
+- **Reaping.** `stop` and `restart` resolve the daemon from the lock first and
+  the PID file second, send SIGTERM to that recorded PID only, wait for it to
+  exit, then remove the PID file and the socket. With nothing recorded alive and
+  no listener on the socket, `stop` cleans up and reports `Daemon is not
+  running`. A socket that still answers while no daemon is recorded fails closed
+  rather than unlinking a live listener.
+- **Status.** `status` reports `Running: true` with the live PID and its start
+  time, or `Running: false` with no PID line and no zero-time placeholder. It
+  never reports the PID of the CLI process itself, which is what the removed
+  in-process `Controller` fallback used to do.
+
 ### `daemon` (openapi-cli wrapper)
 
 Manage the daemon process for background API proxying and persistent
@@ -441,9 +476,10 @@ Default socket: `/tmp/openapi-cli.sock`; the PID file is `<socket>.pid`.
 source checkout. With `--backend-url` it runs `openapi-daemon proxy
 --backend-url <url> --socket-path <socket>`, i.e. a pure forward proxy — the
 socket then serves **no** `/health` routes. Without `--backend-url` the daemon
-serves only its own status/health routes. Starting when a live daemon already
-owns the socket fails with `daemon already running (PID <pid>)` and exit code
-1.
+serves only its own status/health routes. A second start is refused by the
+[shared guard](#single-daemon-guard): exit code 1 and
+`Error: daemon already running (PID <pid>)` on stderr, with the running
+daemon's PID file and socket left untouched.
 
 **Examples** (each group is a start → status → stop cycle):
 ```bash
@@ -497,10 +533,12 @@ Two ways to get a reverse proxy on the socket:
   **every** socket path to the backend, `/health` included.
 
 `start` daemonizes and returns to the shell; `--foreground` (or
-`MUSTER_DAEMON_CHILD=1`) keeps it attached. Unlike the `openapi-cli daemon`
-wrapper, the standalone binary does **not** check for an already-running
-daemon: a second `start` rewrites the PID file while the earlier process keeps
-listening, so stop it through the wrapper or kill it by PID.
+`MUSTER_DAEMON_CHILD=1`) keeps it attached. A second `start` — foreground or
+daemonized, plain or `--backend-url` — is refused by the
+[shared guard](#single-daemon-guard) with `Error: daemon already running
+(PID <pid>)` and exit code 1: the earlier daemon keeps the socket and its PID
+file. `proxy` mode takes the same guard, so it cannot steal a live daemon's
+socket either.
 
 **Flags** (as listed by `openapi-daemon --help`; this binary uses the standard
 Go `flag` package, so one or two leading dashes both work and flags may appear

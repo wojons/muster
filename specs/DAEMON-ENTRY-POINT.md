@@ -2,6 +2,64 @@
 
 Complete Go daemon implementation with Unix socket proxy server.
 
+## Single-Daemon Guard (normative)
+
+One socket has exactly one serving daemon, and "who owns this socket" is decided
+by an **OS-level lock**, never by a check-then-bind window and never by a blind
+kill.
+
+**Location.** The guard lives in `pkg/daemon/guard.go` (policy: lock path,
+acquire, probe, resolve, reap) plus `pkg/daemon/guard_unix.go` and
+`pkg/daemon/guard_windows.go` (the platform lock, liveness probe and SIGTERM).
+
+**The rule.**
+
+- `AcquireStartGuard(socketPath, pidFilePath)` takes an exclusive lock on
+  `SocketLockPath(socketPath)` = `<socket>.lock` **before** the listener is
+  created, and the guard is held for the daemon's whole lifetime
+  (`defer guard.Release()` in `handleStart` / `handleProxyStart`). The winner
+  writes its PID into the lock file; a loser gets `AlreadyRunningError` and
+  never reaches the bind.
+- `ProbeStartGuard` is the same lock taken shared for an instant. The CLI
+  wrapper and the daemonizing parent use it because they must print the refusal
+  themselves (the spawned daemon's stderr is `/dev/null`), and because the
+  lock — not the probe — is the arbiter: a probe that loses a race is followed
+  by the child losing the lock, and the failure is still reported as
+  `daemon already running (PID N)`.
+- The lock file is never unlinked. Removing it while a daemon holds the (then
+  anonymous) inode would let a third start create a fresh inode and bind
+  alongside it.
+- A socket file is only unlinked when nothing answers a connect on it
+  (`socketInUse`). A stale file is removed; a live listener is refused, so the
+  library entry points (`Controller.StartWithSocket`, `ProxyServer.Start`) cannot
+  orphan a running daemon either.
+- `RunningDaemonPID` resolves the daemon from the lock first (its recorded PID,
+  verified alive) and the PID file second. `StopRunningDaemon` signals only that
+  recorded PID, waits for exit, then removes the PID file and the socket; with
+  nothing recorded alive and no listener it just cleans up. A socket that still
+  answers while no daemon is recorded is an error, not something to unlink.
+- `status` prints `Running: true` + PID + real start time, or `Running: false`
+  with no PID line and no zero-time placeholder. The in-process `Controller`
+  fallback is removed: in a CLI process it reported the CLI's own PID with a zero
+  start time.
+
+**Refusal contract** — identical for `openapi-daemon start`,
+`openapi-daemon proxy` and `openapi-cli daemon start`:
+
+| Aspect | Value |
+|--------|-------|
+| Exit code | 1 |
+| stderr | `Error: daemon already running (PID <live pid>)` |
+| PID file | not rewritten (content and mtime unchanged) |
+| Socket | untouched; exactly one listener remains |
+| `--foreground` | refused the same way (pre-guard it unlinked the socket and blocked) |
+
+**Superseded design.** The `PIDFile`/`processExists` check shown in the
+`cmd/daemon/main.go` code block below is the pre-guard design. A PID-file
+liveness check alone is a check-then-bind race — two starts can both see a dead
+or absent PID file — and it cannot see a daemon whose PID file was rewritten by
+a duplicate. The lock, not that check, is the authority.
+
 ## File: cmd/daemon/main.go
 
 ```go
