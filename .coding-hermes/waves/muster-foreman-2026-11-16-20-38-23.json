@@ -1,0 +1,38 @@
+{
+  "tick": "muster-foreman-2026-11-16-20-38-23",
+  "project": "muster",
+  "repo": "/home/kara/wojons/muster",
+  "base_ref": "origin/main",
+  "base_sha": "f1791fe1",
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "wave_budget": 10,
+  "dispatched": 2,
+  "composed_independence": "No depends_on edges on either row. Write seams are disjoint: INT-CI-015 -> pkg/config/loader.go + pkg/config (tests only); QA-MUSTER-040 -> cmd/mcp-server + pkg/openapi + README.md + docs/integration-guide.md. No shared file, no shared package beyond module root. INT-CI-015 unblocks P1 INT-CI-14 (its tier2 judge failed on exactly this test-rigour gap), so it merges first.",
+  "workers": [
+    {
+      "id": "INT-CI-015",
+      "title": "injectable OS/env seam in pkg/config so the Windows path-fallback guard is falsifiable on any host",
+      "worktree": "/home/kara/worktrees/muster-INT-CI-015",
+      "branch": "wt/INT-CI-015",
+      "files": ["pkg/config/loader.go", "pkg/config/loader_test.go"],
+      "kind": "test-rigour",
+      "prior": "tier2 judge on INT-CI-14 FAILed because TestWindowsUnsetAppDataNeverBuildsRelativePathsFromUnsetEnv passes on linux without exercising any guard"
+    },
+    {
+      "id": "QA-MUSTER-040",
+      "title": "uniform spec-validation policy: real GitHub v3 spec must start openapi-mcp, one documented flag policy",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-040",
+      "branch": "wt/QA-MUSTER-040",
+      "files": ["cmd/mcp-server/main.go", "cmd/mcp-server/main_test.go", "pkg/openapi/parser.go", "README.md", "docs/integration-guide.md"],
+      "kind": "product-robustness"
+    }
+  ],
+  "held_back": [
+    {"id": "PERF-001", "reason": "benchmark row needs a quiet host; load average is 19.4 on 16 cores right now (same reason it was held back last wave at 6.6-10.8). Micro-benchmark arms are stable but the discover-path -9% arm is not measurable at this load without lying about the number."},
+    {"id": "QA-MUSTER-041", "reason": "form-encoded body generation touches pkg/openapi/parser.go, the same file QA-MUSTER-040 owns this tick — not independent, deferred to the next wave."},
+    {"id": "RELEASE-014", "reason": "P0 but deferred:true, owner-gated (gitreins binding); its Windows arm is now green on main, and INT-CI-015 (this wave) is the remaining precondition for closing INT-CI-14."},
+    {"id": "INT-CI-006 / INT-CI-9", "reason": "not implemented — verified stale: Windows CI is green at f1791fe1 and the named retention/prune tests pass; closing as verification-only with log evidence this tick."},
+    {"id": "QA-MUSTER-046", "reason": "bunker-qa.sh harness row routes to qa-foreman per support-agent routing (out of this repo's tree)."}
+  ]
+}
