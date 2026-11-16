@@ -98,10 +98,16 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 				fmt.Println("✓ Converted from Swagger/OpenAPI 2.0 to OpenAPI 3.x")
 			}
 
-			baseURLPath := baseURL
-			if baseURLPath == "" {
-				baseURLPath = defaultBaseURLFromSpec(result.Document)
-			}
+			// Resolve the base URL for this run. An EXPLICIT --base-url wins
+			// over the spec's servers[0] for EVERY generated command — the
+			// flag promises an override, so silently discarding it when the
+			// spec ships a servers[] entry is not acceptable. Without the
+			// flag the spec's absolute servers[0] keeps its historical
+			// precedence (DF-007).
+			baseURLExplicit := cmd.Flags().Changed("base-url") && baseURL != ""
+			resolution := resolveGenerateBaseURL(baseURL, baseURLExplicit, result.Document)
+			baseURLPath := resolution.URL
+			fmt.Println(resolution.Describe())
 			// PROTO-006: the generator must never return an empty command
 			// set for a document that parsed successfully. The one measured
 			// way a 2.0 document could produce zero commands was a missing
@@ -118,6 +124,7 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 			genCfg := generator.Config{
 				AppName:          "openapi-cli",
 				BaseURL:          baseURLPath,
+				BaseURLOverride:  baseURLExplicit,
 				DefaultFormat:    "table",
 				SupportedFormats: []string{"table", "json", "yaml"},
 			}
@@ -135,7 +142,7 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 			fmt.Printf("✓ Generated %d command groups\n", len(commands))
 
 			// Convert commands to metadata and persist
-			metadata, err := commandsToMetadata(commands, specPath, baseURLPath, result.Document, data)
+			metadata, err := commandsToMetadata(commands, specPath, baseURLPath, result.Document, data, baseURLExplicit)
 			if err != nil {
 				return fmt.Errorf("convert commands to metadata: %w", err)
 			}
@@ -190,14 +197,81 @@ func defaultBaseURLFromSpec(doc *openapi3.T) string {
 	return "https://api.example.com"
 }
 
-// commandsToMetadata converts generated cobra.Commands to persistent metadata
-func commandsToMetadata(commands []*cobra.Command, specPath, baseURL string, doc *openapi3.T, specData []byte) (*cmdstore.StoredData, error) {
+// generateBaseURLResolution is the outcome of resolving the base URL for a
+// `generate` run: the URL itself, where it came from, and — when an explicit
+// --base-url displaced a server the spec declared — what was overridden.
+type generateBaseURLResolution struct {
+	URL string
+	// Source is a short human-readable description of where URL came from
+	// (used when nothing was overridden).
+	Source string
+	// Overrode is the spec's root servers[0] URL that an explicit
+	// --base-url displaced, empty when nothing was displaced.
+	Overrode string
+}
+
+// Describe renders the resolution as the single observability line printed
+// at generate time, so the precedence is visible instead of implicit.
+func (r generateBaseURLResolution) Describe() string {
+	if r.Overrode != "" {
+		return fmt.Sprintf("Base URL: %s (from --base-url; overrides spec servers[0]: %s)", r.URL, r.Overrode)
+	}
+	return fmt.Sprintf("Base URL: %s (%s)", r.URL, r.Source)
+}
+
+// resolveGenerateBaseURL applies the precedence contract of generate's
+// --base-url flag:
+//
+//   - explicit --base-url wins over the spec's root servers[0] (and, via
+//     generator.Config.BaseURLOverride, over every operation/path-level
+//     server too) — it is the URL the user asked for;
+//   - otherwise the spec's absolute servers[0] is used, unchanged (DF-007);
+//   - a spec with no usable server falls back to the historical placeholder.
+//
+// A RELATIVE servers[0] is not a usable base URL (DF-015), so it never wins
+// over the placeholder regardless of the flag.
+func resolveGenerateBaseURL(flagURL string, flagSet bool, doc *openapi3.T) generateBaseURLResolution {
+	specServer := ""
+	if doc != nil && len(doc.Servers) > 0 && doc.Servers[0] != nil {
+		specServer = doc.Servers[0].URL
+	}
+	specServerUsable := strings.Contains(specServer, "://")
+
+	if flagSet && flagURL != "" {
+		res := generateBaseURLResolution{URL: flagURL, Source: "from --base-url"}
+		if specServerUsable {
+			res.Overrode = specServer
+		}
+		return res
+	}
+
+	switch {
+	case specServerUsable:
+		return generateBaseURLResolution{URL: specServer, Source: "from spec servers[0]"}
+	case specServer != "":
+		return generateBaseURLResolution{
+			URL:    defaultBaseURLFromSpec(doc),
+			Source: "spec servers[0] is relative, using default",
+		}
+	default:
+		return generateBaseURLResolution{
+			URL:    defaultBaseURLFromSpec(doc),
+			Source: "spec declares no servers, using default",
+		}
+	}
+}
+
+// commandsToMetadata converts generated cobra.Commands to persistent metadata.
+// baseURLOverride carries the caller's explicit --base-url intent: when set,
+// every persisted command records that URL instead of the spec's per-operation
+// servers[0], so a reloaded store targets what the user asked for.
+func commandsToMetadata(commands []*cobra.Command, specPath, baseURL string, doc *openapi3.T, specData []byte, baseURLOverride bool) (*cmdstore.StoredData, error) {
 	var commandMetadatas []cmdstore.CommandMetadata
 
 	// Extract operations from the spec
 	for _, cmd := range commands {
 		// Recursively process subcommands
-		extractCommandMetadata(cmd, specPath, baseURL, doc, &commandMetadatas)
+		extractCommandMetadata(cmd, specPath, baseURL, doc, &commandMetadatas, baseURLOverride)
 	}
 
 	// Calculate spec hash from the already-loaded spec data
@@ -362,12 +436,12 @@ func singularize(s string) string {
 
 // extractCommandMetadata recursively extracts metadata from command and subcommands
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=internal/builtin/generate.go
-func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *openapi3.T, metadata *[]cmdstore.CommandMetadata) {
+func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *openapi3.T, metadata *[]cmdstore.CommandMetadata, baseURLOverride bool) {
 	// For each command, check if it's a leaf (operation) or a group
 	if cmd.HasSubCommands() {
 		// This is a group, recurse into subcommands
 		for _, subCmd := range cmd.Commands() {
-			extractCommandMetadata(subCmd, specPath, baseURL, doc, metadata)
+			extractCommandMetadata(subCmd, specPath, baseURL, doc, metadata, baseURLOverride)
 		}
 		return
 	}
@@ -398,10 +472,15 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 	// Determine if this operation supports multipart
 	hasMultipart, multipartFields := detectMultipartOperation(doc, path, method)
 
-	// Resolve per-operation server URL from the spec, falling back to the global base URL
-	operationBaseURL := getOperationServerURL(doc, path, method)
-	if operationBaseURL == "" {
-		operationBaseURL = baseURL
+	// Resolve the persisted base URL for this operation. An explicit
+	// generate-time --base-url (baseURLOverride) is authoritative for EVERY
+	// command; otherwise the spec's own operation/path/root servers[0] wins
+	// and the resolved run base URL is only the fallback.
+	operationBaseURL := baseURL
+	if !baseURLOverride {
+		if specServerURL := getOperationServerURL(doc, path, method); specServerURL != "" {
+			operationBaseURL = specServerURL
+		}
 	}
 
 	// The persisted store reloads every operation command FLAT at the root

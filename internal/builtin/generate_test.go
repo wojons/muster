@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -186,7 +187,7 @@ paths: {}
 		err := os.WriteFile(specPath, specContent, 0644)
 		require.NoError(t, err)
 
-		metadata, err := commandsToMetadata(nil, specPath, "https://api.test.com", nil, specContent)
+		metadata, err := commandsToMetadata(nil, specPath, "https://api.test.com", nil, specContent, false)
 
 		require.NoError(t, err)
 		assert.NotNil(t, metadata)
@@ -199,7 +200,7 @@ paths: {}
 		tmpDir := t.TempDir()
 		specPath := filepath.Join(tmpDir, "spec.yaml")
 
-		metadata, err := commandsToMetadata(nil, specPath, "https://api.test.com", nil, nil)
+		metadata, err := commandsToMetadata(nil, specPath, "https://api.test.com", nil, nil, false)
 
 		require.NoError(t, err)
 		assert.NotNil(t, metadata)
@@ -1250,7 +1251,7 @@ func TestCommandsToMetadata_AnnotationExactPaths(t *testing.T) {
 
 	// generate passes its --base-url default; use the legacy placeholder to
 	// prove per-command BaseURLs come from the spec, not the fallback.
-	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON)
+	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON, false)
 	require.NoError(t, err)
 	require.Len(t, metadata.Commands, 22)
 
@@ -1317,7 +1318,7 @@ func TestCommandsToMetadata_FlatRunnableExamples(t *testing.T) {
 	commands, err := gen.GenerateCommands(doc)
 	require.NoError(t, err)
 
-	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON)
+	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON, false)
 	require.NoError(t, err)
 	require.Len(t, metadata.Commands, 22)
 
@@ -1388,7 +1389,7 @@ func TestPersistedHelp_FlatRunnableExamples(t *testing.T) {
 	commands, err := gen.GenerateCommands(doc)
 	require.NoError(t, err)
 
-	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON)
+	metadata, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON, false)
 	require.NoError(t, err)
 
 	store := cmdstore.NewCommandStore()
@@ -1474,4 +1475,196 @@ func TestDefaultBaseURLFromSpec(t *testing.T) {
 		require.Equal(t, "https://api.example.com", defaultBaseURLFromSpec(&openapi3.T{}))
 		require.Equal(t, "https://api.example.com", defaultBaseURLFromSpec(nil))
 	})
+}
+
+// TestResolveGenerateBaseURL_Precedence pins generate's --base-url precedence
+// contract: an explicit flag outranks the spec's servers[0]; without the flag
+// the spec's absolute server keeps its historical precedence (DF-007); a spec
+// with no usable server falls back to the placeholder.
+func TestResolveGenerateBaseURL_Precedence(t *testing.T) {
+	withServer := &openapi3.T{Servers: openapi3.Servers{{URL: "http://example.invalid"}}}
+	relative := &openapi3.T{Servers: openapi3.Servers{{URL: "/api/v3"}}}
+	noServer := &openapi3.T{}
+
+	tests := []struct {
+		name         string
+		flagURL      string
+		flagSet      bool
+		doc          *openapi3.T
+		wantURL      string
+		wantOverrode string
+		wantDescribe []string
+	}{
+		{
+			name:         "flag wins over spec servers[0]",
+			flagURL:      "http://127.0.0.1:19211",
+			flagSet:      true,
+			doc:          withServer,
+			wantURL:      "http://127.0.0.1:19211",
+			wantOverrode: "http://example.invalid",
+			wantDescribe: []string{
+				"Base URL: http://127.0.0.1:19211",
+				"overrides spec servers[0]: http://example.invalid",
+			},
+		},
+		{
+			name:         "flag used when spec declares no servers",
+			flagURL:      "http://127.0.0.1:19211",
+			flagSet:      true,
+			doc:          noServer,
+			wantURL:      "http://127.0.0.1:19211",
+			wantDescribe: []string{"Base URL: http://127.0.0.1:19211 (from --base-url)"},
+		},
+		{
+			name:         "no flag: spec servers[0] unchanged",
+			doc:          withServer,
+			wantURL:      "http://example.invalid",
+			wantDescribe: []string{"Base URL: http://example.invalid (from spec servers[0])"},
+		},
+		{
+			name:         "no flag, no servers: placeholder",
+			doc:          noServer,
+			wantURL:      "https://api.example.com",
+			wantDescribe: []string{"Base URL: https://api.example.com (spec declares no servers, using default)"},
+		},
+		{
+			name:         "no flag, relative server: placeholder",
+			doc:          relative,
+			wantURL:      "https://api.example.com",
+			wantDescribe: []string{"spec servers[0] is relative, using default"},
+		},
+		{
+			name:         "empty flag value falls back to spec",
+			flagURL:      "",
+			flagSet:      true,
+			doc:          withServer,
+			wantURL:      "http://example.invalid",
+			wantDescribe: []string{"from spec servers[0]"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := resolveGenerateBaseURL(tt.flagURL, tt.flagSet, tt.doc)
+			require.Equal(t, tt.wantURL, res.URL)
+			require.Equal(t, tt.wantOverrode, res.Overrode)
+			for _, want := range tt.wantDescribe {
+				require.Contains(t, res.Describe(), want)
+			}
+		})
+	}
+}
+
+// TestCommandsToMetadata_BaseURLOverride proves an explicit generate-time
+// --base-url is persisted for EVERY command, while the no-flag path keeps
+// the spec's per-operation servers[0] (the task-forge spec declares
+// http://localhost:9801).
+func TestCommandsToMetadata_BaseURLOverride(t *testing.T) {
+	specJSON := []byte(taskForgeNoIDSpecJSON)
+	doc, err := openapi3.NewLoader().LoadFromData(specJSON)
+	require.NoError(t, err)
+
+	const overrideURL = "http://127.0.0.1:19211"
+	gen, err := generator.NewGenerator(generator.Config{
+		AppName:         "openapi-cli",
+		BaseURL:         overrideURL,
+		BaseURLOverride: true,
+	})
+	require.NoError(t, err)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+
+	metadata, err := commandsToMetadata(commands, "spec.json", overrideURL, doc, specJSON, true)
+	require.NoError(t, err)
+	require.NotEmpty(t, metadata.Commands)
+	require.Equal(t, overrideURL, metadata.BaseURL)
+	for _, cmd := range metadata.Commands {
+		require.Equal(t, overrideURL, cmd.BaseURL,
+			"command %q must persist the explicit --base-url, not the spec server", cmd.Name)
+	}
+
+	// Regression guard: without the explicit flag the spec's server wins.
+	plainMeta, err := commandsToMetadata(commands, "spec.json", "https://api.example.com", doc, specJSON, false)
+	require.NoError(t, err)
+	for _, cmd := range plainMeta.Commands {
+		require.Equal(t, "http://localhost:9801", cmd.BaseURL,
+			"command %q must keep the spec's servers[0] when the flag is absent", cmd.Name)
+	}
+}
+
+// TestGenerateCommand_BaseURLOverrideEndToEnd runs the real generate command
+// with -u against a spec that declares servers[0], then reloads the persisted
+// store and EXECUTES the generated command: the request must go to the flag's
+// URL. This is the REVIEW-MUSTER-28 failure mode end to end.
+func TestGenerateCommand_BaseURLOverrideEndToEnd(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("MUSTER_BASE_URL", "")
+
+	var mu sync.Mutex
+	var hitPaths []string
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hitPaths = append(hitPaths, r.URL.Path)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":"p1","name":"spec-project"}]`))
+	}))
+	defer apiSrv.Close()
+
+	specPath := filepath.Join(t.TempDir(), "review-api.json")
+	require.NoError(t, os.WriteFile(specPath, []byte(`{
+  "openapi": "3.0.0",
+  "info": {"title": "Review API", "version": "1.0.0"},
+  "servers": [{"url": "http://example.invalid"}],
+  "paths": {
+    "/projects": {
+      "get": {
+        "operationId": "list-projects",
+        "summary": "List projects",
+        "responses": {"200": {"description": "ok"}}
+      }
+    }
+  }
+}`), 0644))
+
+	cfg := &config.Config{}
+	generate := newGenerateCommand(cfg)
+	require.NoError(t, generate.Flags().Set("base-url", apiSrv.URL))
+
+	out, err := captureStdout(func() error { return generate.RunE(generate, []string{specPath}) })
+	require.NoError(t, err)
+
+	// The precedence is printed, not implicit.
+	require.Contains(t, out, "Base URL: "+apiSrv.URL)
+	require.Contains(t, out, "overrides spec servers[0]: http://example.invalid")
+
+	// The persisted store records the flag URL for every command.
+	store := cmdstore.NewCommandStore(resolvePersistedCommandsPath(cfg))
+	stored := store.List()
+	require.NotNil(t, stored, "generate must persist a store")
+	require.Equal(t, apiSrv.URL, stored.BaseURL)
+	require.NotEmpty(t, stored.Commands)
+	for _, cmd := range stored.Commands {
+		require.Equal(t, apiSrv.URL, cmd.BaseURL, "persisted command %q kept the spec server", cmd.Name)
+	}
+
+	// The reloaded command actually calls the flag's URL.
+	loader := cmdstore.NewLoader(store, apiSrv.URL)
+	loaded, err := loader.LoadCommands()
+	require.NoError(t, err)
+	var listProjects *cobra.Command
+	for _, c := range loaded {
+		if c.Name() == "list-projects" {
+			listProjects = c
+		}
+	}
+	require.NotNil(t, listProjects, "list-projects did not reload from the store")
+	require.NoError(t, listProjects.RunE(listProjects, nil))
+
+	mu.Lock()
+	paths := append([]string(nil), hitPaths...)
+	mu.Unlock()
+	require.Equal(t, []string{"/projects"}, paths,
+		"the reloaded command must call the --base-url host, not the spec's servers[0]")
 }
