@@ -107,13 +107,15 @@ func TestNewDaemonStatusCommand(t *testing.T) {
 	})
 }
 
-func TestNewDaemonCommands_StopErrors(t *testing.T) {
-	// Stop errors when daemon isn't running and no PID file exists (Controller fallback).
-	// Use a unique socket path so we don't hit a real PID file from a live daemon.
+func TestNewDaemonCommands_StopWhenNotRunning(t *testing.T) {
+	// With no daemon lock, no PID file and no listener, `stop` is a no-op that
+	// reports the state and exits 0 — the same contract as the standalone
+	// binary. The old in-process Controller fallback returned an error here,
+	// but that controller never represented the daemon: it reported the CLI's
+	// own PID (QA-MUSTER-035).
 	cmd := newDaemonStopCommand()
 	cmd.SetArgs([]string{"--socket", filepath.Join(t.TempDir(), "no-daemon.sock")})
-	err := cmd.Execute()
-	assert.Error(t, err, "stop should error when daemon is not running and no PID file exists")
+	require.NoError(t, cmd.Execute(), "stop with nothing running must succeed")
 }
 
 func TestResolveSocketPath(t *testing.T) {

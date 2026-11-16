@@ -29,6 +29,14 @@ func newDaemonCommand() *cobra.Command {
 	cmd.AddCommand(newDaemonStopCommand())
 	cmd.AddCommand(newDaemonStatusCommand())
 
+	// These subcommands report RUNTIME outcomes ("daemon already running",
+	// "did not exit after SIGTERM"). Cobra prints the usage block on any RunE
+	// error, which buries the one line the operator needs under a help dump,
+	// so silence it for these three.
+	for _, sub := range cmd.Commands() {
+		sub.SilenceUsage = true
+	}
+
 	return cmd
 }
 
@@ -40,7 +48,9 @@ func resolveSocketPath(socketPath string) string {
 }
 
 func pidFileForSocket(socketPath string) string {
-	return socketPath + ".pid"
+	// One derivation, shared with the daemon binary (pkg/daemon), so the guard,
+	// the PID file and `stop`/`status` can never disagree about where to look.
+	return daemon.DefaultPIDFile(socketPath)
 }
 
 // findDaemonBinary locates the openapi-daemon binary.
@@ -144,9 +154,12 @@ func newDaemonStartCommand() *cobra.Command {
 			socketPath = resolveSocketPath(socketPath)
 			pidPath := pidFileForSocket(socketPath)
 
-			// Refuse to start if a live daemon already owns this socket/PID.
-			if existing, err := readPIDFile(pidPath); err == nil && isProcessRunning(existing) {
-				return fmt.Errorf("daemon already running (PID %d)", existing)
+			// Shared pre-bind guard (the same flock the daemon binary takes).
+			// A second start is REFUSED here, naming the live PID, instead of
+			// spawning a duplicate daemon that steals the socket and orphans
+			// the first one (QA-MUSTER-035).
+			if err := daemon.ProbeStartGuard(socketPath, pidPath); err != nil {
+				return err
 			}
 
 			binaryPath, err := findDaemonBinary()
@@ -169,31 +182,29 @@ func newDaemonStartCommand() *cobra.Command {
 			// Reap the child when it exits so we don't leave a zombie.
 			go func() { _ = execCmd.Wait() }()
 
-			pid := execCmd.Process.Pid
-			if err := writePIDFile(pidPath, pid); err != nil {
-				_ = terminateProcess(pid)
-				return fmt.Errorf("write PID file: %w", err)
-			}
-
-			// Wait briefly for the PID file and a still-running process.
-			deadline := time.Now().Add(2 * time.Second)
-			ok := false
+			// Wait for the daemon's OWN PID file. The daemon writes it (it is
+			// the process that serves the socket); writing it from here would
+			// race the grandchild and could leave the file naming this
+			// short-lived parent — which is how a live daemon became
+			// unreapable in the first place.
+			deadline := time.Now().Add(5 * time.Second)
+			var daemonPID int
 			for time.Now().Before(deadline) {
-				if _, err := os.Stat(pidPath); err == nil && isProcessRunning(pid) {
-					ok = true
+				if pid, err := readPIDFile(pidPath); err == nil && isProcessRunning(pid) {
+					daemonPID = pid
 					break
 				}
 				time.Sleep(50 * time.Millisecond)
 			}
-			if !ok {
-				if !isProcessRunning(pid) {
-					_ = os.Remove(pidPath)
-					return fmt.Errorf("daemon process exited immediately (PID %d)", pid)
+			if daemonPID == 0 {
+				if guardErr := daemon.ProbeStartGuard(socketPath, pidPath); guardErr != nil {
+					return guardErr
 				}
-				return fmt.Errorf("timed out waiting for daemon PID file at %s", pidPath)
+				_ = os.Remove(pidPath)
+				return fmt.Errorf("daemon did not write a live PID file at %s within 5s", pidPath)
 			}
 
-			fmt.Printf("✓ Daemon started (PID: %d)\n", pid)
+			fmt.Printf("✓ Daemon started (PID: %d)\n", daemonPID)
 			fmt.Printf("  Socket: %s\n", socketPath)
 			if backendURL != "" {
 				fmt.Printf("  Backend: %s\n", backendURL)
@@ -219,55 +230,20 @@ func newDaemonStopCommand() *cobra.Command {
 			socketPath = resolveSocketPath(socketPath)
 			pidPath := pidFileForSocket(socketPath)
 
-			// Prefer PID-file based stop when available.
-			if _, err := os.Stat(pidPath); err == nil {
-				pid, err := readPIDFile(pidPath)
-				if err != nil || !isProcessRunning(pid) {
-					// Stale PID file / not running.
-					_ = os.Remove(pidPath)
-					_ = os.Remove(socketPath)
-					fmt.Println("Daemon is not running")
-					return nil
-				}
-
-				if err := terminateProcess(pid); err != nil {
-					return fmt.Errorf("send SIGTERM to PID %d: %w", pid, err)
-				}
-
-				deadline := time.Now().Add(5 * time.Second)
-				for time.Now().Before(deadline) {
-					if !isProcessRunning(pid) {
-						break
-					}
-					time.Sleep(50 * time.Millisecond)
-				}
-
-				if isProcessRunning(pid) {
-					return fmt.Errorf("daemon (PID %d) did not exit after SIGTERM", pid)
-				}
-
-				_ = os.Remove(pidPath)
-				_ = os.Remove(socketPath)
-				fmt.Println("✓ Daemon stopped")
+			// Shared reap path: the guard lock is the authority, the PID file
+			// the fallback, so a daemon whose PID file was clobbered by an
+			// earlier duplicate start is still found and reaped. Only a PID
+			// recorded by this daemon's own lock or PID file is signalled.
+			pid, running, err := daemon.StopRunningDaemon(socketPath, pidPath, 5*time.Second)
+			if err != nil {
+				return err
+			}
+			if !running {
+				fmt.Println("Daemon is not running")
 				return nil
 			}
 
-			// Fall back to in-process Controller when no PID file exists.
-			cfg := daemon.ControllerConfig{
-				SocketPath: socketPath,
-				Version:    "1.0.0",
-			}
-
-			controller, err := daemon.NewController(cfg)
-			if err != nil {
-				return fmt.Errorf("create daemon controller: %w", err)
-			}
-
-			if err := controller.Stop(); err != nil {
-				return fmt.Errorf("stop daemon: %w", err)
-			}
-
-			fmt.Println("✓ Daemon stopped successfully")
+			fmt.Printf("✓ Daemon stopped (PID: %d)\n", pid)
 			return nil
 		},
 	}
@@ -288,48 +264,21 @@ func newDaemonStatusCommand() *cobra.Command {
 			socketPath = resolveSocketPath(socketPath)
 			pidPath := pidFileForSocket(socketPath)
 
-			// Prefer PID-file based status when available.
-			if _, err := os.Stat(pidPath); err == nil {
-				pid, err := readPIDFile(pidPath)
-				if err != nil {
-					fmt.Println("Status: Stopped")
-					return nil
-				}
-				if isProcessRunning(pid) {
-					fmt.Printf("Status: Running\n")
-					fmt.Printf("  PID: %d\n", pid)
-					fmt.Printf("  Socket: %s\n", socketPath)
-					fmt.Printf("  Started: %s\n", processStartTime(pid))
-					return nil
-				}
+			// Same authority as start/stop: the guard lock names the live
+			// daemon, the PID file is the fallback. The in-process Controller
+			// fallback is gone on purpose — in a CLI process it reported THIS
+			// process as the daemon (PID of the CLI, zero Start time), which is
+			// precisely the lie that made a stopped daemon look alive.
+			pid, running := daemon.RunningDaemonPID(socketPath, pidPath)
+			if !running {
 				fmt.Println("Status: Stopped")
 				return nil
 			}
 
-			// Fall back to in-process Controller when no PID file exists.
-			cfg := daemon.ControllerConfig{
-				SocketPath: socketPath,
-				Version:    "1.0.0",
-			}
-
-			controller, err := daemon.NewController(cfg)
-			if err != nil {
-				return fmt.Errorf("create daemon controller: %w", err)
-			}
-
-			status, err := controller.Status()
-			if err != nil {
-				return fmt.Errorf("get daemon status: %w", err)
-			}
-
-			if status.Running {
-				fmt.Printf("Status: Running\n")
-				fmt.Printf("  PID: %d\n", status.PID)
-				fmt.Printf("  Started: %s\n", status.StartTime.Format("2006-01-02 15:04:05"))
-			} else {
-				fmt.Println("Status: Stopped")
-			}
-
+			fmt.Printf("Status: Running\n")
+			fmt.Printf("  PID: %d\n", pid)
+			fmt.Printf("  Socket: %s\n", socketPath)
+			fmt.Printf("  Started: %s\n", processStartTime(pid))
 			return nil
 		},
 	}

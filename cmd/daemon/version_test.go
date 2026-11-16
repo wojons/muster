@@ -105,8 +105,9 @@ func TestRun_StatusVersionMatchesInternal(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Point the PID file at a temp path so the fallback controller-status
-	// path (which prints the version) is taken deterministically.
+	// Point the PID file at a temp path so no live daemon is found and the
+	// stopped-daemon branch (which still reports the version) is taken
+	// deterministically.
 	os.Args = []string{"openapi-daemon", "--pid-file", filepath.Join(t.TempDir(), "test.pid"), "status"}
 	err := run()
 

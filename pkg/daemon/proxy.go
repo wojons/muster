@@ -192,7 +192,14 @@ func (c *Controller) StartWithSocket(handler http.Handler) error {
 		return fmt.Errorf("daemon is already running")
 	}
 
-	// Remove any stale socket file
+	// Remove a stale socket file, but never a LIVE one. A socket that still
+	// answers belongs to a running process: unbinding it would leave that
+	// process orphaned on an anonymous listener while this one takes the path.
+	// The start lock (AcquireStartGuard) is what refuses a second start; this
+	// is the second line of defence for callers of the library API.
+	if socketInUse(c.socketPath) {
+		return fmt.Errorf("socket %s is already served by a live process; refusing to bind a second daemon", c.socketPath)
+	}
 	if _, err := os.Stat(c.socketPath); err == nil {
 		if err := os.Remove(c.socketPath); err != nil {
 			return fmt.Errorf("remove stale socket %s: %w", c.socketPath, err)
@@ -429,7 +436,11 @@ func (p *ProxyServer) Start() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Remove socket if it exists
+	// Remove a stale socket if it exists — but never clobber a live listener
+	// (see Controller.StartWithSocket).
+	if socketInUse(p.socketPath) {
+		return fmt.Errorf("socket %s is already served by a live process; refusing to bind a second server", p.socketPath)
+	}
 	if _, err := os.Stat(p.socketPath); err == nil {
 		_ = os.Remove(p.socketPath)
 	}
