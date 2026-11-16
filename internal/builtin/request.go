@@ -197,6 +197,14 @@ func handleRequest(cfg *config.Config, method, targetURL string, headers, params
 	var clientOpts []client.ClientOption
 	clientOpts = append(clientOpts, client.WithTimeout(timeout))
 	clientOpts = append(clientOpts, client.WithHTTPVersion(version))
+	// Retries are on by default (3 attempts: the first try plus up to two
+	// retries on 429/500/502/503/504) and MUSTER_MAX_RETRIES=0 disables them.
+	// cfg.RetryAttempts applies the config file key, the environment variable
+	// and that default; an attempt ceiling of 1 adds no retrier at all, so a
+	// disabled retry path is a single exchange, not a retrier that gives up.
+	if attempts := cfg.RetryAttempts(); attempts > 1 {
+		clientOpts = append(clientOpts, client.WithRetryConfig(client.RetryConfigFor(attempts)))
+	}
 	if cfg != nil && cfg.RateLimit.Enabled {
 		clientOpts = append(clientOpts, client.WithRateLimiter(cfg.RateLimit.RatePerSec, cfg.RateLimit.Burst))
 	}

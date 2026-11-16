@@ -369,7 +369,33 @@ Error: x509: certificate signed by unknown authority
 
 **Solutions**:
 
-1. **Enable rate limiting**:
+1. **Nothing to do for a short window**: `429` is retried automatically (up to
+   the attempt ceiling, 3 by default). If the response carries `Retry-After`,
+   that value is printed on stderr and used as the minimum wait before the
+   next attempt:
+
+   ```
+   retry: HTTP 429 from GET https://api.example.com/items — honouring Retry-After: 3s
+   retry: HTTP 429 from GET https://api.example.com/items — attempt 1 of 3, retrying
+   ```
+
+2. **Give it more room**: raise the attempt ceiling for one command, or for a
+   session. There is no `config set` subcommand — the knob is the environment
+   variable or the configuration file key:
+
+   ```bash
+   MUSTER_MAX_RETRIES=5 openapi-cli request GET https://api.example.com/items
+   ```
+
+   ```yaml
+   http:
+     max_retries: 5
+   ```
+
+3. **Slow the caller down**: if the API also advertises a quota you keep
+   exceeding, enable client-side rate limiting so the retries are not spent
+   re-earning the same rejection:
+
    ```yaml
    rate_limit:
      enabled: true
@@ -377,28 +403,25 @@ Error: x509: certificate signed by unknown authority
      burst: 100
    ```
 
-2. **Wait and retry**:
-   ```bash
-   openapi-cli config set http.max_retries 5
-   openapi-cli config set http.retry_delay 5s
-   ```
-
-3. **Use exponential backoff**:
-   ```yaml
-   http:
-     retry_backoff: exponential
-   ```
-
 ### 500 Server Error
 
 **Solutions**:
 
-1. **Retry request**:
+1. **Let the retry do its job**: `500`, `502`, `503` and `504` are retried
+   automatically. Check stderr first — it names the attempt and whether the
+   ceiling was reached (`attempt 3 of 3, no attempts left`), which separates a
+   brief blip from a consistently broken endpoint. Once the ceiling is
+   exhausted the command reports the last response as usual
+   (`request failed with status 500`) and still exits non-zero.
+
+2. **Retry with a higher ceiling**:
+
    ```bash
-   openapi-cli config set http.max_retries 3
+   MUSTER_MAX_RETRIES=5 openapi-cli request GET https://api.example.com/items
    ```
 
-2. **Check API status**:
+3. **Check API status**:
+
    ```bash
    openapi-cli request GET https://api.example.com/health
    ```

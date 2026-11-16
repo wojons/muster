@@ -182,7 +182,11 @@ func TestClient_Retry_NoRetryOn4xxStatusCodes(t *testing.T) {
 	}
 }
 
-// TestClient_Retry_Exhaustion tests that retry exhaustion returns an error
+// TestClient_Retry_Exhaustion tests that exhausting the ceiling on a STATUS
+// stops retrying and hands the caller the final response: the caller decides
+// what a 5xx means (error text, body rendering), exactly as it would without a
+// retrier. The attempts are reported on stderr instead of being folded into an
+// error, so nothing about the retrying is hidden.
 func TestClient_Retry_Exhaustion(t *testing.T) {
 	attemptCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -204,10 +208,12 @@ func TestClient_Retry_Exhaustion(t *testing.T) {
 	ctx := context.Background()
 	resp, err := client.Get(ctx, server.URL+"/test")
 
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Equal(t, 3, attemptCount)
-	assert.Contains(t, err.Error(), "request failed after 3 attempts")
+	require.NoError(t, err, "an exhausted status ceiling is a response, not an error")
+	require.NotNil(t, resp)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	assert.Equal(t, 3, attemptCount, "the ceiling is the number of attempts including the first")
 }
 
 // TestClient_Retry_NetworkError tests that network errors trigger retries

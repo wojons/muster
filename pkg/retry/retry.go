@@ -3,6 +3,7 @@ package retry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -42,6 +43,34 @@ type RetryExhaustedError struct {
 func (e *RetryExhaustedError) Error() string {
 	return fmt.Sprintf("retry exhausted after %d attempts: %v", e.Attempts, e.LastErr)
 }
+
+// DelayError wraps an error reported by a retried operation and asks for a
+// MINIMUM delay before the next attempt. It exists for protocols where the
+// peer states how long to wait — an HTTP 429/503 carrying Retry-After — so
+// that instruction reaches the backoff calculation instead of being lost in
+// the error value. The delay is a floor, not a ceiling: the configured
+// backoff still applies when it is longer, and the peer's value is honoured
+// as given rather than clamped to MaxDelay (the server knows its own window;
+// the retry budget is bounded by MaxAttempts and the caller's context).
+type DelayError struct {
+	Err   error
+	Delay time.Duration
+}
+
+// Error implements the error interface, delegating to the wrapped error.
+func (e *DelayError) Error() string {
+	if e.Err == nil {
+		return "retry: delay requested"
+	}
+	return e.Err.Error()
+}
+
+// Unwrap exposes the wrapped error to errors.Is/errors.As.
+func (e *DelayError) Unwrap() error { return e.Err }
+
+// Attempts returns the configured maximum number of attempts (including the
+// first). It is always >= 1.
+func (r *Retrier) Attempts() int { return r.config.MaxAttempts }
 
 // DefaultRetryConfig returns a sensible default retry configuration.
 func DefaultRetryConfig() RetryConfig {
@@ -95,6 +124,12 @@ func (r *Retrier) Execute(ctx context.Context, fn func(ctx context.Context) (int
 		// Don't sleep after the last attempt
 		if attempt < r.config.MaxAttempts-1 {
 			delay := r.calculateDelay(attempt)
+			// A peer that asked for a longer wait wins over the computed
+			// backoff: the operation knows its own retry window.
+			var wantsDelay *DelayError
+			if errors.As(err, &wantsDelay) && wantsDelay.Delay > delay {
+				delay = wantsDelay.Delay
+			}
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
