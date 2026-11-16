@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/wojons/muster/pkg/client"
 )
 
 // Builder constructs HTTP requests from operation metadata and user-provided parameters.
@@ -257,8 +259,25 @@ func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
 		req.Header.Set("Content-Type", b.contentType)
 	}
 
-	client := newHTTPClient()
-	return client.Do(req)
+	httpClient := executeHTTPClient()
+	return httpClient.Do(ctx, req)
+}
+
+// executeHTTPClient returns the client Execute sends the built request with —
+// the retry-aware client (pkg/client), not a bare *http.Client.
+//
+// The attempt ceiling comes from MUSTER_MAX_RETRIES via
+// client.MaxAttemptsFromEnv: three attempts by default (first try plus up to
+// two retries on 429/500/502/503/504) and exactly one when the operator sets
+// it to 0, which is what makes MUSTER_MAX_RETRIES=0 a hard disable. The
+// timeout is newHTTPClient's, so MUSTER_HTTP_TIMEOUT keeps the meaning it has
+// always had on this path.
+func executeHTTPClient() *client.Client {
+	opts := []client.ClientOption{client.WithTimeout(newHTTPClient().Timeout)}
+	if attempts := client.MaxAttemptsFromEnv(); attempts > 1 {
+		opts = append(opts, client.WithRetryConfig(client.RetryConfigFor(attempts)))
+	}
+	return client.NewClient(opts...)
 }
 
 // defaultHTTPTimeout is the fallback timeout for generated API calls when

@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -968,5 +970,146 @@ func TestNewHTTPClient_DefaultWhenEnvAbsent(t *testing.T) {
 	c := newHTTPClient()
 	if c.Timeout != defaultHTTPTimeout {
 		t.Errorf("newHTTPClient() Timeout = %v, want default %v", c.Timeout, defaultHTTPTimeout)
+	}
+}
+
+// =============================================================================
+// QA-MUSTER-044: generated commands retry transient failures
+// =============================================================================
+
+// flakyAPI serves failCount transient responses and then 200, counting every
+// request it saw.
+func flakyAPI(failCount int, status int) (*httptest.Server, *int32) {
+	var count int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&count, 1) <= int32(failCount) {
+			w.WriteHeader(status)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	return srv, &count
+}
+
+// TestExecute_RetriesTransient503ThenSucceeds is the generated-command half of
+// QA-MUSTER-044: builder.Execute used a bare *http.Client, so a 503 failed on
+// the first attempt no matter what MUSTER_MAX_RETRIES said.
+func TestExecute_RetriesTransient503ThenSucceeds(t *testing.T) {
+	t.Setenv("MUSTER_MAX_RETRIES", "3")
+	srv, count := flakyAPI(2, http.StatusServiceUnavailable)
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/flaky", "GET")
+	resp, err := b.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("StatusCode = %d, want 200 after retries", resp.StatusCode)
+	}
+	if got := atomic.LoadInt32(count); got != 3 {
+		t.Errorf("server saw %d requests, want 3 (first try + 2 retries)", got)
+	}
+}
+
+// TestExecute_DefaultsToThreeAttempts pins the honest default: with the
+// variable set to an empty value (unset/unparseable), retries still happen.
+func TestExecute_DefaultsToThreeAttempts(t *testing.T) {
+	t.Setenv("MUSTER_MAX_RETRIES", "")
+	srv, count := flakyAPI(2, http.StatusServiceUnavailable)
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/flaky", "GET")
+	resp, err := b.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("StatusCode = %d, want 200 after retries", resp.StatusCode)
+	}
+	if got := atomic.LoadInt32(count); got != 3 {
+		t.Errorf("server saw %d requests, want the default 3 attempts", got)
+	}
+}
+
+// TestExecute_RetriesDisabledWhenMaxRetriesZero pins the backward-compatible
+// escape hatch: MUSTER_MAX_RETRIES=0 means exactly one exchange.
+func TestExecute_RetriesDisabledWhenMaxRetriesZero(t *testing.T) {
+	t.Setenv("MUSTER_MAX_RETRIES", "0")
+	srv, count := flakyAPI(2, http.StatusServiceUnavailable)
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/flaky", "GET")
+	resp, err := b.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("StatusCode = %d, want the 503 passed straight through", resp.StatusCode)
+	}
+	if got := atomic.LoadInt32(count); got != 1 {
+		t.Errorf("server saw %d requests, want exactly 1 with retries disabled", got)
+	}
+}
+
+// TestExecute_RetryReplaysRequestBody pins the half of retrying that only shows
+// up on writes: a POST whose first attempt was rejected must send the body
+// again on the retry. Without resetting the request body from GetBody the
+// second attempt goes out empty and a write silently loses its payload.
+func TestExecute_RetryReplaysRequestBody(t *testing.T) {
+	t.Setenv("MUSTER_MAX_RETRIES", "3")
+
+	const payload = `{"name":"flaky"}`
+
+	var (
+		mu     sync.Mutex
+		bodies []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		bodies = append(bodies, string(raw))
+		attempt := len(bodies)
+		mu.Unlock()
+
+		if attempt == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/things", "POST").
+		WithBody(strings.NewReader(payload)).
+		WithContentType("application/json")
+
+	resp, err := b.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("StatusCode = %d, want 200 after the retry", resp.StatusCode)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(bodies) != 2 {
+		t.Fatalf("server saw %d attempts, want 2", len(bodies))
+	}
+	for i, body := range bodies {
+		if body != payload {
+			t.Errorf("attempt %d sent body %q, want %q (the body must be replayed)", i+1, body, payload)
+		}
 	}
 }

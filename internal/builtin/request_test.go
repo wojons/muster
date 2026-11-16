@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -171,6 +172,11 @@ func TestHandleRequest_HTTP400Error(t *testing.T) {
 	assert.Contains(t, output, `{"error":"bad request"}`)
 }
 
+// TestHandleRequest_HTTP500Error checks a persistent 500 is reported to the
+// caller. The verb retries transient statuses by default (QA-MUSTER-044), but
+// an exhausted ceiling still hands the last response back to this handler, so
+// the status is reported and the error text is unchanged from the single-shot
+// path; the attempts themselves are reported on stderr.
 func TestHandleRequest_HTTP500Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -575,4 +581,104 @@ func TestRequestCommand_FlagMisuseShowsUsage(t *testing.T) {
 	// This is covered by the integration in TestRequestCommand_FlagMisuseShowsUsage.
 	// The key assertion: the command still returned an error (flag parsing).
 	require.Error(t, root.Execute())
+}
+
+// =============================================================================
+// Retries (QA-MUSTER-044)
+// =============================================================================
+
+// flakyEndpoint serves a test server that answers the first failCount requests
+// with status (optionally carrying extraHeaders) and every later request with
+// 200. The returned counter is how many requests the server actually saw —
+// the number that proves whether a retry happened.
+func flakyEndpoint(failCount int, status int, extraHeaders http.Header) (*httptest.Server, *int32) {
+	var count int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&count, 1)
+		if int(n) <= failCount {
+			for k, values := range extraHeaders {
+				for _, v := range values {
+					w.Header().Add(k, v)
+				}
+			}
+			w.WriteHeader(status)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	return srv, &count
+}
+
+// TestHandleRequest_RetriesTransient503ThenSucceeds is the regression test for
+// QA-MUSTER-044: a flaky endpoint that answers 503 twice must be retried, and
+// the `request` verb must end successfully after exactly three exchanges.
+func TestHandleRequest_RetriesTransient503ThenSucceeds(t *testing.T) {
+	srv, count := flakyEndpoint(2, http.StatusServiceUnavailable, nil)
+	defer srv.Close()
+
+	cfg := &config.Config{MaxRetries: 3, MaxRetriesSet: true}
+	err := handleRequest(cfg, "GET", srv.URL+"/flaky", nil, nil, "", false, 5*time.Second, "", "", "")
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), atomic.LoadInt32(count),
+		"server must see exactly 3 requests: the first attempt plus 2 retries")
+}
+
+// TestHandleRequest_RetriesOnByDefault pins the honest default: with no
+// max_retries setting at all, transient statuses are retried (3 attempts).
+func TestHandleRequest_RetriesOnByDefault(t *testing.T) {
+	srv, count := flakyEndpoint(2, http.StatusServiceUnavailable, nil)
+	defer srv.Close()
+
+	err := handleRequest(&config.Config{}, "GET", srv.URL+"/flaky", nil, nil, "", false, 5*time.Second, "", "", "")
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), atomic.LoadInt32(count),
+		"an unset max_retries resolves to the default 3 attempts")
+}
+
+// TestHandleRequest_MaxRetriesZeroDisablesRetries pins the backward-compatible
+// escape hatch: MaxRetries=0 means one attempt, never a retry.
+func TestHandleRequest_MaxRetriesZeroDisablesRetries(t *testing.T) {
+	srv, count := flakyEndpoint(2, http.StatusServiceUnavailable, nil)
+	defer srv.Close()
+
+	cfg := &config.Config{MaxRetries: 0, MaxRetriesSet: true}
+	err := handleRequest(cfg, "GET", srv.URL+"/flaky", nil, nil, "", false, 5*time.Second, "", "", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "status 503")
+	assert.Equal(t, int32(1), atomic.LoadInt32(count),
+		"max_retries=0 must produce exactly one request")
+}
+
+// TestHandleRequest_RetryAfterSurfacedOnStderr checks the 429 contract: the
+// Retry-After value is printed to stderr and the wait before the next attempt
+// is at least that value (the header is honoured, not just logged).
+func TestHandleRequest_RetryAfterSurfacedOnStderr(t *testing.T) {
+	headers := http.Header{"Retry-After": []string{"1"}}
+	srv, count := flakyEndpoint(1, http.StatusTooManyRequests, headers)
+	defer srv.Close()
+
+	cfg := &config.Config{MaxRetries: 3, MaxRetriesSet: true}
+
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	start := time.Now()
+	reqErr := handleRequest(cfg, "GET", srv.URL+"/limited", nil, nil, "", false, 10*time.Second, "", "", "")
+	elapsed := time.Since(start)
+
+	os.Stderr = oldStderr
+	require.NoError(t, w.Close())
+	captured, readErr := io.ReadAll(r)
+	require.NoError(t, readErr)
+
+	require.NoError(t, reqErr)
+	assert.Equal(t, int32(2), atomic.LoadInt32(count))
+	assert.Contains(t, string(captured), "honouring Retry-After: 1s",
+		"the Retry-After value must be surfaced on stderr")
+	assert.GreaterOrEqual(t, elapsed, time.Second,
+		"the wait before the second attempt must honour Retry-After")
 }

@@ -34,8 +34,9 @@ openapi-cli:
   # Request/Response Settings
   http:
     timeout: 30s
+    # Attempts including the first: 3 = one try plus up to two retries on
+    # 429/500/502/503/504. 0 disables retries. MUSTER_MAX_RETRIES overrides.
     max_retries: 3
-    retry_delay: 1s
     verify_ssl: true
 
   # Output Formatting
@@ -139,7 +140,7 @@ this table has no effect. "Default" is the behavior when the variable is unset.
 | `MUSTER_HTTP_VERSION` | Overrides `request.http_version` (`auto`, `1.1`, `2`, `3`); the `request` verb's `--http-version` flag overrides both | `auto` |
 | `MUSTER_LOG_FORMAT` | Overrides `log_format` (`json` or `text`) | Unset |
 | `MUSTER_LOG_LEVEL` | Overrides `log_level` (`debug`, `info`, `warn`, `error`) | Unset |
-| `MUSTER_MAX_RETRIES` | Overrides `max_retries` (integer; an unparseable value is ignored) | Unset |
+| `MUSTER_MAX_RETRIES` | Attempt ceiling for outbound HTTP requests, in **attempts including the first** (so `3` = one try plus two retries). Transient statuses — 429, 500, 502, 503, 504 — are retried, and a `Retry-After` header sets the minimum wait. `0` disables retries (exactly one attempt); absent or unparseable values fall back to 3. Applies to the `request` verb and to generated commands | `3` |
 | `MUSTER_PROFILE` | Active configuration profile (`--profile` flag > `MUSTER_PROFILE` > persisted `default_profile`) | Unset (persisted default, or none) |
 | `MUSTER_TIMEOUT` | Overrides `timeout` (a duration such as `45s`; an unparseable value is ignored) | Unset |
 | `MUSTER_VERBOSE` | `1` or `true` turns verbose output on; any other value leaves it off | Unset |
@@ -313,12 +314,51 @@ output:
 http:
   timeout: 30s
   max_retries: 3
-  retry_delay: 1s
   verify_ssl: true
   keep_alive: true
   max_idle_conns: 100
   idle_conn_timeout: 90s
 ```
+
+### Retries
+
+Both the `request` verb and generated commands retry transient failures by
+default. The rule set is small and the same on both paths:
+
+| What is retried | What is not |
+|---|---|
+| `429`, `500`, `502`, `503`, `504` and transport errors (connection reset, timeout, DNS failure) | every other status, including `400`, `401`, `403`, `404`, `409` and `422` |
+
+- The attempt ceiling is `http.max_retries`, overridden by
+  `MUSTER_MAX_RETRIES`. It counts **attempts including the first**, so the
+  default `3` is one try plus at most two retries.
+- `max_retries: 0` (or `MUSTER_MAX_RETRIES=0`) disables retries entirely: the
+  request is sent exactly once, which is the pre-retry behaviour.
+- Backoff between attempts is exponential with jitter, starting at 100ms.
+- `Retry-After` is honoured, not just logged: the value (delay-seconds or an
+  HTTP-date) becomes the minimum wait before the next attempt, and the value
+  is printed on stderr. It deliberately overrides the shorter computed
+  backoff — the server knows its own window better than the client does.
+- Each retry is reported on stderr, including the final attempt that gives
+  up, so a slow command is explainable after the fact:
+
+```
+retry: HTTP 503 from GET https://api.example.com/flaky — attempt 1 of 3, retrying
+retry: HTTP 503 from GET https://api.example.com/flaky — attempt 2 of 3, retrying
+retry: HTTP 503 from GET https://api.example.com/flaky — attempt 3 of 3, no attempts left
+```
+
+When the ceiling is exhausted the command still reports the response it got —
+`request failed with status 503`, with the body printed as it is without
+retries. The retries themselves are on stderr, so an exhausted ceiling is
+visible without changing the error contract callers already parse.
+
+There is no `config set` subcommand — `config` only reads (`config show`) and
+manages named profiles (`config profile ...`). Set the ceiling with the
+`MUSTER_MAX_RETRIES` environment variable or the `http.max_retries` key in the
+configuration file. The `retry_delay` / `retry_backoff` keys found in older
+samples are not consulted by the retry path; backoff is the exponential
+policy described above.
 
 ### Proxy Configuration
 

@@ -108,6 +108,12 @@ func (l *Loader) loadFile(path string, cfg *Config) error {
 		return fmt.Errorf("unmarshal config: %w", err)
 	}
 
+	// max_retries: 0 in a config file means "retries off", which is only
+	// distinguishable from an absent key while we still have the document.
+	if l.v.IsSet("max_retries") {
+		merged.MaxRetriesSet = true
+	}
+
 	// viper flattens a config document to its leaf keys before unmarshalling,
 	// so a profile declared with no keys of its own — `profiles:\n  shell: {}`,
 	// exactly what `config profile create` writes when no --set pairs are
@@ -209,6 +215,9 @@ func (l *Loader) applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("MUSTER_MAX_RETRIES"); v != "" {
 		if n, err := parseInt(v); err == nil {
 			cfg.MaxRetries = n
+			// An explicit 0 is "retries off", not "unset": record that the
+			// operator spoke so RetryAttempts does not substitute the default.
+			cfg.MaxRetriesSet = true
 		}
 	}
 	// MUSTER_CONFIG_FILE

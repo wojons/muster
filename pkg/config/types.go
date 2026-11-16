@@ -22,6 +22,14 @@ type Config struct {
 	MaxRetries   int           `mapstructure:"max_retries"`
 	AuditEnabled bool          `mapstructure:"audit_enabled"`
 
+	// MaxRetriesSet records that max_retries came from the operator — the
+	// config file key or MUSTER_MAX_RETRIES — rather than being the zero
+	// value of an unset field. Without it an explicit 0 (retries off) would
+	// be indistinguishable from "not configured" and the default attempt
+	// ceiling would silently override the operator's instruction. It is not
+	// a user-facing setting and is never read back into a config file.
+	MaxRetriesSet bool `mapstructure:"-"`
+
 	// Sub-configs
 	Cache     CacheConfig     `mapstructure:"cache"`
 	Request   RequestConfig   `mapstructure:"request"`
@@ -49,6 +57,28 @@ type Config struct {
 	// this to redirect persistence to a temp directory and avoid
 	// polluting the production data directory.
 	PersistedCommandsPath string `mapstructure:"-"`
+}
+
+// DefaultMaxRetries is the number of HTTP attempts (including the first) a
+// command makes when no operator setting is present: the first try plus up to
+// two retries on a transient status (429, 500, 502, 503, 504).
+const DefaultMaxRetries = 3
+
+// RetryAttempts resolves the attempt ceiling for outbound HTTP requests.
+//
+// The value is the maximum number of attempts INCLUDING the first: 3 means
+// "try, then retry twice"; 0 (or anything below 1) means exactly one attempt,
+// i.e. retries are off. An unset max_retries resolves to DefaultMaxRetries —
+// which is why MaxRetriesSet, not the numeric value, is what distinguishes
+// "not configured" from "explicitly disabled".
+func (c *Config) RetryAttempts() int {
+	if c == nil || !c.MaxRetriesSet {
+		return DefaultMaxRetries
+	}
+	if c.MaxRetries < 1 {
+		return 1
+	}
+	return c.MaxRetries
 }
 
 // Profile represents a named configuration profile

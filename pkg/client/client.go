@@ -34,6 +34,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/wojons/muster/internal/telemetry"
@@ -107,6 +110,50 @@ func WithRetryConfig(config retry.RetryConfig) ClientOption {
 	return func(c *Client) {
 		c.retrier = retry.NewRetrier(config)
 	}
+}
+
+// DefaultMaxAttempts is the attempt ceiling used when the operator has not set
+// MUSTER_MAX_RETRIES: the first try plus up to two retries on a transient
+// status (429, 500, 502, 503, 504).
+const DefaultMaxAttempts = 3
+
+// MaxAttemptsFromEnv resolves the attempt ceiling from MUSTER_MAX_RETRIES.
+//
+// The value is the maximum number of attempts INCLUDING the first one, so
+// MUSTER_MAX_RETRIES=3 means "try, then retry twice" and 0 (or any value
+// below 1) disables retries entirely — exactly one attempt. An absent,
+// unparseable or non-positive value other than an explicit 0 falls back to
+// DefaultMaxAttempts, the same forgiving pattern MUSTER_HTTP_TIMEOUT uses.
+//
+// It reads the environment directly because the generated-command path
+// (pkg/request) has no loaded *config.Config to consult; the built-in
+// `request` verb resolves the same ceiling from config.Config.RetryAttempts,
+// which applies the config file key and this variable over the same default.
+func MaxAttemptsFromEnv() int {
+	v, ok := os.LookupEnv("MUSTER_MAX_RETRIES")
+	if !ok {
+		return DefaultMaxAttempts
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil {
+		return DefaultMaxAttempts
+	}
+	if n < 1 {
+		return 1
+	}
+	return n
+}
+
+// RetryConfigFor returns the retry configuration a client should use for the
+// given attempt ceiling (see MaxAttemptsFromEnv): the library's default
+// backoff policy with MaxAttempts clamped to at least 1.
+func RetryConfigFor(attempts int) retry.RetryConfig {
+	if attempts < 1 {
+		attempts = 1
+	}
+	config := retry.DefaultRetryConfig()
+	config.MaxAttempts = attempts
+	return config
 }
 
 // NewClient creates a new HTTP client with tracing support.
@@ -396,8 +443,40 @@ func (c *Client) doOnce(ctx context.Context, req *http.Request) (*http.Response,
 }
 
 // doWithRetry executes an HTTP request with retry logic.
+//
+// Transient statuses (429, 500, 502, 503, 504) are retried up to the
+// configured attempt ceiling. A response carrying Retry-After is not just
+// retried: the header is surfaced on stderr and its value becomes the minimum
+// wait before the next attempt (retry.DelayError), so a server that says
+// "come back in 3 seconds" is obeyed instead of being hit again after the
+// 100ms default backoff.
+//
+// When the ceiling runs out on a STATUS, the final response is returned to the
+// caller instead of an error: every caller of this client already decides what
+// a 4xx/5xx means (rendering the error body, mapping it to its own status
+// error), and a retrier in front of it must not take that away. Transport
+// failures — where no response exists — exhaust into an error naming the
+// attempts made. Either way the attempts are reported on stderr, so nothing
+// about the retrying is invisible.
 func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+	attempt := 0
+	maxAttempts := c.retrier.Attempts()
+
 	result, err := c.retrier.Execute(ctx, func(ctx context.Context) (interface{}, error) {
+		attempt++
+
+		// A retried request has to replay its body: GetBody is the sealed copy
+		// the stdlib keeps for exactly this (http.NewRequest sets it for the
+		// common readers), and a consumed Body would otherwise send an empty
+		// POST on the second attempt.
+		if attempt > 1 && req.GetBody != nil {
+			body, rewindErr := req.GetBody()
+			if rewindErr != nil {
+				return nil, fmt.Errorf("retry: rewind request body: %w", rewindErr)
+			}
+			req.Body = body
+		}
+
 		resp, err := c.doOnce(ctx, req)
 		if err != nil {
 			return nil, err
@@ -405,16 +484,33 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 
 		// Check for retryable status codes (5xx and certain 4xx)
 		if shouldRetryStatusCode(resp.StatusCode) {
+			delay, hasDelay := retryAfterDelay(resp)
+
+			// Last permitted attempt: hand the response back intact (body
+			// unread, not closed) so the caller's own status handling runs.
+			if attempt >= maxAttempts {
+				reportRetry(req, attempt, maxAttempts, resp.StatusCode, delay, hasDelay)
+				return resp, nil
+			}
+
 			// Close the body to prevent resource leaks during retries
 			_ = resp.Body.Close()
-			return nil, &retryableError{statusCode: resp.StatusCode}
+			reportRetry(req, attempt, maxAttempts, resp.StatusCode, delay, hasDelay)
+
+			retryable := &retryableError{statusCode: resp.StatusCode}
+			if hasDelay {
+				return nil, &retry.DelayError{Err: retryable, Delay: delay}
+			}
+			return nil, retryable
 		}
 
 		return resp, nil
 	})
 
 	if err != nil {
-		// Check if it's a retry exhausted error and preserve the last response info
+		// Only transport failures reach here (a status exhaustion returns its
+		// response above), so the attempt count is the useful part of the
+		// message: it separates "never connected" from "the peer kept failing".
 		if retryErr, ok := err.(*retry.RetryExhaustedError); ok {
 			return nil, fmt.Errorf("request failed after %d attempts: %w", retryErr.Attempts, retryErr.LastErr)
 		}
@@ -426,6 +522,48 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 		return nil, fmt.Errorf("request: unexpected result type %T", result)
 	}
 	return res, nil
+}
+
+// retryAfterDelay reads the delay a response asks for before the next attempt
+// (RFC 9110 Retry-After). Both defined forms are understood: delay-seconds and
+// an HTTP-date. A missing, unparseable, negative or already-past value reports
+// false, leaving the configured backoff in charge.
+func retryAfterDelay(resp *http.Response) (time.Duration, bool) {
+	raw := strings.TrimSpace(resp.Header.Get("Retry-After"))
+	if raw == "" {
+		return 0, false
+	}
+	if secs, err := strconv.Atoi(raw); err == nil {
+		if secs < 0 {
+			return 0, false
+		}
+		return time.Duration(secs) * time.Second, true
+	}
+	if when, err := http.ParseTime(raw); err == nil {
+		if wait := time.Until(when); wait > 0 {
+			return wait, true
+		}
+		return 0, false
+	}
+	return 0, false
+}
+
+// reportRetry writes the retry decision to stderr — never stdout, whose
+// payload fidelity is frozen — naming the status, the request, the attempt
+// number and, when the server sent one, the Retry-After value being honoured.
+func reportRetry(req *http.Request, attempt, maxAttempts, status int, delay time.Duration, hasDelay bool) {
+	where := req.Method + " " + req.URL.Redacted()
+	if hasDelay {
+		fmt.Fprintf(os.Stderr, "retry: HTTP %d from %s — honouring Retry-After: %s\n",
+			status, where, delay.Round(time.Millisecond))
+	}
+	if attempt < maxAttempts {
+		fmt.Fprintf(os.Stderr, "retry: HTTP %d from %s — attempt %d of %d, retrying\n",
+			status, where, attempt, maxAttempts)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "retry: HTTP %d from %s — attempt %d of %d, no attempts left\n",
+		status, where, attempt, maxAttempts)
 }
 
 // shouldRetryStatusCode determines if an HTTP status code should trigger a retry.
