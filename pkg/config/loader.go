@@ -250,9 +250,21 @@ func (l *Loader) setDefaultPaths(cfg *Config) {
 		cacheDir = filepath.Join(homeDir, "Library", "Caches", "muster")
 		dataDir = filepath.Join(homeDir, "Library", "Application Support", "muster")
 	case "windows":
-		configDir = filepath.Join(os.Getenv("APPDATA"), "muster")
-		cacheDir = filepath.Join(os.Getenv("LOCALAPPDATA"), "muster", "cache")
-		dataDir = filepath.Join(os.Getenv("APPDATA"), "muster", "data")
+		appDataDir := os.Getenv("APPDATA")
+		if appDataDir == "" {
+			configDir = filepath.Join(homeDir, ".config", "muster")
+			dataDir = filepath.Join(homeDir, ".local", "share", "muster")
+		} else {
+			configDir = filepath.Join(appDataDir, "muster")
+			dataDir = filepath.Join(appDataDir, "muster", "data")
+		}
+
+		localAppDataDir := os.Getenv("LOCALAPPDATA")
+		if localAppDataDir == "" {
+			cacheDir = filepath.Join(homeDir, ".cache", "muster")
+		} else {
+			cacheDir = filepath.Join(localAppDataDir, "muster", "cache")
+		}
 	default: // Linux and others
 		configDir = filepath.Join(homeDir, ".config", "muster")
 		cacheDir = filepath.Join(homeDir, ".cache", "muster")
