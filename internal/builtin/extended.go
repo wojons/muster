@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 	"github.com/wojons/muster/internal/audit"
@@ -435,18 +436,44 @@ func setActiveTenant(cfg *config.Config, id string) error {
 	return nil
 }
 
-// activeTenantID returns the persisted active tenant, falling back to the
-// in-memory default profile when no active marker is recorded.
-func activeTenantID(entries []tenantEntry, cfg *config.Config) string {
+// activeTenant is the selected tenant exactly as every reader sees it: the id
+// plus the persisted entry it came from (nil when the selection fell back to
+// the persisted default profile).
+type activeTenant struct {
+	ID    string
+	Entry *tenantEntry
+}
+
+// resolveActiveTenant is the ONE resolver behind every tenant reader.
+//
+// The tenant store (tenants.json) is the only place `tenant set`, `tenant
+// switch` and `tenant add` record a selection, so it is the source of truth.
+// The persisted default profile is consulted only when the store holds no
+// active marker — an install that configured profiles but never ran `tenant
+// set` — and never overrides a recorded selection.
+//
+// `tenant show`, `tenant current` and `tenant list` all call this function, so
+// two processes reading the same store cannot disagree about the selection.
+// Before REVIEW-MUSTER-22 `show` read cfg.DefaultProfile while `current` read
+// the store, and since `tenant set` only mutates the in-memory config (it
+// never writes config.yaml) a fresh process answered "No tenant selected
+// (default)." from `show` and named the tenant from `current`.
+func resolveActiveTenant(cfg *config.Config) (activeTenant, error) {
+	entries, err := loadTenants(cfg)
+	if err != nil {
+		return activeTenant{}, err
+	}
 	for i := range entries {
 		if entries[i].Active {
-			return entries[i].ID
+			return activeTenant{ID: entries[i].ID, Entry: &entries[i]}, nil
 		}
 	}
 	if cfg != nil {
-		return cfg.DefaultProfile
+		if id := strings.TrimSpace(cfg.DefaultProfile); id != "" {
+			return activeTenant{ID: id, Entry: findTenantEntry(entries, id)}, nil
+		}
 	}
-	return ""
+	return activeTenant{}, nil
 }
 
 // findTenantEntry returns the persisted entry for id, or nil.
@@ -459,26 +486,62 @@ func findTenantEntry(entries []tenantEntry, id string) *tenantEntry {
 	return nil
 }
 
+// validateTenantID trims and validates a tenant id. Ids are stored verbatim in
+// tenants.json (unlike profile names, which the config loader lowercases), so
+// the only rejected shapes are the ones that would corrupt the store or make
+// an id impossible to name from a shell.
+func validateTenantID(name string) (string, error) {
+	id := strings.TrimSpace(name)
+	if id == "" {
+		return "", fmt.Errorf("tenant id must not be empty")
+	}
+	for _, r := range id {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return "", fmt.Errorf("invalid tenant id %q: whitespace and control characters are not allowed", name)
+		}
+	}
+	if strings.ContainsAny(id, "/\\") {
+		return "", fmt.Errorf("invalid tenant id %q: path separators are not allowed", name)
+	}
+	return id, nil
+}
+
 func newTenantCommand(cfg *config.Config) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tenant",
 		Short: "Manage tenant context",
-		Long: `Manage the multi-tenant context for this CLI.
+		Long: `Manage the tenant context recorded for this CLI installation.
 
-Each tenant maps to a named config profile with isolated settings,
-quotas, and audit records. The active tenant persists to disk so the
-selection survives across switches and restarts.`,
+A tenant is a local label. The selection and its metadata (display name,
+tier, timestamp) are stored in tenants.json under the config directory, and
+that file is the single source of truth every tenant reader resolves from:
+'show', 'current' and 'list' always agree, in the same process or in the
+next one.
+
+What the tenant does not do: it does not gate or partition anything today.
+No quotas are enforced per tenant, audit records are not partitioned per
+tenant (a tenant mutation emits one audit event that names it), and the
+request pipeline reads the config file, not the tenant store. A tenant
+whose id matches a config profile is displayed with that profile's tier.
+
+State that survives across switches and restarts lives in tenants.json;
+the config file's default_profile is only a fallback for installs that
+never ran 'tenant set'.`,
 	}
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "show",
-		Short: "Show current tenant",
+		Short: "Print the active tenant id (same resolution as 'tenant current')",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cfg == nil || cfg.DefaultProfile == "" {
+			active, err := resolveActiveTenant(cfg)
+			if err != nil {
+				return err
+			}
+			if active.ID == "" {
 				fmt.Println("No tenant selected (default).")
 				return nil
 			}
-			fmt.Println(cfg.DefaultProfile)
+			fmt.Println(active.ID)
 			return nil
 		},
 	})
@@ -491,7 +554,10 @@ selection survives across switches and restarts.`,
 			if err != nil {
 				return err
 			}
-			active := activeTenantID(entries, cfg)
+			active, err := resolveActiveTenant(cfg)
+			if err != nil {
+				return err
+			}
 			seen := make(map[string]bool)
 			var names []string
 			if cfg != nil {
@@ -513,7 +579,7 @@ selection survives across switches and restarts.`,
 			sort.Strings(names)
 			for _, name := range names {
 				marker := " "
-				if name == active {
+				if name == active.ID {
 					marker = "*"
 				}
 				tier := deriveTier(cfg, name, findTenantEntry(entries, name))
@@ -528,13 +594,17 @@ selection survives across switches and restarts.`,
 		Short: "Set the active tenant (persists to disk)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := setActiveTenant(cfg, args[0]); err != nil {
+			id, err := validateTenantID(args[0])
+			if err != nil {
 				return err
 			}
-			if err := emitAuditEvent(auditEventTenantSet, "tenant.set", "tenant", args[0], args[0], true, nil); err != nil {
+			if err := setActiveTenant(cfg, id); err != nil {
 				return err
 			}
-			fmt.Printf("Set active tenant to %s\n", args[0])
+			if err := emitAuditEvent(auditEventTenantSet, "tenant.set", "tenant", id, id, true, nil); err != nil {
+				return err
+			}
+			fmt.Printf("Set active tenant to %s\n", id)
 			return nil
 		},
 	})
@@ -544,42 +614,94 @@ selection survives across switches and restarts.`,
 		Short: "Switch current tenant (persists to disk)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := setActiveTenant(cfg, args[0]); err != nil {
+			id, err := validateTenantID(args[0])
+			if err != nil {
 				return err
 			}
-			if err := emitAuditEvent(auditEventTenantSwitch, "tenant.switch", "tenant", args[0], args[0], true, nil); err != nil {
+			if err := setActiveTenant(cfg, id); err != nil {
 				return err
 			}
-			fmt.Printf("Switched to tenant %s\n", args[0])
+			if err := emitAuditEvent(auditEventTenantSwitch, "tenant.switch", "tenant", id, id, true, nil); err != nil {
+				return err
+			}
+			fmt.Printf("Switched to tenant %s\n", id)
 			return nil
 		},
 	})
+
+	addCmd := &cobra.Command{
+		Use:   "add <tenant-id>",
+		Short: "Register a tenant without activating it",
+		Long: `Register a tenant in the local tenant store.
+
+Registering makes a tenant visible to 'tenant list' and selectable with
+'tenant set'/'tenant switch' without changing the active tenant. A tenant
+is a local label: no config profile is created, so pass --name for a
+display name and --tier to override the derived tier. Use
+'config profile create <tenant-id>' when the tenant also needs profile
+settings.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := validateTenantID(args[0])
+			if err != nil {
+				return err
+			}
+			entries, err := loadTenants(cfg)
+			if err != nil {
+				return err
+			}
+			if findTenantEntry(entries, id) != nil {
+				return fmt.Errorf("tenant %q already exists — use 'tenant set %s' to activate it", id, id)
+			}
+			name := id
+			if n, flagErr := cmd.Flags().GetString("name"); flagErr == nil && strings.TrimSpace(n) != "" {
+				name = strings.TrimSpace(n)
+			}
+			tier := deriveTier(cfg, id, nil)
+			if t, flagErr := cmd.Flags().GetString("tier"); flagErr == nil && strings.TrimSpace(t) != "" {
+				tier = strings.TrimSpace(t)
+			}
+			entries = append(entries, tenantEntry{
+				ID:     id,
+				Name:   name,
+				Tier:   tier,
+				Active: false,
+			})
+			if err := saveTenants(cfg, entries); err != nil {
+				return err
+			}
+			fmt.Printf("Added tenant %s [%s]; use 'tenant set %s' to activate it\n", id, tier, id)
+			return nil
+		},
+	}
+	addCmd.Flags().String("name", "", "Display name for the tenant (defaults to the id)")
+	addCmd.Flags().String("tier", "", "Tier badge for the tenant (defaults to the matching profile's tier, else 'free')")
+	cmd.AddCommand(addCmd)
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "current",
 		Short: "Show the active tenant with name, tier, and timestamp",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			entries, err := loadTenants(cfg)
+			active, err := resolveActiveTenant(cfg)
 			if err != nil {
 				return err
 			}
-			id := activeTenantID(entries, cfg)
-			if id == "" {
+			if active.ID == "" {
 				fmt.Println("No tenant selected (default).")
 				return nil
 			}
-			entry := findTenantEntry(entries, id)
-			name := id
+			entry := active.Entry
+			name := active.ID
 			if entry != nil && entry.Name != "" {
 				name = entry.Name
 			}
-			tier := deriveTier(cfg, id, entry)
+			tier := deriveTier(cfg, active.ID, entry)
 			ts := "unknown"
 			if entry != nil && entry.SetAt != "" {
 				ts = entry.SetAt
 			}
 			fmt.Printf("Name:   %s\n", name)
-			fmt.Printf("ID:     %s\n", id)
+			fmt.Printf("ID:     %s\n", active.ID)
 			fmt.Printf("Tier:   [%s]\n", tier)
 			fmt.Printf("Set at: %s\n", ts)
 			return nil

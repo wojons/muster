@@ -1,8 +1,15 @@
 # TENANT-ISOLATION.md
 
-**Status**: ✅ COMPLETE  
+**Status**: 📐 DESIGN ONLY — NOT IMPLEMENTED  
 **Version**: 1.0.0  
 **Last Updated**: 2026-03-02
+
+> **Implementation status (2026-11-16, REVIEW-MUSTER-22)**: none of the
+> isolation described here is implemented. Tenants are a local label in
+> `tenants.json`; there are no per-tenant data boundaries, no quota
+> enforcement, no network isolation and no audit partitioning. See
+> specs/MULTI-TENANCY.md for the single implemented surface (`tenant show`,
+> `tenant current`, `tenant list`, `tenant set`/`switch`, `tenant add`).
 
 ---
 
