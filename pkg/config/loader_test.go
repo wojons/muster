@@ -203,6 +203,35 @@ func TestNewLoader(t *testing.T) {
 	})
 }
 
+func TestSetDefaultPaths_NeverBuildsRelativePathsFromUnsetEnv(t *testing.T) {
+	t.Setenv("APPDATA", "")
+	t.Setenv("LOCALAPPDATA", "")
+
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	cfg := &Config{}
+	(&Loader{}).setDefaultPaths(cfg)
+
+	for name, path := range map[string]string{
+		"config": cfg.ConfigDir,
+		"cache":  cfg.CacheDir,
+		"data":   cfg.DataDir,
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.NotEmpty(t, path)
+			require.True(t, filepath.IsAbs(path), "derived path must be absolute: %q", path)
+			require.NotEqual(t, filepath.Clean(path), filepath.Base(path), "derived path must not be relative to the working directory: %q", path)
+		})
+	}
+
+	relativeConfigDir, err := filepath.Rel(homeDir, cfg.ConfigDir)
+	require.NoError(t, err)
+	require.NotEqual(t, "..", relativeConfigDir)
+	require.False(t, len(relativeConfigDir) >= 3 && relativeConfigDir[:3] == ".."+string(filepath.Separator),
+		"config dir must be a descendant of home: home=%q config=%q", homeDir, cfg.ConfigDir)
+}
+
 func TestLoader_Load(t *testing.T) {
 	t.Run("Load Returns Config with Defaults", func(t *testing.T) {
 		loader := NewLoader()
