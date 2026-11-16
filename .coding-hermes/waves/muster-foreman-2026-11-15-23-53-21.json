@@ -1,0 +1,73 @@
+{
+  "tick": "muster-foreman-2026-11-15-23-53-21",
+  "project": "muster",
+  "repo": "/home/kara/wojons/muster",
+  "base_ref": "origin/main",
+  "base_sha": "4799c5a5",
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "wave_budget": 12,
+  "dispatched": 6,
+  "composed_independence": "no depends_on edges between any of the six rows (all depends_on null). Write seams: QA-MUSTER-043 internal/builtin/root.go + pkg/cmdstore; OBS-MUSTER-009 docs/guides/daemon-operations.md + docs/SYSTEMD-CONFIGURATION-GUIDE.md + prometheus/rules/alerts.yml; QA-MUSTER-044 pkg/request + pkg/client + pkg/config + docs/guides/configuration.md + docs/guides/troubleshooting.md; REVIEW-MUSTER-22 internal/builtin/tenant* + tenant store; QA-MUSTER-035 cmd/daemon + internal/daemon + docs/guides/commands.md + specs/DAEMON-ENTRY-POINT.md; REVIEW-MUSTER-28 generate/base-url resolution. Only known overlap is internal/builtin/root.go (043 owns it; REVIEW-MUSTER-22 must not edit it) — merge order puts 043 first.",
+  "workers": [
+    {
+      "id": "QA-MUSTER-043",
+      "title": "rework: torn-store probe on the PERF-002 meta skip path + CLI-level warning test",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-043",
+      "branch": "wt/QA-MUSTER-043",
+      "files": ["internal/builtin/root.go", "internal/builtin/root_test.go", "pkg/cmdstore/store.go"],
+      "kind": "robustness-rework",
+      "prior": "partial fix f194761a merged ba3093ec; judge c48f23f5 FAIL on --help silence + missing test"
+    },
+    {
+      "id": "OBS-MUSTER-009",
+      "title": "rework: rewrite both operator docs against the served muster_* registry (port 9110, real label sets)",
+      "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-009",
+      "branch": "wt/OBS-MUSTER-009",
+      "files": ["docs/guides/daemon-operations.md", "docs/SYSTEMD-CONFIGURATION-GUIDE.md", "prometheus/rules/alerts.yml"],
+      "kind": "docs-observability-rework",
+      "prior": "landed f80c261d merged d4b1625b; judge 28239dd3 FAIL on SYSTEMD guide :444 openapi_cli, 9090 vs 9110, label sets"
+    },
+    {
+      "id": "QA-MUSTER-044",
+      "title": "wire retry into request + generated commands; MUSTER_MAX_RETRIES as ceiling",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-044",
+      "branch": "wt/QA-MUSTER-044",
+      "files": ["pkg/request/builder.go", "pkg/client/client.go", "pkg/config/loader.go", "docs/guides/configuration.md", "docs/guides/troubleshooting.md"],
+      "kind": "reliability",
+      "prior": "previous worker produced zero commits; fresh dispatch"
+    },
+    {
+      "id": "REVIEW-MUSTER-22",
+      "title": "tenant show / tenant current must resolve from one store across processes",
+      "worktree": "/home/kara/worktrees/muster-REVIEW-MUSTER-22",
+      "branch": "wt/REVIEW-MUSTER-22",
+      "files": ["internal/builtin/tenant.go"],
+      "kind": "correctness"
+    },
+    {
+      "id": "QA-MUSTER-035",
+      "title": "second daemon start on an in-use socket must be refused, not spawn an orphan",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-035",
+      "branch": "wt/QA-MUSTER-035",
+      "files": ["cmd/daemon", "internal/daemon", "docs/guides/commands.md", "specs/DAEMON-ENTRY-POINT.md"],
+      "kind": "correctness"
+    },
+    {
+      "id": "REVIEW-MUSTER-28",
+      "title": "generate --base-url must not be silently discarded when the spec declares servers",
+      "worktree": "/home/kara/worktrees/muster-REVIEW-MUSTER-28",
+      "branch": "wt/REVIEW-MUSTER-28",
+      "files": ["internal/builtin/generate.go", "pkg/generator"],
+      "kind": "correctness"
+    }
+  ],
+  "held_back": [
+    {"id": "RELEASE-023", "reason": "heading/date arm needs an authorised v0.2.0 cut (owner-gated); recount arm already verified exact"},
+    {"id": "INT-CI-011", "reason": "premise superseded: run 43181667007 red is stale, CI green on 891c8de1 and 4799c5a5 — verify before refiling, do not dispatch blind"},
+    {"id": "INT-CI-012", "reason": "Windows flake row; a single green run is not proof (RELEASE-018 already regressed this way) — needs a repeat-cross-platform observation, not a code worker"},
+    {"id": "PERF-001", "reason": "benchmark row needs a quiet host (load 6.6-10.8 now, one foreign terminal-jail worker live)"},
+    {"id": "QA-MUSTER-043-narrow-AC", "reason": "AC 4 line count (1,095) predates PERF-002; foreman amends AC 4 to the shipped meta behaviour with evidence rather than reverting PERF-002"},
+    {"id": "QA-MUSTER-046", "reason": "bunker-qa.sh harness row routes to qa-foreman per support-agent routing"}
+  ]
+}
