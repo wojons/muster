@@ -1108,3 +1108,6 @@
 {"id": 1114, "timestamp": "2026-11-16 22:12:32.374554", "event_type": "task_completed", "task_id": "QA-MUSTER-040", "actor": "foreman", "detail": "{\"status\":\"complete\"}", "tick_number": null}
 {"id": 1115, "timestamp": "2026-11-16 22:17:33.532575", "event_type": "task_created", "task_id": "INT-CI-016", "actor": "foreman", "detail": "{\"id\":\"INT-CI-016\",\"status\":\"pending\"}", "tick_number": null}
 {"id":1116,"timestamp":"2026-11-16 19:36:45.894330","event_type":"task_created","task_id":"OPS-MUSTER-001","actor":"muster-ops"}
+{"id":1117,"timestamp":"2026-11-17 01:07:25.139467","event_type":"task_created","task_id":"INT-CI-017","actor":"foreman","detail":"{\"id\":\"INT-CI-017\",\"status\":\"pending\"}"}
+{"id":1118,"timestamp":"2026-11-17 01:42:19.219394","event_type":"task_completed","task_id":"INT-CI-006","actor":"foreman","detail":"{\"status\":\"complete\"}"}
+{"id":1119,"timestamp":"2026-11-17 01:53:05.122415","event_type":"task_completed","task_id":"INT-CI-9","actor":"foreman","detail":"{\"status\":\"complete\"}"}
