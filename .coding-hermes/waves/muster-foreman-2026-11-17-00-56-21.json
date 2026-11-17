@@ -1,0 +1,31 @@
+{
+  "tick": "muster-foreman-2026-11-17-00-56-21",
+  "project": "muster",
+  "repo": "/home/kara/wojons/muster",
+  "base_ref": "origin/main",
+  "base_sha": "e0f4d27e6fc1e66e958ebb7525397cd82f2c4db3",
+  "worker_model": "openai/gpt-6.1-terra",
+  "worker_provider": "xkiro",
+  "wave_budget": 5,
+  "dispatched": 1,
+  "composed_independence": "Single code row this tick: INT-CI-017 (the live Build/lint red on main, filed this tick). No depends_on edges; the only write seam is pkg/openapi/validation.go, which no other ready row touches. The other ready P1/P2 rows do not form a parallel code wave: INT-CI-006 + INT-CI-9 are verification-only closeouts (no code seam — foreman runs them inline on the board plane during the worker run, each needing its own sequential gitreins run id for TR-251 in the canonical checkout); INT-CI-010 is owner-gated (billing premise check, its own row); RELEASE-014 (P0) is owner-gated for first publication and owned by the releng lane (support-agent routing).",
+  "workers": [
+    {
+      "id": "INT-CI-017",
+      "title": "fix 4 errcheck issues in pkg/openapi/validation.go WriteValidationWarning — make the Build workflow 'Run linter' step green",
+      "worktree": "/home/kara/worktrees/muster-INT-CI-017",
+      "branch": "wt/INT-CI-017",
+      "files": ["pkg/openapi/validation.go"],
+      "kind": "ci-repair",
+      "prior": "bd211246 (QA-MUSTER-040 wave 2026-11-16) introduced WriteValidationWarning with unchecked fmt writes; diff-scoped guard passed, full-repo CI lint (run 43989145884) failed with errcheck x4"
+    }
+  ],
+  "held_back": [
+    {"id": "INT-CI-006", "reason": "verification-only closeout — foreman inline this tick (gitreins run for TR-251, sequential in canonical checkout)."},
+    {"id": "INT-CI-9", "reason": "verification-only closeout — foreman inline this tick, same as INT-CI-006."},
+    {"id": "INT-CI-010", "reason": "owner-gated (GitHub Actions billing); premise may be dead now that runs execute steps — needs its own falsification pass, deferred."},
+    {"id": "RELEASE-014", "reason": "P0 but owner-gated (first v0.2.0 publication, 0 Release objects) and releng-lane owned; routes per support-agent routing, not foreman worker work."},
+    {"id": "QA-MUSTER-13-R2", "reason": "QA-battery recurrence row (clean-machine Go 1.27 build of v0.1.0 tree) — qa-foreman lane territory per support-agent routing (harness/QA, not product code in this tree)."},
+    {"id": "PERF-001", "reason": "benchmark row needs a quiet host (same hold reason as the 2026-11-16 wave)."}
+  ]
+}
