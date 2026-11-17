@@ -1111,3 +1111,4 @@
 {"id":1117,"timestamp":"2026-11-17 01:07:25.139467","event_type":"task_created","task_id":"INT-CI-017","actor":"foreman","detail":"{\"id\":\"INT-CI-017\",\"status\":\"pending\"}"}
 {"id":1118,"timestamp":"2026-11-17 01:42:19.219394","event_type":"task_completed","task_id":"INT-CI-006","actor":"foreman","detail":"{\"status\":\"complete\"}"}
 {"id":1119,"timestamp":"2026-11-17 01:53:05.122415","event_type":"task_completed","task_id":"INT-CI-9","actor":"foreman","detail":"{\"status\":\"complete\"}"}
+{"id":1120,"timestamp":"2026-11-17 05:50:12.938443","event_type":"task_updated","task_id":"RELEASE-014","actor":"foreman","detail":"{\"title\":\"P0 — Release readiness sweep 2026-11-17 tick pass 27: NO-GO held at candidate c64dc501 — exact-tip CI now fully GREEN (4/4 workflows); block is first-publication authorization plus unbound GitReins/dogfood\"}"}
