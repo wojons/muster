@@ -93,11 +93,16 @@ services:
         source: muster-cache
         target: /tmp/muster
     
-    # Port exposure (use non-privileged ports)
-    expose:
-      - "8080"
-    ports:
-      - "127.0.0.1:8080:8080"
+    # No published TCP port. The daemon started above listens ONLY on the unix
+    # socket (/tmp/muster.sock): pkg/daemon/proxy.go binds net.Listen("unix", ...)
+    # and the container's only TCP listener is the metrics endpoint on
+    # 127.0.0.1:9110. A publish of 8080 accepted the connection and then reset it
+    # ("Connection reset by peer") while squatting 127.0.0.1:8080 on the host for
+    # as long as the stack ran, which makes any port probe unattributable.
+    # Operate the daemon through the socket instead, e.g.
+    #   docker exec <muster-container> /usr/local/bin/openapi-daemon status \
+    #     --socket-path /tmp/muster.sock
+    # Evidence: .coding-hermes/evidence/ops-deadpublish-20261117-0009.md
     
     # PID namespace isolation
     pid: "service:muster-init"
