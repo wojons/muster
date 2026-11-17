@@ -178,11 +178,11 @@ func WriteValidationWarning(w io.Writer, doc *openapi3.T, validateErr error) {
 		return
 	}
 	issues := DescribeValidationErrors(doc, validateErr)
-	fmt.Fprintln(w, "Warning: OpenAPI spec failed schema validation; continuing "+
+	_, _ = fmt.Fprintln(w, "Warning: OpenAPI spec failed schema validation; continuing "+
 		"(warn-and-continue policy — pass -strict-validation or set "+
 		"MUSTER_STRICT_VALIDATION=1 to refuse startup)")
 	if len(issues) == 0 {
-		fmt.Fprintf(w, "Warning:   %s\n", singleLine(validateErr.Error()))
+		_, _ = fmt.Fprintf(w, "Warning:   %s\n", singleLine(validateErr.Error()))
 		return
 	}
 	for i, issue := range issues {
@@ -190,10 +190,10 @@ func WriteValidationWarning(w io.Writer, doc *openapi3.T, validateErr error) {
 			// A real-world spec can carry hundreds of cosmetic defects (the
 			// GitHub v3 REST spec has 253). Report the head of the list and
 			// the true count: bounded stderr, nothing hidden.
-			fmt.Fprintf(w, "Warning:   … and %d more validation issues (not listed)\n", len(issues)-maxReportedIssues)
+			_, _ = fmt.Fprintf(w, "Warning:   … and %d more validation issues (not listed)\n", len(issues)-maxReportedIssues)
 			break
 		}
-		fmt.Fprintf(w, "Warning:   %s\n", issue)
+		_, _ = fmt.Fprintf(w, "Warning:   %s\n", issue)
 	}
 }
 
