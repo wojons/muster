@@ -1,0 +1,38 @@
+# HELP muster_audit_buffer_utilization_ratio Fraction of the audit event buffer currently occupied.
+# TYPE muster_audit_buffer_utilization_ratio gauge
+muster_audit_buffer_utilization_ratio 0
+# HELP muster_audit_events_dropped_total Audit events rejected or lost by the audit sink, by reason.
+# TYPE muster_audit_events_dropped_total counter
+muster_audit_events_dropped_total{reason="buffer_full"} 0
+muster_audit_events_dropped_total{reason="write_error"} 0
+# HELP muster_audit_events_written_total Audit events written to the record of truth, by event type and category.
+# TYPE muster_audit_events_written_total counter
+muster_audit_events_written_total{category="none",event_type="none"} 0
+# HELP muster_build_info Build information: always 1, with the version and commit of the running binary as labels.
+# TYPE muster_build_info gauge
+muster_build_info{commit="b3e506449ffe",version="v0.1.2-0.20261117104148-b3e506449ffe"} 1
+# HELP muster_daemon_proxy_duration_seconds Proxied request duration in seconds, by endpoint and method.
+# TYPE muster_daemon_proxy_duration_seconds histogram
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="0.005"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="0.01"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="0.025"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="0.05"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="0.1"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="0.25"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="0.5"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="1"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="2.5"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="5"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="10"} 0
+muster_daemon_proxy_duration_seconds_bucket{endpoint="/",method="none",le="+Inf"} 0
+muster_daemon_proxy_duration_seconds_sum{endpoint="/",method="none"} 0
+muster_daemon_proxy_duration_seconds_count{endpoint="/",method="none"} 0
+# HELP muster_daemon_proxy_requests_total Total proxied requests, by endpoint, method and response status class.
+# TYPE muster_daemon_proxy_requests_total counter
+muster_daemon_proxy_requests_total{endpoint="/",method="none",status_class="none",tenant_id="default"} 0
+# HELP muster_daemon_up 1 while the daemon is serving, 0 while it is shutting down.
+# TYPE muster_daemon_up gauge
+muster_daemon_up{tenant_id="default"} 1
+# HELP muster_mcp_active_sessions Number of active MCP sessions.
+# TYPE muster_mcp_active_sessions gauge
+muster_mcp_active_sessions{product="muster"} 0

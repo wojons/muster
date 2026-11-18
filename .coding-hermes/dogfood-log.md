@@ -1565,3 +1565,106 @@ QA-MUSTER-046 are the correction.
 intact`, after the run had already finished. All per-cell logs and the evidence JSONL were harvested off the
 agent *before* that attempt (`p13-cell-logs-final.tgz`, 25 KB, 23 evidence lines) per the rule that logs
 must be collected before any destroy trap.
+
+## Tick `muster-dogfood-2026-11-17-23-48-14` — pass 1 (the daemon HTTP surface: three docs-vs-daemon gaps, and two of my own probes were the liar)
+
+New tick id (the thirteen-pass `muster-dogfood-2026-11-14-21-06-01` chain ended at `d3a3f0e9`), so this is a
+first fire and not a duplicate: `grep -c` on `~/.hermes/logs/gateway.log` = 1 dispatch, and the product tree has
+moved 74 files (+7655/−918) since the last record. Nothing on the board is pending for a dogfood lane, and 70
+rows are already pending for the foreman — so this fire added only what was not on the board.
+
+### The promise, and what I used
+
+The operator page `docs/guides/daemon-operations.md` states that "every route, status code, and response body
+below was verified against a running daemon built from this tree", together with `docs/guides/commands.md`'s
+daemon section. That is the newest documented surface (`docs/guides/daemon-operations.md` itself is part of the
+74 changed files), and it is the surface no earlier pass of this lane walked — passes 5–9 did MCP, production
+scale, the `.star` DSL, the persisted command store and transient failures.
+
+So I built `cmd/daemon` and `cmd/openapi-cli` from `b3e50644` and used the daemon as an operator would: brought
+it up on a scratch socket with a scratch metrics port, curled every documented route, then put it in front of a
+real upstream — an echo backend that records what it receives — in all three shapes the docs describe
+(`start`, `start --backend-url`, `proxy --backend-url`), with client/upstream tokens, `MUSTER_AUDIT_ENABLED=1`,
+and every guard refusal the docs promise.
+
+### What held (this is most of the doc)
+
+`/health`, `/health/live`, `/`, the socket fall-through of `/health/startup` and `/metrics`, the 0600 socket
+mode, the metrics listener's exact families and label sets (including `endpoint="/api/users/{id}"` collapsing
+under real traffic), `status`'s PID/start-time/version, the whole single-daemon refusal contract (rc=1,
+`Error: daemon already running (PID N)`, PID-file md5 **and** mtime unchanged, socket still answering) across
+`start`, `--foreground` and `proxy`, both credential-file refusals, the client-token gate (401 missing vs 401
+invalid), upstream credential injection (the client's own `Authorization` is replaced, the secret reaches the
+backend), the 502 `text/plain` body on a dead backend, proxy-mode health being forwarded to the backend, the
+non-loopback `--metrics-addr` refusal text, `reload`/`restart` semantics and the `-version` string. The audit
+trail is real: three proxied requests produced three hash-chained `command.daemon.request` entries with
+method/path/status in `<config dir>/muster/audit.jsonl`.
+
+### What broke
+
+1. **`/health/ready` — `QA-MUSTER-052` (P2).** The page says readiness is "identical in behavior to liveness",
+   "does not consult backend connectivity", "a proxy daemon with a dead backend still answers ready/200
+   (verified)", and "No known path returns a non-200 today … treat it as down". Measured: dead backend → **503**
+   `{"status":"not_ready","reason":"backend_unreachable","error":"…connection refused"}`; backend that accepts
+   and never answers → 503 after **2.0013 / 2.0020 / 2.0009 s**, with `/health` still answering in 0.2 ms.
+   This is documentation lag behind the closed `OBS-MUSTER-6`: the code now probes the backend
+   (`cmd/daemon/main.go:565-590`), the doc still tells operators that a non-200 health response means the
+   *daemon* is broken — i.e. restart a healthy daemon on any backend outage — and calls ready "not yet
+   backend-aware" in the LB table. The 503 schema and the 2 s probe budget are undocumented.
+2. **Metrics-listener failure is silent where the doc says it warns — `QA-MUSTER-053` (P3).** With the metrics
+   port already held: `start --foreground` prints the documented `[WARN] metrics listener not started on
+   127.0.0.1:19103: … bind: address already in use` on stderr — claim holds. Plain `start` (the documented
+   default, which daemonizes) exits 0 with empty stdout **and** stderr, and the child's fd 1 and fd 2 both point
+   at `/dev/null` (`cmd/daemon/main.go:448-450`); there is no log file flag and nothing was written anywhere.
+   Losing the Prometheus endpoint is therefore silent in the shape operators are told to run.
+3. **`X-Forwarded-For: "@"` on every proxied request — `QA-MUSTER-054` (P3).** A client-supplied XFF is
+   stripped (correct) and replaced with the Unix socket pseudo-host `@`; a client sending
+   `X-Forwarded-For: 203.0.113.9` still arrives as `x-forwarded-for: "@"` (its `X-Real-IP` passes through).
+   Every proxied request therefore looks like one caller named `@` to the backend: no attribution, no per-client
+   rate limit, and an audit trail built on XFF records something that is not an address.
+
+### Two of my own probes were wrong first — recorded so the next fire does not file them
+
+- **"The proxy drops request bodies" was my backend's bug.** `backend2.py` honoured only `Content-Length`; the
+  daemon's upstream requests are chunked, so 3/3 POSTs read `body_len=0` and looked like data loss.
+  `backend3.py` decodes chunked and the same calls carry `body_len=18`, `4000`, and bodies on PUT/DELETE too.
+  The daemon forwards bodies correctly.
+- **The "~41 ms per proxied request" was Nagle/delayed-ACK in my echo backend**, not the daemon: headers and
+  body written as two small writes with Nagle on. Against a raw `TCP_NODELAY` single-write backend, 200 proxied
+  calls take **1.700 s** vs **1.734 s** direct — the daemon adds ≤0.1 ms.
+
+### Performance (Step 2b) — no row, with the numbers
+
+Cold `start` 0.05 s (5/5 runs); proxied TTFB 0.38–0.55 ms; daemon-local `/health` 0.18–0.23 ms; metrics scrape
+~10 ms; `status` ~7 ms/call. Nothing a user would feel, so no `PERF-n` row — a fresh row over a sub-millisecond
+hop would devalue `PERF-001`/`PERF-002`.
+
+### Filed (read back from the board, not from the write's own stdout)
+
+`QA-MUSTER-052` (P2), `QA-MUSTER-053` (P3), `QA-MUSTER-054` (P3), each with `acceptance_criteria` and a paired
+`task_created` event (event ids 1123/1124/1125). Ids minted with `board_next_id.py` against the materialized
+`origin/main` board and proven free on both copies before the append. `boardctl validate --fail-on
+dangling-dep`: rc=0 before (388 rows) and rc=0 after (391 rows), no error line naming a filed id.
+
+### Not filed
+
+- 401 rejections are invisible in `muster_daemon_proxy_requests_total`: auth runs before the proxy and the doc
+  only promises a point per *proxied* request. A real fix is a design decision (an auth-rejection counter), not
+  a drift repair — recorded in the evidence index, no row.
+- Audit labels proxied requests `event_type=command.execute`, `action=command.daemon.request` — a naming quirk
+  in an otherwise usable trail, no behaviour wrong.
+
+### Boundary
+
+Docs-only findings: no product code touched, no visibility or permission changed, no credential minted, no
+disabled project touched, no board row closed or reopened. The daemons, echo backends and blackhole listener
+used here all run on scratch sockets/ports under the scratch tree; `start`/`stop`/`restart` were exercised
+against those sockets only, never against `/tmp/openapi-cli.sock` or a live service.
+
+### Artifacts
+
+`.coding-hermes/dogfood-evidence/t20261117-daemon-surface/` — `INDEX.md` (verified-vs-filed table, both harness
+bug writeups, perf numbers), the 15 probe scripts, the five backend fixtures (`backend.py`…`backend4.py`,
+`blackhole.py`), the captured `metrics-*.txt` (seed / after traffic / after 5xx / audit-enabled), the two
+metrics-warn arms' `.out`/`.err`, the XFF and readiness JSON bodies, both `validate-*.txt`, and the row-filing
+script.

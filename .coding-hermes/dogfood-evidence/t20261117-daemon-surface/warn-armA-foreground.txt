@@ -1,0 +1,5 @@
+[INFO] proxy server started socket=/home/kara/.hermes/cache/scratch/dogfood-muster-t1/f1.sock
+Daemon started successfully
+PID file: /home/kara/.hermes/cache/scratch/dogfood-muster-t1/f1.pid
+Socket: /home/kara/.hermes/cache/scratch/dogfood-muster-t1/f1.sock
+Shutting down daemon...

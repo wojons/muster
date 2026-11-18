@@ -1,0 +1,1 @@
+{"status":"not_ready","reason":"backend_unreachable","error":"Get \"http://127.0.0.1:19140/health\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)","timestamp":"2026-11-18T00:00:35Z"}

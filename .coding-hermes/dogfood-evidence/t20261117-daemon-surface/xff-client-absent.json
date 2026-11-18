@@ -1,0 +1,1 @@
+{"body_len": 0, "body_mode": "none", "body_text": "", "headers": {"accept": "*/*", "accept-encoding": "gzip", "host": "127.0.0.1:19103", "user-agent": "curl/8.18.0", "x-forwarded-for": "@"}, "method": "GET", "path": "/api/whoami"}

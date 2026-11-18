@@ -1,0 +1,3 @@
+Daemon started successfully
+PID file: /home/kara/.hermes/cache/scratch/dogfood-muster-t1/f2.pid
+Socket: /home/kara/.hermes/cache/scratch/dogfood-muster-t1/f2.sock

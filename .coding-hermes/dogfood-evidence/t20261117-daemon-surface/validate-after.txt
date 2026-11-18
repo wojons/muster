@@ -1,0 +1,266 @@
+board: /home/kara/wojons/muster/.coding-hermes/board (topology A)
+rows: 391 tasks, 1119 events, 3 fixtures, header parsed
+key uniformity: 299/391 rows carry only canon keys; drift 92 row(s): _pass_criteria(27), acceptance(33), attempt(4), battery_head(1), cell(1), ch:trace row(1), closed(1), commit(1), created(2), defect(1), family(4), files_to_modify(1), fingerprint(1), fix(16), foreman_notes(1), foreman_verdict(1), lane(8), last_verified(1), note(2), notes(6), previous_blocked_reason(8), previous_status(8), recur_of(1), recurrence(1), repro(1), resolution(2), severity(15), spec_anchor(1), updated(1), verdict(1), verdict_id(1), verified_at(1) — 25 fixable by 'boardctl update <id> --normalize'
+[warn] tasks.jsonl line 1 (task BOARD-V2): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 2 (task CI-BILLING): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 3 (task CI-BILLING-002): status "closed" is a read alias for "complete" — canonicalize with 'boardctl update CI-BILLING-002 --normalize'
+[warn] tasks.jsonl line 3 (task CI-BILLING-002): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 3 (task CI-BILLING-002): key(s) {_pass_criteria, acceptance, previous_blocked_reason, previous_status} outside the declared canon
+[warn] tasks.jsonl line 4 (task CI-RESTORE-001): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 5 (task CI-RESTORE-002): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 6 (task CI-RESTORE-003): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 6 (task CI-RESTORE-003): key(s) {foreman_verdict} outside the declared canon
+[warn] tasks.jsonl line 7 (task E2E-001): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 8 (task GAP-001): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 9 (task GAP-002): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 10 (task GAP-003): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 11 (task GAP-004): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 12 (task GAP-005): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 14 (task GITREINS-JUDGE): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 15 (task JSONL-NORM-001): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 16 (task JUDGE-FIX-001): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 17 (task JUDGE-FIX-002): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 18 (task JUDGE-FIX-003): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 19 (task JUDGE-FIX-004): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 20 (task JUDGE-FIX-005): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 21 (task NEVER-DONE): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 21 (task NEVER-DONE): key(s) {_pass_criteria, acceptance} outside the declared canon — fixable with 'boardctl update NEVER-DONE --normalize'
+[warn] tasks.jsonl line 24 (task DF-001): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 25 (task DF-002): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 26 (task DF-003): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 27 (task DF-004): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 28 (task DF-005): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 29 (task DF-006): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 41 (task GAP-022): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 42 (task GAP-023): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 43 (task GAP-024): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 44 (task GAP-025): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 45 (task GAP-026): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 48 (task GAP-029): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update GAP-029 --normalize'
+[warn] tasks.jsonl line 49 (task GAP-030): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update GAP-030 --normalize'
+[warn] tasks.jsonl line 50 (task GAP-031): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update GAP-031 --normalize'
+[warn] tasks.jsonl line 51 (task TEST-ISOLATION-001): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update TEST-ISOLATION-001 --normalize'
+[warn] tasks.jsonl line 52 (task SEC-TOOLCHAIN-001): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update SEC-TOOLCHAIN-001 --normalize'
+[warn] tasks.jsonl line 53 (task DF-007): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update DF-007 --normalize'
+[warn] tasks.jsonl line 54 (task DF-008): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update DF-008 --normalize'
+[warn] tasks.jsonl line 55 (task DF-009): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update DF-009 --normalize'
+[warn] tasks.jsonl line 56 (task DF-010): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update DF-010 --normalize'
+[warn] tasks.jsonl line 57 (task DF-011): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update DF-011 --normalize'
+[warn] tasks.jsonl line 58 (task DF-012): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update DF-012 --normalize'
+[warn] tasks.jsonl line 59 (task GAP-032): ci_result "PENDING: exact-head CI queued" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 59 (task GAP-032): key(s) {_pass_criteria, acceptance, note, previous_blocked_reason, previous_status} outside the declared canon
+[warn] tasks.jsonl line 61 (task GAP-033): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 61 (task GAP-033): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update GAP-033 --normalize'
+[warn] tasks.jsonl line 62 (task GAP-034): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 62 (task GAP-034): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update GAP-034 --normalize'
+[warn] tasks.jsonl line 63 (task GAP-035): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 63 (task GAP-035): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update GAP-035 --normalize'
+[warn] tasks.jsonl line 64 (task GAP-036): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 64 (task GAP-036): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update GAP-036 --normalize'
+[warn] tasks.jsonl line 65 (task GAP-037): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 66 (task GAP-038): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 67 (task GAP-039): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 75 (task DF-MUSTER-1): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 76 (task DF-MUSTER-2): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 77 (task DF-MUSTER-3): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 78 (task DF-MUSTER-4): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 79 (task DF-MUSTER-5): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 86 (task DF-014): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 87 (task DF-015): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 90 (task QA-MUSTER-1): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 91 (task QA-MUSTER-2): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 92 (task QA-MUSTER-3): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 93 (task QA-MUSTER-4): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 102 (task PROTO-008): guard_result "PASS Tier1 (secrets clean, build/vet/soap tests verified T3)" is free-form — not in the guard_result vocabulary {PASS,FAIL,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 110 (task DF-017): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 110 (task DF-017): key(s) {attempt} outside the declared canon
+[warn] tasks.jsonl line 111 (task DF-018): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 111 (task DF-018): key(s) {attempt} outside the declared canon
+[warn] tasks.jsonl line 112 (task DF-019): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 112 (task DF-019): key(s) {attempt} outside the declared canon
+[warn] tasks.jsonl line 113 (task QA-HARNESS-DF-020): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 113 (task QA-HARNESS-DF-020): key(s) {attempt} outside the declared canon
+[warn] tasks.jsonl line 118 (task INT-CI-001): status "closed" is a read alias for "complete" — canonicalize with 'boardctl update INT-CI-001 --normalize'
+[warn] tasks.jsonl line 118 (task INT-CI-001): key(s) {_pass_criteria, acceptance, previous_blocked_reason, previous_status} outside the declared canon
+[warn] tasks.jsonl line 119 (task DF-025): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 120 (task DF-026): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 121 (task DF-027): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 122 (task SKIPPED-install-bunker): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 128 (task PROTO-009): key(s) {verdict_id} outside the declared canon
+[warn] tasks.jsonl line 134 (task DF-036): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 135 (task DF-037): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 136 (task DF-038): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 137 (task DF-039): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 138 (task DF-040): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 139 (task DF-041): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 140 (task DF-042): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 141 (task PROTO-011): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 142 (task PROTO-010): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 157 (task README-041): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 158 (task README-042): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 159 (task README-043): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 160 (task README-044): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 161 (task README-045): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 162 (task MSTR-REV-001): title carries "P1" but priority is "P3" — the priority field wins; rewrite the title with 'boardctl update MSTR-REV-001 --title', or fix the field with 'boardctl update MSTR-REV-001 --priority <Pn>', or re-file the row with 'boardctl create --id MSTR-REV-001 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 162 (task MSTR-REV-001): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 163 (task MSTR-REV-002): title carries "P0" but priority is "P2" — the priority field wins; rewrite the title with 'boardctl update MSTR-REV-002 --title', or fix the field with 'boardctl update MSTR-REV-002 --priority <Pn>', or re-file the row with 'boardctl create --id MSTR-REV-002 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 163 (task MSTR-REV-002): title carries "P1" but priority is "P2" — the priority field wins; rewrite the title with 'boardctl update MSTR-REV-002 --title', or fix the field with 'boardctl update MSTR-REV-002 --priority <Pn>', or re-file the row with 'boardctl create --id MSTR-REV-002 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 163 (task MSTR-REV-002): title carries "P1" but priority is "P2" — the priority field wins; rewrite the title with 'boardctl update MSTR-REV-002 --title', or fix the field with 'boardctl update MSTR-REV-002 --priority <Pn>', or re-file the row with 'boardctl create --id MSTR-REV-002 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 163 (task MSTR-REV-002): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 164 (task MSTR-REV-003): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 165 (task MSTR-REV-004): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 168 (task RELEASE-001): status "closed" is a read alias for "complete" — canonicalize with 'boardctl update RELEASE-001 --normalize'
+[warn] tasks.jsonl line 168 (task RELEASE-001): key(s) {_pass_criteria, acceptance, fix, previous_blocked_reason, previous_status, severity} outside the declared canon
+[warn] tasks.jsonl line 169 (task RELEASE-002): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 170 (task RELEASE-003): key(s) {_pass_criteria, acceptance, fix, note, previous_blocked_reason, previous_status, severity} outside the declared canon
+[warn] tasks.jsonl line 171 (task RELEASE-004): title carries "P1" but priority is "P0" — the priority field wins; rewrite the title with 'boardctl update RELEASE-004 --title', or fix the field with 'boardctl update RELEASE-004 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-004 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 171 (task RELEASE-004): title carries "P1" but priority is "P0" — the priority field wins; rewrite the title with 'boardctl update RELEASE-004 --title', or fix the field with 'boardctl update RELEASE-004 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-004 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 171 (task RELEASE-004): key(s) {fix, notes, severity} outside the declared canon
+[warn] tasks.jsonl line 172 (task INT-CI-002): key(s) {last_verified} outside the declared canon
+[warn] tasks.jsonl line 173 (task QA-MUSTER-5): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 174 (task QA-MUSTER-6): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 175 (task QA-MUSTER-7): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 176 (task QA-MUSTER-8): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 177 (task QA-MUSTER-9): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 178 (task DF-043): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 179 (task DF-044): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 180 (task DF-045): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 181 (task RELEASE-005): title carries "P1" but priority is "P0" — the priority field wins; rewrite the title with 'boardctl update RELEASE-005 --title', or fix the field with 'boardctl update RELEASE-005 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-005 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 181 (task RELEASE-005): key(s) {fix, notes, severity} outside the declared canon
+[warn] tasks.jsonl line 182 (task REVIEW-MUSTER-1): title carries "P1" but priority is "P2" — the priority field wins; rewrite the title with 'boardctl update REVIEW-MUSTER-1 --title', or fix the field with 'boardctl update REVIEW-MUSTER-1 --priority <Pn>', or re-file the row with 'boardctl create --id REVIEW-MUSTER-1 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 185 (task REVIEW-MUSTER-4): key(s) {ch:trace row, resolution} outside the declared canon
+[warn] tasks.jsonl line 188 (task RELEASE-006): title carries "P0" but priority is "P1" — the priority field wins; rewrite the title with 'boardctl update RELEASE-006 --title', or fix the field with 'boardctl update RELEASE-006 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-006 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 188 (task RELEASE-006): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 188 (task RELEASE-006): key(s) {notes} outside the declared canon
+[warn] tasks.jsonl line 189 (task RELEASE-007): title carries "P0" but priority is "P1" — the priority field wins; rewrite the title with 'boardctl update RELEASE-007 --title', or fix the field with 'boardctl update RELEASE-007 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-007 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 189 (task RELEASE-007): title carries "P2" but priority is "P1" — the priority field wins; rewrite the title with 'boardctl update RELEASE-007 --title', or fix the field with 'boardctl update RELEASE-007 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-007 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 189 (task RELEASE-007): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 189 (task RELEASE-007): key(s) {notes} outside the declared canon
+[warn] tasks.jsonl line 191 (task REVIEW-MUSTER-7): key(s) {verified_at} outside the declared canon
+[warn] tasks.jsonl line 193 (task QA-MUSTER-10): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 193 (task QA-MUSTER-10): key(s) {defect, repro} outside the declared canon
+[warn] tasks.jsonl line 194 (task RELEASE-008): title carries "P0" but priority is "P1" — the priority field wins; rewrite the title with 'boardctl update RELEASE-008 --title', or fix the field with 'boardctl update RELEASE-008 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-008 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 194 (task RELEASE-008): title carries "P0" but priority is "P1" — the priority field wins; rewrite the title with 'boardctl update RELEASE-008 --title', or fix the field with 'boardctl update RELEASE-008 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-008 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 194 (task RELEASE-008): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 194 (task RELEASE-008): key(s) {notes} outside the declared canon
+[warn] tasks.jsonl line 196 (task RELEASE-009): title carries "P0" but priority is "P1" — the priority field wins; rewrite the title with 'boardctl update RELEASE-009 --title', or fix the field with 'boardctl update RELEASE-009 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-009 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 196 (task RELEASE-009): title carries "P0" but priority is "P1" — the priority field wins; rewrite the title with 'boardctl update RELEASE-009 --title', or fix the field with 'boardctl update RELEASE-009 --priority <Pn>', or re-file the row with 'boardctl create --id RELEASE-009 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 196 (task RELEASE-009): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 196 (task RELEASE-009): key(s) {notes} outside the declared canon
+[warn] tasks.jsonl line 197 (task DF-046): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 198 (task DF-047): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 199 (task RELEASE-010): key(s) {resolution} outside the declared canon
+[warn] tasks.jsonl line 200 (task QA-MUSTER-11): key(s) {battery_head, cell} outside the declared canon
+[warn] tasks.jsonl line 204 (task QA-MUSTER-15): title carries "P2" but priority is "P3" — the priority field wins; rewrite the title with 'boardctl update QA-MUSTER-15 --title', or fix the field with 'boardctl update QA-MUSTER-15 --priority <Pn>', or re-file the row with 'boardctl create --id QA-MUSTER-15 --force --priority <Pn>' if it should be re-filed
+[warn] tasks.jsonl line 206 (task INT-CI-003): key(s) {acceptance} outside the declared canon — fixable with 'boardctl update INT-CI-003 --normalize'
+[warn] tasks.jsonl line 207 (task INT-CI-004): ci_result "GREEN (last real run 36928937060; current reds = billing 0-step)" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 207 (task INT-CI-004): created_at unparseable "2026-10-01" — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 207 (task INT-CI-004): key(s) {fix} outside the declared canon
+[warn] tasks.jsonl line 210 (task PROTO-020): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 211 (task README-046): key(s) {fix, severity} outside the declared canon
+[warn] tasks.jsonl line 213 (task RELEASE-011): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 214 (task CI-BILLING-003): status "closed" is a read alias for "complete" — canonicalize with 'boardctl update CI-BILLING-003 --normalize'
+[warn] tasks.jsonl line 214 (task CI-BILLING-003): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 214 (task CI-BILLING-003): key(s) {_pass_criteria, acceptance, fingerprint, previous_blocked_reason, previous_status, recurrence} outside the declared canon
+[warn] tasks.jsonl line 226 (task INT-CI-6): priority "high" is not in vocabulary {P0,P1,P2,P3,P4,P5} (writes reject this value; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 232 (task REVIEW2-MUSTER-5): status "closed" is a read alias for "complete" — canonicalize with 'boardctl update REVIEW2-MUSTER-5 --normalize'
+[warn] tasks.jsonl line 232 (task REVIEW2-MUSTER-5): key(s) {_pass_criteria, acceptance, previous_blocked_reason, previous_status} outside the declared canon
+[warn] tasks.jsonl line 237 (task DF-050): guard_result "TIER1_PASS" is free-form — not in the guard_result vocabulary {PASS,FAIL,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 237 (task DF-050): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 239 (task QA-MUSTER-18): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 240 (task DF-051): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 240 (task DF-051): key(s) {family} outside the declared canon
+[warn] tasks.jsonl line 241 (task DF-052): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 241 (task DF-052): key(s) {family, spec_anchor} outside the declared canon
+[warn] tasks.jsonl line 242 (task QA-MUSTER-18-R2): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 242 (task QA-MUSTER-18-R2): key(s) {family, recur_of} outside the declared canon
+[warn] tasks.jsonl line 243 (task DF-053): key(s) {commit, family, verdict} outside the declared canon
+[warn] tasks.jsonl line 248 (task DF-055): key(s) {closed} outside the declared canon
+[warn] tasks.jsonl line 249 (task GAP-033-R2): key(s) {_pass_criteria} outside the declared canon — fixable with 'boardctl update GAP-033-R2 --normalize'
+[warn] tasks.jsonl line 250 (task DOC-13): key(s) {_pass_criteria, acceptance} outside the declared canon — fixable with 'boardctl update DOC-13 --normalize'
+[warn] tasks.jsonl line 251 (task DF-056): guard_result "DEGRADED PASS (secrets clean; Go gates skipped: no Go files staged)" is free-form — not in the guard_result vocabulary {PASS,FAIL,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 251 (task DF-056): ci_result "BILLING-BLOCK: latest run 39858447565 jobs steps=0" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 251 (task DF-056): key(s) {_pass_criteria, acceptance} outside the declared canon — fixable with 'boardctl update DF-056 --normalize'
+[warn] tasks.jsonl line 252 (task DOC-14): key(s) {_pass_criteria, acceptance} outside the declared canon — fixable with 'boardctl update DOC-14 --normalize'
+[warn] tasks.jsonl line 253 (task AUDIT-CMD-PATH-001): depends_on is not an array (null) — treated as no dependencies
+[warn] tasks.jsonl line 254 (task INT-CI-3): priority "high" is not in vocabulary {P0,P1,P2,P3,P4,P5} (writes reject this value; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 254 (task INT-CI-3): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 254 (task INT-CI-3): key(s) {created} outside the declared canon
+[warn] tasks.jsonl line 255 (task RELEASE-012): status "closed" is a read alias for "complete" — canonicalize with 'boardctl update RELEASE-012 --normalize'
+[warn] tasks.jsonl line 255 (task RELEASE-012): key(s) {acceptance, previous_blocked_reason, previous_status} outside the declared canon
+[warn] tasks.jsonl line 257 (task DF-057): status "done" is a read alias for "complete" — canonicalize with 'boardctl update DF-057 --normalize'
+[warn] tasks.jsonl line 259 (task DF-059): guard_result "PASS (secrets/go_build/go_tests; go_lint WARN pre-existing typecheck noise)" is free-form — not in the guard_result vocabulary {PASS,FAIL,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 259 (task DF-059): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 260 (task DF-054-R2): ci_result "UNVERIFIABLE_BILLING" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 260 (task DF-054-R2): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 261 (task DOC-15): ci_result "UNVERIFIABLE_BILLING" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 261 (task DOC-15): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 262 (task README-058): ci_result "UNVERIFIABLE_BILLING" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 262 (task README-058): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 265 (task QA-MUSTER-20): ci_result "UNVERIFIABLE_BILLING" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 265 (task QA-MUSTER-20): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 269 (task README-059): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 270 (task README-060): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 271 (task README-061): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 272 (task QA-MUSTER-FOREMAN-1): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 272 (task QA-MUSTER-FOREMAN-1): key(s) {acceptance} outside the declared canon — fixable with 'boardctl update QA-MUSTER-FOREMAN-1 --normalize'
+[warn] tasks.jsonl line 273 (task README-062): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 274 (task README-063): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 275 (task QA-MUSTER-23): ci_result "not-run" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 275 (task QA-MUSTER-23): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 276 (task DOCKER-001): priority "high" is not in vocabulary {P0,P1,P2,P3,P4,P5} (writes reject this value; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 276 (task DOCKER-001): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 276 (task DOCKER-001): key(s) {acceptance, created, files_to_modify, updated} outside the declared canon
+[warn] tasks.jsonl line 277 (task DOC-16): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 278 (task DOC-17): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 279 (task DOC-18): key(s) {acceptance} outside the declared canon
+[warn] tasks.jsonl line 281 (task RELEASE-013): ci_result "UNPROVEN_ZERO_STEP_FAILURES" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 281 (task RELEASE-013): key(s) {acceptance} outside the declared canon — fixable with 'boardctl update RELEASE-013 --normalize'
+[warn] tasks.jsonl line 282 (task DF-048-R2): key(s) {acceptance} outside the declared canon — fixable with 'boardctl update DF-048-R2 --normalize'
+[warn] tasks.jsonl line 283 (task INT-CI-010): key(s) {acceptance} outside the declared canon — fixable with 'boardctl update INT-CI-010 --normalize'
+[warn] tasks.jsonl line 286 (task QA-MUSTER-REVIEW-1): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 287 (task QA-MUSTER-FOREMAN-2): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 296 (task REVIEW-MUSTER-21): ci_result "PENDING" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 310 (task OBS-MUSTER-1): key(s) {lane} outside the declared canon
+[warn] tasks.jsonl line 311 (task OBS-MUSTER-2): ci_result "PENDING: exact-head CI in_progress/failure follow-up INT-CI-OBS-MUSTER-2-001" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 311 (task OBS-MUSTER-2): key(s) {lane} outside the declared canon
+[warn] tasks.jsonl line 312 (task OBS-MUSTER-3): key(s) {lane} outside the declared canon
+[warn] tasks.jsonl line 313 (task OBS-MUSTER-4): key(s) {lane} outside the declared canon
+[warn] tasks.jsonl line 314 (task OBS-MUSTER-5): key(s) {acceptance, lane} outside the declared canon
+[warn] tasks.jsonl line 315 (task OBS-MUSTER-6): key(s) {lane} outside the declared canon
+[warn] tasks.jsonl line 316 (task OBS-MUSTER-7): key(s) {lane} outside the declared canon
+[warn] tasks.jsonl line 338 (task RELEASE-017): ci_result "UNVERIFIED exact-head Build workflow not triggered in this tick; recent runs were for prior fed18fa4 and included failures" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 345 (task INT-CI-OBS-MUSTER-2-001): created_at absent — the report parser excludes this row from time-based metrics; hand-edit the row to add a parseable created_at
+[warn] tasks.jsonl line 345 (task INT-CI-OBS-MUSTER-2-001): key(s) {acceptance, lane} outside the declared canon
+[warn] tasks.jsonl line 351 (task QA-MUSTER-031): ci_result "PASS: exact-head run completed success observed; in-progress siblings remain pending" is free-form — not in the ci_result vocabulary {GREEN,RED,SKIP} (valid: that vocabulary or the structured form {"status":"pass|fail|skip|pending","details":"<prose>"}; writes now enforce this; hand-edit the row or rewrite via boardctl update)
+[warn] tasks.jsonl line 371 (task QA-MUSTER-043): key(s) {foreman_notes} outside the declared canon
+[warn] events.jsonl line 499: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 714: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 735: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 736: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 737: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 738: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 739: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 740: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 748: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 749: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 750: event id "QA-MUSTER-13" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 751: event id "QA-MUSTER-14" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 755: event id "RELEASE-010" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 756: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 757: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 758: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 771: event id "EVT-SUP-DEPS-1" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 773: event id "evt-df045-close" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 815: event id "qa-muster-20261014-battery" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 834: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 835: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 842: duplicate event id 855 (also line 841) — benign legacy duplicates exist on live boards
+[warn] events.jsonl line 845: event id "evt-858" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 846: event id "evt-859" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 847: event id "evt-860" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 848: event id "evt-861" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 849: event id "evt-862" is not a JSON number (legacy shape tolerated)
+[warn] events.jsonl line 917: event has no id field (legacy shape tolerated)
+[warn] events.jsonl line 1016: event has no id field (legacy shape tolerated)
+RESULT: OK (262 warning(s))
