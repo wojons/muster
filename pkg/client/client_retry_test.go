@@ -343,6 +343,42 @@ func TestClient_Retry_PostNotReplayed(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
 
+// TestClient_Retry_NonIdempotentOptIn covers the escape hatch the board's
+// criterion allows: a caller that opts in with WithNonIdempotentReplay gets the
+// ordinary retry path for POST, because it has asserted its upstream
+// deduplicates the write. Without the option the same sequence is the
+// one-request case above.
+func TestClient_Retry_NonIdempotentOptIn(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable) // 503
+			return
+		}
+		w.WriteHeader(http.StatusCreated) // 201 on the replay
+	}))
+	defer server.Close()
+
+	config := retry.RetryConfig{
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
+	}
+
+	client := NewClient(WithRetryConfig(config), WithNonIdempotentReplay())
+	resp, err := client.Post(context.Background(), server.URL+"/items", "application/json", strings.NewReader(`{"name":"one"}`))
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, 2, requestCount, "an opted-in caller replays the POST")
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+}
+
 // TestClient_Retry_PatchNotReplayed covers PATCH with the same non-replay
 // assertion: it is not idempotent, so a transient status is the answer.
 func TestClient_Retry_PatchNotReplayed(t *testing.T) {

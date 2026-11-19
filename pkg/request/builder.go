@@ -272,10 +272,21 @@ func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
 // it to 0, which is what makes MUSTER_MAX_RETRIES=0 a hard disable. The
 // timeout is newHTTPClient's, so MUSTER_HTTP_TIMEOUT keeps the meaning it has
 // always had on this path.
+//
+// When retries are armed the client also gets WithNonIdempotentReplay: this
+// path rewinds the request body itself and its contract (TestExecute_
+// RetryReplaysRequestBody) is that a transient 5xx on a POST is retried rather
+// than losing the payload. The default client does the opposite (MF-044), so
+// the opt-in states the trade-off here instead of leaving it implicit: an
+// operator who sets MUSTER_MAX_RETRIES > 1 is asking for replay, and a
+// generated write that must not duplicate needs MUSTER_MAX_RETRIES=0.
 func executeHTTPClient() *client.Client {
 	opts := []client.ClientOption{client.WithTimeout(newHTTPClient().Timeout)}
 	if attempts := client.MaxAttemptsFromEnv(); attempts > 1 {
-		opts = append(opts, client.WithRetryConfig(client.RetryConfigFor(attempts)))
+		opts = append(opts,
+			client.WithRetryConfig(client.RetryConfigFor(attempts)),
+			client.WithNonIdempotentReplay(),
+		)
 	}
 	return client.NewClient(opts...)
 }

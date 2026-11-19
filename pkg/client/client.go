@@ -53,6 +53,13 @@ type Client struct {
 	baseURL    string
 	headers    map[string]string
 
+	// replayNonIdempotent lets the retry path replay POST and PATCH. It is
+	// off unless the caller asks for it: replaying a method that is neither
+	// safe nor idempotent can duplicate the write (MF-044). WithNonIdempotentReplay
+	// is the only way to turn it on, and only a caller whose write is
+	// deduplicated upstream can honestly use it.
+	replayNonIdempotent bool
+
 	// protocol records the HTTP transport version every exchange used, and
 	// httpVersion is the policy in force (PROTOCOLS.md §4.7). baseTransport is
 	// the value that performs the exchange; h3Capable is true when that value
@@ -109,6 +116,23 @@ func WithTimeout(timeout time.Duration) ClientOption {
 func WithRetryConfig(config retry.RetryConfig) ClientOption {
 	return func(c *Client) {
 		c.retrier = retry.NewRetrier(config)
+	}
+}
+
+// WithNonIdempotentReplay lets the retry path replay POST and PATCH.
+//
+// Without it the client retries only replay-safe methods — GET/HEAD/OPTIONS/
+// TRACE, plus the idempotent PUT/DELETE — and returns a POST/PATCH's transient
+// 5xx to the caller instead of sending the write twice (MF-044). Turn this on
+// only when the upstream makes the write replay-safe on its own (an
+// Idempotency-Key the server honours, or a create that deduplicates by
+// content): the client cannot see that contract.
+//
+// The generated-request path (pkg/request) opts in because its builder owns
+// body replay explicitly — see TestExecute_RetryReplaysRequestBody.
+func WithNonIdempotentReplay() ClientOption {
+	return func(c *Client) {
+		c.replayNonIdempotent = true
 	}
 }
 
@@ -451,7 +475,9 @@ func (c *Client) doOnce(ctx context.Context, req *http.Request) (*http.Response,
 // a 5xx is returned to the caller immediately (body unread, not closed, like
 // an exhausted ceiling) and a transport failure, which may also have reached
 // the server, is returned as it is. Both are reported on stderr so the
-// suppression is as visible as the retrying is.
+// suppression is as visible as the retrying is. WithNonIdempotentReplay lifts
+// that single attempt for a caller that has made its write replay-safe
+// upstream.
 //
 // For the replay-safe methods, a response carrying Retry-After is not just
 // retried: the header is surfaced on stderr and its value becomes the minimum
@@ -472,7 +498,9 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 	// Non-idempotent methods get one attempt and no retry path at all: the
 	// body rewind below would genuinely re-send the write, and a transport
 	// failure does not prove the first attempt was not applied upstream.
-	if !methodReplaySafe(req.Method) {
+	// A caller that opted in with WithNonIdempotentReplay has asserted its
+	// upstream deduplicates the write, so it takes the normal retry path.
+	if !methodReplaySafe(req.Method) && !c.replayNonIdempotent {
 		resp, err := c.doOnce(ctx, req)
 		if err != nil {
 			reportNotReplayedFailure(req, err)
@@ -508,7 +536,7 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 
 		// Check for retryable status codes (5xx and certain 4xx), gated on the
 		// method being replay-safe — the same predicate the entry guard uses.
-		if shouldRetryRequest(req, resp.StatusCode) {
+		if shouldRetryRequest(req, resp.StatusCode, c.replayNonIdempotent) {
 			delay, hasDelay := retryAfterDelay(resp)
 
 			// Last permitted attempt: hand the response back intact (body
@@ -624,9 +652,13 @@ func shouldRetryStatusCode(statusCode int) bool {
 
 // shouldRetryRequest is the retry decision for a whole request: the status has
 // to be transient AND the method has to survive being replayed. A retryable
-// status on a non-idempotent method is not a retry — it is the answer.
-func shouldRetryRequest(req *http.Request, statusCode int) bool {
-	return shouldRetryStatusCode(statusCode) && methodReplaySafe(req.Method)
+// status on a non-idempotent method is not a retry — it is the answer, unless
+// the caller opted into replay with WithNonIdempotentReplay.
+func shouldRetryRequest(req *http.Request, statusCode int, replayNonIdempotent bool) bool {
+	if !shouldRetryStatusCode(statusCode) {
+		return false
+	}
+	return replayNonIdempotent || methodReplaySafe(req.Method)
 }
 
 // methodReplaySafe reports whether re-sending this method can duplicate a
