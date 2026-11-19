@@ -444,8 +444,16 @@ func (c *Client) doOnce(ctx context.Context, req *http.Request) (*http.Response,
 
 // doWithRetry executes an HTTP request with retry logic.
 //
-// Transient statuses (429, 500, 502, 503, 504) are retried up to the
-// configured attempt ceiling. A response carrying Retry-After is not just
+// A retry must never replay a request that is not safe to replay. The status
+// ceiling (429, 500, 502, 503, 504) and transport failures are retried only
+// for replay-safe methods — GET/HEAD/OPTIONS/TRACE, plus PUT/DELETE, which are
+// idempotent by HTTP semantics. POST and PATCH are attempted exactly once:
+// a 5xx is returned to the caller immediately (body unread, not closed, like
+// an exhausted ceiling) and a transport failure, which may also have reached
+// the server, is returned as it is. Both are reported on stderr so the
+// suppression is as visible as the retrying is.
+//
+// For the replay-safe methods, a response carrying Retry-After is not just
 // retried: the header is surfaced on stderr and its value becomes the minimum
 // wait before the next attempt (retry.DelayError), so a server that says
 // "come back in 3 seconds" is obeyed instead of being hit again after the
@@ -459,8 +467,24 @@ func (c *Client) doOnce(ctx context.Context, req *http.Request) (*http.Response,
 // attempts made. Either way the attempts are reported on stderr, so nothing
 // about the retrying is invisible.
 func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
-	attempt := 0
 	maxAttempts := c.retrier.Attempts()
+
+	// Non-idempotent methods get one attempt and no retry path at all: the
+	// body rewind below would genuinely re-send the write, and a transport
+	// failure does not prove the first attempt was not applied upstream.
+	if !methodReplaySafe(req.Method) {
+		resp, err := c.doOnce(ctx, req)
+		if err != nil {
+			reportNotReplayedFailure(req, err)
+			return nil, err
+		}
+		if shouldRetryStatusCode(resp.StatusCode) {
+			reportNotReplayed(req, resp.StatusCode)
+		}
+		return resp, nil
+	}
+
+	attempt := 0
 
 	result, err := c.retrier.Execute(ctx, func(ctx context.Context) (interface{}, error) {
 		attempt++
@@ -482,8 +506,9 @@ func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Resp
 			return nil, err
 		}
 
-		// Check for retryable status codes (5xx and certain 4xx)
-		if shouldRetryStatusCode(resp.StatusCode) {
+		// Check for retryable status codes (5xx and certain 4xx), gated on the
+		// method being replay-safe — the same predicate the entry guard uses.
+		if shouldRetryRequest(req, resp.StatusCode) {
 			delay, hasDelay := retryAfterDelay(resp)
 
 			// Last permitted attempt: hand the response back intact (body
@@ -566,6 +591,23 @@ func reportRetry(req *http.Request, attempt, maxAttempts, status int, delay time
 		status, where, attempt, maxAttempts)
 }
 
+// reportNotReplayed writes the reason a retryable status was NOT retried to
+// stderr: a non-idempotent request was answered with a transient status, and
+// replaying it could double-apply the write the first attempt may already have
+// performed. The response itself goes back to the caller untouched.
+func reportNotReplayed(req *http.Request, status int) {
+	fmt.Fprintf(os.Stderr, "retry: HTTP %d from %s — not replayed (non-idempotent method)\n",
+		status, req.Method+" "+req.URL.Redacted())
+}
+
+// reportNotReplayedFailure writes the reason a transport failure was NOT
+// retried to stderr, with the same reasoning as reportNotReplayed: the failure
+// does not prove the request never reached the server.
+func reportNotReplayedFailure(req *http.Request, err error) {
+	fmt.Fprintf(os.Stderr, "retry: %s from %s — not replayed (non-idempotent method): %v\n",
+		req.Method, req.URL.Redacted(), err)
+}
+
 // shouldRetryStatusCode determines if an HTTP status code should trigger a retry.
 func shouldRetryStatusCode(statusCode int) bool {
 	switch statusCode {
@@ -574,6 +616,29 @@ func shouldRetryStatusCode(statusCode int) bool {
 		http.StatusBadGateway,          // 502
 		http.StatusServiceUnavailable,  // 503
 		http.StatusGatewayTimeout:      // 504
+		return true
+	default:
+		return false
+	}
+}
+
+// shouldRetryRequest is the retry decision for a whole request: the status has
+// to be transient AND the method has to survive being replayed. A retryable
+// status on a non-idempotent method is not a retry — it is the answer.
+func shouldRetryRequest(req *http.Request, statusCode int) bool {
+	return shouldRetryStatusCode(statusCode) && methodReplaySafe(req.Method)
+}
+
+// methodReplaySafe reports whether re-sending this method can duplicate a
+// write. GET/HEAD/OPTIONS/TRACE are safe by definition and PUT/DELETE are
+// idempotent by HTTP semantics, so replaying them is harmless; POST and PATCH
+// are neither, and anything unknown is treated as unsafe — the conservative
+// direction, since a wrong "safe" replays a write while a wrong "unsafe" only
+// gives up a retry.
+func methodReplaySafe(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace,
+		http.MethodPut, http.MethodDelete:
 		return true
 	default:
 		return false

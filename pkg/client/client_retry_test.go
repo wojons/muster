@@ -236,7 +236,8 @@ func TestClient_Retry_NetworkError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// TestClient_Retry_WithAllMethods tests retry works with all HTTP methods
+// TestClient_Retry_WithAllMethods tests retry works with replay-safe methods
+// and that non-idempotent methods are attempted exactly once.
 func TestClient_Retry_WithAllMethods(t *testing.T) {
 	attemptCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -269,13 +270,15 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 
 	assert.Equal(t, 2, attemptCount)
 
-	// Test POST
+	// POST is not replay-safe: the transient status is the answer, so the
+	// request reaches the server once and the caller sees the 502 itself.
 	attemptCount = 0
 	resp, err = client.Post(ctx, server.URL+"/test", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, 1, attemptCount, "POST must not be replayed")
+	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
 
 	// Test PUT
 	attemptCount = 0
@@ -293,13 +296,163 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 
 	assert.Equal(t, 2, attemptCount)
 
-	// Test PATCH
+	// PATCH is not replay-safe either: one attempt, first 5xx returned.
 	attemptCount = 0
 	resp, err = client.Patch(ctx, server.URL+"/test", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, 1, attemptCount, "PATCH must not be replayed")
+	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
+}
+
+// TestClient_Retry_PostNotReplayed is the board's probe: a POST whose first
+// attempt returns 503 and whose second would return 201 must reach the server
+// exactly once — the transient status is handed back, not retried, so a
+// non-idempotent create cannot be duplicated.
+func TestClient_Retry_PostNotReplayed(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable) // 503
+			return
+		}
+		w.WriteHeader(http.StatusCreated) // 201 — would be returned by a replay
+	}))
+	defer server.Close()
+
+	config := retry.RetryConfig{
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
+	}
+
+	client := NewClient(WithRetryConfig(config))
+	ctx := context.Background()
+
+	resp, err := client.Post(ctx, server.URL+"/items", "application/json", strings.NewReader(`{"name":"one"}`))
+
+	require.NoError(t, err, "a non-replayed 5xx is a response, not an error")
+	require.NotNil(t, resp)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, 1, requestCount, "exactly one request may reach the upstream")
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+}
+
+// TestClient_Retry_PatchNotReplayed covers PATCH with the same non-replay
+// assertion: it is not idempotent, so a transient status is the answer.
+func TestClient_Retry_PatchNotReplayed(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			w.WriteHeader(http.StatusBadGateway) // 502
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	config := retry.RetryConfig{
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
+	}
+
+	client := NewClient(WithRetryConfig(config))
+	ctx := context.Background()
+
+	resp, err := client.Patch(ctx, server.URL+"/items/1", "application/json", strings.NewReader(`{"name":"one"}`))
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, 1, requestCount, "exactly one request may reach the upstream")
+	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
+}
+
+// TestClient_Retry_PostTransportFailureNotRetried pins the other half of the
+// gate: a transport failure may have reached the server, so a POST fails fast
+// with the transport error instead of being re-sent.
+func TestClient_Retry_PostTransportFailureNotRetried(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		// Drop the connection without a response: the client sees a
+		// transport failure on the first (and only) attempt.
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Errorf("response writer does not support hijacking")
+			return
+		}
+		conn, _, err := hj.Hijack()
+		if err != nil {
+			t.Errorf("hijack: %v", err)
+			return
+		}
+		_ = conn.Close()
+	}))
+	defer server.Close()
+
+	config := retry.RetryConfig{
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
+	}
+
+	client := NewClient(WithRetryConfig(config))
+	ctx := context.Background()
+
+	resp, err := client.Post(ctx, server.URL+"/items", "application/json", strings.NewReader(`{"name":"one"}`))
+
+	require.Error(t, err, "a transport failure on POST is returned, not retried")
+	assert.Nil(t, resp)
+	assert.Equal(t, 1, requestCount, "exactly one request may reach the upstream")
+}
+
+// TestClient_Retry_GetStillReplayed guards against over-broad suppression: a
+// transient status on a replay-safe method still retries.
+func TestClient_Retry_GetStillReplayed(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable) // 503
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer server.Close()
+
+	config := retry.RetryConfig{
+		MaxAttempts:  3,
+		InitialDelay: 10 * time.Millisecond,
+		MaxDelay:     100 * time.Millisecond,
+		BackoffType:  "linear",
+		Jitter:       false,
+	}
+
+	client := NewClient(WithRetryConfig(config))
+	ctx := context.Background()
+
+	resp, err := client.Get(ctx, server.URL+"/items")
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, 2, requestCount, "a safe method is still retried")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 // TestClient_Retry_WithoutRetry tests that requests work without retry configured
