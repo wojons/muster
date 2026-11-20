@@ -23,6 +23,50 @@ func TestRun_HelpAction(t *testing.T) {
 	require.NoError(t, err, "no action should show help")
 }
 
+// TestRun_NoActionBuildsNothing pins the ORDER fix of QA-MUSTER-039: the
+// no-command path must return from run() before any per-command construction.
+// Two observables, both of which the pre-fix code changed:
+//
+//   - metricsRecorder was assigned before the dispatch, so the help path built
+//     a whole prometheus registry it never served.
+//   - the client-token file was read before the dispatch, so a bare invocation
+//     with a bogus --client-token-file exited non-zero instead of printing
+//     usage. That is the same defect class as the Windows red: help must not be
+//     reachable only through the success of work it does not need.
+func TestRun_NoActionBuildsNothing(t *testing.T) {
+	prevRecorder := metricsRecorder
+	metricsRecorder = nil
+	t.Cleanup(func() { metricsRecorder = prevRecorder })
+
+	missing := filepath.Join(t.TempDir(), "absent-token")
+	os.Args = []string{"muster-daemon", "--client-token-file", missing}
+
+	err := run()
+	require.NoError(t, err, "no action must print usage, never read the client token file")
+	require.Nil(t, metricsRecorder, "the help path must not construct the metrics recorder")
+
+	_, statErr := os.Stat(missing)
+	require.True(t, os.IsNotExist(statErr), "the help path must not touch %s: %v", missing, statErr)
+}
+
+// TestRun_NoActionDoesNotReadBackendCredential is the same invariant for the
+// proxy-handler construction: --backend-token-file used to be read (and then
+// validated against --client-token-file) BEFORE the dispatch, so a bare
+// invocation carrying a bogus token path exited non-zero instead of printing
+// usage.
+func TestRun_NoActionDoesNotReadBackendCredential(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "absent-backend-token")
+	os.Args = []string{
+		"muster-daemon",
+		"--backend-url", "http://127.0.0.1:1",
+		"--backend-token-file", missing,
+		"--client-token-file", missing + ".client",
+	}
+
+	err := run()
+	require.NoError(t, err, "no action must print usage, never read the backend credential")
+}
+
 func TestRun_StatusAction(t *testing.T) {
 	os.Args = []string{"muster-daemon", "status"}
 
