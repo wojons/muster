@@ -1,0 +1,25 @@
+{
+  "row": "INT-CI-OBS-MUSTER-2-001",
+  "tick": "muster-pm-2026-11-20-06-43-16",
+  "ts": "2026-11-20T09:45:00Z",
+  "measured_at_tree": "cb5943075e8898238434245d45db67443d617b4f",
+  "commands": [
+    "gh run list -R wojons/muster --commit b54664322f6736cb1f8dd026aa27f50bc4f3f2b0 --json databaseId,workflowName,conclusion",
+    "gh run view 44705606006 -R wojons/muster --json status,conclusion"
+  ],
+  "results": {
+    "b5466432_classification": {
+      "CI_43179726298": "failure (build-and-test, 16 steps)",
+      "Build_43179726378": "failure (integration+test; security success)",
+      "CrossPlatform_43179726773": "failure (7 of 9 jobs)",
+      "DockerBuild_43179726336": "success"
+    },
+    "cb594307_workflows": {
+      "CI_44705606133": "success",
+      "CrossPlatform_44705606024": "success (9/9 jobs)",
+      "Build_44705606170": "success",
+      "DockerBuild_44705606006": "success"
+    }
+  },
+  "verdict": "premise resolved: failure classified and all applicable workflows now conclude successfully at the current tip."
+}
