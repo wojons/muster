@@ -1,0 +1,17 @@
+{
+  "row": "INT-CI-012",
+  "tick": "muster-pm-2026-11-20-06-43-16",
+  "ts": "2026-11-20T09:10:00Z",
+  "measured_at_tree": "cb5943075e8898238434245d45db67443d617b4f",
+  "commands": [
+    "gh run view 44705606024 -R wojons/muster --json jobs --jq '[.jobs[] | {name, conclusion}]'",
+    "go test ./internal/builtin/... -count=1",
+    "git log --oneline origin/main -- internal/builtin/audit_retention.go internal/builtin/audit_retention_test.go"
+  ],
+  "results": {
+    "cross_platform_44705606024": {"conclusion": "success", "Test windows-latest": "success", "jobs": 9},
+    "go_test_internal_builtin": "ok github.com/wojons/muster/internal/builtin 8.375s rc=0",
+    "retention_fix_commit": "6e5c0600 fix(audit): enforce retention and bound newest reads. Addresses DOC-15."
+  },
+  "verdict": "both acceptance arms met: windows-latest leg green at the current tip and the package suite ok; retention fix present in origin/main ancestry."
+}

@@ -1,0 +1,18 @@
+{
+  "row": "INT-CI-010",
+  "tick": "muster-pm-2026-11-20-06-43-16",
+  "ts": "2026-11-20T09:10:00Z",
+  "measured_at_tree": "cb5943075e8898238434245d45db67443d617b4f",
+  "premise": "CI runs failing with zero steps (billing block active)",
+  "commands": [
+    "gh run list -R wojons/muster --branch main --limit 6 --json databaseId,conclusion,status,headSha,workflowName",
+    "gh run view 44705606133 -R wojons/muster --json jobs --jq '[.jobs[] | {name, conclusion, steps: (.steps|length)}]'"
+  ],
+  "results": {
+    "44705606133": {"workflow": "CI", "headSha": "cb5943075e8898238434245d45db67443d617b4f", "job": "build-and-test", "conclusion": "success", "steps": 16},
+    "44705606024": {"workflow": "Cross-Platform Tests", "conclusion": "success", "jobs": 9},
+    "44705606170": {"workflow": "Build", "conclusion": "success"},
+    "44705606006": {"workflow": "Docker Build", "status": "in_progress"}
+  },
+  "verdict": "premise-disproved: the zero-step billing signature is gone; steps execute and conclude success. Row acceptance says supersede when steps print. depends_on CI-BILLING-002 is closed."
+}

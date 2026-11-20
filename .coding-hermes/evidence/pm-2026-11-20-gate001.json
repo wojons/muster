@@ -1,0 +1,15 @@
+{
+  "row": "GATE-001",
+  "tick": "muster-pm-2026-11-20-06-43-16",
+  "ts": "2026-11-20T09:10:00Z",
+  "measured_at_tree": "cb5943075e8898238434245d45db67443d617b4f",
+  "command": "python3 ~/.hermes/scripts/acceptance_gate.py audit .",
+  "results": {
+    "open_rows": 70,
+    "failing": 0,
+    "passing": 70,
+    "stdout_tail": "audit: 70 open rows, 0 failing, 70 passing"
+  },
+  "criterion": "open-row FAIL count falls from the measured 49 of 73 to at most 10",
+  "verdict": "met (0 <= 10); per-failure note requirement vacuous at 0 failures"
+}

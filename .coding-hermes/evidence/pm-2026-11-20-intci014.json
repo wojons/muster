@@ -1,0 +1,17 @@
+{
+  "row": "INT-CI-14",
+  "tick": "muster-pm-2026-11-20-06-43-16",
+  "ts": "2026-11-20T09:10:00Z",
+  "measured_at_tree": "cb5943075e8898238434245d45db67443d617b4f",
+  "commands": [
+    "gh run view 44705606024 -R wojons/muster --json jobs --jq '[.jobs[] | {name, conclusion}]'",
+    "go test ./pkg/daemon/... -count=1",
+    "git log --oneline -30 origin/main --grep=daemon --grep=config -i"
+  ],
+  "results": {
+    "cross_platform_44705606024": {"conclusion": "success", "Test windows-latest": "success", "Platform-Specific Tests (Windows-Credential)": "success", "jobs": 9},
+    "go_test_pkg_daemon": "ok github.com/wojons/muster/pkg/daemon 0.456s rc=0",
+    "fix_commits": ["56e0332a fix(daemon): keep the Windows start guard attributable while held", "80ea85b5 fix(config): stop deriving Windows config paths from unset env vars"]
+  },
+  "verdict": "both acceptance arms met: windows legs green at the current tip and the daemon suite ok on linux; fix commits in origin/main ancestry."
+}
