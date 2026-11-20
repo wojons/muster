@@ -4,28 +4,44 @@ Operational reference for the Muster background daemon's HTTP surface: health
 endpoints, metrics, socket access, load-balancer / systemd probes, and
 Prometheus scraping.
 
-Every route, status code, and response body below was verified against a
-running daemon built from this tree. The daemon ships two ways: the
+Every route, status code, and response body below is reproducible against a
+daemon built from this tree: [Verification log](#verification-log) rebuilds the
+binary, starts it against the backends used here, and prints the exact bodies
+quoted. If a claim and that log disagree, the log wins. The daemon ships two
+ways: the
 standalone `openapi-daemon` binary (subcommands `start`, `stop`, `status`,
 `restart`, `reload`, `proxy`; socket flag `--socket-path`) and the CLI's
-`openapi-cli daemon <subcommand>` wrapper (flag `--socket`). The HTTP
-surface is identical; examples here use the standalone form.
+`openapi-cli daemon <subcommand>` wrapper (flag `--socket`). The HTTP surface is
+the same — the wrapper execs the daemon binary — with one wrapper difference
+worth knowing before debugging health: `openapi-cli daemon start --backend-url
+URL` spawns `openapi-daemon proxy`, so **health is proxied there**. Only the
+standalone `openapi-daemon start --backend-url URL` serves daemon-local,
+backend-aware health. Examples here use the standalone form. See
+[Proxy vs standalone socket composition](#proxy-vs-standalone-socket-composition).
 
 ## TL;DR — route table
 
-| Route | Served by | Method | Success status | Response body (`application/json`) |
+| Route | Served by | Method | Status | Response body (`application/json`) |
 |---|---|---|---|---|
 | `/health` | daemon socket | any (GET/HEAD/POST all answer 200) | `200 OK` | `{"status":"healthy"}` |
 | `/health/live` | daemon socket | any | `200 OK` | `{"status":"alive","timestamp":"2006-01-02T15:04:05Z"}` |
-| `/health/ready` | daemon socket | any | `200 OK` | `{"status":"ready","timestamp":"2006-01-02T15:04:05Z"}` |
+| `/health/ready`, no backend | daemon socket | any | `200 OK` | `{"status":"ready","timestamp":"2006-01-02T15:04:05Z"}` |
+| `/health/ready`, `start --backend-url` | daemon socket, probing the backend | any | `200 OK` ready, `503 Service Unavailable` not_ready | `{"status":"ready","backend_status":200,"timestamp":"…"}` or a `not_ready` body (see [`GET /health/ready`](#get-healthready)) |
 | `/` | daemon socket | any | `200 OK` | `{"status":"ok","message":"Muster daemon is running"}` |
-| `/health/startup` | daemon socket | any | falls through to `/` | root body, `200 OK` |
-| `/metrics` | daemon socket | any | falls through to `/` | root body, `200 OK` (JSON, not Prometheus) |
+| `/health/startup`, no backend | daemon socket | any | falls through to `/` | root body, `200 OK` |
+| `/metrics`, no backend | daemon socket | any | falls through to `/` | root body, `200 OK` (JSON, not Prometheus) |
 | `/metrics` | metrics listener, `127.0.0.1:9110` | GET/HEAD | `200 OK` | Prometheus text exposition |
 | any other path | metrics listener, `127.0.0.1:9110` | any | `404 Not Found` | `404 page not found` (plain text) |
 
+The "no backend" rows describe `start` without `--backend-url`. With
+`--backend-url` the daemon registers exactly three local health paths —
+`/health`, `/health/live`, `/health/ready` — and proxies **everything else** on
+the socket to the backend, `/health/startup` and `/metrics` included (measured:
+both returned the test backend's own body, not the daemon's root JSON).
+
 Two different servers: **`/metrics` is not part of the daemon's socket handler**
-— on the socket that path falls through to the canned root JSON. Prometheus
+— without `--backend-url` that path falls through to the canned root JSON (with
+a backend URL it is proxied to the backend). Prometheus
 format comes from a separate loopback TCP listener
 (`internal/monitoring.MusterMetricsServer`) that the daemon starts itself once
 the socket answers: default `127.0.0.1:9110`, override with `--metrics-addr`.
@@ -36,10 +52,14 @@ loopback-only rule, and the exact families and label sets it exposes.
 ### Auth exemption
 
 Health endpoints are the one class of routes that bypass the daemon's token
-authentication middleware (`pkg/daemon` `withTokenAuth`):
+authentication middleware (`pkg/daemon` `withTokenAuth`, which calls
+`isHealthEndpoint`):
 `/health`, `/health/live`, `/health/ready`, `/health/startup` (a trailing
 slash is normalized). Load balancers and supervisors can probe them without
-a token; every other path on the socket requires `Authorization`.
+a token. Token auth only exists when the socket is served by the authenticated
+proxy (`NewAuthenticatedProxyServer`, i.e. a configured token manager); the
+`openapi-daemon` binary serves the plain proxy handler, where no path asks for
+`Authorization` at all. In the authenticated shape, every non-health path does.
 
 ## Getting a socket
 
@@ -75,12 +95,20 @@ Content-Type: application/json
 {"status":"healthy"}
 ```
 
-- `200` as long as the process is up and the socket answers. There is
-  currently no degraded/down branch: the handler is unconditional.
+- `200` as long as the daemon serves this path itself and the process can answer
+  on its socket (the standalone and `start --backend-url` shapes; under `proxy`
+  the path is forwarded to the backend — see [Proxy vs
+  standalone](#proxy-vs-standalone-socket-composition)). The local handler never
+  consults the backend, the audit sink, the metrics listener, or any other
+  subsystem, so it cannot report a degraded state: a 200 here proves the daemon
+  process can serve requests on its socket, and nothing more. A backend outage
+  leaves it at 200 (measured: 200 in 0.2–2 ms while `/health/ready` was
+  blocked on a hung backend).
 - No timestamp field.
-- The generic "is the daemon up" probe. systemd should use this (or
-  `/health/live`) rather than `/health/ready`, since ready is equally
-  unconditional today — see [Semantics](#semantics-for-lb-and-systemd).
+- The generic "is the daemon up" probe, and the right one for restart
+  decisions. systemd should use this (or `/health/live`), never `/health/ready`
+  — see [Semantics](#semantics-for-lb-and-systemd). It is not an LB health
+  check: it stays 200 while the backend behind the daemon is down.
 
 ### `GET /health/live`
 
@@ -91,10 +119,20 @@ Content-Type: application/json
 {"status":"alive","timestamp":"2026-09-27T06:38:07Z"}
 ```
 
-- Liveness. Same unconditional-200 caveat as `/health`: the process being
-  able to serve the socket is the only thing it proves.
+- Liveness, and the same unconditional 200 as `/health` wherever the daemon
+  serves it locally (`start` with or without `--backend-url`): the only thing it
+  proves is that the process can serve the socket. It never probes the backend.
+  Under `proxy` it is forwarded like any other path. The difference from
+  `/health` is cosmetic — the body carries a timestamp.
 
 ### `GET /health/ready`
+
+Behaviour depends on how the socket is served. There are three shapes, and only
+the middle one is a real readiness contract.
+
+**1. `start` without `--backend-url`** — no backend exists to probe, so the
+canned handler answers. This is a liveness answer under a readiness name; do not
+put it behind an LB.
 
 ```http
 HTTP/1.1 200 OK
@@ -103,10 +141,49 @@ Content-Type: application/json
 {"status":"ready","timestamp":"2026-09-27T06:38:07Z"}
 ```
 
-- Readiness. Currently identical in behavior to liveness — the handler does
-  not consult backend connectivity or any subsystem state. A proxy daemon
-  with a dead backend still answers ready/200 (verified: only non-health
-  paths return `502` in that state).
+**2. `start --backend-url <url>`** — real readiness. Every request probes
+`<url>/health` with a 2 s client budget and reports one of three outcomes
+(`cmd/daemon/main.go`, `backendReadinessHandler`):
+
+| Backend probe result | Status | Body |
+|---|---|---|
+| reachable, HTTP status < 500 | `200 OK` | `{"status":"ready","backend_status":<code>,"timestamp":"…"}` |
+| reachable, HTTP status ≥ 500 | `503 Service Unavailable` | `{"status":"not_ready","reason":"backend_unhealthy","backend_status":<code>,"timestamp":"…"}` |
+| unreachable, refused, or no answer within 2 s | `503 Service Unavailable` | `{"status":"not_ready","reason":"backend_unreachable","error":"<probe error>","timestamp":"…"}` |
+
+Measured bodies, byte-for-byte (timestamps are RFC 3339 UTC):
+
+```json
+{"status":"ready","backend_status":200,"timestamp":"2026-11-20T14:28:21Z"}
+```
+
+```json
+{"status":"not_ready","reason":"backend_unhealthy","backend_status":503,"timestamp":"2026-11-20T14:28:21Z"}
+```
+
+```json
+{"status":"not_ready","reason":"backend_unreachable","error":"Get \"http://127.0.0.1:1/health\": dial tcp 127.0.0.1:1: connect: connection refused","timestamp":"2026-11-20T14:27:46Z"}
+```
+
+Against a backend that accepts the connection and never answers, the probe
+returns the same `backend_unreachable` shape after the full budget, with
+`error` ending `context deadline exceeded (Client.Timeout exceeded while
+awaiting headers)`. Measured 2.001–2.008 s across nine consecutive calls (three
+runs of three) while the host was busy: the 2 s client timeout is the floor an
+LB sees, and a hung backend makes every readiness probe cost that much.
+
+The classification rule is worth stating plainly because it is asymmetric:
+**anything below 500 counts as ready.** A backend answering `404` on `/health`
+produces `{"status":"ready","backend_status":404,…}` with HTTP 200 — the probe
+checks reachability and non-5xx, not the backend's opinion of the path.
+
+**3. `proxy` subcommand** — no local composition at all, so `/health/ready` is
+forwarded to the backend and the status/body are the backend's (see
+[`proxy` subcommand](#proxy-subcommand)).
+
+A 503 from `/health/ready` is a statement about the backend, never about the
+daemon process: `/health` and `/health/live` keep answering 200 in that same
+state (measured — both 200 while readiness spent 2 s and returned 503).
 
 ### `GET /` (root info)
 
@@ -117,8 +194,11 @@ Content-Type: application/json
 {"status":"ok","message":"Muster daemon is running"}
 ```
 
-- Also answers `/health/startup` and `/metrics` on the socket (unregistered
-  paths fall through to `/` in Go's `http.ServeMux`).
+- In the standalone shape (no `--backend-url`) also answers `/health/startup`
+  and `/metrics` on the socket (unregistered paths fall through to `/` in Go's
+  `http.ServeMux`). With `--backend-url` those two paths are proxied to the
+  backend instead, because only `/health`, `/health/live` and `/health/ready`
+  are registered locally.
 
 ### Method behavior
 
@@ -128,11 +208,28 @@ rejection; it doesn't exist.
 
 ### Response when things are wrong
 
-- Backend unreachable (proxy paths with a dead backend): `502 Bad Gateway`,
-  `text/plain`, body `Failed to execute proxy request`. Health paths are
-  local and unaffected in `start` mode.
-- No known path returns a non-200 today. If you observe a non-200 health
-  response, the daemon process itself is broken — treat it as down.
+- `/health/ready` with `--backend-url` and a dead backend:
+  `503 Service Unavailable`, `application/json`,
+  `{"status":"not_ready","reason":"backend_unreachable","error":"…"}`. The
+  daemon process is fine; the backend behind it is not.
+- `/health/ready` with `--backend-url` and a backend answering 5xx:
+  `503 Service Unavailable`, `{"status":"not_ready","reason":"backend_unhealthy","backend_status":<code>,…}`.
+- Proxied (non-health) paths with a dead backend: `502 Bad Gateway`,
+  `text/plain`, body `Failed to execute proxy request`. In `start` mode
+  `/health` and `/health/live` stay local and unaffected; `/health/ready` turns
+  the same outage into the 503 above. In `proxy` mode the health paths are
+  proxied too, so they fail with whatever the backend/proxy chain returns.
+- Authenticated proxy shape only: a non-health path without a valid token gets
+  `401 Unauthorized` with `{"error":"Unauthorized","message":"…"}`.
+
+`/health` and `/health/live` are the two endpoints that never return a non-200
+**while the daemon serves them locally** (`start`, with or without
+`--backend-url`): their handlers are unconditional and consult nothing. Any
+non-200 you see there in those shapes means the process itself is broken or gone
+— treat it as down and restart. (In `proxy` mode they are forwarded to the
+backend, so their status is the backend's; a non-200 there is still not evidence
+about the daemon process.) A non-200 from `/health/ready` means the opposite:
+leave the process alone and look at the backend.
 
 ## Proxy vs standalone socket composition
 
@@ -146,14 +243,18 @@ the socket: `/` plus the three health routes. Nothing else exists.
 
 ### `start` + `--backend-url`
 
-The socket handler is composed: health paths (`/health`, `/health/`) are
-handled **locally by the daemon**, everything else is reverse-proxied to the
-backend.
+The socket handler is composed: `/health`, `/health/live` and `/health/ready`
+are handled **locally by the daemon**, everything else is reverse-proxied to the
+backend. `/health/ready` is the local handler that probes the backend, so a
+backend outage shows up as a 503 on that one path while `/health` and
+`/health/live` keep answering 200.
 
 ```bash
 openapi-daemon start --backend-url http://127.0.0.1:8080
 curl --unix-socket /tmp/openapi-cli.sock http://localhost/health
 # -> local canned 200, even if the backend is down
+curl --unix-socket /tmp/openapi-cli.sock http://localhost/health/ready
+# -> 200 when the backend answers /health below 500, 503 not_ready otherwise
 curl --unix-socket /tmp/openapi-cli.sock http://localhost/some/api
 # -> proxied to the backend; 502 if it's down
 ```
@@ -163,8 +264,11 @@ curl --unix-socket /tmp/openapi-cli.sock http://localhost/some/api
 **The health endpoints are proxied to the backend too.** The standalone
 `proxy` subcommand does not compose the local canned health handler —
 `/health`, `/health/live`, `/health/ready` are forwarded to the backend like
-any other path (verified: a plain file server as backend returned its own
-404 for `/health`).
+any other path (measured: a test backend answering every path with
+`{"status":"healthy"}` produced that body on all three, and a file server as
+backend returned its own 404 for `/health`). There is no daemon-side readiness
+check in this shape: whatever your backend says about `/health/ready` is what
+the socket returns.
 
 Operational consequence: with `proxy` mode, a "200 from `/health`" proves
 your **backend** is up, not the daemon. If you front `proxy` mode with an
@@ -180,9 +284,34 @@ it.
 | Consumer | Use | Why |
 |---|---|---|
 | systemd `ExecStartPost` / wait-for-start | `curl --unix-socket ... /health` | process is up once the socket answers |
-| systemd `ExecCondition` / watchdog script | `/health/live` | restart-on-fail semantics |
-| Load balancer pool membership | `/health/ready` via an authenticated local relay, or the backend's own health check | ready is the conventional LB endpoint; note it is not yet backend-aware |
-| Kubernetes (if socket is exposed via a sidecar) | live = `/health/live`, ready = `/health/ready` | convention mapping |
+| systemd `ExecCondition` / watchdog script | `/health/live` | restart-on-fail semantics; when served locally it never returns non-200 because of the backend (not usable as a daemon check under `proxy`) |
+| Load balancer pool membership | `/health/ready` (via a local relay), with `start --backend-url` | real readiness: 503 not_ready when the backend is down or unhealthy; **do not** use it in standalone mode or `proxy` mode, where it is not a daemon-side check |
+| Kubernetes (if socket is exposed via a sidecar) | live = `/health/live`, ready = `/health/ready` | convention mapping; same caveat — readiness is only meaningful with `--backend-url` |
+
+### What a 503 means: pool membership vs a daemon failure
+
+The two failure modes look similar from an LB and require opposite actions:
+
+| Observation | Meaning | Action |
+|---|---|---|
+| `/health/ready` → `503`, body `reason=backend_unreachable` or `backend_unhealthy`, while `/health` and `/health/live` still answer `200` | the daemon process is healthy; the backend behind it is down, 5xx, or slower than the 2 s probe budget | take the node **out of the LB pool**; fix the backend. Do **not** restart the daemon — a restart changes nothing about the backend and costs you the socket |
+| `/health` or `/health/live` → non-200, or no answer at all (connection refused / socket missing / relay timeout) | the daemon process itself is gone or wedged | restart the unit / re-establish the relay |
+
+Inspect the reason without parsing prose:
+
+```bash
+curl -s --unix-socket /tmp/openapi-cli.sock http://localhost/health/ready \
+  | jq -r '"\(.status) reason=\(.reason // "-") backend=\(.backend_status // "-")"'
+# not_ready reason=backend_unhealthy backend=503
+# not_ready reason=backend_unreachable backend=-
+# ready     reason=-                  backend=200
+```
+
+A probe on `/health/ready` is not free when the backend is hung: it costs the
+full 2 s budget (measured 2.001–2.008 s). Size the LB's `timeout` above 2 s so
+a hung backend produces a clean 503 instead of an LB-side timeout, and keep
+`/health/live` on a shorter budget for restart decisions.
+
 
 ### systemd example
 
@@ -237,15 +366,21 @@ stream {
 }
 ```
 
-LB health check then targets `http://<host>:8081/health/ready`, expecting
-HTTP 200. Mark the node out of rotation on non-200/connection failure.
+LB health check then targets `http://<host>:8081/health/ready`. Treat the
+outcomes differently: `200` in rotation; `503` out of rotation but leave the
+daemon running (the backend behind it is down — see
+[What a 503 means](#what-a-503-means-pool-membership-vs-a-daemon-failure));
+connection refused / relay timeout out of rotation **and** restart the daemon.
+Keep the check's timeout above 2 s, since that is the readiness probe's own
+budget.
 
 ## Prometheus scrape configuration
 
 ### The metrics listener
 
 - The daemon **socket** does not expose Prometheus format — its `/metrics`
-  path falls through to the root JSON info handler.
+  path falls through to the root JSON info handler (standalone) or is proxied to
+  the backend (`start --backend-url`).
 - Prometheus format is served by `internal/monitoring.MusterMetricsServer`,
   which the daemon starts itself once the socket answers so the first scrape
   already reports the truth. Construction:
@@ -438,14 +573,16 @@ promtool check config /etc/prometheus/prometheus.yml
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `/health` 200 but API calls 502 | backend down (proxy paths are remote) | restart backend; health is daemon-local in `start` mode |
+| `/health` 200 but API calls 502 | backend down (proxy paths are remote) | restart backend; `/health` and `/health/live` are daemon-local in `start` mode, and `/health/ready` should be 503 in this state |
+| `/health/ready` 503 `backend_unreachable` / `backend_unhealthy` | backend down, 5xx, or slower than the 2 s probe | fix the backend; do not restart the daemon (its `/health` is still 200) |
 | `/health` returns backend's HTML/404 | you're on `proxy` mode — health is proxied there | switch to `start --backend-url` for daemon-local health |
 | `curl --unix-socket` fails to connect | socket path wrong, or wrong user (socket is 0600) | check `openapi-daemon status`; run curl as daemon user |
-| `/metrics` returns JSON not Prometheus text | you scraped the Unix socket; that path falls through to `/` | scrape `http://127.0.0.1:9110/metrics` instead of the socket |
+| `/metrics` returns JSON not Prometheus text | you scraped the Unix socket (standalone mode); that path falls through to `/` | scrape `http://127.0.0.1:9110/metrics` instead of the socket |
+| `/metrics` returns the backend's body on the socket | `start --backend-url` — only the three health paths are local | use `--metrics-addr` / `http://127.0.0.1:9110/metrics` |
 | `curl 127.0.0.1:9110/metrics` → connection refused | the listener never bound (port already taken) or the daemon is not running in `start`/`proxy` mode | look for `[WARN] metrics listener not started` in the startup log; free the port or pass a different `--metrics-addr` |
 | daemon exits with `is not a loopback address` | `--metrics-addr` named a non-loopback host | use `127.0.0.1:<port>`, `[::1]:<port>`, or `localhost:<port>` |
 | `404` when probing `/health` on the metrics port | the metrics listener serves `/metrics` only | probe `/health` on the Unix socket |
-| LB marks node down though daemon runs | LB can't reach a Unix socket | add a TCP relay or probe the backend |
+| LB marks node down though daemon runs | LB can't reach a Unix socket | add a TCP relay; with `--backend-url` a 503 there means the backend, not the daemon |
 | systemd unit flaps at start | daemonize delay before socket exists | poll socket in `ExecStartPost` (see unit above) |
 
 ## Verification log
@@ -454,11 +591,116 @@ Reproduce any claim in this document:
 
 ```bash
 go build -o /tmp/muster-daemon ./cmd/daemon
-/tmp/muster-daemon start --foreground --socket-path /tmp/doc.sock --metrics-addr 127.0.0.1:19110 &
-curl --unix-socket /tmp/doc.sock http://localhost/health          # {"status":"healthy"}
-curl --unix-socket /tmp/doc.sock http://localhost/health/live     # {"status":"alive",...}
-curl --unix-socket /tmp/doc.sock http://localhost/health/ready    # {"status":"ready",...}
-curl --unix-socket /tmp/doc.sock http://localhost/metrics         # JSON root body, not Prometheus
-curl -fsS http://127.0.0.1:19110/metrics | grep -E '^muster_'    # the 10 families/seed series above
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:19110/health   # 404
+
+WORK=$(mktemp -d)
+
+# ---- Case A: backend refusing connections (nothing on port 1) --------------
+/tmp/muster-daemon start --foreground \
+  --socket-path "$WORK/a.sock" --metrics-addr 127.0.0.1:19121 \
+  --backend-url http://127.0.0.1:1/ & A=$!
+for i in $(seq 1 50); do [ -S "$WORK/a.sock" ] && break; sleep 0.1; done
+
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/a.sock" http://localhost/health
+# {"status":"healthy"} [200]                       <- daemon is alive
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/a.sock" http://localhost/health/live
+# {"status":"alive","timestamp":"..."} [200]
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/a.sock" http://localhost/health/ready
+# {"status":"not_ready","reason":"backend_unreachable","error":"Get \"http://127.0.0.1:1/health\": dial tcp 127.0.0.1:1: connect: connection refused","timestamp":"..."} [503]
+curl -s --unix-socket "$WORK/a.sock" http://localhost/health/ready \
+  | jq -e '.status == "not_ready" and .reason == "backend_unreachable" and (.error | length) > 0'
+# true                                             <- machine-checkable shape
+
+# ---- Case B: backend answering 5xx ----------------------------------------
+python3 - <<'PY' & B=$!
+from http.server import BaseHTTPRequestHandler, HTTPServer
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(503)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+    def log_message(self, *a):
+        pass
+HTTPServer(("127.0.0.1", 19302), H).serve_forever()
+PY
+for i in $(seq 1 50); do curl -s -o /dev/null http://127.0.0.1:19302/health && break; sleep 0.1; done
+/tmp/muster-daemon start --foreground \
+  --socket-path "$WORK/b.sock" --metrics-addr 127.0.0.1:19122 \
+  --backend-url http://127.0.0.1:19302 & D=$!
+for i in $(seq 1 50); do [ -S "$WORK/b.sock" ] && break; sleep 0.1; done
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/b.sock" http://localhost/health/ready
+# {"status":"not_ready","reason":"backend_unhealthy","backend_status":503,"timestamp":"..."} [503]
+
+# ---- Case C: backend that accepts and never answers ------------------------
+# The probe spends its whole 2 s budget and reports backend_unreachable.
+python3 - <<'PY' & C=$!
+import socket, time
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("127.0.0.1", 19303)); s.listen(8)
+held = []
+while True:
+    conn, _ = s.accept()
+    held.append(conn)   # accepted, never read, never answered
+    time.sleep(3600)
+PY
+for i in $(seq 1 50); do (exec 3<>/dev/tcp/127.0.0.1/19303) 2>/dev/null && { exec 3<&-; break; }; sleep 0.1; done
+/tmp/muster-daemon start --foreground \
+  --socket-path "$WORK/c.sock" --metrics-addr 127.0.0.1:19123 \
+  --backend-url http://127.0.0.1:19303 & E=$!
+for i in $(seq 1 50); do [ -S "$WORK/c.sock" ] && break; sleep 0.1; done
+for i in 1 2 3; do
+  curl -s -o /dev/null -w 'ready %{http_code} %{time_total}s\n' \
+    --unix-socket "$WORK/c.sock" http://localhost/health/ready
+done
+# ready 503 2.004s      (the 2 s probe budget; 2.001-2.008 s observed)
+# ready 503 2.005s
+# ready 503 2.008s
+curl -s -o /dev/null -w 'health %{http_code} %{time_total}s\n' \
+  --unix-socket "$WORK/c.sock" http://localhost/health
+# health 200 0.002s      <- liveness stays instant (0.0002-0.002 s observed)
+curl -s --unix-socket "$WORK/c.sock" http://localhost/health/ready | jq -r .error
+# Get "http://127.0.0.1:19303/health": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+
+# ---- Case D: healthy backend ----------------------------------------------
+python3 - <<'PY' & F=$!
+from http.server import BaseHTTPRequestHandler, HTTPServer
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = b'{"status":"healthy"}'
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def log_message(self, *a):
+        pass
+HTTPServer(("127.0.0.1", 19301), H).serve_forever()
+PY
+for i in $(seq 1 50); do curl -s -o /dev/null http://127.0.0.1:19301/health && break; sleep 0.1; done
+/tmp/muster-daemon start --foreground \
+  --socket-path "$WORK/d.sock" --metrics-addr 127.0.0.1:19124 \
+  --backend-url http://127.0.0.1:19301 & G=$!
+for i in $(seq 1 50); do [ -S "$WORK/d.sock" ] && break; sleep 0.1; done
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/d.sock" http://localhost/health/ready
+# {"status":"ready","backend_status":200,"timestamp":"..."} [200]
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/d.sock" http://localhost/metrics
+# {"status":"healthy"} [200]                      <- /metrics is PROXIED in this shape
+
+# ---- Standalone shape: no backend -----------------------------------------
+/tmp/muster-daemon start --foreground \
+  --socket-path "$WORK/s.sock" --metrics-addr 127.0.0.1:19125 & S=$!
+for i in $(seq 1 50); do [ -S "$WORK/s.sock" ] && break; sleep 0.1; done
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/s.sock" http://localhost/health/ready
+# {"status":"ready","timestamp":"..."} [200]      <- liveness under a readiness name
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/s.sock" http://localhost/health/startup
+# {"status":"ok","message":"Muster daemon is running"} [200]
+curl -s -w ' [%{http_code}]\n' --unix-socket "$WORK/s.sock" http://localhost/metrics
+# {"status":"ok","message":"Muster daemon is running"} [200]  <- JSON, not Prometheus
+curl -fsS http://127.0.0.1:19125/metrics | grep -E '^muster_'  # the seed series
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:19125/health   # 404
+
+kill "$A" "$B" "$C" "$D" "$E" "$F" "$G" "$S" 2>/dev/null
 ```
+
+The Prometheus-side claims (families, label sets, seed series, loopback-only
+binding) are reproduced by the listener checks in
+[Verifying a scrape](#verifying-a-scrape).
