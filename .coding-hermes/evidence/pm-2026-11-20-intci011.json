@@ -1,0 +1,52 @@
+{
+  "row": "INT-CI-011",
+  "action": "close",
+  "tick": "muster-pm-2026-11-20-06-43-16",
+  "pass": 9,
+  "measured_at": "2026-11-20T10:35Z",
+  "tree": "3249b22fc03eb0e968f4e4ea36abde0db6f63145",
+  "claim": "INT-CI-011's open arm (diagnose the failing go test from run 43181667007) is now met from the run's own logs; the follow-on arm (next main run green) holds at four consecutive heads. The failure was untidy modules, not a failing assertion.",
+  "receipts": [
+    {
+      "id": "diagnosis",
+      "command": "gh api repos/wojons/muster/actions/runs/43181667007/logs > run.zip; unzip; grep -n 'go:' run4318/0_build-and-test.txt",
+      "quoted": [
+        "line 369: Run go test -short -count=1 ...",
+        "line 370: go: downloading github.com/kylelemons/godebug v1.1.0",
+        "line 371: go: updates to go.mod needed; to update it: go mod tidy",
+        "line 372: ##[error]Process completed with exit code 1."
+      ],
+      "note": "gh run view 43181667007 --log-failed returns EMPTY for this run (0 lines, rc=0) while the API zip carries the full 400-line job log; that is why the arm stayed open at filing.",
+      "run": "43181667007",
+      "head": "9d01abdb398b579e9637167626858e6363dbb3dc",
+      "concluded": "2026-11-12T08:20Z failure, job build-and-test, 16 steps"
+    },
+    {
+      "id": "fix-present",
+      "command": "git log --oneline -S'kylelemons/godebug' -- go.mod; grep -n godebug go.mod go.sum",
+      "quoted": [
+        "8d8def9b fix: add missing godebug module requirement. Addresses QA-MUSTER-030. (2026-11-12 13:44:23 -0500)",
+        "go.mod:53 github.com/kylelemons/godebug v1.1.0 // indirect",
+        "go.sum:87-88 godebug v1.1.0 h1/h2 hashes present"
+      ],
+      "ancestor_of_head": true
+    },
+    {
+      "id": "green-arm",
+      "command": "gh api 'repos/wojons/muster/actions/runs?head_sha=<full sha>&per_page=10'",
+      "per_head": [
+        {"head": "ea8784de", "ci": "44712033191 success", "build": "44712033026 success", "docker": "44712033051 success", "cross_platform": "44712033270 success"},
+        {"head": "acc0a516", "ci": "44712562509 success", "build": "44712562610 success", "docker": "44712562609 success", "cross_platform": "44712562600 success"},
+        {"head": "83a81d77", "ci": "44718149581 success", "cross_platform": "44718149546 success", "build": "44718149634 in_progress", "docker": "44718149604 in_progress"},
+        {"head": "3249b22", "ci": "44719080115 success", "cross_platform": "44719080001 FAILURE (not this row)", "build": "44719080017 in_progress", "docker": "44719080090 in_progress"}
+      ],
+      "scope": "CI workflow only. At 3249b22 the Cross-Platform workflow is red from cmd/mcp-server TestBinaryExecution_ContextTimeout (QA-MUSTER-055) and was red at 4e08a9bb from cmd/daemon TestBinaryExecution_HelpCommand (QA-MUSTER-039, re-opened as live)."
+    },
+    {
+      "id": "local-gate",
+      "command": "go build ./... ; go vet ./... ; go test -short -count=1 ./cmd/daemon/... ./cmd/mcp-server/...",
+      "output": ["build_rc=0", "vet_rc=0", "ok github.com/wojons/muster/cmd/daemon 16.626s", "ok github.com/wojons/muster/cmd/mcp-server 21.665s"]
+    }
+  ],
+  "residual": "No residual owner-gated work: the module-graph cause is fixed and the discriminating test of 'green at next head' is satisfied at four heads."
+}
