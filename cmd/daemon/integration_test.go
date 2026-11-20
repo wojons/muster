@@ -14,33 +14,61 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// daemonProcessBudget is the liveness deadline for one `go test` spawn of the
+// built binary — not an assertion about latency. It used to be 2s, which on
+// windows-latest killed the child while the freshly built .exe was still being
+// scanned by the on-access virus scanner. Windows reports a killed process as
+// "exit status 1" (cmd.Wait prefers the ExitError built from the
+// TerminateProcess code, 1, over the context error), so the test failed looking
+// exactly like an application error — and because stderr was discarded, CI
+// showed nothing but "exit status 1" (QA-MUSTER-039). Linux maps the same kill
+// to "signal: killed", which is why this red was Windows-only.
+const daemonProcessBudget = 60 * time.Second
+
+// daemonProxyProbeBudget is the deadline for proxy mode, which blocks until it
+// is signalled. That spawn is EXPECTED to be cut short, so it does not get the
+// generous liveness budget above.
+const daemonProxyProbeBudget = 2 * time.Second
+
+// runDaemonBinary runs the built binary with args and returns BOTH captured
+// streams alongside the error, so a failure can quote what the process actually
+// said instead of a bare "exit status 1". Every assertion in this file must put
+// the returned strings in its failure message.
+func runDaemonBinary(t *testing.T, binaryPath string, args ...string) (string, string, error) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), daemonProcessBudget)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, binaryPath, args...)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+
+	err := cmd.Run()
+	return stdout.String(), stderr.String(), err
+}
+
 // TestBinaryExecution_StatusCommand tests status command execution
 func TestBinaryExecution_StatusCommand(t *testing.T) {
 	binaryPath, err := buildDaemonBinary()
 	require.NoError(t, err, "Failed to build daemon binary")
 	defer func() { _ = os.Remove(binaryPath) }()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	stdout, stderr, err := runDaemonBinary(t, binaryPath, "status")
 
-	cmd := exec.CommandContext(ctx, binaryPath, "status")
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-
-	err = cmd.Run()
-
-	// Command should succeed
-	require.NoError(t, err, "status command should succeed")
+	// Command should succeed. Both streams ride in the message: an assertion
+	// that reports only "exit status 1" is what turned this Windows red into a
+	// CI investigation (QA-MUSTER-039).
+	require.NoError(t, err, "status command should succeed: stdout=%s stderr=%s", stdout, stderr)
 
 	// Verify output shows daemon status
-	output := stdout.String()
-	t.Logf("Status output: %s", output)
+	t.Logf("Status output: %s", stdout)
 
 	// DF-047: the status surface must not advertise a token file the daemon
 	// never creates.
-	require.NotContains(t, output, "Token file:", "status must not print a token-file hint")
+	require.NotContains(t, stdout, "Token file:", "status must not print a token-file hint")
 }
 
 // TestBinaryExecution_HelpCommand tests help output
@@ -49,21 +77,47 @@ func TestBinaryExecution_HelpCommand(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(binaryPath) }()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	stdout, stderr, err := runDaemonBinary(t, binaryPath)
 
-	cmd := exec.CommandContext(ctx, binaryPath)
-	stdout := &bytes.Buffer{}
-	cmd.Stdout = stdout
+	require.NoError(t, err, "bare invocation must exit 0: stdout=%s stderr=%s", stdout, stderr)
 
-	err = cmd.Run()
-
-	require.NoError(t, err)
-
-	output := stdout.String()
 	// Verify help is displayed
-	require.Contains(t, output, "Usage:", "should show usage")
-	require.Contains(t, output, "Commands:", "should show commands")
+	require.Contains(t, stdout, "Usage:", "should show usage")
+	require.Contains(t, stdout, "Commands:", "should show commands")
+	require.Empty(t, stderr, "the no-command path must not write to stderr: %s", stderr)
+}
+
+// TestBinaryExecution_BareInvocationIsSideEffectFree pins AC1 of QA-MUSTER-039:
+// a no-command invocation prints usage and returns WITHOUT constructing a
+// controller, taking the start guard, binding a socket or writing a pidfile.
+// Asserting only the exit code would also pass for a help path that still
+// opened things, so the three paths a real `start` leaves behind (socket,
+// pidfile, guard lock) are stat'ed and must not exist. They live in a temp dir
+// (short enough to hold a socket) so the test is hermetic and never inspects a
+// real daemon's state.
+func TestBinaryExecution_BareInvocationIsSideEffectFree(t *testing.T) {
+	binaryPath, err := buildDaemonBinary()
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(binaryPath) }()
+
+	tmpDir := shortSocketTempDir(t)
+	socketPath := filepath.Join(tmpDir, "help.sock")
+	pidPath := filepath.Join(tmpDir, "help.pid")
+
+	// Flags with no subcommand still take the no-command branch; the paths only
+	// exist so the assertions below are unambiguous.
+	stdout, stderr, err := runDaemonBinary(t, binaryPath,
+		"--socket-path", socketPath, "--pid-file", pidPath)
+	require.NoError(t, err, "bare invocation must exit 0: stdout=%s stderr=%s", stdout, stderr)
+	require.Contains(t, stdout, "Usage:", "the no-command path must print the usage block")
+	require.Contains(t, stdout, "Commands:", "the no-command path must list the commands")
+	require.Empty(t, stderr, "the no-command path must not write to stderr: %s", stderr)
+
+	for _, path := range []string{socketPath, pidPath, socketPath + ".lock"} {
+		_, statErr := os.Stat(path)
+		require.True(t, os.IsNotExist(statErr),
+			"help must not create %s (os.Stat error: %v)", path, statErr)
+	}
 }
 
 // TestBinaryExecution_StartStopCommand tests start/stop workflow
@@ -76,7 +130,7 @@ func TestBinaryExecution_StartStopCommand(t *testing.T) {
 	socketPath := filepath.Join(tmpDir, "test-daemon.sock")
 
 	// Start command
-	ctx1, cancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx1, cancel1 := context.WithTimeout(context.Background(), daemonProcessBudget)
 	defer cancel1()
 
 	startCmd := exec.CommandContext(ctx1, binaryPath, "start", "--socket-path", socketPath)
@@ -90,7 +144,7 @@ func TestBinaryExecution_StartStopCommand(t *testing.T) {
 	t.Logf("Start command output: %s, error: %v", startStdout.String(), err)
 
 	// Stop command (may fail if not running, but should not crash)
-	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), daemonProcessBudget)
 	defer cancel2()
 
 	stopCmd := exec.CommandContext(ctx2, binaryPath, "stop", "--socket-path", socketPath)
@@ -114,8 +168,10 @@ func TestBinaryExecution_ProxyCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	socketPath := filepath.Join(tmpDir, "test-proxy.sock")
 
-	// Test proxy mode with backend URL
-	ctx1, cancel1 := context.WithTimeout(context.Background(), 2*time.Second)
+	// Test proxy mode with backend URL. Proxy mode blocks until it is signalled,
+	// so this spawn is EXPECTED to be cut short and keeps the short probe
+	// budget rather than the liveness budget.
+	ctx1, cancel1 := context.WithTimeout(context.Background(), daemonProxyProbeBudget)
 	defer cancel1()
 
 	proxyCmd := exec.CommandContext(ctx1, binaryPath, "proxy", "--socket-path", socketPath, "--backend-url", "http://localhost:8080")

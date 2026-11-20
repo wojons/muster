@@ -52,8 +52,9 @@ var (
 // families (docs/observability-spec.md §3.1). It owns the ONE explicit
 // prometheus registry this process serves; the proxy handler writes into the
 // same recorder, so recorded traffic and the /metrics endpoint can never
-// diverge onto two registries (spec §4.2). Nil until run() builds it, which
-// keeps the help/status/stop paths free of any listener.
+// diverge onto two registries (spec §4.2). Nil until newDaemonRuntime builds it
+// for a dispatched action, which keeps the no-command help path free of any
+// listener — and of any construction at all (QA-MUSTER-039).
 var metricsRecorder *monitoring.MetricRecorder
 
 // metricsTenantID returns the tenant_id label value: MUSTER_TENANT_ID when the
@@ -155,6 +156,94 @@ func run() error {
 		return err
 	}
 
+	// Dispatch FIRST, construct second (QA-MUSTER-039).
+	//
+	// Every subcommand needs the process-wide metrics recorder, the audit hook,
+	// the proxy handler and a controller; the no-command help path needs none of
+	// them. Building them before the dispatch meant a bare `openapi-daemon` did
+	// work it never reports (audit hook, metrics registry, controller, handler
+	// and its credential file) purely to print usage — and any failure in that
+	// work replaced the usage block with an error exit. That is the defect class
+	// AC3 names: the help path must not be reachable only through the success of
+	// work it does not need.
+	if action == "" {
+		printDaemonUsage()
+		return nil
+	}
+
+	rt, err := newDaemonRuntime()
+	if err != nil {
+		return err
+	}
+	defer rt.close()
+
+	// Handle commands
+	switch action {
+	case "start":
+		return handleStart(rt.controller, rt.handler)
+	case "stop":
+		return handleStop(rt.controller)
+	case "restart", "reload":
+		return handleRestart(rt.controller)
+	case "proxy":
+		return handleProxyStart(rt.controller, rt.handler)
+	case "status":
+		return handleStatus(rt.controller)
+	default:
+		// Unreachable: action is either "" (handled above) or an entry of
+		// knownCommands. Kept so a command added to knownCommands without a
+		// case here still prints the usage block instead of panicking.
+		printDaemonUsage()
+		return nil
+	}
+}
+
+// printDaemonUsage prints the no-command usage block. It is the help path, so
+// it must stay free of side effects: no controller, no audit hook, no socket,
+// no pidfile. run() dispatches before constructing anything for exactly that
+// reason (QA-MUSTER-039).
+func printDaemonUsage() {
+	fmt.Printf("%s\n\n", daemonUsageHeader(version.Get().Short()))
+	fmt.Println("Usage: openapi-daemon [start|stop|status|restart|reload|proxy] [flags]")
+	fmt.Println("")
+	fmt.Println("Commands:")
+	fmt.Println("  start    Start the daemon process")
+	fmt.Println("  stop     Stop the daemon process")
+	fmt.Println("  status   Show daemon status")
+	fmt.Println("  restart  Restart the daemon process")
+	fmt.Println("  reload   Reload the daemon process")
+	fmt.Println("  proxy    Start as HTTP proxy on Unix socket")
+	fmt.Println("")
+	fmt.Println("Options:")
+	fmt.Println("  --backend-url <url>     Backend URL for proxy")
+	fmt.Println("  --socket-path <path>    Path for Unix domain socket (default: /tmp/muster-daemon.sock)")
+	fmt.Println("  --metrics-addr <addr>   Loopback address for the /metrics listener (default: " + monitoring.DefaultMetricsAddr + ")")
+	fmt.Println("")
+}
+
+// daemonRuntime is everything run() builds once an action has been dispatched:
+// the handler the start/proxy paths serve, the controller they drive, and the
+// audit hook whose Close flushes it.
+type daemonRuntime struct {
+	handler    http.Handler
+	controller *daemon.Controller
+	auditHook  *audit.Hook
+}
+
+// close flushes the audit hook. The controller needs no teardown of its own —
+// the handlers own the socket, the pidfile and the metrics listener.
+func (d *daemonRuntime) close() {
+	if d == nil || d.auditHook == nil {
+		return
+	}
+	if err := d.auditHook.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", err)
+	}
+}
+
+// newDaemonRuntime constructs the per-command state. It is called only after
+// run() knows which command it is executing, so the help path never reaches it.
+func newDaemonRuntime() (*daemonRuntime, error) {
 	// Create proxy handler with backend URL
 	var handler http.Handler
 	if backendURL != "" {
@@ -170,10 +259,10 @@ func run() error {
 		if backendToken != "" {
 			secret, err := readCredentialFile(backendToken, "backend credential")
 			if err != nil {
-				return err
+				return nil, err
 			}
 			if clientToken == "" {
-				return fmt.Errorf("--backend-token-file requires --client-token-file: a daemon that injects an upstream credential must gate its own socket, otherwise every local caller is silently authenticated as the daemon's upstream identity")
+				return nil, fmt.Errorf("--backend-token-file requires --client-token-file: a daemon that injects an upstream credential must gate its own socket, otherwise every local caller is silently authenticated as the daemon's upstream identity")
 			}
 			headerName, headerValue := auth.HeaderFor(backendAuthType, secret)
 			handler = daemon.NewProxyHandlerWithAuth(backendURL, headerName, headerValue)
@@ -183,13 +272,12 @@ func run() error {
 			fmt.Printf("Proxying requests to: %s\n", backendURL)
 		}
 	}
-
 	// Observability (OBS-MUSTER-1, docs/observability-spec.md §4.2): ONE
 	// explicit prometheus registry per daemon process. The recorder is built
 	// before the handlers are used so the proxy handler records into exactly
 	// the registry the /metrics listener serves — never the default registry.
-	// Building it here is side-effect free (no listener), so help/status/stop
-	// stay listener-free.
+	// Building it here is side-effect free (no listener), so stop/status stay
+	// listener-free.
 	metricsRecorder = monitoring.NewMetricRecorder(metricsTenantID(), nil)
 	if proxyHandler, ok := handler.(*daemon.ProxyHandler); ok {
 		proxyHandler.SetMetrics(metricsRecorder)
@@ -199,11 +287,6 @@ func run() error {
 	// that its metrics listener serves. Passing it explicitly avoids relying on a
 	// process-global fallback and keeps audit drops visible on /metrics.
 	auditHook := audit.NewHookWithMetrics(audit.DefaultConfig(), metricsRecorder)
-	defer func() {
-		if err := auditHook.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", err)
-		}
-	}()
 
 	// Client tokens required on the socket (only meaningful with a handler that
 	// injects an upstream credential; without injection the historical
@@ -212,12 +295,18 @@ func run() error {
 	if clientToken != "" {
 		token, err := readCredentialFile(clientToken, "client token")
 		if err != nil {
-			return err
+			if closeErr := auditHook.Close(); closeErr != nil {
+				fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", closeErr)
+			}
+			return nil, err
 		}
 		authTokens = append(authTokens, token)
 	}
 
-	// Create controller
+	// Create controller. NewController only assembles a struct — it opens no
+	// socket, touches no pidfile and returns a nil error unconditionally — but
+	// the error is still checked so a future constructor that CAN fail is
+	// reported with its cause instead of turning into a nil dereference.
 	controller, err := daemon.NewController(daemon.ControllerConfig{
 		PidFilePath: pidFile,
 		SocketPath:  socketPath,
@@ -228,40 +317,12 @@ func run() error {
 		AuthTokens:  authTokens,
 	})
 	if err != nil {
-		return fmt.Errorf("create controller: %w", err)
+		if closeErr := auditHook.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "audit: shutdown error: %v\n", closeErr)
+		}
+		return nil, fmt.Errorf("create controller: %w", err)
 	}
-
-	// Handle commands
-	switch action {
-	case "start":
-		return handleStart(controller, handler)
-	case "stop":
-		return handleStop(controller)
-	case "restart", "reload":
-		return handleRestart(controller)
-	case "proxy":
-		return handleProxyStart(controller, handler)
-	case "status":
-		return handleStatus(controller)
-	default:
-		fmt.Printf("%s\n\n", daemonUsageHeader(version.Get().Short()))
-		fmt.Println("Usage: openapi-daemon [start|stop|status|restart|reload|proxy] [flags]")
-		fmt.Println("")
-		fmt.Println("Commands:")
-		fmt.Println("  start    Start the daemon process")
-		fmt.Println("  stop     Stop the daemon process")
-		fmt.Println("  status   Show daemon status")
-		fmt.Println("  restart  Restart the daemon process")
-		fmt.Println("  reload   Reload the daemon process")
-		fmt.Println("  proxy    Start as HTTP proxy on Unix socket")
-		fmt.Println("")
-		fmt.Println("Options:")
-		fmt.Println("  --backend-url <url>     Backend URL for proxy")
-		fmt.Println("  --socket-path <path>    Path for Unix domain socket (default: /tmp/muster-daemon.sock)")
-		fmt.Println("  --metrics-addr <addr>   Loopback address for the /metrics listener (default: " + monitoring.DefaultMetricsAddr + ")")
-		fmt.Println("")
-		return nil
-	}
+	return &daemonRuntime{handler: handler, controller: controller, auditHook: auditHook}, nil
 }
 
 // readCredentialFile reads a one-line credential from path. Surrounding
