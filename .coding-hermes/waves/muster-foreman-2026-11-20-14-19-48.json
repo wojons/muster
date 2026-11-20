@@ -1,0 +1,63 @@
+{
+  "wave_id": "muster-foreman-2026-11-20-14-19-48",
+  "project": "muster",
+  "repo": "/home/kara/wojons/muster",
+  "base_sha": "60d36f43",
+  "budget": 4,
+  "discovered_ready_count": 60,
+  "started_at": "2026-11-20T09:26:00-05:00",
+  "resumes_wave": "muster-foreman-2026-11-20-06-50-50",
+  "resume_note": "Prior wave's worker dispatch FAILED (gateway session.create timeouts at load 47-59); foreman executed INT-CI-016 inline (complete, tier-2 PASS). PERF-001, DF-MUSTER-7, QA-MUSTER-052 were deferred with zero-write branches. This tick resumes those three and fills the 4th slot with QA-MUSTER-039 (P1, highest-priority dispatchable row not in any wave). RELEASE-014 (P0) excluded: owner-gated first-publication authorization required by its own AC.",
+  "disjointness": "Each worker touches a distinct file set: pkg/openapi/* ; internal/builtin/dsl* ; docs/guides/daemon-operations.md (docs-only) ; cmd/daemon/*. No shared files. merge_group = worker index (serial merge). No depends_on edges on any selected row (verified from rows).",
+  "selection_reason": "Resume of deferred wave rows (PERF-001 P2 perf, DF-MUSTER-7 P2 DSL, QA-MUSTER-052 P2 docs-truth) + QA-MUSTER-039 P1 platform-correctness fix. All four have concrete, greppable/measurable acceptance criteria.",
+  "workers": [
+    {
+      "task": "QA-MUSTER-039",
+      "priority": "P1",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-039",
+      "branch": "wt/QA-MUSTER-039",
+      "base_sha": "60d36f43",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "brief": "/home/kara/.hermes/cache/scratch/brief-muster-QA-MUSTER-039-20261120b.md",
+      "files": ["cmd/daemon/main.go", "cmd/daemon/integration_test.go"],
+      "merge_group": 1
+    },
+    {
+      "task": "PERF-001",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/muster-PERF-001",
+      "branch": "wt/PERF-001",
+      "base_sha": "60d36f43",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "brief": "/home/kara/.hermes/cache/scratch/brief-muster-PERF-001-20261120b.md",
+      "files": ["pkg/openapi/swagger2.go", "pkg/openapi/swagger2_bench_test.go"],
+      "merge_group": 2
+    },
+    {
+      "task": "DF-MUSTER-7",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/muster-DF-MUSTER-7",
+      "branch": "wt/DF-MUSTER-7",
+      "base_sha": "60d36f43",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "brief": "/home/kara/.hermes/cache/scratch/brief-muster-DF-MUSTER-7-20261120b.md",
+      "files": ["internal/builtin/dsl.go", "internal/builtin/dsl_test.go"],
+      "merge_group": 3
+    },
+    {
+      "task": "QA-MUSTER-052",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-052",
+      "branch": "wt/QA-MUSTER-052",
+      "base_sha": "60d36f43",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "brief": "/home/kara/.hermes/cache/scratch/brief-muster-QA-MUSTER-052-20261120b.md",
+      "files": ["docs/guides/daemon-operations.md"],
+      "merge_group": 4
+    }
+  ]
+}
