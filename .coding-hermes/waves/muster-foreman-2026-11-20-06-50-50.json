@@ -5,7 +5,8 @@
   "base_sha": "3d6081ee",
   "budget": 4,
   "discovered_ready_count": 70,
-  "started_at": "2026-11-20T07:05:00-05:00",
+  "started_at": "2026-11-20T02:35:00-05:00",
+  "started_at_note": "Corrected to the measured host clock; the value written at composition time was not read from `date`.",
   "disjointness": "Each worker touches a distinct file set: pkg/openapi/swagger2.go (+bench); internal/builtin/dsl.go (+dsl test, cmd help); internal/builtin/audit_retention_test.go (+read-path instrumentation); docs/guides/daemon-operations.md. merge_group=1 (shared go.mod/go.sum possible in the two internal/builtin rows -> serial merge, go.mod consistency gate). No depends_on edges on any selected row (verified: depends_on=null on all four).",
   "selection_reason": "P1 CI-red test flake (INT-CI-016) + two P2 code/perf rows with benchmarkable acceptance + one P2 docs-truth row. All four have concrete, greppable/measurable acceptance criteria.",
   "prior_wave": {
@@ -13,9 +14,20 @@
     "disposition": "CRASHED / ZERO-WRITE. All three dispatches (PERF-001, DF-MUSTER-7, INT-CI-016) left their branches 0 commits ahead of origin/main and the manifest carried no outcomes. No commits to harvest, no merge owed. This tick reuses the three existing worktrees (clean, at base 3d6081ee) rather than recreating them."
   },
   "workers": [
-    {"task": "INT-CI-016", "priority": "P1", "worktree": "/home/kara/worktrees/muster-INT-CI-016", "branch": "wt/INT-CI-016", "base_sha": "3d6081ee", "model": "openai/gpt-6.1-terra", "provider": "xkiro", "brief": "/home/kara/.hermes/cache/scratch/brief-muster-INT-CI-016-20261120.md", "files": ["internal/builtin/audit_retention_test.go", "internal/builtin/audit_retention.go"], "merge_group": 1},
+    {"task": "INT-CI-016", "priority": "P1", "worktree": "/home/kara/worktrees/muster-INT-CI-016", "branch": "wt/INT-CI-016", "base_sha": "3d6081ee", "model": "openai/gpt-6.1-terra", "provider": "xkiro", "brief": "/home/kara/.hermes/cache/scratch/brief-muster-INT-CI-016-20261120.md", "files": ["internal/builtin/audit_retention_test.go", "internal/builtin/extended.go"], "merge_group": 1},
     {"task": "PERF-001", "priority": "P2", "worktree": "/home/kara/worktrees/muster-PERF-001", "branch": "wt/PERF-001", "base_sha": "3d6081ee", "model": "openai/gpt-6.1-terra", "provider": "xkiro", "brief": "/home/kara/.hermes/cache/scratch/brief-muster-PERF-001-20261120.md", "files": ["pkg/openapi/swagger2.go", "pkg/openapi/swagger2_bench_test.go"], "merge_group": 1},
     {"task": "DF-MUSTER-7", "priority": "P2", "worktree": "/home/kara/worktrees/muster-DF-MUSTER-7", "branch": "wt/DF-MUSTER-7", "base_sha": "3d6081ee", "model": "openai/gpt-6.1-terra", "provider": "xkiro", "brief": "/home/kara/.hermes/cache/scratch/brief-muster-DF-MUSTER-7-20261120.md", "files": ["internal/builtin/dsl.go", "internal/builtin/dsl_test.go"], "merge_group": 2},
     {"task": "QA-MUSTER-052", "priority": "P2", "worktree": "/home/kara/worktrees/muster-QA-MUSTER-052", "branch": "wt/QA-MUSTER-052", "base_sha": "3d6081ee", "model": "openai/gpt-6.1-terra", "provider": "xkiro", "brief": "/home/kara/.hermes/cache/scratch/brief-muster-QA-MUSTER-052-20261120.md", "files": ["docs/guides/daemon-operations.md"], "merge_group": 3}
-  ]
+  ],
+  "dispatch_outcome": {
+    "status": "WORKER DISPATCH FAILED - executed by foreman",
+    "attempts": 6,
+    "attempt_errors": [
+      "hermes chat -q (4 workers, proc_9ff9d854bc63 / proc_7b1bda4db417 / proc_bd73e9f8a0ed / proc_eae36f5ff5fa): 'Gateway did not answer session.create'",
+      "hermes -z (INT-CI-016 + QA-MUSTER-052, then INT-CI-016 retry): 'Gateway connection failed; no local fallback'"
+    ],
+    "context": "Gateway /health returned 200 throughout; host load average 47-59 (92% CPU) from sibling lanes, so session creation timed out rather than erroring on the model seat (a -z SEAT-OK probe of openai/gpt-6.1-terra on xkiro succeeded at tick start).",
+    "executed_by_foreman": ["INT-CI-016"],
+    "deferred_to_next_tick": ["PERF-001", "DF-MUSTER-7", "QA-MUSTER-052"]
+  }
 }
