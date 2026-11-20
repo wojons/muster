@@ -15,6 +15,24 @@ import (
 	"github.com/wojons/muster/internal/audit"
 )
 
+// countingAuditSink wraps the audit sink and counts every byte the bounded
+// tail reader pulls off it (INT-CI-016). Bytes read is the deterministic
+// stand-in for "the read is bounded by --limit, not by the sink size".
+type countingAuditSink struct {
+	inner auditTailSink
+	read  int64
+}
+
+func (c *countingAuditSink) ReadAt(p []byte, off int64) (int, error) {
+	n, err := c.inner.ReadAt(p, off)
+	c.read += int64(n)
+	return n, err
+}
+
+func (c *countingAuditSink) Stat() (os.FileInfo, error) { return c.inner.Stat() }
+
+func (c *countingAuditSink) Close() error { return c.inner.Close() }
+
 // TestAuditCommand_InfoRetentionMatchesEnforcement is the DOC-15 (a) contract:
 // the value `audit info` prints must be the value the retention mechanism
 // actually enforces, and it must agree with specs/EVENTS-AUDIT.md's documented
@@ -210,30 +228,57 @@ func TestAuditCommand_LogLimitStaysBounded(t *testing.T) {
 	seed(small, 200)
 	seed(large, 10000)
 
-	measure := func(path string) time.Duration {
-		t.Setenv("MUSTER_AUDIT_LOG", path)
-		best := time.Duration(time.Hour)
-		for i := 0; i < 5; i++ {
-			start := time.Now()
-			_, err := captureStdout(func() error {
-				cmd := newAuditCommand()
-				cmd.SetArgs([]string{"log", "--limit", "1"})
-				return cmd.Execute()
-			})
-			require.NoError(t, err)
-			if elapsed := time.Since(start); elapsed < best {
-				best = elapsed
+	// INT-CI-016: this used to compare wall-clock durations
+	// (largeDur <= 2*smallDur and largeDur < 250ms). That measured how busy
+	// the runner was, not whether the read is bounded: on macOS CI, 200 rows
+	// took 115.6us and 10000 rows 131.8us — a 14% difference from pure
+	// jitter — and failed the run. Boundedness is asserted below on the
+	// quantity that actually defines it: bytes pulled off the sink.
+	readBytes := func(t *testing.T, path, wantNewest string) int64 {
+		t.Helper()
+		sink := &countingAuditSink{}
+		prev := auditLogOpener
+		auditLogOpener = func(p string) (auditTailSink, error) {
+			f, err := os.Open(p)
+			if err != nil {
+				return nil, err
 			}
+			sink.inner = f
+			return sink, nil
 		}
-		return best
+		t.Cleanup(func() { auditLogOpener = prev })
+		t.Setenv("MUSTER_AUDIT_LOG", path)
+
+		out, err := captureStdout(func() error {
+			cmd := newAuditCommand()
+			cmd.SetArgs([]string{"log", "--limit", "1"})
+			return cmd.Execute()
+		})
+		require.NoError(t, err)
+		// Newest row, not the oldest: proves the tail was actually read.
+		require.Contains(t, out, wantNewest)
+		require.NotContains(t, out, "	actor-0\n")
+		return sink.read
 	}
 
-	smallDur := measure(small)
-	largeDur := measure(large)
-	assert.LessOrEqual(t, largeDur, 2*smallDur,
-		"audit log --limit 1 must stay bounded: 200 rows=%s, 10000 rows=%s", smallDur, largeDur)
-	assert.Less(t, largeDur, 250*time.Millisecond,
-		"bounded read should not need big-sink time: %s", largeDur)
+	largeInfo, err := os.Stat(large)
+	require.NoError(t, err)
+	require.Greater(t, largeInfo.Size(), int64(20*64*1024),
+		"large fixture must dwarf one tail block for this bound to mean anything")
+
+	smallBytes := readBytes(t, small, "actor-199")
+	largeBytes := readBytes(t, large, "actor-9999")
+
+	// One 64KiB tail block is all a single newest row may cost.
+	const tailBlock = int64(64 * 1024)
+	assert.LessOrEqual(t, largeBytes, tailBlock,
+		"audit log --limit 1 must read at most one tail block: %d rows=%d bytes, %d rows=%d bytes",
+		200, smallBytes, 10000, largeBytes)
+	// And the cost must be independent of the sink: reading the tail of a
+	// 2MB+ log cannot pull the file into memory.
+	assert.Less(t, largeBytes, largeInfo.Size()/10,
+		"bounded read must not scale with sink size: read %d of %d bytes",
+		largeBytes, largeInfo.Size())
 }
 
 // TestReadNewestAuditEvents_AllocationsBounded is the non-flaky structural

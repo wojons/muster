@@ -1003,13 +1003,30 @@ func readAuditEvents(path string, limit int) ([]audit.AuditEvent, error) {
 	return events, nil
 }
 
+// auditTailSink is the minimal file surface the bounded tail reader needs. It
+// exists so tests can observe how many bytes a `--limit` read actually pulls
+// off the sink (INT-CI-016): the cheap, deterministic proxy for "the read is
+// bounded by the limit, not by the file size".
+type auditTailSink interface {
+	io.ReaderAt
+	Stat() (os.FileInfo, error)
+	Close() error
+}
+
+// auditLogOpener is the seam the tail reader opens its sink through. It is a
+// var (not a direct os.Open) purely so tests can wrap the handle; production
+// always opens the real log.
+var auditLogOpener = func(path string) (auditTailSink, error) {
+	return os.Open(path)
+}
+
 // readNewestAuditEvents reads only the newest limit JSONL records, avoiding a
 // whole-file allocation for the common unfiltered audit log path.
 func readNewestAuditEvents(path string, limit int) ([]audit.AuditEvent, error) {
 	if limit <= 0 {
 		return readAuditEvents(path, limit)
 	}
-	file, err := os.Open(path)
+	file, err := auditLogOpener(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
