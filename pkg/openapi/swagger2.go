@@ -1,9 +1,11 @@
 package openapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/getkin/kin-openapi/openapi2"
@@ -30,23 +32,135 @@ func isSwagger2Document(data []byte) bool {
 }
 
 // swagger2RootFields decodes the document's two version-bearing root
-// fields, JSON first and YAML second (JSON is a subset of YAML, so the
-// YAML pass also covers documents the JSON pass rejected, such as one
-// with an unquoted numeric version). An unquoted YAML `swagger: 2.0`
-// decodes as a number and is normalized to the "2.0" string.
+// fields. A JSON document is read with a streaming decoder that walks the
+// root object's keys and returns as soon as a non-empty "openapi" value is
+// seen — three tokens for a 3.x document — so no whole-document decode is
+// paid (PERF-001: the previous map decode allocated ~25 MB and cost ~90-110 ms
+// on the 14 MB benchmark document, just to read two scalars).
+//
+// Anything that is not a complete JSON object falls back to a YAML decode:
+// JSON is a subset of YAML, so the YAML pass also covers documents the JSON
+// pass rejected, such as one with an unquoted numeric version. An unquoted
+// YAML `swagger: 2.0` decodes as a number and is normalized to the "2.0"
+// string.
 func swagger2RootFields(data []byte) (swagger string, openapi string, ok bool) {
+	if swagger, openapi, ok = scanSwagger2RootFieldsJSON(data); ok {
+		return swagger, openapi, true
+	}
+
 	var root map[string]interface{}
-	if err := json.Unmarshal(data, &root); err != nil {
-		if err := yaml.Unmarshal(data, &root); err != nil {
-			return "", "", false
-		}
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return "", "", false
 	}
-	swagger, _ = root["swagger"].(string)
-	if f, isNum := root["swagger"].(float64); isNum && f == 2 {
-		swagger = "2.0"
-	}
+	swagger = swaggerFieldString(root["swagger"])
 	openapi, _ = root["openapi"].(string)
 	return swagger, openapi, true
+}
+
+// swaggerFieldString normalizes one raw `swagger` root-field value to the
+// version string: a string is used as-is, and an unquoted numeric 2 (JSON
+// number or YAML float, both float64 after decoding) normalizes to "2.0".
+// Any other type contributes nothing, matching the type assertions the
+// previous map-based decode performed.
+func swaggerFieldString(value interface{}) string {
+	if s, isString := value.(string); isString {
+		return s
+	}
+	if f, isNum := value.(float64); isNum && f == 2 {
+		return Swagger2Version
+	}
+	return ""
+}
+
+// scanSwagger2RootFieldsJSON streams the root object of a JSON document and
+// collects the "swagger" and "openapi" root scalars. ok is false whenever the
+// bytes are not a complete JSON object (syntax error, non-object root,
+// trailing data after the root value) so the caller can fall back to YAML.
+//
+// The scan stops at the first non-empty "openapi" value: a Swagger 2.0
+// document never carries one, so the answer is already settled and the rest
+// of the document — the bulk of a production-size spec — is never read. The
+// values of every other root field are skipped without being built.
+func scanSwagger2RootFieldsJSON(data []byte) (swagger string, openapi string, ok bool) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+
+	tok, err := dec.Token()
+	if err != nil {
+		return "", "", false
+	}
+	if delim, isDelim := tok.(json.Delim); !isDelim || delim != '{' {
+		return "", "", false
+	}
+
+	for dec.More() {
+		keyTok, err := dec.Token()
+		if err != nil {
+			return "", "", false
+		}
+		key, _ := keyTok.(string)
+
+		switch key {
+		case "swagger":
+			var value interface{}
+			if err := dec.Decode(&value); err != nil {
+				return "", "", false
+			}
+			swagger = swaggerFieldString(value)
+		case "openapi":
+			var value interface{}
+			if err := dec.Decode(&value); err != nil {
+				return "", "", false
+			}
+			// Only a string is a version declaration; any other type leaves
+			// openapi empty, exactly as the map decode's type assertion did.
+			if s, isString := value.(string); isString {
+				openapi = s
+				if s != "" {
+					return swagger, openapi, true
+				}
+			}
+		default:
+			if err := skipJSONValue(dec); err != nil {
+				return "", "", false
+			}
+		}
+	}
+
+	// Consume the root object's closing brace, then require EOF: trailing
+	// data after the root value is rejected the same way json.Unmarshal
+	// rejects it, so such a document still reaches the YAML arm.
+	if _, err := dec.Token(); err != nil {
+		return "", "", false
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return "", "", false
+	}
+	return swagger, openapi, true
+}
+
+// skipJSONValue consumes one JSON value from the decoder without building it:
+// a scalar is one token, an object or array is walked to its matching closing
+// delimiter. Decoded bytes are discarded rather than allocated, so skipping a
+// large section costs tokens, not memory.
+func skipJSONValue(dec *json.Decoder) error {
+	depth := 0
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		if delim, isDelim := tok.(json.Delim); isDelim {
+			switch delim {
+			case '{', '[':
+				depth++
+			case '}', ']':
+				depth--
+			}
+		}
+		if depth == 0 {
+			return nil
+		}
+	}
 }
 
 // decodeSwagger2Document unmarshals raw document bytes into the

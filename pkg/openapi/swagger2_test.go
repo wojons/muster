@@ -2,11 +2,15 @@ package openapi
 
 import (
 	"context"
+	"encoding/json"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // swagger2ToOps is the shared measurement harness for the PROTO-006 tests:
@@ -214,12 +218,262 @@ func TestIsSwagger2Document(t *testing.T) {
 			data: "",
 			want: false,
 		},
+		// The cases below pin the corners the streaming root-field scan
+		// (PERF-001) must keep identical to the previous map decode.
+		{
+			// JSON number 2 decodes as float64(2), which the numeric
+			// normalization turns into the "2.0" string.
+			name: "json numeric swagger 2",
+			data: `{"swagger": 2, "info": {"title": "t", "version": "1"}}`,
+			want: true,
+		},
+		{
+			name: "json numeric swagger 2.0",
+			data: `{"swagger": 2.0, "info": {"title": "t", "version": "1"}}`,
+			want: true,
+		},
+		{
+			name: "json numeric swagger other value",
+			data: `{"swagger": 3, "info": {"title": "t", "version": "1"}}`,
+			want: false,
+		},
+		{
+			// An empty openapi string is not a 3.x declaration: the previous
+			// implementation's type assertion yielded "" and a swagger 2.0
+			// document with it still counted as 2.0.
+			name: "swagger 2 with empty openapi",
+			data: `{"swagger": "2.0", "openapi": "", "info": {"title": "t"}}`,
+			want: true,
+		},
+		{
+			// A non-string openapi value is not a declaration either.
+			name: "swagger 2 with non-string openapi",
+			data: `{"swagger": "2.0", "openapi": 3, "info": {"title": "t"}}`,
+			want: true,
+		},
+		{
+			// openapi is the last root key and the document carries trailing
+			// garbage: the streaming scan settles on non-empty openapi before
+			// it can reject the trailing bytes, and the verdict is the same
+			// false the map decode produced (there it was the YAML arm that
+			// failed and returned no fields at all).
+			name: "openapi last with trailing garbage",
+			data: `{"info": {"title": "t"}, "openapi": "3.0.3"} trailing garbage`,
+			want: false,
+		},
+		{
+			// yaml.v3 accepts the flow mapping and ignores the trailing
+			// words, so the pre-PERF-001 YAML fallback arm reported this
+			// document as Swagger 2.0. The streaming scan rejects it as JSON
+			// (trailing data), falls back, and lands on the same verdict.
+			name: "swagger 2 with trailing garbage",
+			data: `{"swagger": "2.0", "info": {"title": "t"}} trailing garbage`,
+			want: true,
+		},
+		{
+			// Root scalars preceded by a large nested value exercise the
+			// skip path (the version fields are the last keys).
+			name: "version fields after nested junk",
+			data: `{"paths": {"/a": {"get": {"responses": {"200": {"description": "ok"}}}}}, "servers": [{"url": "u"}, {"url": "v"}], "swagger": "2.0"}`,
+			want: true,
+		},
+		{
+			name: "json array root",
+			data: `[{"swagger": "2.0"}]`,
+			want: false,
+		},
+		{
+			name: "json string root",
+			data: `"swagger: 2.0"`,
+			want: false,
+		},
+		{
+			name: "json null root",
+			data: `null`,
+			want: false,
+		},
+		{
+			name: "truncated json object",
+			data: `{"swagger": "2.0"`,
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, isSwagger2Document([]byte(tt.data)))
 		})
 	}
+}
+
+// referenceSwagger2RootFields is the implementation PERF-001 replaced, kept
+// verbatim as the behavioural oracle for the streaming scan: it decodes the
+// whole document into a map and reads the two root scalars.
+func referenceSwagger2RootFields(data []byte) (swagger string, openapi string, ok bool) {
+	var root map[string]interface{}
+	if err := json.Unmarshal(data, &root); err != nil {
+		if err := yaml.Unmarshal(data, &root); err != nil {
+			return "", "", false
+		}
+	}
+	swagger, _ = root["swagger"].(string)
+	if f, isNum := root["swagger"].(float64); isNum && f == 2 {
+		swagger = "2.0"
+	}
+	openapi, _ = root["openapi"].(string)
+	return swagger, openapi, true
+}
+
+// referenceIsSwagger2Document is the pre-PERF-001 verdict, derived from the
+// reference decode exactly as isSwagger2Document derives its own.
+func referenceIsSwagger2Document(data []byte) bool {
+	swagger, openapi, ok := referenceSwagger2RootFields(data)
+	if !ok {
+		return false
+	}
+	return swagger == Swagger2Version && openapi == ""
+}
+
+// TestSwagger2RootFieldsParityWithReference is the unit-level half of the
+// "no behaviour change" guarantee: over every fixture in the repository, the
+// production-size benchmark document, and a table of edge inputs, the
+// streaming scan must reach the SAME verdict as the map decode it replaced.
+func TestSwagger2RootFieldsParityWithReference(t *testing.T) {
+	var corpus [][2]string // name, path
+
+	// Every spec fixture in the repository, at any depth under demo/.
+	err := filepath.WalkDir("../../demo", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		switch filepath.Ext(path) {
+		case ".json", ".yaml", ".yml":
+			corpus = append(corpus, [2]string{"demo:" + path, path})
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, corpus, "fixture walk found no demo specs to compare")
+	t.Logf("compared %d demo fixtures against the reference decode", len(corpus))
+
+	for _, tc := range corpus {
+		data, err := os.ReadFile(tc[1])
+		require.NoError(t, err, "read fixture %s", tc[1])
+		assert.Equal(t, referenceIsSwagger2Document(data), isSwagger2Document(data),
+			"verdict changed for fixture %s", tc[0])
+	}
+
+	// The production-size document the PERF-001 benchmarks use.
+	prod := productionSpec()
+	assert.Equal(t, referenceIsSwagger2Document(prod), isSwagger2Document(prod),
+		"verdict changed for the production-size 3.x document")
+
+	// Edge inputs: each is a shape the streaming scan handles differently
+	// from a whole-document decode internally, so each must still agree.
+	edges := []struct {
+		name string
+		data string
+	}{
+		{"numeric swagger json", `{"swagger": 2.0, "paths": {}}`},
+		{"numeric swagger json int", `{"swagger": 2, "paths": {}}`},
+		{"yaml swagger numeric", "swagger: 2.0\ninfo:\n  title: t\n"},
+		{"yaml swagger string", "swagger: \"2.0\"\ninfo:\n  title: t\n"},
+		{"openapi first", `{"openapi": "3.0.3"}`},
+		{"openapi last", `{"swagger": "2.0", "info": {}, "openapi": "3.0.3"}`},
+		{"openapi last trailing", `{"info": {}, "openapi": "3.0.3"} trailing garbage`},
+		{"swagger trailing", `{"swagger": "2.0"} trailing garbage`},
+		{"empty openapi", `{"swagger": "2.0", "openapi": ""}`},
+		{"nonstring openapi", `{"swagger": "2.0", "openapi": 3}`},
+		{"nested junk before fields", `{"x": {"y": [1, {"z": null}, "s", true]}, "swagger": "2.0"}`},
+		{"json array", `[1, 2, 3]`},
+		{"json scalar", `42`},
+		{"json null", `null`},
+		{"blank", "   \n	 "},
+		{"empty", ""},
+		{"invalid", "{{{"},
+		{"truncated", `{"swagger": "2.0", "x": {"y":`},
+	}
+	for _, edge := range edges {
+		assert.Equal(t, referenceIsSwagger2Document([]byte(edge.data)), isSwagger2Document([]byte(edge.data)),
+			"verdict changed for edge %q", edge.name)
+	}
+}
+
+// TestSwagger2RootFieldsStreamingValues pins the field VALUES the streaming
+// scan reports for well-formed documents (the verdict above only observes
+// whether swagger=="2.0" and openapi=="") plus the numeric normalization that
+// the YAML fallback and the JSON scan must share.
+func TestSwagger2RootFieldsStreamingValues(t *testing.T) {
+	tests := []struct {
+		name        string
+		data        string
+		wantSwagger string
+		wantOpenAPI string
+		wantOK      bool
+	}{
+		{
+			name:        "openapi first",
+			data:        `{"openapi": "3.0.3", "info": {"title": "t"}}`,
+			wantOpenAPI: "3.0.3",
+			wantOK:      true,
+		},
+		{
+			name:        "openapi last",
+			data:        `{"info": {"title": "t"}, "openapi": "3.1.0"}`,
+			wantOpenAPI: "3.1.0",
+			wantOK:      true,
+		},
+		{
+			name:        "numeric swagger json",
+			data:        `{"swagger": 2.0, "info": {"title": "t"}}`,
+			wantSwagger: Swagger2Version,
+			wantOK:      true,
+		},
+		{
+			name:        "numeric swagger yaml",
+			data:        "swagger: 2.0\ninfo:\n  title: t\n",
+			wantSwagger: Swagger2Version,
+			wantOK:      true,
+		},
+		{
+			name:        "both fields",
+			data:        `{"swagger": "2.0", "openapi": "3.0.3"}`,
+			wantSwagger: Swagger2Version,
+			wantOpenAPI: "3.0.3",
+			wantOK:      true,
+		},
+		{
+			name:   "not json or yaml",
+			data:   "key: [unterminated",
+			wantOK: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			swagger, openapi, ok := swagger2RootFields([]byte(tt.data))
+			assert.Equal(t, tt.wantOK, ok)
+			assert.Equal(t, tt.wantSwagger, swagger)
+			assert.Equal(t, tt.wantOpenAPI, openapi)
+		})
+	}
+}
+
+// TestSwagger2RootFieldsDuplicateRootKeys documents the one input class where
+// the streaming scan deliberately diverges from the map decode: encoding/json
+// resolves duplicate root keys last-one-wins, while the scan settles on the
+// first non-empty "openapi" it meets and stops reading. Duplicate root keys
+// are not a valid OpenAPI document (the document is ambiguous by construction),
+// and honouring them would mean reading the whole document — the exact cost
+// PERF-001 removes. The verdict difference needs a 2.0 swagger field plus a
+// duplicated openapi field whose LAST value is empty.
+func TestSwagger2RootFieldsDuplicateRootKeys(t *testing.T) {
+	data := []byte(`{"swagger": "2.0", "openapi": "3.0.3", "openapi": ""}`)
+	assert.True(t, referenceIsSwagger2Document(data),
+		"premise: the map decode treats the document as Swagger 2.0 (last openapi wins)")
+	assert.False(t, isSwagger2Document(data),
+		"the streaming scan settles on the first non-empty openapi")
 }
 
 func TestConvertSwagger2ToV3_RejectsStructurallyBrokenDocument(t *testing.T) {
