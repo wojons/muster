@@ -13,7 +13,7 @@ on:
 
 jobs:
   arm64-jitter:
-    runs-on: macos-14
+    runs-on: macos-latest   # macos-14 explicit label is unsupported on this account; macos-latest is the label the green ARM64 Compatibility job uses
     steps:
       - uses: actions/checkout@v4
 
