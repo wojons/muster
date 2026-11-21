@@ -1668,3 +1668,48 @@ bug writeups, perf numbers), the 15 probe scripts, the five backend fixtures (`b
 `blackhole.py`), the captured `metrics-*.txt` (seed / after traffic / after 5xx / audit-enabled), the two
 metrics-warn arms' `.out`/`.err`, the XFF and readiness JSON bodies, both `validate-*.txt`, and the row-filing
 script.
+
+## 2026-11-21 04:37 — CLI real use: build -> discover -> generate -> run -> Starlark (tick `muster-dogfood-2026-11-21-04-37-19`)
+
+HEAD `0de8b0d7`. Binary rebuilt this tick (`rm -rf bin && make build-cli`). Two real specs: the shipped
+task-forge demo (22 ops, port 9801) and the GitHub REST description (14 MB, 1281 ops).
+
+**Verified working** (no row): clean-clone build from the public remote (1.87s clone, 2.59s build, version
+stamped `0de8b0d`); the full promise path `discover` -> `generate` -> run a generated command -> HTTP 200;
+clean stdout under `-o json` (`[]` + `jq` rc=0, logs on stderr only); 1281-command GitHub spec parsed and
+runnable (`repos/get golang go`); Starlark dict body / headers dict / `json()` all accepted by the server;
+DF-003's cross-spec overwrite warning still fires; `config profile create/list` work.
+
+**Filed** (all pending, ids minted with `board_next_id.py` and proven free before the append):
+
+- `DF-060` (P3) — `--profile` does not namespace the command store: `--profile pb generate <github spec>`
+  replaced `pa`'s 22 task-forge commands (`--profile pa list-tasks` -> `unknown command`), both profiles
+  report success and the warning names only the spec hashes. `config show` also reports `Data Dir:
+  ~/.local/share/muster`, which does not exist (real store `~/.local/share/openapi-cli/commands.json`).
+- `DF-061` (P3) — generated commands are undiscoverable: `generate` points at `--help`, `--help` lists
+  builtins only, `completion bash` (2319 lines) has 0 matches for `repos/get`, `generate --list` shows
+  metadata only. 1281 installed commands with no way to enumerate them.
+- `DF-062` (P3) — `docs/guides/starlark-dsl.md` contradicts the shipped DSL: builtins without `headers`
+  (67-77), no dict/list bodies or `json()` (spelled out in `dsl run --help`), and line 96 "No json.loads /
+  json.dumps module" — doc rot; the capabilities themselves work (proven live).
+- `DF-063` (P2) — SKIPPED-install-bunker recurrence of the legacy `SKIPPED-install-bunker` row:
+  bunker-las-02/03 reachable, `bunkerd` active, but `go` is absent on bunker-las-03 and
+  `installation.md:14-16` makes Go 1.26.10+ a hard prerequisite with no prebuilt-binary path. Clean-machine
+  install NOT re-proven; local fresh-clone build recorded as partial evidence.
+
+**Not filed**: the `for loop not within a function` family (guide Example 4, line 201-217) is already
+`QA-MUSTER-042` (pending); reproduced verbatim and cited in `DF-062` only.
+
+**Performance**: no PERF row. `--version` 10-20 ms; `repos/get` 0.34-0.45s; the only big number is the
+one-time parse of the 14 MB spec — `discover` 2.68s cold / 2.52s warm at 179-209 MB RSS (`generate` 2.35s /
+210 MB). Noticed once at setup, not per use, and no profile was taken, so it is recorded in the evidence
+index instead of the board.
+
+**Boundary**: no product code touched, no row closed/reopened, no visibility or permission changed, no
+credential minted, no disabled project touched. Demo server and scratch files only on port 9801 and under
+the scratch tree. `boardctl validate`: `RESULT: OK (268 warning(s))` — identical warning count to the
+pre-append run.
+
+**Artifacts**: `.coding-hermes/dogfood-evidence/t20261121-cli-real-use/` — `INDEX.md` (verified-vs-filed
+table, perf numbers, boundary), `g1.txt` / `g2.txt` (PTY transcripts of the two generates, including the
+overwrite warning), `workflow.star`, `workflow2.star`, `guide_example4.star`.

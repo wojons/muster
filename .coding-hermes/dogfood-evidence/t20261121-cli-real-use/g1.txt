@@ -1,0 +1,16 @@
+Loading spec from: http://localhost:9801/openapi.json
+✓ Parsed spec (version: 1.0.0)
+Base URL: http://localhost:9801 (from spec servers[0])
+✓ Generated 6 command groups
+Warning: overwriting persisted commands from a different spec (existing hash: 6d9bbb20d8865b01, new hash: 6090663b5f8034fa)
+✓ Commands persisted to storage
+✓ Registered command: projects
+✓ Registered command: comments
+✓ Registered command: health
+✓ Registered command: tags
+✓ Registered command: tasks
+✓ Registered command: milestones
+
+✓ Success! Commands registered and persisted
+Run 'openapi-cli --help' to see available commands
+Commands will load automatically on next CLI start

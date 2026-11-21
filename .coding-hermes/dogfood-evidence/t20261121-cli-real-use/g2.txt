@@ -1,0 +1,56 @@
+Loading spec from: /home/kara/.hermes/cache/scratch/dog-muster-2026-11-21/gh-api.json
+✓ Parsed spec (version: 1.1.4)
+Base URL: https://api.github.com (from spec servers[0])
+✓ Generated 46 command groups
+Warning: overwriting persisted commands from a different spec (existing hash: 6090663b5f8034fa, new hash: 6d9bbb20d8865b01)
+✓ Commands persisted to storage
+✓ Registered command: billing
+✓ Registered command: markdown
+✓ Registered command: gists
+✓ Registered command: activity
+✓ Registered command: git
+✓ Registered command: classroom
+✓ Registered command: private-registries
+✓ Registered command: agent-merge
+✓ Registered command: agent-automations
+✓ Registered command: hosted-compute
+✓ Registered command: gitignore
+✓ Registered command: search
+✓ Registered command: campaigns
+✓ Registered command: orgs
+✓ Registered command: dependency-graph
+✓ Registered command: emojis
+✓ Registered command: meta
+✓ Registered command: interactions
+✓ Registered command: oidc
+✓ Registered command: copilot-spaces
+✓ Registered command: agent-tasks
+✓ Registered command: reactions
+✓ Registered command: code-security
+✓ Registered command: secret-scanning
+✓ Registered command: pulls
+✓ Registered command: teams
+✓ Registered command: copilot
+✓ Registered command: migrations
+✓ Registered command: codes-of-conduct
+✓ Registered command: repos
+✓ Registered command: actions
+✓ Registered command: agents
+✓ Registered command: checks
+✓ Registered command: security-advisories
+✓ Registered command: users
+✓ Registered command: code-quality
+✓ Registered command: rate-limit
+✓ Registered command: issues
+✓ Registered command: apps
+✓ Registered command: dependabot
+✓ Registered command: projects
+✓ Registered command: codespaces
+✓ Registered command: licenses
+✓ Registered command: credentials
+✓ Registered command: packages
+✓ Registered command: code-scanning
+
+✓ Success! Commands registered and persisted
+Run 'openapi-cli --help' to see available commands
+Commands will load automatically on next CLI start
