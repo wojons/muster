@@ -1,0 +1,103 @@
+# RELEASE-018-R2 owed execution arm: quantify the Apple Silicon jitter behind
+# the (now-removed) wall-clock bound in TestAuditCommand_LogLimitStaysBounded.
+# Dispatch-only: runs when a human or the foreman fires it, never on push.
+# The probe test below is GENERATED at run time in the CI workspace only — it
+# reproduces the exact pre-INT-CI-016 measurement (audit log --limit 1 on a
+# 10,000-row sink, best of 5) 50 times under -race and prints min/p50/p99/max.
+name: Jitter Audit (Apple Silicon)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  arm64-jitter:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Package stability (internal/builtin, -count=50, -race)
+        run: go test -race -count=50 ./internal/builtin/
+
+      - name: Jitter distribution probe (pre-INT-CI-016 measurement, 50 samples)
+        run: |
+          cat > internal/builtin/jitter_probe_test.go <<'EOF'
+          package builtin
+
+          import (
+          	"fmt"
+          	"path/filepath"
+          	"testing"
+          	"time"
+
+          	"github.com/stretchr/testify/require"
+          	"github.com/wojons/muster/internal/audit"
+          )
+
+          // TestJitterProbeLogLimitWallClock reproduces the wall-clock measurement
+          // that INT-CI-016 removed (best-of-5 `audit log --limit 1` on a
+          // 10,000-row sink), 50 independent samples, for the RELEASE-018-R2
+          // jitter distribution. CI-workspace-only file, never committed.
+          func TestJitterProbeLogLimitWallClock(t *testing.T) {
+          	tmp := t.TempDir()
+          	large := filepath.Join(tmp, "large.jsonl")
+          	base := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+
+          	events := make([]audit.AuditEvent, 0, 10000)
+          	for i := 0; i < 10000; i++ {
+          		e := testAuditEvent("bench.event", fmt.Sprintf("actor-%d", i))
+          		e.Timestamp = base.Add(time.Duration(i) * time.Minute)
+          		events = append(events, e)
+          	}
+          	writeAuditLog(t, large, events...)
+
+          	measure := func() time.Duration {
+          		t.Setenv("MUSTER_AUDIT_LOG", large)
+          		best := time.Duration(time.Hour)
+          		for i := 0; i < 5; i++ {
+          			start := time.Now()
+          			_, err := captureStdout(func() error {
+          				cmd := newAuditCommand()
+          				cmd.SetArgs([]string{"log", "--limit", "1"})
+          				return cmd.Execute()
+          			})
+          			require.NoError(t, err)
+          			if elapsed := time.Since(start); elapsed < best {
+          				best = elapsed
+          			}
+          		}
+          		return best
+          	}
+
+          	for i := 0; i < 50; i++ {
+          		t.Logf("JITTER sample=%d best_of_5=%s", i+1, measure())
+          	}
+          }
+          EOF
+          go test -race -count=1 -run TestJitterProbeLogLimitWallClock -v ./internal/builtin/ \
+            | grep 'JITTER sample=' | sed 's/.*best_of_5=//' \
+            | tr -d '\302\265' > jitter_samples.txt   # µ (U+00B5) -> ascii, so 'us' matches below
+          rm internal/builtin/jitter_probe_test.go
+          wc -l jitter_samples.txt
+          awk '
+            function to_us(s, v) {
+              if (s ~ /ms/) { v = (s + 0) * 1000 }
+              else if (s ~ /us/) { v = s + 0 }
+              else { v = (s + 0) * 1000000 }
+              return v
+            }
+            { n++; a[n] = to_us($1) }
+            END {
+              # insertion sort (n=50)
+              for (i = 2; i <= n; i++) { x = a[i]; j = i - 1; while (j >= 1 && a[j] > x) { a[j+1] = a[j]; j-- } a[j+1] = x }
+              printf "JITTER_DISTRIBUTION n=%d min=%.3fus p50=%.3fus p99=%.3fus max=%.3fus\n", n, a[1], a[int(n/2)], a[int(n*0.99+0.5)], a[n]
+            }' jitter_samples.txt
+
+      - name: Upload raw samples
+        uses: actions/upload-artifact@v4
+        with:
+          name: jitter-samples-arm64
+          path: jitter_samples.txt
