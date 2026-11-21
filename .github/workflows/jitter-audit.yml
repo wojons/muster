@@ -7,6 +7,8 @@
 name: Jitter Audit (Apple Silicon)
 
 on:
+  push:
+    branches: [jitter/jitter-probe]
   workflow_dispatch:
 
 jobs:
