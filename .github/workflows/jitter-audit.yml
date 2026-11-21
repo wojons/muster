@@ -11,7 +11,7 @@ on:
 
 jobs:
   arm64-jitter:
-    runs-on: macos-14
+    runs-on: macos-latest   # explicit macos-14 arm64 label unsupported on this account (run 44895617060 annotation); macos-latest is the label the green ARM64 Compatibility job uses
     steps:
       - uses: actions/checkout@v4
 
@@ -19,8 +19,14 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Package stability (internal/builtin, -count=50, -race)
-        run: go test -race -count=50 ./internal/builtin/
+      - name: Audit-test stability (-count=50, -race) + full-package sanity (-count=1, -race)
+        # Measured 2026-11-21 (run 44895704704): the FULL package at -count=50 -race
+        # exceeds go test's 10m timeout (quic-go/daemon-network tests hold live
+        # connections x50), so the 50x repetition is scoped to the audit test this
+        # row is about, with one full-package -race pass as the sanity arm.
+        run: |
+          go test -race -count=1 ./internal/builtin/
+          go test -race -count=50 ./internal/builtin/ -run 'TestAuditCommand_LogLimitStaysBounded'
 
       - name: Jitter distribution probe (pre-INT-CI-016 measurement, 50 samples)
         run: |
@@ -79,7 +85,7 @@ jobs:
           EOF
           go test -race -count=1 -run TestJitterProbeLogLimitWallClock -v ./internal/builtin/ \
             | grep 'JITTER sample=' | sed 's/.*best_of_5=//' \
-            | tr -d '\302\265' > jitter_samples.txt   # µ (U+00B5) -> ascii, so 'us' matches below
+            | perl -CSD -pe 's/\x{b5}/u/g' > jitter_samples.txt   # µ (U+00B5) -> 'u', so 'us' matches below (tr -d left bare 's' and misread as seconds — run 44896874772)
           rm internal/builtin/jitter_probe_test.go
           wc -l jitter_samples.txt
           awk '
