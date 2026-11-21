@@ -1,0 +1,230 @@
+--- /home/kara/.hermes/scripts/bunker-qa.sh.bak-qamuster13r2-20261121T104653Z	2026-11-21 05:46:53.849282898 -0500
++++ /home/kara/.hermes/scripts/bunker-qa.sh	2026-11-21 06:35:23.194898237 -0500
+@@ -2192,8 +2192,8 @@
+ # indistinguishable (four cmd/server chat-truth tests dying under the cap were
+ # reported as "expected"). These helpers read the SAME
+ # \$LOGD/res.log the cell already captures and name WHAT failed: failing
+-# packages (go `FAIL\t<pkg>`, pytest `FAILED <path>::<test>`) and failing test
+-# ids (go `--- FAIL: TestX`, pytest `FAILED path::test`). The cell prints them
++# packages (go \`FAIL\t<pkg>\`, pytest \`FAILED <path>::<test>\`) and failing test
++# ids (go \`--- FAIL: TestX\`, pytest \`FAILED path::test\`). The cell prints them
+ # in its reason AND writes them into the evidence row as machine-readable
+ # fields, so no verdict can be a bare tail again.
+ # They are pure log readers: nothing is re-run unless an operator explicitly
+@@ -2704,6 +2704,171 @@
+ elif [ -f Makefile ]; then
+   cell toolchain-bootstrap INFO "no make on agent and user-space bootstrap failed — make-based cells will grade ENV-BLOCKED (\$(tail -2 \$LOGD/make.log 2>/dev/null | tr '\n' ' '))"
+ fi
++# ─── QA-MUSTER-13-R2 (2026-11-21): native build prerequisites for trees that
++# link libseccomp ────────────────────────────────────────────────────────────
++# WHY: the fresh-install and upgrade cells compile the repo's cgo dependency
++# github.com/seccomp/libseccomp-golang (its cgo line is \`pkg-config: libseccomp\`).
++# A clean JIT agent ships NO libseccomp development files, so those builds died on
++# a HARNESS-ENV gap and graded the repo FAIL:
++#   upgrade FAIL "previous release v0.1.0 would not build (streamed tree):
++#     ... exec: \"pkg-config\": executable file not found in \$PATH"
++#   upgrade FAIL "... Package libseccomp was not found in the pkg-config search path"
++# (muster QA-MUSTER-13 + this recurrence; controller repro: with pkg-config and
++# libseccomp.pc present the SAME streamed tree builds rc=0, so the whole mechanism
++# is battery-side provisioning and no product file changes). Provision BEFORE any
++# build cell — and derive the need from the trees about to be built (this tree's
++# go.mod/go.sum and the host-streamed previous-release tree), so a repo that does
++# not link libseccomp pays nothing and installs nothing:
++#   1 already present   -> one INFO line, no install attempt (idempotent)
++#   2 root              -> distro package manager installs pkg-config + libseccomp-dev
++#   3 no root (agents)  -> user-space sysroot in ~/tools/sysroot: \`apt-get download\`
++#                          or \`apk fetch\` unprivileged, \`dpkg-deb -x\`/\`tar\` extract,
++#                          rewrite each .pc prefix onto the sysroot, export
++#                          PKG_CONFIG_PATH/CGO_CFLAGS/CGO_LDFLAGS/LIBRARY_PATH so
++#                          pkg-config AND the C linker resolve the library there.
++#                          A sysroot left by an earlier battery on a kept agent is
++#                          reused instead of re-downloaded.
++#   4 cannot provision  -> QA_NATIVE_SYSDEPS_BLOCKED=<reason>, and the build cells
++#                          grade ENV-BLOCKED naming it instead of grading the repo
++#                          FAIL on a prerequisite the agent never had.
++QA_NATIVE_SYSDEPS_BLOCKED=""
++qa_needs_seccomp_dev() { # 0 = a tree we are about to build links libseccomp
++  local f
++  for f in go.mod go.sum "\$HOME/qa-up-prev/go.mod" "\$HOME/qa-up-prev/go.sum"; do
++    [ -f "\$f" ] && grep -qi 'libseccomp' "\$f" 2>/dev/null && return 0
++  done
++  return 1
++}
++qa_seccomp_dev_ready() { # 0 = pkg-config answers for libseccomp
++  command -v pkg-config >/dev/null 2>&1 || return 1
++  pkg-config --exists libseccomp >/dev/null 2>&1
++}
++qa_native_prereq_failure() { # <log> — 0 = log carries a native-prereq signature
++  grep -qiE 'exec: "pkg-config"|pkg-config: (executable file )?not found|pkg-config search path|Package libseccomp was not found|seccomp\.h: (No such file|not found)|fatal error: seccomp\.h' "\$1" 2>/dev/null
++}
++qa_seccomp_sysroot_export() { # <sysroot> — export the sysroot into pkg-config + cgo
++  local sr="\$1" pcdir libdir
++  pcdir="\$(find "\$sr" -name 'libseccomp.pc' -exec dirname {} \; 2>/dev/null | head -1)"
++  libdir="\$(find "\$sr" -name 'libseccomp.so' -exec dirname {} \; 2>/dev/null | head -1)"
++  [ -z "\$libdir" ] && libdir="\$(find "\$sr" -name 'libseccomp.so.*' -exec dirname {} \; 2>/dev/null | head -1)"
++  [ -n "\$pcdir" ] && export PKG_CONFIG_PATH="\$pcdir\${PKG_CONFIG_PATH:+:\$PKG_CONFIG_PATH}"
++  [ -n "\$libdir" ] && export LIBRARY_PATH="\$libdir\${LIBRARY_PATH:+:\$LIBRARY_PATH}"
++  [ -n "\$libdir" ] && export LD_LIBRARY_PATH="\$libdir\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}"
++  [ -d "\$sr/usr/include" ] && export CGO_CFLAGS="\${CGO_CFLAGS:-} -I\$sr/usr/include"
++  [ -n "\$libdir" ] && export CGO_LDFLAGS="\${CGO_LDFLAGS:-} -L\$libdir"
++  return 0
++}
++if qa_needs_seccomp_dev; then
++  if qa_seccomp_dev_ready; then
++    cell toolchain-bootstrap INFO "native build prereq already present: pkg-config + libseccomp.pc \$(pkg-config --modversion libseccomp 2>/dev/null) — nothing installed (QA-MUSTER-13-R2)"
++  else
++    QA_SYSROOT="\$HOME/tools/sysroot"
++    QA_PM=""
++    for qa_c in apt-get dnf yum apk; do command -v "\$qa_c" >/dev/null 2>&1 && { QA_PM="\$qa_c"; break; }; done
++    mkdir -p "\$LOGD" 2>/dev/null || true
++    [ -f "\$LOGD/native-sysdeps.log" ] || : >"\$LOGD/native-sysdeps.log" 2>/dev/null || true
++    if [ "\$(id -u)" = "0" ] && [ -n "\$QA_PM" ]; then
++      case "\$QA_PM" in
++        apt-get) apt-get install -y --no-install-recommends pkg-config libseccomp-dev >>"\$LOGD/native-sysdeps.log" 2>&1 || true ;;
++        dnf|yum) "\$QA_PM" install -y pkgconf-pkg-config libseccomp-devel >>"\$LOGD/native-sysdeps.log" 2>&1 || true ;;
++        apk) apk add --no-cache pkgconf libseccomp-dev >>"\$LOGD/native-sysdeps.log" 2>&1 || true ;;
++      esac
++    fi
++    if ! qa_seccomp_dev_ready; then
++      # No sudo on bunker agents (\`sudo -n\` is password-gated), and apt-get download
++      # needs no privilege off the image's own apt lists.
++      mkdir -p "\$QA_SYSROOT" "\$HOME/tools/bin" 2>/dev/null || true
++      qa_reused=""
++      if [ -n "\$(find "\$QA_SYSROOT" -name 'libseccomp.pc' 2>/dev/null | head -1)" ]; then
++        qa_reused="reused sysroot from an earlier battery"
++      else
++        qa_dl="\$(mktemp -d "\$HOME/tools/native-dl.XXXXXX" 2>/dev/null || true)"
++        if [ -n "\$qa_dl" ]; then
++          if [ "\$QA_PM" = "apt-get" ] && command -v dpkg-deb >/dev/null 2>&1; then
++            for qa_pkg in libseccomp-dev libseccomp2 pkgconf-bin pkgconf pkg-config; do
++              ( cd "\$qa_dl" && apt-get download "\$qa_pkg" ) >>"\$LOGD/native-sysdeps.log" 2>&1 || true
++            done
++            for qa_deb in "\$qa_dl"/*.deb; do
++              [ -f "\$qa_deb" ] && { dpkg-deb -x "\$qa_deb" "\$QA_SYSROOT" >>"\$LOGD/native-sysdeps.log" 2>&1 || true; }
++            done
++          elif [ "\$QA_PM" = "apk" ]; then
++            for qa_pkg in libseccomp-dev libseccomp pkgconf; do
++              ( cd "\$qa_dl" && apk fetch --allow-untrusted -o . "\$qa_pkg" ) >>"\$LOGD/native-sysdeps.log" 2>&1 || true
++            done
++            for qa_apk in "\$qa_dl"/*.apk; do
++              [ -f "\$qa_apk" ] && { tar -xzf "\$qa_apk" -C "\$QA_SYSROOT" >>"\$LOGD/native-sysdeps.log" 2>&1 || true; }
++            done
++          fi
++          # Distro .pc files hard-code prefix=/usr, which points the compiler at the
++          # agent's REAL /usr (no dev files there) — relocate each onto the sysroot.
++          find "\$QA_SYSROOT" -name '*.pc' -print 2>/dev/null | while IFS= read -r qa_pc; do
++            sed -i "s|^prefix=.*|prefix=\$QA_SYSROOT/usr|" "\$qa_pc" 2>/dev/null || true
++          done
++          qa_seccomp_sysroot_export "\$QA_SYSROOT"
++          # The thinnest agents have no pkg-config at all: expose the extracted
++          # pkgconf under that name on the qa bin dir.
++          if ! command -v pkg-config >/dev/null 2>&1; then
++            for qa_pcbin in "\$QA_SYSROOT/usr/bin/pkg-config" "\$QA_SYSROOT/usr/bin/pkgconf"; do
++              [ -x "\$qa_pcbin" ] && { ln -sf "\$qa_pcbin" "\$HOME/tools/bin/pkg-config" 2>/dev/null || true; break; }
++            done
++            command -v pkg-config >/dev/null 2>&1 || export PATH="\$HOME/tools/bin:\$PATH"
++          fi
++        fi
++      fi
++      qa_seccomp_sysroot_export "\$QA_SYSROOT"
++      if [ -n "\$qa_reused" ]; then
++        cell toolchain-bootstrap INFO "\$qa_reused: pkg-config + libseccomp.pc from \$QA_SYSROOT (no download needed) — QA-MUSTER-13-R2"
++      fi
++    fi
++    if qa_seccomp_dev_ready; then
++      cell toolchain-bootstrap OK "native build prereq provisioned for libseccomp-linked trees: pkg-config=\$(command -v pkg-config), libseccomp \$(pkg-config --modversion libseccomp 2>/dev/null) from user-space sysroot \$QA_SYSROOT (no sudo) — QA-MUSTER-13-R2"
++    else
++      QA_NATIVE_SYSDEPS_BLOCKED="pkg-config/libseccomp-dev unavailable on this agent (pm=\${QA_PM:-none}, uid=\$(id -u), sysroot=\$QA_SYSROOT) — see \$LOGD/native-sysdeps.log"
++      cell toolchain-bootstrap INFO "ENV-BLOCKED: \$QA_NATIVE_SYSDEPS_BLOCKED — libseccomp-linked trees cannot compile here; build cells grade ENV-BLOCKED instead of FAIL"
++    fi
++  fi
++fi
++# ─── QA-MUSTER-13-R2 (2026-11-21): honor the toolchain the module documents when
++# the agent's newest go refuses a PREBUILT archive ─────────────────────────────
++# WHY: go1.26.11/1.27.4+ implement the CVE-2026-97038 cgo hardening — the go
++# command scans the -L dirs of #cgo LDFLAGS and rejects archives carrying LTO
++# bitcode (isDisallowedLTOSection / .llvmbc in cmd/go/internal/work/security.go).
++# muster v0.1.0 vendors wasmtime-go v8's prebuilt libwasmtime.a, which carries
++# .llvmbc, so on a newest-go agent the streamed previous tree died with
++#   github.com/bytecodealliance/wasmtime-go/v8: disallowed LTO section ".llvmbc"
++#   in #cgo LDFLAGS: .../libwasmtime.a
++# even with libseccomp.pc provisioned — a second missing native-build
++# prerequisite, and NOT a repo defect (the module documents its own floor:
++# \`go 1.26.1\`, a toolchain that predates the check). The agent's newest-go
++# selection is QA-MUSTER-051's business and is untouched here; this is a single,
++# bounded retry that fires ONLY on that exact signature, uses the toolchain the
++# module documents, and writes both attempts into the same cell log.
++QA_TOOLCHAIN_FALLBACK=""
++qa_go_module_floor() { # <dir> -> the \`go\` directive of that dir's go.mod
++  sed -n 's/^go[[:space:]]\{1,\}\([0-9][0-9.]*\).*/\1/p' "\$1/go.mod" 2>/dev/null | head -1
++}
++qa_toolchain_lto_rejection() { # <log> — 0 = the go command refused a prebuilt LTO archive
++  grep -qiE 'disallowed LTO (section|segment)|disallowed LLVM LTO section' "\$1" 2>/dev/null
++}
++qa_retry_with_documented_go() { # <log> <dir> <cmd> [timeout-s] — one bounded retry
++  local log="\$1" dir="\$2" cmd="\$3" tmo="\${4:-}" floor gov rc
++  floor="\$(qa_go_module_floor "\$dir")"
++  [ -n "\$floor" ] || return 1
++  gov="\$(go version 2>/dev/null | sed 's/^go version go\([^ ]*\).*/\1/')"
++  {
++    printf '\n=== QA-MUSTER-13-R2: this agent go (%s) rejects a prebuilt archive that carries LLVM bitcode (CVE-2026-97038 cgo LTO check) — not a repo defect.\n' "\${gov:-unknown}"
++    printf '=== retrying ONCE with the toolchain the module documents (go.mod: go %s) via GOTOOLCHAIN=go%s\n' "\$floor" "\$floor"
++  } >> "\$log"
++  if [ -n "\$tmo" ]; then
++    ( cd "\$dir" && GOTOOLCHAIN="go\$floor" timeout "\$tmo" bash -c "\$cmd" ) >> "\$log" 2>&1
++  else
++    ( cd "\$dir" && GOTOOLCHAIN="go\$floor" bash -c "\$cmd" ) >> "\$log" 2>&1
++  fi
++  rc=\$?
++  printf 'TOOLCHAIN-FALLBACK GOTOOLCHAIN=go%s rc=%s\n' "\$floor" "\$rc" >> "\$log"
++  [ "\$rc" -eq 0 ] && QA_TOOLCHAIN_FALLBACK="go\$floor"
++  return "\$rc"
++}
+ # QA-CODING-HERMES-TOOLS-6 (2026-10-24): jq is a hard prerequisite of the
+ # target repos' own documented batteries (README "jq without root", Makefile
+ # verify jq guard, probe scripts asserting through jq -e), but the bootstrap
+@@ -2886,6 +3051,11 @@
+ # dependency of the chaos cells below.
+ INST_TIMEOUT_S="\${BUNKER_QA_INSTALL_TIMEOUT_S:-3600}"
+ ( timeout "\$INST_TIMEOUT_S" bash -c '$install_cmd' ) >\$LOGD/inst.log 2>&1; inst_rc=\$?
++# QA-MUSTER-13-R2: a newest-go agent rejects the module's prebuilt LTO archives
++# (CVE-2026-97038 cgo check) — retry once with the toolchain go.mod documents.
++if [ \$inst_rc -ne 0 ] && qa_toolchain_lto_rejection \$LOGD/inst.log; then
++  qa_retry_with_documented_go \$LOGD/inst.log . '$install_cmd' "\$INST_TIMEOUT_S" && inst_rc=0 || inst_rc=\$?
++fi
+ # FIX 2 / QA-WARPFS-9 rework 3 (2026-09-19): the condition above catches the bare
+ # C toolchain. The OTHER environment failure the live agent produced is a rust
+ # repo whose crates link a system library (openssl via git2, fuse3 via hilo-fuse):
+@@ -2907,6 +3077,8 @@
+ elif [ \$inst_rc -eq 127 ] || grep -qi 'command not found' \$LOGD/inst.log; then cell fresh-install INFO "ENV-BLOCKED: the agent lacks a build tool the install step calls (\$(grep -m1 -oE '[a-zA-Z0-9_.-]+: command not found' \$LOGD/inst.log || echo rc=\$inst_rc)) and has no sudo to install it — harness env, not a repo defect: \$(tail -1 \$LOGD/inst.log)"
+ elif build_env_failure \$LOGD/inst.log; then cell fresh-install INFO "ENV-BLOCKED: agent has no C toolchain (build-script link failure) — not a repo defect; README documents build-essential"
+ elif [ -n "\$RUST_MISSING_SYS_DEPS" ] && build_sys_dep_failure \$LOGD/inst.log; then cell fresh-install INFO "ENV-BLOCKED: agent is missing system deps [\$RUST_MISSING_SYS_DEPS] and the build died in a *-sys build script — no sudo to apt install, not a repo defect; README documents the full dependency set: \$( { grep -m1 -E 'failed to run custom build command' \$LOGD/inst.log 2>/dev/null || grep -m1 'development packages' \$LOGD/inst.log 2>/dev/null; } | cut -c1-200 )"
++elif qa_toolchain_lto_rejection \$LOGD/inst.log; then cell fresh-install INFO "ENV-BLOCKED: the agent's go rejected the module's prebuilt LLVM-bitcode archive (CVE-2026-97038 cgo check) and the go.mod-documented-toolchain retry did not recover — agent toolchain selection, not a repo defect: \$(fail_detail \$inst_rc \$LOGD/inst.log $install_cmd)"
++elif qa_native_prereq_failure \$LOGD/inst.log; then cell fresh-install INFO "ENV-BLOCKED: install died on a missing native build prerequisite (pkg-config / libseccomp.pc) — agent env, not a repo defect\${QA_NATIVE_SYSDEPS_BLOCKED:+ [\$QA_NATIVE_SYSDEPS_BLOCKED]}: \$(fail_detail \$inst_rc \$LOGD/inst.log $install_cmd)"
+ else cell fresh-install FAIL "rc=\$inst_rc: \$(tail -2 \$LOGD/inst.log)"; fi
+ fi # QA-BUNKER-57 pip-absent gate
+ 
+@@ -3577,10 +3749,22 @@
+   # HEAD over it — a real previous->HEAD upgrade of the working tree.
+   cp -a "\$UP_PREV" ~/qa-up-prev.bak 2>/dev/null || true
+   ( cd "\$UP_PREV" && $install_cmd ) >\$LOGD/up1.log 2>&1; up1_rc=\$?
++  # QA-MUSTER-13-R2: newest go rejects the module's prebuilt LTO archives
++  # (CVE-2026-97038 cgo check) — retry once with the toolchain go.mod documents.
++  if [ \$up1_rc -ne 0 ] && qa_toolchain_lto_rejection \$LOGD/up1.log; then
++    qa_retry_with_documented_go \$LOGD/up1.log "\$UP_PREV" '$install_cmd' && up1_rc=0 || up1_rc=\$?
++  fi
+   ( $install_cmd ) >\$LOGD/up2.log 2>&1; up2_rc=\$?
++  if [ \$up2_rc -ne 0 ] && qa_toolchain_lto_rejection \$LOGD/up2.log; then
++    qa_retry_with_documented_go \$LOGD/up2.log . '$install_cmd' && up2_rc=0 || up2_rc=\$?
++  fi
+   rm -rf ~/qa-up-prev ~/qa-up-prev.bak ~/qa-up-prev-clone ~/qa-up-prev-npm ~/qa-up-prev-npm.bak 2>/dev/null
+-  if [ \$up1_rc -eq 0 ] && [ \$up2_rc -eq 0 ]; then cell upgrade OK "previous release \$QA_PREV_TAG (tree via git archive) → HEAD reinstall clean"
++  if [ \$up1_rc -eq 0 ] && [ \$up2_rc -eq 0 ]; then cell upgrade OK "previous release \$QA_PREV_TAG (tree via git archive) → HEAD reinstall clean\${QA_TOOLCHAIN_FALLBACK:+ [built with the go.mod-documented toolchain \$QA_TOOLCHAIN_FALLBACK: this agent's newest go rejected the module's prebuilt LLVM-bitcode archive — CVE-2026-97038 cgo check]}"
++  elif qa_toolchain_lto_rejection \$LOGD/up1.log; then cell upgrade INFO "ENV-BLOCKED: previous release \$QA_PREV_TAG (streamed tree) tripped the CVE-2026-97038 cgo check — the go command rejected the module's prebuilt LLVM-bitcode archive and the go.mod-documented-toolchain retry did not recover; agent toolchain selection is QA-MUSTER-051, not a repo defect: \$(fail_detail \$up1_rc \$LOGD/up1.log $install_cmd)"
++  elif qa_native_prereq_failure \$LOGD/up1.log; then cell upgrade INFO "ENV-BLOCKED: previous release \$QA_PREV_TAG (streamed tree) build hit a missing NATIVE build prerequisite on this agent (pkg-config / libseccomp.pc) — harness env, not a repo defect\${QA_NATIVE_SYSDEPS_BLOCKED:+ [\$QA_NATIVE_SYSDEPS_BLOCKED]}: \$(fail_detail \$up1_rc \$LOGD/up1.log $install_cmd)"
+   elif [ \$up1_rc -ne 0 ]; then cell upgrade FAIL "previous release \$QA_PREV_TAG would not build (streamed tree): \$(fail_detail \$up1_rc \$LOGD/up1.log "$install_cmd")"
++  elif qa_toolchain_lto_rejection \$LOGD/up2.log; then cell upgrade INFO "ENV-BLOCKED: the HEAD reinstall after \$QA_PREV_TAG tripped the CVE-2026-97038 cgo check — the go command rejected the module's prebuilt LLVM-bitcode archive and the go.mod-documented-toolchain retry did not recover; agent toolchain selection is QA-MUSTER-051, not a repo defect: \$(fail_detail \$up2_rc \$LOGD/up2.log $install_cmd)"
++  elif qa_native_prereq_failure \$LOGD/up2.log; then cell upgrade INFO "ENV-BLOCKED: HEAD reinstall after \$QA_PREV_TAG (streamed tree) hit a missing NATIVE build prerequisite on this agent (pkg-config / libseccomp.pc) — harness env, not a repo defect\${QA_NATIVE_SYSDEPS_BLOCKED:+ [\$QA_NATIVE_SYSDEPS_BLOCKED]}: \$(fail_detail \$up2_rc \$LOGD/up2.log $install_cmd)"
+   else cell upgrade FAIL "upgrade from \$QA_PREV_TAG (streamed tree) to HEAD failed: \$(fail_detail \$up2_rc \$LOGD/up2.log "$install_cmd")"; fi
+ elif [ "\$QA_ECOSYSTEM" = "go" ]; then
+   cell upgrade FAIL "upgrade path UNVERIFIED: repo has \$QA_TAG_COUNT release tag(s), previous \$QA_PREV_TAG, but the host's streamed previous-release tree is missing (~/qa-up-prev) and \$QA_GO_URL is not cloneable from the agent (bunker agents carry no clone auth) — re-run the battery so ship_prev_tag_tree can stream it"
