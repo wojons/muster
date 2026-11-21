@@ -273,23 +273,53 @@ runs it against stubs/PATH-masked binaries. Reproducer committed next to this fi
   (`RETRY_RC=1`), no invented floor, no fallback marker.
 - **T9 ordinary failure** — plain compile error never retried, no marker written.
 
-## 7. Owed / residual
+## 7. Second full battery on the final bytes
 
-- **Second full battery on the final bytes** (`printf` cosmetic fix included) — launched as
-  agent `9d1118de`, evidence `~/.hermes/coding-hermes/evidence/qa-muster-13-r2-20261121c.jsonl`.
-  The functional logic it exercises is identical to run 1 (verified by regenerating `qa-run.sh`
-  and diffing: only the marker `printf` changed); run 1 is the authoritative full-battery proof
-  above and §5.3 already re-proved the fixed marker on a live agent.
+Launched after the last harness edit (`printf` marker fix + backtick escapes) so the run carries
+byte-identical logic to what is now installed:
+
+```bash
+BUNKER_QA_EVIDENCE=$HOME/.hermes/coding-hermes/evidence/qa-muster-13-r2-20261121c.jsonl \
+BUNKER_QA_TICK=qamuster13r2-final bash bunker-qa.sh launch /home/kara/wojons/muster --keep
+# → agent=9d1118de @ bunker-mvp
+```
+
+Confirmed from that agent (`bunker exec --server bunker-mvp 9d1118de`):
+
+- `toolchain-bootstrap OK … native build prereq provisioned … libseccomp 2.5.5 from user-space
+  sysroot /home/bunker-9d1118de/tools/sysroot (no sudo)`;
+- `fresh-install OK`, `tests OK`, `docker_build OK`, `compose_config OK`, `ci-pass OK`;
+- `upgrade OK — previous release v0.1.0 (tree via git archive) → HEAD reinstall clean [built with
+  the go.mod-documented toolchain go1.26.1 …]`, with `~/qa-logs-2264630/up1.log`:
+
+```
+=== QA-MUSTER-13-R2: this agent go (1.27.4) rejects a prebuilt archive that carries LLVM bitcode (CVE-2026-97038 cgo LTO check) — not a repo defect.
+=== retrying ONCE with the toolchain the module documents (go.mod: go 1.26.1) via GOTOOLCHAIN=go1.26.1
+go: downloading go1.26.1 (linux/amd64)
+# github.com/wojons/muster/exploits/wasm
+TOOLCHAIN-FALLBACK GOTOOLCHAIN=go1.26.1 rc=0
+```
+
+(the marker interpolates the real agent go, `1.27.4` — the cosmetic defect from run 1 is gone), and
+`pkg-config|libseccomp` failure signatures are `0` in every cell log of that agent
+(`native-sysdeps.log` contains 3 matches, all `apt-get download` lines naming the packages).
+
+That battery's own chaos cells (`chaos-corruption` etc.) were still running when this file was
+written; they are ordinary QA findings for the `muster-qa` lane, not part of this row. The
+fully-collected full battery remains run 1 (§4, 24 rows).
+
+## 8. Owed / residual
+
 - **QA-MUSTER-051 stays open and is the real cure**: the harness still installs the *newest* Go
-  rather than the `go.mod`-pinned toolchain (agent `6029d0de` got go 1.27.4). The
+  rather than the `go.mod`-pinned toolchain (run 1 got go 1.27.4, run 2 `1.27.4`). The
   documented-toolchain retry added here is a bounded safety net for exactly one class of that
   defect (prebuilt LTO archives), not a pinning policy.
 - **Nothing owed on the product**: no product file was touched — `go.mod`, `go.sum` and all
   sources are untouched by this row.
-- The upgrade cell's own `rm -rf`-based cleanup still deletes `~/qa-up-prev` after the arm; the
-  streamed tree is not preserved for later inspection on the agent (logs are collected).
+- The upgrade cell's own `rm -rf`-based cleanup deletes `~/qa-up-prev` after the arm; the streamed
+  tree is not preserved on the agent (logs are collected).
 
-## 8. Facts re-verified (and one corrected)
+## 9. Facts re-verified (and one corrected)
 
 | Claim | Result |
 |---|---|
