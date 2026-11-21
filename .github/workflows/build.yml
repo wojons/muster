@@ -10,6 +10,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       
@@ -48,6 +49,7 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       
@@ -82,6 +84,7 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -106,7 +109,7 @@ jobs:
         run: make deps-audit
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.10.0
 
       - name: Run govulncheck
         run: govulncheck ./...
@@ -116,7 +119,7 @@ jobs:
         continue-on-error: true
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         continue-on-error: true
         with:
           image-ref: 'muster:scan'
@@ -135,6 +138,7 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       matrix:
         platform:
@@ -174,6 +178,7 @@ jobs:
   release:
     needs: [test, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4

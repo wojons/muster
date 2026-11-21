@@ -14,6 +14,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: write
@@ -75,7 +76,7 @@ jobs:
         provenance: true
 
     - name: Scan image
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@v0.36.0
       with:
         # The metadata-action tags branch pushes as <branch> (e.g. main),
         # not latest — scanning :latest would fail with image not found.
