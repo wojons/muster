@@ -135,12 +135,30 @@ func (e *OpenAPIExecutor) Execute(ctx context.Context, name string, args map[str
 	// Build HTTP request
 	builder := request.NewBuilder(e.baseURL, path, method)
 
-	// Determine if this is a write method that should use a JSON body
+	// Determine if this is a write method and which media type its body uses.
+	// QA-MUSTER-041: a form-encoded operation must send urlencoded values with
+	// its own Content-Type; a multipart one must send multipart. Only the JSON
+	// default keeps the historical behavior.
 	isWriteMethod := method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch
+	contentType := ""
+	if op := e.lookupOperationConfig(name); op != nil {
+		contentType = operationContentType(op)
+	}
 
 	if isWriteMethod {
-		// For POST/PUT/PATCH, collect args into JSON body
-		if len(args) > 0 {
+		switch {
+		case len(args) == 0:
+			// Nothing to send.
+		case contentType == request.ContentTypeFormEncoded:
+			builder.FormBody(request.FormValuesFromMap(args))
+			builder.SetHeader("Content-Type", request.ContentTypeFormEncoded)
+		case contentType == request.ContentTypeMultipart:
+			builder.WithContentType(request.ContentTypeMultipart)
+			for key, value := range args {
+				builder.WithMultipartField(key, fmt.Sprintf("%v", value))
+			}
+		default:
+			// For POST/PUT/PATCH, collect args into JSON body
 			bodyJSON, err := json.Marshal(args)
 			if err != nil {
 				return nil, fmt.Errorf("marshal request body: %w", err)
@@ -219,12 +237,21 @@ func (e *OpenAPIExecutor) Execute(ctx context.Context, name string, args map[str
 
 // lookupOperation finds the method and path for a given operation name.
 func (e *OpenAPIExecutor) lookupOperation(name string) (method, path string) {
-	for _, op := range e.operations {
-		if generateCommandName(op) == name {
-			return op.Method, op.Path
-		}
+	if op := e.lookupOperationConfig(name); op != nil {
+		return op.Method, op.Path
 	}
 	return "", ""
+}
+
+// lookupOperationConfig returns the full operation, so callers can also read
+// its request-body media type (QA-MUSTER-041).
+func (e *OpenAPIExecutor) lookupOperationConfig(name string) *openapi.Operation {
+	for _, op := range e.operations {
+		if generateCommandName(op) == name {
+			return op
+		}
+	}
+	return nil
 }
 
 // ToolRegistration helps register OpenAPI operations as MCP tools
@@ -260,6 +287,14 @@ func (tr *ToolRegistration) RegisterHandlers(server *handlers.Registry) {
 // For GET/DELETE methods, arguments are sent as query parameters.
 // This matches the behavior of the builtin request subcommand (internal/builtin/request.go).
 func ExecuteHTTP(baseURL, method, path string, args map[string]interface{}) ([]byte, error) {
+	return ExecuteHTTPWithContentType(baseURL, method, path, "", args)
+}
+
+// ExecuteHTTPWithContentType is ExecuteHTTP plus explicit request-body media
+// type selection (QA-MUSTER-041): a form-encoded operation must send urlencoded
+// values and its own Content-Type, a multipart one must send multipart, and an
+// empty contentType keeps the historical JSON behavior.
+func ExecuteHTTPWithContentType(baseURL, method, path, contentType string, args map[string]interface{}) ([]byte, error) {
 	// Extract path parameters from path template (e.g., /users/{id})
 	pathArgs := extractPathParamsStr(path)
 	pathParamSet := make(map[string]bool)
@@ -280,14 +315,26 @@ func ExecuteHTTP(baseURL, method, path string, args map[string]interface{}) ([]b
 	isWriteMethod := method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch
 
 	if isWriteMethod {
-		// For POST/PUT/PATCH, collect non-path args into JSON body
+		// For POST/PUT/PATCH, collect non-path args into the request body,
+		// encoded per the operation's declared media type.
 		bodyMap := make(map[string]interface{})
 		for key, value := range args {
 			if !pathParamSet[key] {
 				bodyMap[key] = value
 			}
 		}
-		if len(bodyMap) > 0 {
+		switch {
+		case len(bodyMap) == 0:
+			// Nothing to send.
+		case contentType == request.ContentTypeFormEncoded:
+			builder.FormBody(request.FormValuesFromMap(bodyMap))
+			builder.SetHeader("Content-Type", request.ContentTypeFormEncoded)
+		case contentType == request.ContentTypeMultipart:
+			builder.WithContentType(request.ContentTypeMultipart)
+			for key, value := range bodyMap {
+				builder.WithMultipartField(key, fmt.Sprintf("%v", value))
+			}
+		default:
 			bodyJSON, err := json.Marshal(bodyMap)
 			if err != nil {
 				return nil, fmt.Errorf("marshal request body: %w", err)
@@ -411,7 +458,7 @@ func convertParameters(op *openapi.Operation) []handlers.Flag {
 func (r *OpenAPIRegistry) ExecuteCommand(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
 	for _, op := range r.operations {
 		if generateCommandName(op) == name {
-			return ExecuteHTTP(r.baseURL, op.Method, op.Path, params)
+			return ExecuteHTTPWithContentType(r.baseURL, op.Method, op.Path, operationContentType(op), params)
 		}
 	}
 	return nil, fmt.Errorf("command %q not found", name)
@@ -456,6 +503,10 @@ func (r *OpenAPIRegistry) ListTools() []handlers.Tool {
 			}
 		}
 
+		// QA-MUSTER-041: request body properties belong in the schema on every
+		// MCP surface. Kept here (after the path-param safety net) so a body
+		// property that is also a path parameter is advertised once.
+
 		// DF-034: templated tool names embed path parameters ({task_id}, ...) —
 		// ensure every path template param is advertised in the schema even when the
 		// spec/parser did not surface it in op.Parameters (spec-validating clients
@@ -472,19 +523,11 @@ func (r *OpenAPIRegistry) ListTools() []handlers.Tool {
 			}
 		}
 
-		// Add request body properties
-		for _, bodyProp := range op.RequestBody {
-			propMap := map[string]interface{}{
-				"type": bodyPropTypeToJSONSchema(bodyProp.Type),
-			}
-			if bodyProp.Description != "" {
-				propMap["description"] = bodyProp.Description
-			}
-			properties[bodyProp.Name] = propMap
-			if bodyProp.Required {
-				required = append(required, bodyProp.Name)
-			}
-		}
+		// Add request body properties (JSON, form-encoded, and multipart text
+		// fields). QA-MUSTER-041: the loop that used to live here read
+		// op.RequestBody only, so a form-encoded tool shipped properties={} —
+		// the agent could not learn its fields and every call sent no body.
+		addBodyPropertiesToSchema(properties, &required, op)
 
 		schema := map[string]interface{}{
 			"type":       "object",

@@ -461,7 +461,10 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 	}
 
 	// Determine which flags represent request body properties (vs query/header params).
-	bodyFlagToJSON := extractBodyPropertyNames(doc, path, method)
+	// QA-MUSTER-041: bodyContentType carries the media type ("json", "form",
+	// "multipart") so the reloaded command encodes the body correctly instead
+	// of assuming JSON — the form-encoded case used to be dropped entirely.
+	bodyFlagToJSON, bodyContentType := extractBodyContract(doc, path, method)
 
 	// Position of every spec-declared parameter (query/header) so a RELOADED
 	// command sends it in the right place instead of defaulting to a query
@@ -494,15 +497,16 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 	}
 
 	cmdMeta := cmdstore.CommandMetadata{
-		Name:    cmd.Name(),
-		Use:     cmd.Use,
-		Short:   cmd.Short,
-		Long:    cmd.Long,
-		Example: example,
-		BaseURL: operationBaseURL,
-		Path:    path,
-		Method:  method,
-		Args:    args,
+		Name:        cmd.Name(),
+		Use:         cmd.Use,
+		Short:       cmd.Short,
+		Long:        cmd.Long,
+		Example:     example,
+		BaseURL:     operationBaseURL,
+		Path:        path,
+		Method:      method,
+		Args:        args,
+		ContentType: bodyContentType,
 	}
 
 	// Extract flags
@@ -537,8 +541,18 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 			}
 		}
 
-		// Tag body flags so the loader can marshal them as JSON body
-		if jsonName, ok := bodyFlagToJSON[flag.Name]; ok {
+		// Tag body flags so the loader can send them in the request body.
+		// QA-MUSTER-041: the generator stamps the spec property name on the
+		// flag itself, which survives a collision rename (a `header` property
+		// is registered as --header-2). Trust the stamp first; fall back to the
+		// spec-derived name map for commands generated before it existed.
+		if ann := flag.Annotations[generator.AnnotationBodyProperty]; len(ann) > 0 && ann[0] != "" {
+			// Don't override multipart kind with body kind
+			if flagMeta.Kind == "" {
+				flagMeta.Kind = cmdstore.FlagKindBody
+			}
+			flagMeta.JSONName = ann[0]
+		} else if jsonName, ok := bodyFlagToJSON[flag.Name]; ok {
 			// Don't override multipart kind with body kind
 			if flagMeta.Kind == "" {
 				flagMeta.Kind = cmdstore.FlagKindBody
@@ -623,41 +637,63 @@ func detectMultipartOperation(doc *openapi3.T, path, method string) (bool, map[s
 // Returns nil if no body schema exists.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=internal/builtin/generate.go
 func extractBodyPropertyNames(doc *openapi3.T, path, method string) map[string]string {
+	names, _ := extractBodyContract(doc, path, method)
+	return names
+}
+
+// extractBodyContract returns the body property flag→property map AND the
+// request-body media type that produced it.
+//
+// QA-MUSTER-041: this used to read application/json only. Stripe's spec3
+// declares a form-encoded body on 611 of its 612 operations, so every
+// persisted command for them came back with no body flags at all — the
+// reloaded CLI silently sent Content-Length: 0 no matter what the user typed.
+func extractBodyContract(doc *openapi3.T, path, method string) (map[string]string, string) {
 	if doc == nil || path == "" || method == "" {
-		return nil
+		return nil, ""
 	}
 
 	pathItem := doc.Paths.Find(path)
 	if pathItem == nil {
-		return nil
+		return nil, ""
 	}
 
 	operation := pathItem.GetOperation(method)
 	if operation == nil || operation.RequestBody == nil || operation.RequestBody.Value == nil {
-		return nil
+		return nil, ""
 	}
 
 	content := operation.RequestBody.Value.Content
 	if content == nil {
-		return nil
+		return nil, ""
 	}
 
-	// Look for application/json request body content
+	// JSON wins when both are declared, matching pkg/openapi's precedence.
 	// kin-openapi resolves $ref at parse time when the loader is configured
 	// to do so, but when it doesn't, we resolve it manually via
 	// resolveRequestBodySchema below.
-	schema := resolveRequestBodySchema(doc, content.Get("application/json"))
-	if schema == nil {
-		return nil
+	for _, ct := range []string{"application/json", "application/x-www-form-urlencoded"} {
+		schema := resolveRequestBodySchema(doc, content.Get(ct))
+		if schema == nil || len(schema.Properties) == 0 {
+			continue
+		}
+		names := make(map[string]string, len(schema.Properties))
+		for propName := range schema.Properties {
+			// Normalize the spec property name to match flag naming convention
+			normalized := normalizeFlagName(propName)
+			names[normalized] = propName // original name → body key
+		}
+		return names, ct
 	}
 
-	names := make(map[string]string)
-	for propName := range schema.Properties {
-		// Normalize the spec property name to match flag naming convention
-		normalized := normalizeFlagName(propName)
-		names[normalized] = propName // original name → JSON key
+	// A multipart body with no JSON/form alternative: the loader still needs
+	// the media type to know that supplied text fields belong in a multipart
+	// body (QA-MUSTER-041).
+	if hasMultipart, _ := detectMultipartOperation(doc, path, method); hasMultipart {
+		return nil, "multipart/form-data"
 	}
-	return names
+
+	return nil, ""
 }
 
 // extractParameterFlagKinds maps every spec-declared operation parameter's

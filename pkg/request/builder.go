@@ -92,6 +92,40 @@ func (b *Builder) JSONBody(jsonStr string) {
 	b.Body = strings.NewReader(jsonStr)
 }
 
+// FormBody sets an application/x-www-form-urlencoded body and its Content-Type.
+//
+// QA-MUSTER-041: form-encoded operations (611/612 of Stripe's spec3) used to
+// fall through every body path and go out with Content-Length: 0. Values are
+// encoded as key=value&key2=value2; repeated keys (arrays) are emitted once per
+// value, which is what urlencoded consumers expect.
+func (b *Builder) FormBody(values neturl.Values) *Builder {
+	if values == nil {
+		values = neturl.Values{}
+	}
+	b.Body = strings.NewReader(values.Encode())
+	b.contentType = ContentTypeFormEncoded
+	return b
+}
+
+// ContentTypeFormEncoded is the media type produced by FormBody.
+const ContentTypeFormEncoded = "application/x-www-form-urlencoded"
+
+// RawBody sends raw verbatim as the request body with the given Content-Type.
+// Used by the -b/--body escape hatch, where the caller's exact bytes must go
+// to the wire (QA-MUSTER-041: a raw urlencoded form body must not be
+// re-encoded or reordered).
+func (b *Builder) RawBody(raw, contentType string) *Builder {
+	b.Body = strings.NewReader(raw)
+	if contentType != "" {
+		b.contentType = contentType
+	}
+	return b
+}
+
+// ContentTypeMultipart is the media type produced by WithFileUpload /
+// WithMultipartField.
+const ContentTypeMultipart = "multipart/form-data"
+
 // WithTimeout sets the request timeout (no-op in current impl).
 func (b *Builder) WithTimeout(timeout interface{}) {}
 
@@ -104,6 +138,12 @@ func (b *Builder) Build() (*http.Request, error) {
 	}
 	for key, value := range b.Headers {
 		req.Header.Set(key, value)
+	}
+	// QA-MUSTER-041: FormBody / WithContentType record the media type on the
+	// builder; Build must apply it too, or a caller that builds manually (the
+	// MCP executors do) sends a body with no Content-Type.
+	if b.contentType != "" {
+		req.Header.Set("Content-Type", b.contentType)
 	}
 	return req, nil
 }
@@ -235,8 +275,11 @@ func (b *Builder) Execute(ctx context.Context) (*http.Response, error) {
 
 	var body io.Reader = b.Body
 
-	// If multipart parts are registered, build the multipart body
-	if len(b.multipartParts) > 0 {
+	// If multipart parts are registered, build the multipart body. Fields alone
+	// (no file) still deserve a body when the caller declared multipart —
+	// QA-MUSTER-041: a multipart-only op with text fields used to send nothing
+	// unless --file was passed.
+	if len(b.multipartParts) > 0 || (b.contentType == ContentTypeMultipart && len(b.multipartExtra) > 0) {
 		var err error
 		body, b.contentType, err = b.buildMultipartBody()
 		if err != nil {

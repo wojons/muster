@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -111,20 +112,38 @@ type RequestBodyProperty struct {
 	Default     interface{}
 }
 
+// Request body media types the parser understands. Anything else (e.g.
+// application/xml) is reported as an unsupported body so callers can refuse
+// loudly instead of generating an argument-free command (QA-MUSTER-041).
+const (
+	ContentTypeJSON      = "application/json"
+	ContentTypeForm      = "application/x-www-form-urlencoded"
+	ContentTypeMultipart = "multipart/form-data"
+)
+
 // Operation represents a single API operation extracted from an OpenAPI spec.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/openapi/parser.go
 type Operation struct {
-	ID              string
-	Tags            []string
-	Path            string
-	Method          string
-	Summary         string
-	Description     string
-	Parameters      []Parameter
-	RequestBody     []RequestBodyProperty
-	HasMultiPart    bool                  // true if requestBody supports multipart/form-data
-	MultipartFields []RequestBodyProperty // non-file fields in multipart form
-	ServerURL       string                // resolved server URL for this operation
+	ID          string
+	Tags        []string
+	Path        string
+	Method      string
+	Summary     string
+	Description string
+	Parameters  []Parameter
+	RequestBody []RequestBodyProperty
+	// BodyContentType is the request-body media type whose schema produced
+	// RequestBody (ContentTypeJSON or ContentTypeForm), or "" when the
+	// operation declares no supported body. QA-MUSTER-041: without it, a
+	// form-encoded body (611/612 operations in Stripe's spec3) was silently
+	// dropped and the generated command sent Content-Length: 0.
+	BodyContentType string
+	// UnsupportedBodyType names a declared body media type the generator does
+	// not implement (e.g. application/xml), so callers can refuse loudly.
+	UnsupportedBodyType string
+	HasMultiPart        bool                  // true if requestBody supports multipart/form-data
+	MultipartFields     []RequestBodyProperty // non-file fields in multipart form
+	ServerURL           string                // resolved server URL for this operation
 }
 
 // Parameters is a convenience type for a slice of Parameter values.
@@ -179,16 +198,32 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 			// specs like task-forge declare path params at the PATH-ITEM level, and
 			// reading op.Parameters only left templated tools with empty schemas.
 			mergedParams := append(append(openapi3.Parameters{}, pathItem.Parameters...), op.Parameters...)
+			bodyProps, bodyType := extractRequestBody(spec, op.RequestBody)
 			operation := &Operation{
-				ID:          op.OperationID,
-				Path:        path,
-				Method:      method,
-				Summary:     op.Summary,
-				Description: op.Description,
-				Tags:        op.Tags,
-				Parameters:  extractParameters(mergedParams),
-				RequestBody: extractRequestBodyProperties(spec, op.RequestBody),
-				ServerURL:   serverURL,
+				ID:              op.OperationID,
+				Path:            path,
+				Method:          method,
+				Summary:         op.Summary,
+				Description:     op.Description,
+				Tags:            op.Tags,
+				Parameters:      extractParameters(mergedParams),
+				RequestBody:     bodyProps,
+				BodyContentType: bodyType,
+				ServerURL:       serverURL,
+			}
+
+			// QA-MUSTER-041: a body declared ONLY as a media type we do not
+			// generate for (application/xml, text/plain, …) must be reported,
+			// not silently dropped. JSON/form/multipart are handled — a
+			// schema-less form body still gets the -b/--body escape hatch.
+			if bodyType == "" && !hasMultipartBody(op.RequestBody) {
+				for _, ct := range declaredBodyMediaTypes(op.RequestBody) {
+					if ct == ContentTypeJSON || ct == ContentTypeForm || ct == ContentTypeMultipart {
+						continue
+					}
+					operation.UnsupportedBodyType = ct
+					break
+				}
 			}
 
 			// Detect multipart/form-data support
@@ -288,19 +323,61 @@ func extractParameters(params openapi3.Parameters) []Parameter {
 // looking up the referenced schema in the document's Components.Schemas map.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/openapi/parser.go
 func extractRequestBodyProperties(spec *openapi3.T, bodyRef *openapi3.RequestBodyRef) []RequestBodyProperty {
+	props, _ := extractRequestBody(spec, bodyRef)
+	return props
+}
+
+// extractRequestBody returns the body properties and the media type they came
+// from. JSON wins when an operation declares both (it is the richer shape), and
+// application/x-www-form-urlencoded is the fallback that fixes QA-MUSTER-041:
+// 611 of 612 operations in Stripe's spec3 declare ONLY a form body, so reading
+// application/json alone silently generated argument-free commands.
+func extractRequestBody(spec *openapi3.T, bodyRef *openapi3.RequestBodyRef) ([]RequestBodyProperty, string) {
 	if bodyRef == nil || bodyRef.Value == nil {
-		return nil
+		return nil, ""
 	}
 
 	body := bodyRef.Value
 
-	// Look for application/json media type
-	mt := body.Content.Get("application/json")
-	if mt == nil || mt.Schema == nil {
-		return nil
+	// Prefer whichever media type carries properties; remember the first one
+	// the operation declares so a schema-less (free-form) body still gets the
+	// right Content-Type and the -b/--body escape hatch.
+	var firstType string
+	for _, ct := range []string{ContentTypeJSON, ContentTypeForm} {
+		mt := body.Content.Get(ct)
+		if mt == nil {
+			continue
+		}
+		if firstType == "" {
+			firstType = ct
+		}
+		if mt.Schema == nil {
+			continue
+		}
+		if props := extractPropertiesFromSchemaRef(spec, mt.Schema); len(props) > 0 {
+			return props, ct
+		}
 	}
 
-	return extractPropertiesFromSchemaRef(spec, mt.Schema)
+	return nil, firstType
+}
+
+// declaredBodyMediaTypes lists every media type the operation's request body
+// declares, in a stable order.
+func declaredBodyMediaTypes(bodyRef *openapi3.RequestBodyRef) []string {
+	if bodyRef == nil || bodyRef.Value == nil {
+		return nil
+	}
+	content := bodyRef.Value.Content
+	if content == nil {
+		return nil
+	}
+	types := make([]string, 0, len(content))
+	for ct := range content {
+		types = append(types, ct)
+	}
+	sort.Strings(types)
+	return types
 }
 
 // hasMultipartBody returns true if the requestBody supports multipart/form-data.
