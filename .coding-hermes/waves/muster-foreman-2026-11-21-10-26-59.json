@@ -1,0 +1,53 @@
+{
+  "wave_id": "muster-foreman-2026-11-21-10-26-59",
+  "project": "muster",
+  "repo": "/home/kara/wojons/muster",
+  "base_sha": "113bd123",
+  "budget": 3,
+  "discovered_ready_count": 59,
+  "started_at": "2026-11-21T05:40:00-05:00",
+  "disjointness": "Worker 1 (QA-MUSTER-13-R2) edits the HOST harness ~/.hermes/scripts/bunker-qa.sh (not a repo file) + commits evidence only in .coding-hermes/evidence/ of its worktree. Worker 2 (QA-MUSTER-041) edits pkg/generator, pkg/openapi, pkg/mcp. Worker 3 (QA-MUSTER-055) edits cmd/mcp-server/integration_test.go. No shared repo paths; harness file is host-state owned by worker 1 alone. No depends_on edges on any selected row (verified: depends_on null/[] on all three). merge_group = worker index (serial merge).",
+  "selection_reason": "Highest-priority dispatchable rows: QA-MUSTER-13-R2 is the top P1 with a bounded, verified mechanism (pkg-config+libseccomp provisioning). RELEASE-018-R2 (P1) and INT-CI-013 (P1) are evidence-owed rows handled on the foreman board track in parallel (verification/closeout, no product code), so they are not worker slots. Remaining slots filled by P2 code rows QA-MUSTER-041 (largest blast radius: 612-op spec) and QA-MUSTER-055 (CI-red Windows test fix).",
+  "workers": [
+    {
+      "task": "QA-MUSTER-13-R2",
+      "priority": "P1",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-13-R2",
+      "branch": "wt/QA-MUSTER-13-R2",
+      "base_sha": "113bd123",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "brief": "/home/kara/.hermes/cache/scratch/brief-muster-QA-MUSTER-13-R2-20261121.txt",
+      "files": ["~/.hermes/scripts/bunker-qa.sh (host state)", ".coding-hermes/evidence/qa-muster-13-r2-fix-20261121.md"],
+      "merge_group": 1
+    },
+    {
+      "task": "QA-MUSTER-041",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-041",
+      "branch": "wt/QA-MUSTER-041",
+      "base_sha": "113bd123",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "brief": "/home/kara/.hermes/cache/scratch/brief-muster-QA-MUSTER-041-20261121.txt",
+      "files": ["pkg/generator/*", "pkg/openapi/*", "pkg/mcp/*", ".coding-hermes/evidence/qa-muster-041-fix-20261121.md"],
+      "merge_group": 2
+    },
+    {
+      "task": "QA-MUSTER-055",
+      "priority": "P2",
+      "worktree": "/home/kara/worktrees/muster-QA-MUSTER-055",
+      "branch": "wt/QA-MUSTER-055",
+      "base_sha": "113bd123",
+      "model": "openai/gpt-6.1-terra",
+      "provider": "xkiro",
+      "brief": "/home/kara/.hermes/cache/scratch/brief-muster-QA-MUSTER-055-20261121.txt",
+      "files": ["cmd/mcp-server/integration_test.go", ".coding-hermes/evidence/qa-muster-055-fix-20261121.md"],
+      "merge_group": 3
+    }
+  ],
+  "foreman_board_track": [
+    {"task": "INT-CI-013", "action": "evidence close: local go test ./pkg/config/... -run TestWatcher -count=20 + consecutive green Cross-Platform run count with ARM64 TestWatcher_GetConfig executed + gitreins judge"},
+    {"task": "RELEASE-018-R2", "action": "owed execution arm: add workflow_dispatch jitter-measure job (macos ARM64, -count=50 -race distribution), land on main, dispatch, collect distribution, cite consecutive greens, close"}
+  ]
+}

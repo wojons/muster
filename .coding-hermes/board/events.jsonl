@@ -1145,3 +1145,6 @@
 {"id": 1795164467717878188, "timestamp": "2026-11-21 04:46:02.671955", "event_type": "task_created", "task_id": "DF-061", "actor": "foreman", "detail": "{\"id\":\"DF-061\",\"status\":\"pending\"}", "tick_number": null}
 {"id": 1795164467717878189, "timestamp": "2026-11-21 04:46:08.58653", "event_type": "task_created", "task_id": "DF-062", "actor": "foreman", "detail": "{\"id\":\"DF-062\",\"status\":\"pending\"}", "tick_number": null}
 {"id": 1795164467717878190, "timestamp": "2026-11-21 04:48:48.455575", "event_type": "task_created", "task_id": "DF-063", "actor": "foreman", "detail": "{\"id\":\"DF-063\",\"status\":\"pending\"}", "tick_number": null}
+{"id": 1795164467717878191, "timestamp": "2026-11-21 10:35:46.841734", "event_type": "task_updated", "task_id": "QA-MUSTER-13-R2", "actor": "foreman", "detail": "{\"status\":\"in_progress\"}", "tick_number": null}
+{"id": 1795164467717878192, "timestamp": "2026-11-21 10:35:47.017961", "event_type": "task_updated", "task_id": "QA-MUSTER-041", "actor": "foreman", "detail": "{\"status\":\"in_progress\"}", "tick_number": null}
+{"id": 1795164467717878193, "timestamp": "2026-11-21 10:35:47.282907", "event_type": "task_updated", "task_id": "QA-MUSTER-055", "actor": "foreman", "detail": "{\"status\":\"in_progress\"}", "tick_number": null}
