@@ -6,7 +6,7 @@ Complete guide to using Starlark scripting language with OpenAPI CLI.
 
 The OpenAPI CLI includes a Starlark scripting engine for automating API interactions. Starlark is a Python-like language (a restricted Python dialect) that is deterministic and sandboxed by design.
 
-The `dsl run` command executes a `.star` script with four HTTP builtins wired in. Everything else available to a script is the standard Starlark language and its core builtins — the interpreter does not load your OpenAPI specification, does not expose an `api.*` client, and does not bridge environment variables or JSON/time modules into the script environment.
+The `dsl run` command executes a `.star` script with five builtins wired in: four HTTP helpers and the `json()` encoder. Everything else available to a script is the standard Starlark language and its core builtins — the interpreter does not load your OpenAPI specification, does not expose an `api.*` client, and does not bridge environment variables or a Python-style `json`/`time` module into the script environment (JSON encoding exists as the built-in `json()` function instead — see [The json() Encoder](#the-json-encoder)).
 
 ## Command Reference
 
@@ -62,30 +62,90 @@ openapi-cli dsl run demo/scripts/hello.star -V
 
 ## Built-in Functions
 
+Five builtins are wired into every script: four HTTP helpers and the `json()` encoder. The HTTP helpers return a tuple of `(status, body)`; `json()` returns a string.
+
 ### HTTP Functions
 
-Four HTTP builtins are provided by the CLI. Each returns a tuple of `(status_code, body)`:
+Signatures, exactly as `openapi-cli dsl run --help` prints them:
 
 ```python
-# GET — returns (status_code, body)
+http_get(url, headers=None) -> (status, body)
+http_post(url, body=None, headers=None) -> (status, body)
+http_put(url, body=None, headers=None) -> (status, body)
+http_delete(url, headers=None) -> (status, body)
+json(value) -> string
+```
+
+- `url` — the request URL (string, required).
+- `headers` — an optional dict of header name/value string pairs. Keys and values must be strings; a non-dict `headers` argument, or a non-string key or value inside it, aborts the script with an error naming the builtin.
+- `body` — exists only on `http_post` and `http_put`; see [Request Body Marshalling](#request-body-marshalling-http_post-and-http_put) below.
+- Every HTTP builtin returns `(status, body)`: an `int` status code and the response body as a `str` (surrounding whitespace trimmed).
+- `json(value)` returns the JSON encoding of a Starlark value as a string; see [The json() Encoder](#the-json-encoder).
+
+```python
+# GET — returns (status, body)
 status, body = http_get("https://api.example.com/v1/pets")
 print(status)   # e.g. 200
 print(body)     # response body as a string
 
-# POST — sends the body with Content-Type: application/json
-status, body = http_post("https://api.example.com/v1/pets", "{\"name\":\"Rex\"}")
+# POST — a dict body is marshalled to JSON automatically
+status, body = http_post("https://api.example.com/v1/pets", {"name": "Rex"})
 
-# The body argument is optional for POST and PUT (an empty string is sent)
+# The body argument is optional for POST and PUT (omitted means no body is sent)
 status, body = http_post("https://api.example.com/v1/ping")
 
-# PUT — sends the body with Content-Type: application/json
-status, body = http_put("https://api.example.com/v1/pets/1", "{\"status\":\"sold\"}")
+# PUT — same marshalling rules as POST
+status, body = http_put("https://api.example.com/v1/pets/1", {"status": "sold"})
 
-# DELETE
+# DELETE — takes no body
 status, body = http_delete("https://api.example.com/v1/pets/1")
+
+# Custom headers on any builtin
+status, body = http_post(
+    "https://api.example.com/v1/pets",
+    {"name": "Rex"},
+    {"Authorization": "Bearer " + token},
+)
 ```
 
 If a request fails at the transport level (DNS failure, connection refused), the builtin returns an error and the script aborts. A completed HTTP request with a non-2xx status code is *not* an error — check `status` in your script.
+
+### Request Body Marshalling (http_post and http_put)
+
+How the `body` argument becomes request bytes:
+
+| Starlark value | Sent as |
+|----------------|---------|
+| `str` | verbatim, byte-for-byte (use for a pre-encoded payload) |
+| `dict` | JSON object — keys must be strings |
+| `list`, `tuple` | JSON array |
+| `int` | JSON number (arbitrarily large integers stay exact) |
+| `float` | JSON number (`NaN`/`Inf` have no JSON representation and abort the script) |
+| `bool` | JSON `true` / `false` |
+| `None` (as the body argument) | no body sent — same as omitting the argument |
+| `None` nested inside a dict/list | JSON `null` |
+| anything else (e.g. a function) | error: `unsupported body type ...` plus a hint naming the accepted types |
+
+A dict with a non-string key aborts the script: `dict key <k>: got <type>, want string (JSON object keys must be strings)`.
+
+`Content-Type` defaults to `application/json` on `http_post` and `http_put`. The default is applied first and the `headers` dict is applied after it, so an explicit `Content-Type` in `headers` overrides the default. `http_get` and `http_delete` take no body and set no default `Content-Type`.
+
+### The json() Encoder
+
+`json(value)` returns the JSON encoding of a Starlark value **as a string**, using the same marshalling rules as the body table above. It is an encoder, not a pass-through — strings come back quoted:
+
+```python
+json({"title": "x"})   # '{"title":"x"}'
+json("x")              # '"x"'   (quoted — json() encodes, it does not pass through)
+json([1, 2])           # '[1,2]'
+json(None)             # 'null'
+
+# A pre-encoded payload is equivalent to passing the dict directly:
+body = json({"title": "x"})
+http_post(url, body)
+```
+
+Its one parameter is the required `value`. Unsupported values (a non-string dict key, a function, a `NaN`/`Inf` float) abort the script with the same errors as the body path.
 
 ### What Is NOT Provided
 
@@ -93,7 +153,7 @@ The following do **not** exist in the current implementation — scripts that us
 
 - No `api.pet.find_id(...)` style client functions. The script environment does not load an OpenAPI specification, so spec-derived operations cannot be called. If you need spec-driven requests, use the CLI's generated commands instead of the DSL, or build the request URL in the script.
 - No `env.get("NAME")` — environment variables are not bridged into scripts. Use literal values or define them at the top of the script.
-- No `json.loads` / `json.dumps` module.
+- No `json.loads` / `json.dumps`: the Python `json` module does not exist in scripts, and there is no parser — nothing converts a JSON string back into a Starlark value. JSON *encoding* is available through the built-in `json(value)` encoder (see [The json() Encoder](#the-json-encoder)), which turns a Starlark value into a JSON string.
 - No `time.now()` or date/time functions.
 - `hash(x)` is the Starlark builtin that hashes a value for use in sets/dicts — it is **not** SHA-256 and not usable for checksums.
 
@@ -538,9 +598,9 @@ if status != 200:
 
 ### Unknown Name Errors
 
-**Issue**: `Error: execution error: ... undefined: api` (or `env`, `json`, `time`)
+**Issue**: `Error: execution error: ... undefined: api` (or `env`, `time`)
 
-**Solution**: The script environment provides only the four HTTP builtins and the Starlark core. There is no `api.*` client, no environment-variable bridge, and no JSON or time modules — see [What Is NOT Provided](#what-is-not-provided).
+**Solution**: The script environment provides only the four HTTP builtins, the `json()` encoder, and the Starlark core. There is no `api.*` client, no environment-variable bridge, and no Python-style JSON or time modules (the name `json` exists only as the encoder function — it has no `.loads`/`.dumps` attributes) — see [What Is NOT Provided](#what-is-not-provided).
 
 ### Too Many Arguments
 
