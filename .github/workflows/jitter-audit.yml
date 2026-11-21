@@ -21,8 +21,14 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Package stability (internal/builtin, -count=50, -race)
-        run: go test -race -count=50 ./internal/builtin/
+      - name: Audit-test stability (-count=50, -race) + full-package sanity (-count=1, -race)
+        # Measured 2026-11-21 (run 44895704704): the FULL package at -count=50 -race
+        # exceeds go test's 10m timeout (quic-go/daemon-network tests hold live
+        # connections x50), so the 50x repetition is scoped to the audit test this
+        # row is about, with one full-package -race pass as the sanity arm.
+        run: |
+          go test -race -count=1 ./internal/builtin/
+          go test -race -count=50 ./internal/builtin/ -run 'TestAuditCommand_LogLimitStaysBounded'
 
       - name: Jitter distribution probe (pre-INT-CI-016 measurement, 50 samples)
         run: |
