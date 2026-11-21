@@ -24,6 +24,12 @@ type ExecutionConfig struct {
 	Method      string          `json:"method"`
 	Path        string          `json:"path"`
 	InputSchema json.RawMessage `json:"inputSchema,omitempty"`
+	// ContentType is the request-body media type the operation declares
+	// ("application/json", "application/x-www-form-urlencoded",
+	// "multipart/form-data"). Empty means JSON, the historical default.
+	// QA-MUSTER-041: without it a form-encoded operation advertised an empty
+	// inputSchema and sent either nothing or a JSON body the API rejects.
+	ContentType string `json:"contentType,omitempty"`
 }
 
 // Annotation keys stamped on converted MCP tools so a client-side rename is
@@ -340,19 +346,32 @@ func (e *ToolExecutor) Execute(ctx context.Context, name string, args map[string
 		}
 	}
 
-	// JSON-encode body for write methods when body parameters are present
+	// Encode the body for write methods when body parameters are present.
+	// QA-MUSTER-041: the encoding follows the operation's declared media type —
+	// a form-encoded operation must be urlencoded (JSON bodies are rejected by
+	// form APIs), and a multipart operation must be multipart.
 	if isWriteMethod && len(bodyMap) > 0 {
-		bodyJSON, err := json.Marshal(bodyMap)
-		if err != nil {
-			// DF-038: the caller supplied an unencodable argument, so this is
-			// client-side, not an upstream failure.
-			return nil, handlers.NewToolCallError(
-				handlers.ErrorClassClient, handlers.ReasonInvalidArguments,
-				fmt.Sprintf("marshal request body: %v", err),
-			).WithDetail("tool", name).WithCause(err)
+		switch config.ContentType {
+		case "application/x-www-form-urlencoded":
+			builder.FormBody(request.FormValuesFromMap(bodyMap))
+		case "multipart/form-data":
+			builder.WithContentType(request.ContentTypeMultipart)
+			for key, value := range bodyMap {
+				builder.WithMultipartField(key, fmt.Sprintf("%v", value))
+			}
+		default:
+			bodyJSON, err := json.Marshal(bodyMap)
+			if err != nil {
+				// DF-038: the caller supplied an unencodable argument, so this is
+				// client-side, not an upstream failure.
+				return nil, handlers.NewToolCallError(
+					handlers.ErrorClassClient, handlers.ReasonInvalidArguments,
+					fmt.Sprintf("marshal request body: %v", err),
+				).WithDetail("tool", name).WithCause(err)
+			}
+			builder.JSONBody(string(bodyJSON))
+			builder.SetHeader("Content-Type", "application/json")
 		}
-		builder.JSONBody(string(bodyJSON))
-		builder.SetHeader("Content-Type", "application/json")
 	}
 
 	// Process-level authentication is authoritative and applies to every tool
@@ -682,19 +701,12 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 			}
 		}
 
-		// Add request body properties to input schema
-		for _, bodyProp := range op.RequestBody {
-			propMap := map[string]interface{}{
-				"type": bodyPropTypeToJSONSchema(bodyProp.Type),
-			}
-			if bodyProp.Description != "" {
-				propMap["description"] = bodyProp.Description
-			}
-			properties[bodyProp.Name] = propMap
-			if bodyProp.Required {
-				required = append(required, bodyProp.Name)
-			}
-		}
+		// Add request body properties to input schema.
+		// QA-MUSTER-041: this used to see only JSON bodies, so every
+		// form-encoded operation (611/612 of Stripe's spec3) advertised an
+		// empty schema — the agent could not learn the fields and the call
+		// went out with no body.
+		addBodyPropertiesToSchema(properties, &required, op)
 
 		// Build full JSON Schema
 		// DF-034 safety net: ensure every path template param is advertised
@@ -746,10 +758,52 @@ func (c *Converter) ConvertToTools(doc *openapi3.T) ([]OpenAPITool, map[string]E
 			Method:      op.Method,
 			Path:        op.Path,
 			InputSchema: schemaJSON,
+			ContentType: operationContentType(op),
 		}
 	}
 
 	return tools, configs, nil
+}
+
+// operationContentType returns the media type the tool's body must be encoded
+// as: the declared JSON/form media type, multipart when that is the only body,
+// or "" (JSON default) when the operation declares no body at all.
+func operationContentType(op *openapi.Operation) string {
+	if op.BodyContentType != "" {
+		return op.BodyContentType
+	}
+	if op.HasMultiPart {
+		return "multipart/form-data"
+	}
+	return ""
+}
+
+// addBodyPropertiesToSchema adds an operation's request body properties (JSON,
+// form-encoded, or multipart text fields) to an MCP input schema.
+//
+// QA-MUSTER-041: every MCP schema surface used to advertise parameters only, so
+// a form-encoded write tool shipped with properties={} required=[] — the agent
+// could not learn the fields, and every call went out with no body.
+func addBodyPropertiesToSchema(properties map[string]interface{}, required *[]string, op *openapi.Operation) {
+	fields := make([]openapi.RequestBodyProperty, 0, len(op.RequestBody)+len(op.MultipartFields))
+	fields = append(fields, op.RequestBody...)
+	fields = append(fields, op.MultipartFields...)
+
+	for _, field := range fields {
+		if _, exists := properties[field.Name]; exists {
+			continue
+		}
+		propMap := map[string]interface{}{
+			"type": bodyPropTypeToJSONSchema(field.Type),
+		}
+		if field.Description != "" {
+			propMap["description"] = field.Description
+		}
+		properties[field.Name] = propMap
+		if field.Required && !containsStr(*required, field.Name) {
+			*required = append(*required, field.Name)
+		}
+	}
 }
 
 // originalToolName returns an operation's pre-sanitization tool name: the

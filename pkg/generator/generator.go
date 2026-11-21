@@ -131,6 +131,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/wojons/muster/pkg/auth"
 	"github.com/wojons/muster/pkg/log"
 	"github.com/wojons/muster/pkg/openapi"
@@ -211,6 +212,14 @@ const (
 	// AuthFlagAnnotation marks a command whose --auth flag is the runtime
 	// credential-attachment flag (not a spec parameter named "auth").
 	AuthFlagAnnotation = "muster/auth-flag"
+
+	// AnnotationBodyProperty is stamped on each per-property request body
+	// flag with the SPEC property name it fills. It survives a collision
+	// rename: a body property called `header` cannot be registered as
+	// --header (the CLI owns that flag), so it becomes --header-2 and the
+	// annotation is the only way to know which body key it belongs to
+	// (QA-MUSTER-041).
+	AnnotationBodyProperty = "muster/body-property"
 )
 
 // resolveStoredFn resolves a stored credential by name for the --auth
@@ -276,6 +285,16 @@ func (g *Generator) GenerateCommands(spec *openapi3.T) ([]*cobra.Command, error)
 		return nil, fmt.Errorf("extract operations: %w", err)
 	}
 
+	// QA-MUSTER-041: refuse loudly. An operation whose only request body is a
+	// media type we cannot generate for would otherwise become an
+	// argument-free command that silently sends Content-Length: 0 — the exact
+	// defect this tick fixes. The command is still generated (so the rest of
+	// the spec is usable); the operator learns about the gap here.
+	if unsupported := unsupportedBodyOperations(ops); len(unsupported) > 0 {
+		fmt.Fprintf(os.Stderr, "warning: %d operation(s) declare a request body media type that cannot be generated; their commands send no body (use --body-free APIs or file a bug): %s\n",
+			len(unsupported), strings.Join(unsupported, ", "))
+	}
+
 	groups := g.groupOperations(ops)
 
 	var commands []*cobra.Command
@@ -296,6 +315,21 @@ func (g *Generator) GenerateCommands(spec *openapi3.T) ([]*cobra.Command, error)
 func (g *Generator) GenerateCommandsWithSourceURL(spec *openapi3.T, specSourceURL string) ([]*cobra.Command, error) {
 	openapi.ApplySourceURLToDocument(spec, specSourceURL)
 	return g.GenerateCommands(spec)
+}
+
+// unsupportedBodyOperations names the operations whose request body declares
+// only a media type the generator cannot express (e.g. application/xml), in a
+// stable "METHOD path (media type)" form for the generation-time warning.
+func unsupportedBodyOperations(ops []*openapi.Operation) []string {
+	var out []string
+	for _, op := range ops {
+		if op.UnsupportedBodyType == "" {
+			continue
+		}
+		out = append(out, fmt.Sprintf("%s %s (%s)", op.Method, op.Path, op.UnsupportedBodyType))
+	}
+	sort.Strings(out)
+	return out
 }
 
 func (g *Generator) groupOperations(ops []*openapi.Operation) map[string][]*openapi.Operation {
@@ -503,16 +537,69 @@ func (g *Generator) uniqueSpecFlagName(cmd *cobra.Command, base string) string {
 	}
 }
 
+// reservedCLIFlagNames are the runtime flags every generated command carries
+// besides its spec-derived ones: --output/--raw on the leaf, and
+// --header/--base-url on the root (the reloaded-command loader registers
+// --header/--base-url/--output/--auth itself).
+//
+// A spec parameter or body property that normalizes to one of these names must
+// be renamed: registering it on the leaf leaves two flags of the same name in
+// different flag sets, and the reloaded CLI panics at startup with "flag
+// redefined: header" before printing ANY command (QA-MUSTER-041: Stripe's
+// post-quotes body declares a `header` property).
+var reservedCLIFlagNames = map[string]bool{
+	"header":   true,
+	"base-url": true,
+	"output":   true,
+	"raw":      true,
+	"help":     true,
+}
+
+// claimSpecFlagName returns name, or a free "-N" variant when it collides with
+// an already-registered flag or a CLI-reserved one.
+func (g *Generator) claimSpecFlagName(cmd *cobra.Command, name string) string {
+	if reservedCLIFlagNames[name] || cmd.Flags().Lookup(name) != nil {
+		return g.uniqueSpecFlagName(cmd, name)
+	}
+	return name
+}
+
+// bodyPropertyFlag finds the flag registered for a request body property by its
+// AnnotationBodyProperty stamp. Needed because the flag name can differ from
+// the normalized property name after a collision rename (a `header` property
+// becomes --header-2). Returns nil when no flag carries the stamp.
+func (g *Generator) bodyPropertyFlag(cmd *cobra.Command, property string) *pflag.Flag {
+	var found *pflag.Flag
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if found != nil {
+			return
+		}
+		if ann := f.Annotations[AnnotationBodyProperty]; len(ann) > 0 && ann[0] == property {
+			found = f
+		}
+	})
+	return found
+}
+
 // addFlags adds CLI flags for the operation's parameters and request body properties.
 // For multipart operations, adds a --file flag instead of per-property body flags.
 // axiom:trace work_item=DEX-205 spec=specs/02-Workflows.md impl=pkg/generator/generator.go
 func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 	// Register Muster-owned flags first so spec-derived names are allocated
 	// around them rather than shadowing or disabling the global controls.
-	hasJSONBody := len(op.RequestBody) > 0 &&
-		(op.Method == http.MethodPost || op.Method == http.MethodPut || op.Method == http.MethodPatch)
-	if hasJSONBody && cmd.Flags().Lookup(RawBodyFlagName) == nil {
-		cmd.Flags().StringP(RawBodyFlagName, "b", "", "Raw JSON request body (overrides individual body flags)")
+	//
+	// QA-MUSTER-041: a form-encoded body counts as a body even when the schema
+	// declares no properties (free-form form) — the -b/--body escape hatch is
+	// then the only way to send it, and its usage text must name the media
+	// type so a JSON body is not pasted into a form-encoded operation.
+	formBody := op.BodyContentType == openapi.ContentTypeForm
+	hasBody := (len(op.RequestBody) > 0 || op.BodyContentType != "") && isBodyMethod(op.Method)
+	if hasBody && cmd.Flags().Lookup(RawBodyFlagName) == nil {
+		usage := "Raw JSON request body (overrides individual body flags)"
+		if formBody {
+			usage = "Raw application/x-www-form-urlencoded request body, e.g. 'name=Foo&email=a@b.c' (overrides individual body flags)"
+		}
+		cmd.Flags().StringP(RawBodyFlagName, "b", "", usage)
 		if cmd.Annotations == nil {
 			cmd.Annotations = make(map[string]string)
 		}
@@ -539,9 +626,7 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		// duplicated parameter name is enough to lose every command. Keep the
 		// first registration of a name and drop later ones; drop a shorthand
 		// that is already taken instead of crashing.
-		if cmd.Flags().Lookup(flagName) != nil {
-			flagName = g.uniqueSpecFlagName(cmd, flagName)
-		}
+		flagName = g.claimSpecFlagName(cmd, flagName)
 		if shorthand != "" && cmd.Flags().ShorthandLookup(shorthand) != nil {
 			shorthand = ""
 		}
@@ -610,17 +695,13 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		if multipartFlagNames[flagName] {
 			continue
 		}
-		// DF-MUSTER-9: a body property named like an operation parameter
-		// (DuckBrain's POST /api/memories declares `namespace` as BOTH a query
-		// parameter and an optional body field) must share that parameter's
-		// flag: the second registration panics pflag and aborts generation for
-		// the entire spec. The shared value is sent in both positions and the
-		// API's documented precedence decides (DuckBrain: "The namespace query
-		// parameter takes precedence over the optional body namespace field").
-		// Pass --body '{...}' when the two positions must differ.
-		if cmd.Flags().Lookup(flagName) != nil {
-			flagName = g.uniqueSpecFlagName(cmd, flagName)
-		}
+		// DF-MUSTER-9 / QA-MUSTER-041: a body property named like an
+		// operation parameter or a CLI control flag must not be registered
+		// twice. The shared value is sent in both positions and the API's
+		// documented precedence decides (DuckBrain: "The namespace query
+		// parameter takes precedence over the optional body namespace
+		// field"). Pass --body when the two positions must differ.
+		flagName = g.claimSpecFlagName(cmd, flagName)
 		shorthand := g.inferShorthand(bodyProp.Name)
 		if shorthand != "" && cmd.Flags().ShorthandLookup(shorthand) != nil {
 			shorthand = ""
@@ -687,8 +768,33 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 		// cobra's MarkFlagRequired: --body replaces the per-property flags
 		// entirely when set, and a cobra-level requirement would reject
 		// "--body '{...}'" before the handler ever runs (DF-MUSTER-5).
+
+		// Stamp the spec property name on the flag: the registered name may
+		// differ from the normalized property name after a collision rename
+		// (QA-MUSTER-041), and both the run handler and persistence need the
+		// real body key.
+		if f := cmd.Flags().Lookup(flagName); f != nil {
+			if f.Annotations == nil {
+				f.Annotations = map[string][]string{}
+			}
+			f.Annotations[AnnotationBodyProperty] = []string{bodyProp.Name}
+		}
 	}
 
+}
+
+// isBodyMethod reports whether an HTTP method can carry a request body that
+// generated flags populate. GET/HEAD/DELETE are excluded on purpose: Stripe's
+// spec declares empty urlencoded bodies for its 273 GETs and 32 DELETEs, and
+// turning those into body flags would send payloads to endpoints that read
+// query parameters only.
+func isBodyMethod(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+		return true
+	default:
+		return false
+	}
 }
 
 func (g *Generator) addStringFlag(cmd *cobra.Command, name, shorthand string, param *openapi.Parameter, description string) {
@@ -1205,21 +1311,45 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 				}
 				return executeAndPrint(g, builder, cmd, ctx)
 			}
-			// No file provided — fall through to JSON body path below
+
+			// QA-MUSTER-041: a multipart operation whose text fields were
+			// supplied but no file was — send those fields instead of
+			// falling through to a body path that has nothing to send.
+			fieldsSet := false
+			builder.WithContentType(request.ContentTypeMultipart)
+			for _, field := range op.MultipartFields {
+				flagName := g.normalizeFlagName(field.Name)
+				if cmd.Flag(flagName) != nil && cmd.Flag(flagName).Changed {
+					val, _ := cmd.Flags().GetString(flagName)
+					builder.WithMultipartField(field.Name, val)
+					fieldsSet = true
+				}
+			}
+			if fieldsSet {
+				return executeAndPrint(g, builder, cmd, ctx)
+			}
+			// No file and no fields — fall through to any non-multipart body.
 		}
 
-		// Build JSON body from request body property flags (for POST/PUT/PATCH)
-		if len(op.RequestBody) > 0 &&
-			(op.Method == http.MethodPost || op.Method == http.MethodPut || op.Method == http.MethodPatch) {
-			// Raw --body/-b JSON override (DF-MUSTER-5): when set, the
+		// Build the request body from body property flags (POST/PUT/PATCH).
+		// QA-MUSTER-041: the media type comes from the spec — a form-encoded
+		// body must be urlencoded and carry its own Content-Type, otherwise
+		// the values are dropped (JSON would be rejected by the API).
+		if (len(op.RequestBody) > 0 || op.BodyContentType != "") && isBodyMethod(op.Method) {
+			formBody := op.BodyContentType == openapi.ContentTypeForm
+			// Raw --body/-b override (DF-MUSTER-5): when set, the
 			// value is validated and sent verbatim; every per-property body
 			// flag below is ignored. Required properties are satisfied by
 			// the raw payload itself.
-			if rawBody, err := g.rawBodyValue(cmd); err != nil {
+			if rawBody, err := g.rawBodyValue(cmd, op.BodyContentType); err != nil {
 				return err
 			} else if rawBody != "" {
-				builder.JSONBody(rawBody)
-				builder.SetHeader("Content-Type", "application/json")
+				if formBody {
+					builder.RawBody(rawBody, request.ContentTypeFormEncoded)
+				} else {
+					builder.JSONBody(rawBody)
+					builder.SetHeader("Content-Type", "application/json")
+				}
 				return executeAndPrint(g, builder, cmd, ctx)
 			}
 
@@ -1236,6 +1366,9 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 
 			for _, bodyProp := range op.RequestBody {
 				flagName := g.normalizeFlagName(bodyProp.Name)
+				if flag := g.bodyPropertyFlag(cmd, bodyProp.Name); flag != nil {
+					flagName = flag.Name
+				}
 				if cmd.Flag(flagName) == nil {
 					continue
 				}
@@ -1295,12 +1428,18 @@ func (g *Generator) createRunHandler(op *openapi.Operation) func(*cobra.Command,
 			}
 
 			if hasBodyFlag {
-				bodyJSON, err := json.Marshal(bodyMap)
-				if err != nil {
-					return fmt.Errorf("marshal request body: %w", err)
+				if formBody {
+					// QA-MUSTER-041: urlencoded, repeated keys for arrays,
+					// bracket notation for nested objects.
+					builder.FormBody(request.FormValuesFromMap(bodyMap))
+				} else {
+					bodyJSON, err := json.Marshal(bodyMap)
+					if err != nil {
+						return fmt.Errorf("marshal request body: %w", err)
+					}
+					builder.JSONBody(string(bodyJSON))
+					builder.SetHeader("Content-Type", "application/json")
 				}
-				builder.JSONBody(string(bodyJSON))
-				builder.SetHeader("Content-Type", "application/json")
 			}
 		}
 
@@ -1319,11 +1458,15 @@ func parseObjectBodyValue(flagName, raw string) (interface{}, error) {
 	return parsed, nil
 }
 
-// rawBodyValue returns the --body/-b raw JSON request body when the flag is
-// set. The value is validated as JSON but returned verbatim — it is sent to
-// the wire exactly as the caller wrote it (DF-MUSTER-5). Returns ("", nil)
-// when the flag is absent or was not changed.
-func (g *Generator) rawBodyValue(cmd *cobra.Command) (string, error) {
+// rawBodyValue returns the --body/-b raw request body when the flag is set.
+// The value is validated against the operation's body media type but returned
+// verbatim — it is sent to the wire exactly as the caller wrote it
+// (DF-MUSTER-5). Returns ("", nil) when the flag is absent or was not changed.
+//
+// QA-MUSTER-041: for a form-encoded operation the raw body is
+// `key=value&key2=value2`, not JSON, and an empty/unparseable value is
+// rejected instead of silently sending Content-Length: 0.
+func (g *Generator) rawBodyValue(cmd *cobra.Command, contentType string) (string, error) {
 	flag := cmd.Flags().Lookup(RawBodyFlagName)
 	if flag == nil || !flag.Changed {
 		return "", nil
@@ -1331,6 +1474,12 @@ func (g *Generator) rawBodyValue(cmd *cobra.Command) (string, error) {
 	raw, err := cmd.Flags().GetString(RawBodyFlagName)
 	if err != nil {
 		return "", fmt.Errorf("get flag %s: %w", RawBodyFlagName, err)
+	}
+	if contentType == openapi.ContentTypeForm {
+		if _, err := request.ParseFormBody(raw); err != nil {
+			return "", fmt.Errorf("invalid body for --%s: %w", RawBodyFlagName, err)
+		}
+		return raw, nil
 	}
 	if !json.Valid([]byte(raw)) {
 		return "", fmt.Errorf("invalid JSON for --%s: value is not valid JSON (value: %q)", RawBodyFlagName, raw)

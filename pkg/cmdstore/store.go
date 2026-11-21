@@ -44,6 +44,11 @@ type CommandMetadata struct {
 	Example     string
 	Args        []string
 	Flags       []FlagMetadata
+	// ContentType is the request-body media type declared by the operation
+	// ("application/json", "application/x-www-form-urlencoded",
+	// "multipart/form-data"). Empty means JSON — the historical default —
+	// so command stores written before QA-MUSTER-041 keep their behavior.
+	ContentType string `json:"content_type,omitempty"`
 }
 
 // FlagKind classifies a flag as coming from path, query, header, or request body.

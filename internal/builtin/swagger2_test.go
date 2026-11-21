@@ -94,17 +94,35 @@ func TestGenerateCommand_Swagger2_StoreCarriesRealBaseURLAndFlags(t *testing.T) 
 		assert.True(t, updateFlags[prop], "body property %q must become a flag (definitions resolved)", prop)
 	}
 
-	// formData parameters convert into a urlencoded request body (proven
-	// at the document level in pkg/openapi). The generator renders
-	// per-property flags for multipart/form-data bodies only — measured
-	// pre-existing behavior, identical for a native 3.x document with the
-	// same body (the parity fixture pins it), so only the standard flags
-	// appear here. Rendering urlencoded properties is a generator-wide
-	// gap, out of PROTO-006's conversion scope.
+	// formData parameters convert into a urlencoded request body.
+	// QA-MUSTER-041: its properties ARE rendered as flags now, and the command
+	// records the body media type so a reloaded CLI sends urlencoded instead of
+	// Content-Length: 0. Before the fix the properties were silently dropped
+	// (measured pre-existing behavior, identical for a native 3.x document with
+	// the same body — see the parity fixture) and this test pinned that gap.
 	formFlags, ok := byName["update-pet-with-form"]
 	require.True(t, ok, "update-pet-with-form command should exist")
-	assert.False(t, formFlags["name"], "urlencoded body properties are not rendered as flags (parity with native 3.x)")
-	assert.True(t, formFlags["raw"], "raw --body flag is available for the form body")
+	assert.True(t, formFlags["name"], "urlencoded body property 'name' must become a flag")
+	assert.True(t, formFlags["status"], "urlencoded body property 'status' must become a flag")
+	assert.True(t, formFlags["body"], "raw --body flag is available for the form body")
+
+	var formMeta *cmdstore.CommandMetadata
+	for i := range sd.Commands {
+		if sd.Commands[i].Name == "update-pet-with-form" {
+			formMeta = &sd.Commands[i]
+			break
+		}
+	}
+	require.NotNil(t, formMeta)
+	assert.Equal(t, "application/x-www-form-urlencoded", formMeta.ContentType,
+		"the store must record the form media type so the reloaded CLI encodes it")
+	for _, f := range formMeta.Flags {
+		if f.Name == "name" || f.Name == "status" {
+			assert.Equal(t, cmdstore.FlagKindBody, f.Kind,
+				"flag %q must be tagged as a body property, not a query param", f.Name)
+			assert.Equal(t, f.Name, f.JSONName, "flag %q must carry its body key", f.Name)
+		}
+	}
 }
 
 func TestGenerateCommand_Swagger2PathsLess_FailsLoudly(t *testing.T) {

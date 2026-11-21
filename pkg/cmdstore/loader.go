@@ -142,7 +142,12 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 		}
 	}
 
-	// Add flags
+	// Add flags. --header is registered FIRST (below the loop used to do it
+	// after) so a persisted flag of the same name cannot panic pflag with
+	// "flag redefined: header" at CLI startup — a panic there hides every
+	// command, not just this one (QA-MUSTER-041).
+	cmd.Flags().StringSliceP("header", "H", nil, "Add HTTP header (format: 'Key: Value')")
+
 	for _, flagMeta := range meta.Flags {
 		// DF-016: --raw is a presentation flag the loader registers itself
 		// (below). Older stores persisted it as regular metadata (the
@@ -159,6 +164,14 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 		// persists WITHOUT FlagKindAuth (the generator only stamps the
 		// annotation when it registered the flag) and is unaffected.
 		if flagMeta.Kind == FlagKindAuth {
+			continue
+		}
+		// Defensive: a store written before the generator reserved the CLI's
+		// own flag names can still carry one (e.g. a `header` body property).
+		// Skipping it loses that one value; re-registering it would panic the
+		// whole CLI, which is strictly worse.
+		if cmd.Flags().Lookup(flagMeta.Name) != nil {
+			fmt.Fprintf(os.Stderr, "warning: skipping persisted flag --%s: the CLI already defines it\n", flagMeta.Name)
 			continue
 		}
 		switch flagMeta.Type {
@@ -189,9 +202,6 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 			_ = cmd.MarkFlagRequired(flagMeta.Name)
 		}
 	}
-
-	// Always add header flag support to every loaded command for auth
-	cmd.Flags().StringSliceP("header", "H", nil, "Add HTTP header (format: 'Key: Value')")
 
 	// DF-023: runtime credential attachment on reloaded commands. Register
 	// the loader's --auth flag ONLY when metadata does not already carry a
@@ -361,6 +371,30 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			return executeAndReadResponse(builder, cmd, ctx)
 		}
 
+		// QA-MUSTER-041: multipart operation with text fields but no --file.
+		// Sending the fields beats the old behavior of falling through to a
+		// body path that had nothing to send (Content-Length: 0).
+		if meta.ContentType == request.ContentTypeMultipart {
+			fieldsSet := false
+			builder.WithContentType(request.ContentTypeMultipart)
+			for _, flagMeta := range meta.Flags {
+				if flagMeta.Kind != FlagKindMultipart {
+					continue
+				}
+				if cmd.Flag(flagMeta.Name) == nil || !cmd.Flag(flagMeta.Name).Changed {
+					continue
+				}
+				val, _ := l.getFlagValue(cmd, flagMeta)
+				if val != nil {
+					builder.WithMultipartField(flagMeta.Name, fmt.Sprintf("%v", val))
+					fieldsSet = true
+				}
+			}
+			if fieldsSet {
+				return executeAndReadResponse(builder, cmd, ctx)
+			}
+		}
+
 		// Add query parameters from query-kind flags — only if explicitly set by user
 		for _, flagMeta := range queryFlags {
 			if cmd.Flag(flagMeta.Name) == nil || !cmd.Flag(flagMeta.Name).Changed {
@@ -387,16 +421,25 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			}
 		}
 
-		// Raw JSON body override (DF-MUSTER-5): when a raw-body flag
-		// (--body/-b) is set, its validated JSON is sent verbatim as the
+		// Raw body override (DF-MUSTER-5): when a raw-body flag
+		// (--body/-b) is set, its validated payload is sent verbatim as the
 		// request body and every per-property body flag is ignored. This
 		// mirrors pkg/generator.createRunHandler behavior on persisted
-		// (reloaded) commands.
+		// (reloaded) commands. QA-MUSTER-041: the payload is urlencoded —
+		// not JSON — for a form-encoded operation, and carries its own
+		// Content-Type.
 		for _, flagMeta := range rawBodyFlags {
 			if cmd.Flag(flagMeta.Name) == nil || !cmd.Flag(flagMeta.Name).Changed {
 				continue
 			}
 			raw, _ := cmd.Flags().GetString(flagMeta.Name)
+			if meta.ContentType == request.ContentTypeFormEncoded {
+				if _, err := request.ParseFormBody(raw); err != nil {
+					return fmt.Errorf("invalid body for --%s: %w", flagMeta.Name, err)
+				}
+				builder.RawBody(raw, request.ContentTypeFormEncoded)
+				return executeAndReadResponse(builder, cmd, ctx)
+			}
 			if !json.Valid([]byte(raw)) {
 				return fmt.Errorf("invalid JSON for --%s: value is not valid JSON (value: %q)", flagMeta.Name, raw)
 			}
@@ -405,7 +448,9 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			return executeAndReadResponse(builder, cmd, ctx)
 		}
 
-		// Build JSON body from body-kind flags (for POST/PUT/PATCH operations)
+		// Build the request body from body-kind flags (POST/PUT/PATCH).
+		// QA-MUSTER-041: the encoding follows meta.ContentType — a
+		// form-encoded operation must be urlencoded, never JSON.
 		if len(bodyFlags) > 0 &&
 			(meta.Method == http.MethodPost || meta.Method == http.MethodPut || meta.Method == http.MethodPatch) {
 			bodyMap := make(map[string]interface{})
@@ -431,12 +476,16 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 			}
 
 			if hasBody {
-				bodyJSON, err := json.Marshal(bodyMap)
-				if err != nil {
-					return fmt.Errorf("marshal request body: %w", err)
+				if meta.ContentType == request.ContentTypeFormEncoded {
+					builder.FormBody(request.FormValuesFromMap(bodyMap))
+				} else {
+					bodyJSON, err := json.Marshal(bodyMap)
+					if err != nil {
+						return fmt.Errorf("marshal request body: %w", err)
+					}
+					builder.JSONBody(string(bodyJSON))
+					builder.SetHeader("Content-Type", "application/json")
 				}
-				builder.JSONBody(string(bodyJSON))
-				builder.SetHeader("Content-Type", "application/json")
 			}
 		}
 
