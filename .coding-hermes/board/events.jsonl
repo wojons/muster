@@ -1148,3 +1148,4 @@
 {"id": 1795164467717878191, "timestamp": "2026-11-21 10:35:46.841734", "event_type": "task_updated", "task_id": "QA-MUSTER-13-R2", "actor": "foreman", "detail": "{\"status\":\"in_progress\"}", "tick_number": null}
 {"id": 1795164467717878192, "timestamp": "2026-11-21 10:35:47.017961", "event_type": "task_updated", "task_id": "QA-MUSTER-041", "actor": "foreman", "detail": "{\"status\":\"in_progress\"}", "tick_number": null}
 {"id": 1795164467717878193, "timestamp": "2026-11-21 10:35:47.282907", "event_type": "task_updated", "task_id": "QA-MUSTER-055", "actor": "foreman", "detail": "{\"status\":\"in_progress\"}", "tick_number": null}
+{"id": 1795164467717878194, "timestamp": "2026-11-21 10:51:04.594441", "event_type": "task_completed", "task_id": "INT-CI-013", "actor": "foreman", "detail": "{\"status\":\"complete\"}", "tick_number": null}
