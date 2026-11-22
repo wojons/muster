@@ -1157,3 +1157,4 @@
 {"id":1795164467717878199,"timestamp":"2026-11-21 23:29:40.177909","event_type":"task_updated","task_id":"QA-MUSTER-046","actor":"foreman","detail":"{\"status\":\"pending\"}"}
 {"id":1795164467717878200,"timestamp":"2026-11-22 05:37:58.647416","event_type":"task_completed","task_id":"QA-MUSTER-046","actor":"foreman","detail":"{\"status\":\"complete\"}"}
 {"id":1795164467717878201,"timestamp":"2026-11-22 05:38:20.350842","event_type":"task_created","task_id":"INT-CI-019","actor":"foreman","detail":"{\"id\":\"INT-CI-019\",\"status\":\"pending\"}"}
+{"id":1795164467717878202,"timestamp":"2026-11-22 16:26:57.280372","event_type":"task_updated","task_id":"QA-MUSTER-034","actor":"foreman","detail":"{\"status\":\"blocked\"}"}
