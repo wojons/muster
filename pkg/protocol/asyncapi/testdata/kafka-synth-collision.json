@@ -1,0 +1,20 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {"title": "Synth Collision", "version": "1.0.0"},
+  "servers": {"s1": {"host": "b:9092", "protocol": "kafka"}},
+  "channels": {
+    "c1": {"address": "topic-one", "messages": {"M": {"payload": {"type": "object"}}}}
+  },
+  "operations": {
+    "first": {
+      "action": "receive",
+      "channel": {"$ref": "#/channels/c1"},
+      "messages": [{"$ref": "#/channels/c1/messages/M"}]
+    },
+    "second": {
+      "action": "receive",
+      "channel": {"$ref": "#/channels/c1"},
+      "messages": [{"$ref": "#/channels/c1/messages/M"}]
+    }
+  }
+}

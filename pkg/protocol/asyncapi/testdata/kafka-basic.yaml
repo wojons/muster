@@ -1,0 +1,27 @@
+asyncapi: '3.0.0'
+info:
+  title: Fleet Events YAML
+  version: 0.9.0
+servers:
+  prod:
+    host: broker.example.com:9092
+    protocol: kafka
+channels:
+  userSignedup:
+    address: users-signedup
+    messages:
+      UserSignedUp:
+        payload:
+          type: object
+          properties:
+            userId:
+              type: string
+          required:
+            - userId
+operations:
+  notifySignup:
+    action: send
+    channel:
+      $ref: '#/channels/userSignedup'
+    messages:
+      - $ref: '#/channels/userSignedup/messages/UserSignedUp'

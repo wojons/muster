@@ -47,6 +47,7 @@ Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 	cmd.AddCommand(newProtocolJSONRPCCommand())
 	cmd.AddCommand(newProtocolGraphQLCommand())
 	cmd.AddCommand(newProtocolSOAPCommand())
+	cmd.AddCommand(newProtocolAsyncAPICommand())
 	// gRPC is mounted here so the documented protocol entry point lists every
 	// adapter; the root `grpc` command stays as the backwards-compatible form
 	// (specs/PROTOCOLS.md §5.1).

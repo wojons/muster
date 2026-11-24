@@ -1,0 +1,15 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {"title": "Broken Ref", "version": "1.0.0"},
+  "servers": {"s1": {"host": "b:9092", "protocol": "kafka"}},
+  "channels": {
+    "c1": {"address": "topic-one", "messages": {"M": {"payload": {"type": "object"}}}}
+  },
+  "operations": {
+    "op1": {
+      "action": "send",
+      "channel": {"$ref": "#/channels/missing"},
+      "messages": [{"$ref": "#/channels/c1/messages/M"}]
+    }
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "Fleet Events",
+    "version": "1.2.0",
+    "description": "Event-driven API for the fleet"
+  },
+  "servers": {
+    "prod": {
+      "host": "broker.example.com:9092",
+      "pathname": "",
+      "protocol": "kafka",
+      "description": "primary cluster",
+      "bindings": {
+        "kafka": {
+          "bootstrapServers": ["broker.example.com:9092"]
+        }
+      }
+    }
+  },
+  "channels": {
+    "userSignedup": {
+      "address": "users-signedup",
+      "messages": {
+        "UserSignedUp": {"$ref": "#/components/messages/UserSignedUp"}
+      },
+      "bindings": {
+        "kafka": {"topic": "users-signedup"}
+      }
+    },
+    "orderEvents": {
+      "address": "orders-{orderId}",
+      "parameters": {
+        "orderId": {
+          "description": "order identifier",
+          "schema": {"type": "string"},
+          "required": true
+        }
+      },
+      "messages": {
+        "OrderEvent": {"$ref": "#/components/messages/OrderEvent"}
+      }
+    }
+  },
+  "operations": {
+    "notifyOrder": {
+      "action": "send",
+      "channel": {"$ref": "#/channels/orderEvents"},
+      "messages": [
+        {"$ref": "#/channels/orderEvents/messages/OrderEvent"},
+        {"$ref": "#/components/messages/AuditTrail"}
+      ]
+    },
+    "notifySignup": {
+      "action": "send",
+      "channel": {"$ref": "#/channels/userSignedup"},
+      "messages": [{"$ref": "#/channels/userSignedup/messages/UserSignedUp"}],
+      "operationId": "sendUserSignedUp_v1",
+      "summary": "Publish a signup event",
+      "tags": [{"name": "users"}],
+      "security": [{"saslScram": []}],
+      "bindings": {"kafka": {"clientId": "fixture-client"}}
+    },
+    "watchOrders": {
+      "action": "receive",
+      "channel": {"$ref": "#/channels/orderEvents"},
+      "messages": [{"$ref": "#/channels/orderEvents/messages/OrderEvent"}]
+    },
+    "watchSignups": {
+      "action": "receive",
+      "channel": {"$ref": "#/channels/userSignedup"},
+      "messages": [{"$ref": "#/channels/userSignedup/messages/UserSignedUp"}],
+      "bindings": {"kafka": {"groupId": "durable-watchers"}}
+    }
+  },
+  "components": {
+    "messages": {
+      "UserSignedUp": {
+        "headers": {
+          "type": "object",
+          "properties": {
+            "trace-id": {"type": "string", "description": "correlation id"}
+          },
+          "required": ["trace-id"]
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "userId": {"type": "string", "description": "who signed up"},
+            "email": {"type": "string"}
+          },
+          "required": ["userId"]
+        },
+        "bindings": {"kafka": {"key": {"type": "string"}}}
+      },
+      "OrderEvent": {
+        "payload": {
+          "type": "object",
+          "properties": {
+            "orderId": {"type": "string"},
+            "amount": {"type": "number"}
+          },
+          "required": ["orderId"]
+        }
+      },
+      "AuditTrail": {
+        "payload": {"$ref": "#/components/schemas/AuditBlob"}
+      }
+    },
+    "schemas": {
+      "AuditBlob": {"type": "object", "description": "opaque audit blob"}
+    },
+    "securitySchemes": {
+      "saslScram": {
+        "type": "scramSha256",
+        "description": "SASL SCRAM over TLS"
+      }
+    }
+  }
+}
