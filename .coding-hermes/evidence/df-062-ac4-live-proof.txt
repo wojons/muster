@@ -1,0 +1,3 @@
+dict body           -> status 201
+json() encoded body -> status 201
+headers dict        -> status 200

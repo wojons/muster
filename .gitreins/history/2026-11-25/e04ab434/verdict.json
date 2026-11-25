@@ -1,0 +1,278 @@
+{
+  "task_id": "DF-062",
+  "task_title": "starlark-dsl guide matches shipped DSL: signatures, marshalling, json() encoder + drift guard",
+  "task_criteria": [
+    "PROOF: go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/ passes at the integrated tip, and docs/guides/starlark-dsl.md contains the exact signatures http_get(url, headers=None) and json(value) plus a committed runnable example script demo/scripts/dsl-builtins.star making the three documented calls. FAILIF: the drift test is absent from internal/builtin/, or it passes while the guide omits any builtin signature that dsl run --help prints, or the guide names a builtin the binary does not ship."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/wojons/muster",
+  "branch": "main",
+  "commit": "e213094715c2cdd03579f6f4a9a92074f9f04511",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "52ed69a2c6ff05f730ddd0efdaa02ccb7e2969254f0e71eb512bdf4f4cec5fe5",
+  "working_tree_dirty_path_count": 7,
+  "items": [
+    {
+      "criterion": "PROOF: go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/ passes at the integrated tip, and docs/guides/starlark-dsl.md contains the exact signatures http_get(url, headers=None) and json(value) plus a committed runnable example script demo/scripts/dsl-builtins.star making the three documented calls. FAILIF: the drift test is absent from internal/builtin/, or it passes while the guide omits any builtin signature that dsl run --help prints, or the guide names a builtin the binary does not ship.",
+      "status": "PASS",
+      "detail": "Ran `go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/` (exit_code=0): '--- PASS: TestDslGuideBuiltinDrift', 'ok github.com/wojons/muster/internal/builtin 0.023s'; the drift test exists at internal/builtin/dsl_docs_drift_test.go (TestDslGuideBuiltinDrift). docs/guides/starlark-dsl.md:72 contains the exact line 'http_get(url, headers=None) -> (status, body)' and :76 contains 'json(value) -> string', byte-identical to the help text the command renders (internal/builtin/dsl.go:30-34), and all five shipped signatures (http_get/http_post/http_put/http_delete/json, wired into the script environment at dsl.go:71-75) appear at guide lines 72-76. demo/scripts/dsl-builtins.star is committed and runnable end-to-end: I built ./cmd/openapi-cli and ran it against a stub of the documented Task Forge endpoints (the bundled server needs flask, unavailable here), exit 0 with the three expected status lines, server-side log showing exactly the three documented calls \u2014 POST dict body marshalled to JSON with CT=application/json, POST payload pre-encoded via json(), GET with headers dict. FAILIF clause 2 (guide omits a printed signature) is clear: the test extracts signatures from the rendered help itself and enforces each one. FAILIF clause 3 (guide names a builtin the binary lacks) is clear: grep over the guide for http_/json_ identifiers shows only the five shipped names; the guard also rejects phantom names via dslPhantomNamesRe. Extra teeth proven two ways: the committed pre-fix fixture testdata/starlark-dsl-prefix.md must produce a missing-signature error, and my own mutation check \u2014 editing the guide's http_get signature made the test FAIL with 'guide is missing the shipped builtin signature \"http_get(url, headers=None) -> (status, body)\"', after which I restored the file (git status clean)."
+    },
+    {
+      "criterion": "Derived: the example script runs end-to-end through the shipped `dsl run` command \u2014 the .star file parses, the builtin names it calls exist in the binary's script environment, and the requests it sends match the guide's documented shapes (dict body marshalled to JSON, json() pre-encoded string body, headers dict on http_get)",
+      "status": "PASS",
+      "detail": "Built the CLI (`go build -o tmp/openapi-cli-eval ./cmd/openapi-cli`, succeeded), started a stub replicating the endpoints the script targets since the bundled demo/services/task-forge/server.py cannot start in this env ('ModuleNotFoundError: No module named flask' in tmp/tf.log), then ran `./tmp/openapi-cli-eval dsl run demo/scripts/dsl-builtins.star`: exit code 0, stdout exactly 'dict body -> status 201', 'json() encoded body -> status 201', 'headers dict -> status 200'. The stub's log proves the wire behavior matches the guide: 'POST /projects/1/tasks CT=application/json BODY={\"priority\":\"low\",\"title\":\"Wire the DSL builtins example\"}', 'POST /projects/1/tasks CT=application/json BODY={\"priority\":\"low\",\"title\":\"Document the json() encoder\"}', 'GET /tasks X-Dsl-Example=headers' \u2014 dict marshalled by the builtin, json() pre-encoding produces a valid string body, headers dict transmitted. Also confirmed json() behaves as documented via the same binary: `dsl run tmp/jtest.star` printing json([1,2]) and json(None) outputs '[1,2]' and 'null' (exit 0).",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 secrets: \u25cb\n  \u2713 lint: ok (no output)\n  \u2713 tests: ok  \tgithub.com/wojons/muster/alertmanager\t0.048s",
+      "steps": [
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n9:45PM INF scanned ~29034462 bytes (29.03 MB) in 4.94s\n9:45PM INF no leaks found\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "ok  \tgithub.com/wojons/muster/alertmanager\t0.048s\nok  \tgithub.com/wojons/muster/cmd/daemon\t24.674s\nok  \tgithub.com/wojons/muster/cmd/mcp-server\t26.174s\nok  \tgithub.com/wojons/muster/cmd/openapi-cli\t4.616s\n?   \tgithub.com/wojons/muster/demo/services/transport-fixture\t[no test files]\nok  \tgithub.com/wojons/muster/demo/test-suites\t17.004s\nok  \tgithub.com/wojons/muster/deployments/backup\t0.176s\nok  \tgithub.com/wojons/muster/deployments/scripts\t0.775s\n?   \tgithub.com/wojons/muster/exploits/auth\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/network\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/ratelimit\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/symlink\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/wasm\t[no test files]\nok  \tgithub.com/wojons/muster/internal/audit\t0.182s\nok  \tgithub.com/wojons/muster/internal/builtin\t15.547s\nok  \tgithub.com/wojons/muster/internal/monitoring\t0.448s\n?   \tgithub.com/wojons/muster/internal/platform/linux\t[no test files]\nok  \tgithub.com/wojons/muster/internal/telemetry\t0.018s\nok  \tgithub.com/wojons/muster/internal/version\t0.024s\nok  \tgithub.com/wojons/muster/packaging\t0.263s\nok  \tgithub.com/wojons/muster/pkg/auth\t15.953s\nok  \tgithub.com/wojons/muster/pkg/auth/ratelimit\t0.339s\nok  \tgithub.com/wojons/muster/pkg/cache\t0.424s\nok  \tgithub.com/wojons/muster/pkg/cli\t0.009s\nok  \tgithub.com/wojons/muster/pkg/client\t6.014s\nok  \tgithub.com/wojons/muster/pkg/cmdstore\t0.669s\nok  \tgithub.com/wojons/muster/pkg/completion\t0.493s\nok  \tgithub.com/wojons/muster/pkg/config\t0.071s\nok  \tgithub.com/wojons/muster/pkg/daemon\t0.549s\nok  \tgithub.com/wojons/muster/pkg/dsl\t0.025s\nok  \tgithub.com/wojons/muster/pkg/errors\t0.014s\nok  \tgithub.com/wojons/muster/pkg/generator\t0.759s\nok  \tgithub.com/wojons/muster/pkg/log\t0.039s\nok  \tgithub.com/wojons/muster/pkg/mcp\t2.484s\nok  \tgithub.com/wojons/muster/pkg/mcp/handlers\t0.034s\nok  \tgithub.com/wojons/muster/pkg/openapi\t1.017s\nok  \tgithub.com/wojons/muster/pkg/protocol\t0.016s\nok  \tgithub.com/wojons/muster/pkg/protocol/asyncapi\t11.267s\nok  \tgithub.com/wojons/muster/pkg/protocol/asyncapi/kafkatest\t11.231s\nok  \tgithub.com/wojons/muster/pkg/protocol/graphql\t4.286s\nok  \tgithub.com/wojons/muster/pkg/protocol/grpc\t0.905s\nok  \tgithub.com/wojons/muster/pkg/protocol/jsonrpc\t1.024s\nok  \tgithub.com/wojons/muster/pkg/protocol/soap\t0.098s\nok  \tgithub.com/wojons/muster/pkg/rate\t0.488s\nok  \tgithub.com/wojons/muster/pkg/repository\t0.138s\nok  \tgithub.com/wojons/muster/pkg/repository/sql\t0.231s\nok  \tgithub.com/wojons/muster/pkg/request\t7.978s\nok  \tgithub.com/wojons/muster/pkg/response\t0.016s\nok  \tgithub.com/wojons/muster/pkg/retry\t0.073s\nok  \tgithub.com/wojons/muster/pkg/wasm\t0.722s\nok  \tgithub.com/wojons/muster/test/benchmarks\t0.027s\nok  \tgithub.com/wojons/muster/test/buildscript\t0.064s\nok  \tgithub.com/wojons/muster/test/docker\t4.887s\nok  \tgithub.com/wojons/muster/test/e2e\t15.603s\nok  \tgithub.com/wojons/muster/test/functional/behaviors\t0.061s\n?   \tgithub.com/wojons/muster/test/functional/harness\t[no test files]\nok  \tgithub.com/wojons/muster/test/functional/states\t0.019s\nok  \tgithub.com/wojons/muster/test/functional/workflows\t0.054s\nok  \tgithub.com/wojons/muster/test/production\t8.139s\nok  \tgithub.com/wojons/muster/test/upgrade\t0.023s\n?   \tgithub.com/wojons/muster/test/util\t[no test files]\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PROOF: go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/ passes at the integrated tip, and docs/guides/starlark-dsl.md contains the exact signatures http_get(url, headers=None) and json(value) plus a committed runnable example script demo/scripts/dsl-builtins.star making the three documented calls. FAILIF: the drift test is absent from internal/builtin/, or it passes while the guide omits any builtin signature that dsl run --help prints, or the guide names a builtin the binary does not ship.: Ran `go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/` (exit_code=0): '--- PASS: TestDslGuideBuiltinDrift', 'ok github.com/wojons/muster/internal/builtin 0.023s'; the drift test exists at internal/builtin/dsl_docs_drift_test.go (TestDslGuideBuiltinDrift). docs/guides/starlark-dsl.md:72 contains the exact line 'http_get(url, headers=None) -> (status, body)' and :76 contains 'json(value) -> string', byte-identical to the help text the command renders (internal/builtin/dsl.go:30-34), and all five shipped signatures (http_get/http_post/http_put/http_delete/json, wired into the script environment at dsl.go:71-75) appear at guide lines 72-76. demo/scripts/dsl-builtins.star is committed and runnable end-to-end: I built ./cmd/openapi-cli and ran it against a stub of the documented Task Forge endpoints (the bundled server needs flask, unavailable here), exit 0 with the three expected status lines, server-side log showing exactly the three documented calls \u2014 POST dict body marshalled to JSON with CT=application/json, POST payload pre-encoded via json(), GET with headers dict. FAILIF clause 2 (guide omits a printed signature) is clear: the test extracts signatures from the rendered help itself and enforces each one. FAILIF clause 3 (guide names a builtin the binary lacks) is clear: grep over the guide for http_/json_ identifiers shows only the five shipped names; the guard also rejects phantom names via dslPhantomNamesRe. Extra teeth proven two ways: the committed pre-fix fixture testdata/starlark-dsl-prefix.md must produce a missing-signature error, and my own mutation check \u2014 editing the guide's http_get signature made the test FAIL with 'guide is missing the shipped builtin signature \"http_get(url, headers=None) -> (status, body)\"', after which I restored the file (git status clean).\n  \u2713 Derived: the example script runs end-to-end through the shipped `dsl run` command \u2014 the .star file parses, the builtin names it calls exist in the binary's script environment, and the requests it sends match the guide's documented shapes (dict body marshalled to JSON, json() pre-encoded string body, headers dict on http_get): Built the CLI (`go build -o tmp/openapi-cli-eval ./cmd/openapi-cli`, succeeded), started a stub replicating the endpoints the script targets since the bundled demo/services/task-forge/server.py cannot start in this env ('ModuleNotFoundError: No module named flask' in tmp/tf.log), then ran `./tmp/openapi-cli-eval dsl run demo/scripts/dsl-builtins.star`: exit code 0, stdout exactly 'dict body -> status 201', 'json() encoded body -> status 201', 'headers dict -> status 200'. The stub's log proves the wire behavior matches the guide: 'POST /projects/1/tasks CT=application/json BODY={\"priority\":\"low\",\"title\":\"Wire the DSL builtins example\"}', 'POST /projects/1/tasks CT=application/json BODY={\"priority\":\"low\",\"title\":\"Document the json() encoder\"}', 'GET /tasks X-Dsl-Example=headers' \u2014 dict marshalled by the builtin, json() pre-encoding produces a valid string body, headers dict transmitted. Also confirmed json() behaves as documented via the same binary: `dsl run tmp/jtest.star` printing json([1,2]) and json(None) outputs '[1,2]' and 'null' (exit 0).\nDrift guard test passes fresh at the tip and provably bites (mutation + fixture), the guide carries all five help-printed signatures verbatim and names no phantom builtins, and the committed example script was verified end-to-end through the shipped CLI making exactly the three documented calls. [uncovered failure paths: failure mode 0 (The bundled Task Forge demo service requires the flask package, which is not installed in every environment, so a user following the guide's run instructions verbatim may hit ModuleNotFoundError before the script runs): detected_by is empty \u2014 uncovered failure path]",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n\n\u2026 [3752 chars omitted \u2014 2 line(s)] \u2026\nDrift guard test passes fresh at the tip and provably bites (mutation + fixture), the guide carries all five help-printed signatures verbatim and names no phantom builtins, and the committed example script was verified end-to-end through the shipped CLI making exactly the three documented calls. [uncovered failure paths: failure mode 0 (The bundled Task Forge demo service requires the flask package, which is not installed in every environment, so a user following the guide's run instructions verbatim may hit ModuleNotFoundError before the script runs): detected_by is empty \u2014 uncovered failure path]",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PROOF: go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/ passes at the integrated tip, and docs/guides/starlark-dsl.md contains the exact signatures http_get(url, headers=None) and json(value) plus a committed runnable example script demo/scripts/dsl-builtins.star making the three documented calls. FAILIF: the drift test is absent from internal/builtin/, or it passes while the guide omits any builtin signature that dsl run --help prints, or the guide names a builtin the binary does not ship.",
+                "status": "PASS",
+                "detail": "Ran `go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/` (exit_code=0): '--- PASS: TestDslGuideBuiltinDrift', 'ok github.com/wojons/muster/internal/builtin 0.023s'; the drift test exists at internal/builtin/dsl_docs_drift_test.go (TestDslGuideBuiltinDrift). docs/guides/starlark-dsl.md:72 contains the exact line 'http_get(url, headers=None) -> (status, body)' and :76 contains 'json(value) -> string', byte-identical to the help text the command renders (internal/builtin/dsl.go:30-34), and all five shipped signatures (http_get/http_post/http_put/http_delete/json, wired into the script environment at dsl.go:71-75) appear at guide lines 72-76. demo/scripts/dsl-builtins.star is committed and runnable end-to-end: I built ./cmd/openapi-cli and ran it against a stub of the documented Task Forge endpoints (the bundled server needs flask, unavailable here), exit 0 with the three expected status lines, server-side log showing exactly the three documented calls \u2014 POST dict body marshalled to JSON with CT=application/json, POST payload pre-encoded via json(), GET with headers dict. FAILIF clause 2 (guide omits a printed signature) is clear: the test extracts signatures from the rendered help itself and enforces each one. FAILIF clause 3 (guide names a builtin the binary lacks) is clear: grep over the guide for http_/json_ identifiers shows only the five shipped names; the guard also rejects phantom names via dslPhantomNamesRe. Extra teeth proven two ways: the committed pre-fix fixture testdata/starlark-dsl-prefix.md must produce a missing-signature error, and my own mutation check \u2014 editing the guide's http_get signature made the test FAIL with 'guide is missing the shipped builtin signature \"http_get(url, headers=None) -> (status, body)\"', after which I restored the file (git status clean)."
+              },
+              {
+                "criterion": "Derived: the example script runs end-to-end through the shipped `dsl run` command \u2014 the .star file parses, the builtin names it calls exist in the binary's script environment, and the requests it sends match the guide's documented shapes (dict body marshalled to JSON, json() pre-encoded string body, headers dict on http_get)",
+                "status": "PASS",
+                "detail": "Built the CLI (`go build -o tmp/openapi-cli-eval ./cmd/openapi-cli`, succeeded), started a stub replicating the endpoints the script targets since the bundled demo/services/task-forge/server.py cannot start in this env ('ModuleNotFoundError: No module named flask' in tmp/tf.log), then ran `./tmp/openapi-cli-eval dsl run demo/scripts/dsl-builtins.star`: exit code 0, stdout exactly 'dict body -> status 201', 'json() encoded body -> status 201', 'headers dict -> status 200'. The stub's log proves the wire behavior matches the guide: 'POST /projects/1/tasks CT=application/json BODY={\"priority\":\"low\",\"title\":\"Wire the DSL builtins example\"}', 'POST /projects/1/tasks CT=application/json BODY={\"priority\":\"low\",\"title\":\"Document the json() encoder\"}', 'GET /tasks X-Dsl-Example=headers' \u2014 dict marshalled by the builtin, json() pre-encoding produces a valid string body, headers dict transmitted. Also confirmed json() behaves as documented via the same binary: `dsl run tmp/jtest.star` printing json([1,2]) and json(None) outputs '[1,2]' and 'null' (exit 0).",
+                "derived": true
+              }
+            ],
+            "summary": "Drift guard test passes fresh at the tip and provably bites (mutation + fixture), the guide carries all five help-printed signatures verbatim and names no phantom builtins, and the committed example script was verified end-to-end through the shipped CLI making exactly the three documented calls. [uncovered failure paths: failure mode 0 (The bundled Task Forge demo service requires the flask package, which is not installed in every environment, so a user following the guide's run instructions verbatim may hit ModuleNotFoundError before the script runs): detected_by is empty \u2014 uncovered failure path]",
+            "provenance": {
+              "model": "glm-5.3-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            },
+            "context_stats": {
+              "diff_source": "first-parent-merge",
+              "diff_bytes": 37647,
+              "prompt_bytes": 32065
+            }
+          }
+        }
+      ],
+      "model": "glm-5.3-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "context_stats": {
+        "diff_source": "first-parent-merge",
+        "diff_bytes": 37647,
+        "prompt_bytes": 32065
+      },
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"DF-062\"}",
+          "exit_code": 0,
+          "output_sha": "68ec7ba8873ca3ce0a7c76ff3ffcd5c5a5be34b2b9b50f65877cd3c1635f59e1"
+        },
+        {
+          "tool": "run_command",
+          "command": "ls && cat .gitreins/config.yaml 2>/dev/null | head -50",
+          "exit_code": 0,
+          "output_sha": "058ef46def8c62d7f4daae0122f501e73d6faf8ecfff9f83fc10ee47a80f1fc6"
+        },
+        {
+          "tool": "run_command",
+          "command": "go test -short -count=1 -run TestDslGuideBuiltinDrift -v ./internal/builtin/ 2>&1 | tail -30",
+          "exit_code": 0,
+          "output_sha": "2389dc8c6a295ad4e9f4849c0d3f94b5d65678d6f25cdcebfac633a7203b8665"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"internal/builtin/dsl.go\", \"regex\": \"http_get|http_post|http_put|http_delete|json\\\\(|dslRunHelp\"}",
+          "exit_code": 0,
+          "output_sha": "e2a285c3c74bb172e1a13e5b6387191410c0c736e9289a5f2376ab42d08f597d"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 130, \"path\": \"internal/builtin/dsl.go\"}",
+          "exit_code": 0,
+          "output_sha": "a2bb0a36275368a0cbc87f9f29d2b82346161eab0cf259f6fa5a140a6d176dda"
+        },
+        {
+          "tool": "run_command",
+          "command": "grep -nE 'http_[a-z]|json_[a-z]' docs/guides/starlark-dsl.md | head -40; echo ---; grep -nE '^\\s*(http_get|http_post|http_put|http_delete|json)\\(' docs/guides/starlark-dsl.md",
+          "exit_code": 0,
+          "output_sha": "51101cb00b7d1d05ef12cb4d9573f3c139149de6c1a97638f310fc9548d4844a"
+        },
+        {
+          "tool": "run_command",
+          "command": "go build -o tmp/openapi-cli-eval ./cmd/openapi-cli 2>&1 | tail -5; ls -la tmp/openapi-cli-eval; ls demo/services/task-forge/ 2>/dev/null",
+          "exit_code": 0,
+          "output_sha": "76258712c869609061f8b5f0a54f92d8bef9dca2c28303c86666f83726aa5aa3"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 80, \"offset\": 255, \"path\": \"docs/guides/starlark-dsl.md\"}",
+          "exit_code": 0,
+          "output_sha": "eeb13054ffcc3412565ee34527cdb3782f932a247cc319d28372b2375c77d321"
+        },
+        {
+          "tool": "run_command",
+          "command": "cd /home/kara && (python3 demo/services/task-forge/server.py 9801 >tmp/tf.log 2>&1 &) && sleep 2 && python3 demo/services/task-forge/seed.py 9801 && sleep 1 && ./tmp/openapi-cli-eval dsl run demo/scripts/dsl-builtins.star; echo \"EXIT=$?\"",
+          "exit_code": 0,
+          "output_sha": "15f15d531fec6311d326f41c89e8dd4d4647bfdd5fd33b54236004253cace39f"
+        },
+        {
+          "tool": "run_command",
+          "command": "pwd && pkill -f 'task-forge/server.py' ; true",
+          "exit_code": 0,
+          "output_sha": "9da6563d5920b1b0a73cbd51def4c2af633be77c19d880d28cc6f09d17ed3f18"
+        },
+        {
+          "tool": "run_command",
+          "command": "(python3 demo/services/task-forge/server.py 9801 >tmp/tf.log 2>&1 &) && sleep 2 && python3 demo/services/task-forge/seed.py 9801 && sleep 1 && ./tmp/openapi-cli-eval dsl run demo/scripts/dsl-builtins.star; echo \"EXIT=$?\"; pkill -f '[t]ask-forge/server.py'; true",
+          "exit_code": -15,
+          "output_sha": "6b722c086ce4a265127996fa9d95e8ca0df28b4e52477b24f66e618f09331740"
+        },
+        {
+          "tool": "run_command",
+          "command": "cat tmp/tf.log 2>/dev/null | tail -20; echo \"--- try again with longer wait ---\"; (python3 demo/services/task-forge/server.py 9801 >tmp/tf.log 2>&1 &) ; sleep 6; cat tmp/tf.log | tail -5; curl -s -o /dev/null -w \"%{http_code}\\n\" http://localhost:9801/tasks",
+          "exit_code": 7,
+          "output_sha": "b835c0de868b454f8ee67fdf58da0847ae63f8aff8e3ee6bfcda9b1db5e8c5db"
+        },
+        {
+          "tool": "run_command",
+          "command": "cat > tmp/tf_stub.py <<'EOF'\nimport json\nfrom http.server import BaseHTTPRequestHandler, HTTPServer\n\nclass H(BaseHTTPRequestHandler):\n    def log_message(self, *a): pass\n    def _send(self, code, obj):\n        b = json.dumps(obj).encode()\n        self.send_response(code)\n        self.send_header(\"Content-Type\", \"application/json\")\n        self.send_header(\"Content-Length\", str(len(b)))\n        self.end_headers()\n        self.wfile.write(b)\n    def do_POST(self):\n        n = int(self.headers.get(\"Content-Length\", 0))\n        body = self.rfile.read(n)\n        ct = self.headers.get(\"Content-Type\")\n        print(f\"POST {self.path} CT={ct} BODY={body.decode()}\", flush=True)\n        d = json.loads(body) if body else {}\n        if self.path == \"/projects/1/tasks\" and d.get(\"title\"):\n            self._send(201, {\"id\": 7, \"title\": d[\"title\"], \"priority\": d.get(\"priority\", \"medium\")})\n        else:\n            self._send(404, {\"error\": \"not found\"})\n    def do_GET(self):\n        hdr = self.headers.get(\"X-Dsl-Example\")\n        print(f\"GET {self.path} X-Dsl-Example={hdr}\", flush=True)\n        self._send(200, {\"tasks\": [], \"got_header\": hdr})\n\nHTTPServer((\"127.0.0.1\", 9801), H).serve_forever()\nEOF\n(python3 tmp/tf_stub.py >tmp/tf_stub.log 2>&1 &); sleep 2; ./tmp/openapi-cli-eval dsl run demo/scripts/dsl-builtins.star; echo \"EXIT=$?\"; echo \"--- server saw ---\"; cat tmp/tf_stub.log; pkill -f '[t]f_stub.py'; true",
+          "exit_code": -15,
+          "output_sha": "fe392d112405762059b7b67bde82846954dca14dffc9a72e29a63dbf206fe9b9"
+        },
+        {
+          "tool": "run_command",
+          "command": "./tmp/openapi-cli-eval dsl run <(echo 'print(json([1, 2])); print(json(None))') 2>&1 | head -5; echo ---; grep -n 'curl' docs/guides/starlark-dsl.md | head; echo ---; grep -rn 'testdata/starlark-dsl-prefix' internal/builtin/ | head -5; git log --oneline -5 2>/dev/null | cat",
+          "exit_code": 2,
+          "output_sha": "8bf1ed2010302587c5363c5d5929807a373baa33b5dc42ebdeb536843e0e3e60"
+        },
+        {
+          "tool": "run_command",
+          "command": "go vet ./internal/builtin/ && gofmt -l internal/builtin/ demo/scripts/ 2>/dev/null; echo \"VET_GOFMT_DONE\"; git status --porcelain | grep -v '^??' | head; git status --porcelain | head -20",
+          "exit_code": 0,
+          "output_sha": "7f835d03cd7bf85b64b7cbdab4a83335b8558337e7d2fde1f9ada2fa45bc1f60"
+        },
+        {
+          "tool": "run_command",
+          "command": "printf 'print(json([1, 2])); print(json(None))' > tmp/jtest.star && ./tmp/openapi-cli-eval dsl run tmp/jtest.star; echo \"EXIT=$?\"; echo ---; grep -n 'curl' docs/guides/starlark-dsl.md | head; echo ---; grep -rln 'starlark-dsl-prefix' internal/builtin/ | head; git log --oneline -3 2>/dev/null | cat",
+          "exit_code": 0,
+          "output_sha": "e99b7038aa62541d54eec6bf9d3f52f675f0fdb6af58032cccb3af0221eefb0d"
+        },
+        {
+          "tool": "run_command",
+          "command": "sed -n 380,470p docs/guides/starlark-dsl.md",
+          "exit_code": 0,
+          "output_sha": "dff44dd8bf754f6a44a07c705f2791a1e6f97cb065987fd2f0c5875e9aa447bd"
+        },
+        {
+          "tool": "run_command",
+          "command": "git status --porcelain docs/guides/starlark-dsl.md; sed -i 's|http_get(url, headers=None) -> (status, body)|http_get(url) -> (status, body)|' docs/guides/starlark-dsl.md && go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/ 2>&1 | tail -4; echo \"MUTATED_RUN_EXIT_ABOVE\"; git checkout -- docs/guides/starlark-dsl.md && git status --porcelain docs/guides/starlark-dsl.md; echo RESTORED",
+          "exit_code": 0,
+          "output_sha": "c88ab261dfb41798bd6a5dd691c98952a7f992e240c803ce5d0781353eaf6554"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: (a) `go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/` exit_code=0, \\\"--- PASS: TestDslGuideBuiltinDrift\\\"; drift guard exists at internal/builtin/dsl_docs_drift_test.go (TestDslGuideBuiltinDrift), not absent. (b) docs/guides/starlark-dsl.md:72 contains exact `http_get(url, headers=None) -> (status, body)` and :76 contains exact `json(value) -> string` \\u2014 byte-identical to the help text printed by internal/builtin/dsl.go:30-34; all five shipped signatures (http_get/post/put/delete/json, wired at dsl.go:71-75) appear at guide lines 72-76. (c) demo/scripts/dsl-builtins.star committed; verified runnable end-to-end: built ./cmd/openapi-cli, stubbed the Task Forge endpoints (flask missing in this env), and `openapi-cli dsl run demo/scripts/dsl-builtins.star` exited 0 printing all three documented status lines; stub server log confirms the three documented calls: POST dict body (marshalled to JSON, CT=application/json), POST payload pre-encoded via json(), GET with headers dict X-Dsl-Example=headers. FAILIF checks clear: guide names no phantom builtin (grep http_/json_ identifiers shows only the five shipped names); guard proven to bite via committed prefix fixture AND by mutation test \\u2014 editing the guide's http_get signature made the test FAIL with `guide is missing the shipped builtin signature \\\"http_get(url, headers=None) -> (status, body)\\\"`, then restored via git checkout (working tree clean).\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "7c54646e7f9a726f9f557c4ae1f3b7c3ec0910995719436ddf3c4082c01e4f8f"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"Derived criterion: the example script must run end-to-end through the shipped `dsl run` command \\u2014 the star file parses, the builtin names it calls exist in the binary's script environment, and the requests it sends match the guide's documented shapes (dict body marshalled to JSON, json() pre-encoded string body, headers dict on http_get). Evidence: built ./cmd/openapi-cli, ran `./tmp/openapi-cli-eval dsl run demo/scripts/dsl-builtins.star` against a stub of the documented Task Forge endpoints (bundled flask server cannot start here: ModuleNotFoundError: No module named 'flask'); exit 0 with the three expected status lines, server-side log shows exactly the three documented calls with the documented encodings.\", \"key\": \"derived_0\"}",
+          "exit_code": 0,
+          "output_sha": "7f64d34e9f141ff0128d5f03bb5f8ef522b2272dcb835b52a453b18b90d57733"
+        }
+      ]
+    }
+  },
+  "context_stats": {
+    "diff_source": "first-parent-merge",
+    "diff_bytes": 37647,
+    "prompt_bytes": 32065
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "",
+    "error": "no diff to review (clean tree, no commit anchor)",
+    "review_state": {
+      "emitted": [],
+      "carried": []
+    }
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 secrets: \u25cb\n  \u2713 lint: ok (no output)\n  \u2713 tests: ok  \tgithub.com/wojons/muster/alertmanager\t0.048s\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PROOF: go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/ passes at the integrated tip, and docs/guides/starlark-dsl.md contains the exact signatures http_get(url, headers=None) and json(value) plus a committed runnable example script demo/scripts/dsl-builtins.star making the three documented calls. FAILIF: the drift test is absent from internal/builtin/, or it passes while the guide omits any builtin signature that dsl run --help prints, or the guide names a builtin the binary does not ship.: Ran `go test -short -count=1 -run TestDslGuideBuiltinDrift ./internal/builtin/` (exit_code=0): '--- PASS: TestDslGuideBuiltinDrift', 'ok github.com/wojons/muster/internal/builtin 0.023s'; the drift test exists at internal/builtin/dsl_docs_drift_test.go (TestDslGuideBuiltinDrift). docs/guides/starlark-dsl.md:72 contains the exact line 'http_get(url, headers=None) -> (status, body)' and :76 contains 'json(value) -> string', byte-identical to the help text the command renders (internal/builtin/dsl.go:30-34), and all five shipped signatures (http_get/http_post/http_put/http_delete/json, wired into the script environment at dsl.go:71-75) appear at guide lines 72-76. demo/scripts/dsl-builtins.star is committed and runnable end-to-end: I built ./cmd/openapi-cli and ran it against a stub of the documented Task Forge endpoints (the bundled server needs flask, unavailable here), exit 0 with the three expected status lines, server-side log showing exactly the three documented calls \u2014 POST dict body marshalled to JSON with CT=application/json, POST payload pre-encoded via json(), GET with headers dict. FAILIF clause 2 (guide omits a printed signature) is clear: the test extracts signatures from the rendered help itself and enforces each one. FAILIF clause 3 (guide names a builtin the binary lacks) is clear: grep over the guide for http_/json_ identifiers shows only the five shipped names; the guard also rejects phantom names via dslPhantomNamesRe. Extra teeth proven two ways: the committed pre-fix fixture testdata/starlark-dsl-prefix.md must produce a missing-signature error, and my own mutation check \u2014 editing the guide's http_get signature made the test FAIL with 'guide is missing the shipped builtin signature \"http_get(url, headers=None) -> (status, body)\"', after which I restored the file (git status clean).\n  \u2713 Derived: the example script runs end-to-end through the shipped `dsl run` command \u2014 the .star file parses, the builtin names it calls exist in the binary's script environment, and the requests it sends match the guide's documented shapes (dict body marshalled to JSON, json() pre-encoded string body, headers dict on http_get): Built the CLI (`go build -o tmp/openapi-cli-eval ./cmd/openapi-cli`, succeeded), started a stub replicating the endpoints the script targets since the bundled demo/services/task-forge/server.py cannot start in this env ('ModuleNotFoundError: No module named flask' in tmp/tf.log), then ran `./tmp/openapi-cli-eval dsl run demo/scripts/dsl-builtins.star`: exit code 0, stdout exactly 'dict body -> status 201', 'json() encoded body -> status 201', 'headers dict -> status 200'. The stub's log proves the wire behavior matches the guide: 'POST /projects/1/tasks CT=application/json BODY={\"priority\":\"low\",\"title\":\"Wire the DSL builtins example\"}', 'POST /projects/1/tasks CT=application/json BODY={\"priority\":\"low\",\"title\":\"Document the json() encoder\"}', 'GET /tasks X-Dsl-Example=headers' \u2014 dict marshalled by the builtin, json() pre-encoding produces a valid string body, headers dict transmitted. Also confirmed json() behaves as documented via the same binary: `dsl run tmp/jtest.star` printing json([1,2]) and json(None) outputs '[1,2]' and 'null' (exit 0).\nDrift guard test passes fresh at the tip and provably bites (mutation + fixture), the guide carries all five help-printed signatures verbatim and names no phantom builtins, and the committed example script was verified end-to-end through the shipped CLI making exactly the three documented calls. [uncovered failure paths: failure mode 0 (The bundled Task Forge demo service requires the flask package, which is not installed in every environment, so a user following the guide's run instructions verbatim may hit ModuleNotFoundError before the script runs): detected_by is empty \u2014 uncovered failure path]\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-25T02:47:57.197536",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-25T02:47:57.221366+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1128,
+        "truncated": false,
+        "source": "git show e213094715c2"
+      }
+    ],
+    "task_id": "DF-062"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "tick_id": "muster-foreman-2026-11-25-02-01-13",
+  "project": "muster",
+  "workdir": "/home/kara/wojons/muster",
+  "mode": "serial",
+  "wave_budget": 1,
+  "tasks": [
+    {
+      "id": "DF-062",
+      "row": "dead-wave recovery + continuation",
+      "worktree": "/home/kara/worktrees/muster-DF-062",
+      "branch": "wt/DF-062",
+      "base": "db2f4ac3",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm",
+      "worker_commits": [
+        "98a083e9580d7faac257165ebb9b36600cb06553",
+        "4266f93542d987f5aab2c81a0b50e2d6cd2ee1c6"
+      ],
+      "integrated_commit": "e213094715c2cdd03579f6f4a9a92074f9f04511",
+      "evidence": ".coding-hermes/evidence/df-062-ac4-live-proof.txt",
+      "verdict_run": "e04ab434",
+      "outcome": "complete"
+    }
+  ]
+}

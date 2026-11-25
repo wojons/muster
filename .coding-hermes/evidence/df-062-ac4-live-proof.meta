@@ -1,0 +1,9 @@
+DF-062 AC4 live proof — integrated tree e213094715c2cdd03579f6f4a9a92074f9f04511
+Command: ./bin/openapi-cli dsl run demo/scripts/dsl-builtins.star (built from 4266f935)
+Server: demo/services/task-forge/server.py 9801, fresh storage + seed.py (project 1)
+Date: 2026-11-25T02:2xZ  rc=0
+
+--- stdout ---
+dict body           -> status 201
+json() encoded body -> status 201
+headers dict        -> status 200

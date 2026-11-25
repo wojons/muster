@@ -1,0 +1,71 @@
+{
+  "tick_id": "muster-foreman-2026-11-21-18-36-06",
+  "project": "muster",
+  "workdir": "/home/kara/wojons/muster",
+  "base": "origin/main",
+  "base_sha": "db2f4ac3",
+  "worker": {
+    "model": "openai/gpt-6.1-terra",
+    "provider": "xkiro",
+    "skill": "coding-hermes-worker"
+  },
+  "wave_budget": 5,
+  "tasks": [
+    {
+      "id": "INT-CI-018",
+      "worktree": "/home/kara/worktrees/muster-INT-CI-018",
+      "branch": "wt/INT-CI-018",
+      "brief": "/home/kara/.hermes/cache/scratch/muster-brief-INT-CI-018.md",
+      "merge_order": 1
+    },
+    {
+      "id": "OBS-MUSTER-008",
+      "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-008-r2",
+      "branch": "wt/OBS-MUSTER-008-r2",
+      "brief": "/home/kara/.hermes/cache/scratch/muster-brief-OBS-MUSTER-008.md",
+      "merge_order": 2
+    },
+    {
+      "id": "RELEASE-022",
+      "worktree": "/home/kara/worktrees/muster-RELEASE-022",
+      "branch": "wt/RELEASE-022",
+      "brief": "/home/kara/.hermes/cache/scratch/muster-brief-RELEASE-022.md",
+      "merge_order": 3
+    },
+    {
+      "id": "DF-062",
+      "worktree": "/home/kara/worktrees/muster-DF-062",
+      "branch": "wt/DF-062",
+      "brief": "/home/kara/.hermes/cache/scratch/muster-brief-DF-062.md",
+      "merge_order": 4
+    }
+  ],
+  "recovery": {
+    "tick": "muster-foreman-2026-11-25-02-01-13",
+    "df-062": {
+      "worker_commit": "98a083e9580d7faac257165ebb9b36600cb06553",
+      "continuation_commit": "4266f93542d987f5aab2c81a0b50e2d6cd2ee1c6",
+      "integrated_commit": "e213094715c2cdd03579f6f4a9a92074f9f04511",
+      "verdict_run": "e04ab434",
+      "outcome": "complete",
+      "note": "COS-directed: judged and landed the existing commit; AC4/AC5 added by continuation worker"
+    },
+    "still_stranded": {
+      "INT-CI-018": {
+        "commit": "c94d9bc8",
+        "worktree": "/home/kara/worktrees/muster-INT-CI-018",
+        "state": "clean, 1 ahead of landed base; recovery pending"
+      },
+      "OBS-MUSTER-008": {
+        "commit": "21595f51",
+        "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-008-r2",
+        "state": "clean, 1 ahead of landed base; recovery pending"
+      },
+      "RELEASE-022": {
+        "commit": "b30c9113",
+        "worktree": "/home/kara/worktrees/muster-RELEASE-022",
+        "state": "clean, 1 ahead of landed base; recovery pending"
+      }
+    }
+  }
+}
