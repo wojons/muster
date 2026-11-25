@@ -402,7 +402,7 @@ func handleStart(controller *daemon.Controller, handler http.Handler) error {
 	}
 
 	// Daemonize by default: `start` from a terminal spawns a detached child
-	// (new session, stdio to /dev/null) that runs the same start path with
+	// (new session, stderr logged alongside the socket) that runs the same start path with
 	// MUSTER_DAEMON_CHILD=1, waits until the daemon socket + PID file are
 	// live, then returns to the shell. Previously this command blocked in
 	// the foreground forever, making the documented start->status/stop
@@ -480,7 +480,8 @@ func handleStart(controller *daemon.Controller, handler http.Handler) error {
 }
 
 // spawnDaemonChild re-executes the current binary as a detached child
-// (new session, stdio to /dev/null) with MUSTER_DAEMON_CHILD=1 set, then
+// (new session, stdin/stdout to /dev/null and stderr to <socket>.log)
+// with MUSTER_DAEMON_CHILD=1 set, then
 // waits until the daemon's socket and PID file are live before returning.
 // The child runs the same `start` code path but skips this function thanks
 // to the env marker, so it stays alive serving the socket while the parent
@@ -504,11 +505,21 @@ func spawnDaemonChildWithArgs(controller *daemon.Controller, args []string) erro
 	}
 	defer func() { _ = devnull.Close() }()
 
+	// Persist detached stderr alongside the socket so startup warnings remain
+	// available even if the parent observes the PID before metrics binds.
+	logPath := socketPath + ".log"
+	logFile, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		return fmt.Errorf("open daemon stderr log %s: %w", logPath, err)
+	}
+	defer func() { _ = logFile.Close() }()
+
 	cmd := exec.Command(exe, args...)
 	cmd.Env = append(os.Environ(), "MUSTER_DAEMON_CHILD=1")
 	cmd.Stdin = devnull
 	cmd.Stdout = devnull
-	cmd.Stderr = devnull
+	cmd.Stderr = logFile
+	fmt.Fprintf(os.Stderr, "Daemon stderr log: %s\n", logPath)
 	cmd.SysProcAttr = daemonProcAttr()
 
 	if err := cmd.Start(); err != nil {
