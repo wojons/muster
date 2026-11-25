@@ -385,23 +385,27 @@ budget.
   which the daemon starts itself once the socket answers so the first scrape
   already reports the truth. Construction:
   `monitoring.NewMusterMetricsServer(metricsAddr, metricsRecorder.Muster())` —
-  `cmd/daemon/main.go:294-305`.
+  `cmd/daemon/main.go:356-367`.
 - Default address `127.0.0.1:9110` — `internal/monitoring/muster.go:495`
   (`monitoring.DefaultMetricsAddr`). It is the `--metrics-addr` flag default
-  (`cmd/daemon/main.go:115`) and appears in `--help`
-  (`cmd/daemon/main.go:261`).
+  (`cmd/daemon/main.go:117`) and appears in `--help`
+  (`cmd/daemon/main.go:117` via `PrintDefaults`; usage block `:221`).
 - Path `/metrics` only (`internal/monitoring/muster.go:536-537`); every other
   path on that port answers `404 page not found`.
 - The address must be loopback — `127.0.0.0/8`, `::1`, or `localhost` —
   enforced at startup by `ValidateLoopbackAddr`
   (`internal/monitoring/muster.go:500-522`, called from
-  `cmd/daemon/main.go:154-156`). `--metrics-addr 0.0.0.0:9110` exits with
+  `cmd/daemon/main.go:156-158`). `--metrics-addr 0.0.0.0:9110` exits with
   `Error: metrics addr "0.0.0.0:9110": 0.0.0.0 is not a loopback address; the
   metrics listener binds loopback only`.
 - A busy port is a WARNING, not a fatal: the daemon keeps serving the socket
-  and prints `[WARN] metrics listener not started on …`
-  (`cmd/daemon/main.go:299-302`). On success it prints
-  `Metrics: http://127.0.0.1:9110/metrics` (`cmd/daemon/main.go:303`).
+  and prints `[WARN] metrics listener not started on <addr>: <bind error>`
+  (`cmd/daemon/main.go:361-364`). On success it prints
+  `Metrics: http://127.0.0.1:9110/metrics` (`cmd/daemon/main.go:365`).
+- With `start --foreground`, the warning goes to stderr. With the default
+  daemonized `start`, the child appends stderr to `<socket-path>.log`
+  (default `/tmp/openapi-cli.sock.log`); the launcher prints that path on
+  stderr. Inspect that file for the bind error. The log persists across starts.
 - Listener timeouts are `ReadHeaderTimeout: 5s`, `ReadTimeout: 10s`,
   `WriteTimeout: 10s` (`internal/monitoring/muster.go:544-549`), so keep
   `scrape_timeout` at or below 10s.
@@ -438,7 +442,7 @@ Label values are bounded by construction: `status_class` is `1xx`…`5xx` or
 `error_class` is one of `none`/`auth`/`upstream`/`validation`/`internal`
 (`NormalizeMCPErrorClass`, `internal/monitoring/muster.go:330-337`); and
 `tenant_id` is `MUSTER_TENANT_ID` when set, otherwise `default`
-(`cmd/daemon/main.go:63-68`, `internal/monitoring/muster.go:28`).
+(`cmd/daemon/main.go:65-70`, `internal/monitoring/muster.go:28`).
 
 ### Series present on a freshly started daemon
 
@@ -495,7 +499,7 @@ until something records a tool call — a fresh daemon does not expose them.
   landing on `muster_daemon_proxy_requests_total` (with `status_class`) and
   `muster_daemon_proxy_duration_seconds`.
 - **Audit health:** the daemon builds `audit.NewHookWithMetrics(...)` on the
-  same recorder (`cmd/daemon/main.go:198-206`), so
+  same recorder (`cmd/daemon/main.go:290`), so
   `muster_audit_events_written_total`, `muster_audit_events_dropped_total` and
   `muster_audit_buffer_utilization_ratio` are live — but audit is off unless
   `MUSTER_AUDIT_ENABLED=1` (`internal/audit/hooks.go:218-229`), so a default
@@ -579,7 +583,7 @@ promtool check config /etc/prometheus/prometheus.yml
 | `curl --unix-socket` fails to connect | socket path wrong, or wrong user (socket is 0600) | check `openapi-daemon status`; run curl as daemon user |
 | `/metrics` returns JSON not Prometheus text | you scraped the Unix socket (standalone mode); that path falls through to `/` | scrape `http://127.0.0.1:9110/metrics` instead of the socket |
 | `/metrics` returns the backend's body on the socket | `start --backend-url` — only the three health paths are local | use `--metrics-addr` / `http://127.0.0.1:9110/metrics` |
-| `curl 127.0.0.1:9110/metrics` → connection refused | the listener never bound (port already taken) or the daemon is not running in `start`/`proxy` mode | look for `[WARN] metrics listener not started` in the startup log; free the port or pass a different `--metrics-addr` |
+| `curl 127.0.0.1:9110/metrics` → connection refused | the listener never bound (port already taken) or the daemon is not running in `start`/`proxy` mode | inspect stderr for foreground mode or `<socket-path>.log` for daemonized mode; free the port or pass a different `--metrics-addr` |
 | daemon exits with `is not a loopback address` | `--metrics-addr` named a non-loopback host | use `127.0.0.1:<port>`, `[::1]:<port>`, or `localhost:<port>` |
 | `404` when probing `/health` on the metrics port | the metrics listener serves `/metrics` only | probe `/health` on the Unix socket |
 | LB marks node down though daemon runs | LB can't reach a Unix socket | add a TCP relay; with `--backend-url` a 503 there means the backend, not the daemon |

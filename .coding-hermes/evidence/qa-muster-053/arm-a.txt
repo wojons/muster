@@ -1,0 +1,14 @@
+command: /home/kara/.hermes/cache/scratch/qa053-live/daemon start --foreground --metrics-addr 127.0.0.1:19103 --socket-path /home/kara/.hermes/cache/scratch/qa053-live/arm-a.sock
+child pid: 2785949
+stdout:
+[INFO] proxy server started socket=/home/kara/.hermes/cache/scratch/qa053-live/arm-a.sock
+Daemon started successfully
+PID file: /home/kara/.hermes/cache/scratch/qa053-live/arm-a.sock.pid
+Socket: /home/kara/.hermes/cache/scratch/qa053-live/arm-a.sock
+
+stderr:
+[WARN] metrics listener not started on 127.0.0.1:19103: metrics listen "127.0.0.1:19103": listen tcp 127.0.0.1:19103: bind: address already in use
+
+child fd targets:
+fd/1 -> /home/kara/.hermes/cache/scratch/qa053-live/a.out
+fd/2 -> /home/kara/.hermes/cache/scratch/qa053-live/a.err
