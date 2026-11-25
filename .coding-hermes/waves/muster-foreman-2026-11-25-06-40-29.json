@@ -16,10 +16,10 @@
       "worker_model": "glm-5.3-flash",
       "worker_provider": "zai-glm",
       "worker_commits": [],
-      "integrated_commit": null,
+      "integrated_commit": "3613e05f298be973c1f7b4f051244aae869e90c0",
       "evidence": null,
-      "verdict_run": null,
-      "outcome": "dispatched"
+      "verdict_run": "0435f67e PASS (graded 3613e05f; re-graded cfc992a4 → 3cc6d6e5 coverage-artifact FAIL with all items pass)",
+      "outcome": "closed"
     },
     {
       "id": "RELEASE-022",
@@ -32,22 +32,34 @@
       "worker_commits": [
         "b30c9113"
       ],
-      "integrated_commit": null,
+      "integrated_commit": "d38b829d790073411076420799b8076fddd763cf",
       "evidence": null,
-      "verdict_run": null,
-      "outcome": "integration-in-progress",
+      "verdict_run": "c65de88b PASS (graded 020db566); task complete re-grade b77caa25 PASS",
+      "outcome": "closed",
       "note": "No re-dispatch per muster foreman skill; rebase onto origin/main 20f6287d (hunks non-overlapping), gate, merge once, grade integrated tip with fresh verification lifecycle. Supersedes duplicate row DOC-26 (same three README spots, same gate arm)."
     }
   ],
   "stranded_inventory": {
     "from_wave": "muster-foreman-2026-11-21-18-36-06",
     "rows": [
-      {"id": "DF-062", "disposition": "recovered by tick muster-foreman-2026-11-25-02-01-13, outcome complete"},
-      {"id": "RELEASE-022", "disposition": "worked this tick — integration of b30c9113"},
-      {"id": "OBS-MUSTER-008", "disposition": "still_stranded — worktree /home/kara/worktrees/muster-OBS-MUSTER-008-r2, branch wt/OBS-MUSTER-008-r2, not worked this tick (row not picked; next tick inherits)"},
-      {"id": "INT-CI-018", "disposition": "still_stranded — worktree /home/kara/worktrees/muster-INT-CI-018, branch wt/INT-CI-018, not worked this tick (row not picked; next tick inherits)"}
+      {
+        "id": "DF-062",
+        "disposition": "recovered by tick muster-foreman-2026-11-25-02-01-13, outcome complete"
+      },
+      {
+        "id": "RELEASE-022",
+        "disposition": "worked this tick — integration of b30c9113"
+      },
+      {
+        "id": "OBS-MUSTER-008",
+        "disposition": "still_stranded — worktree /home/kara/worktrees/muster-OBS-MUSTER-008-r2, branch wt/OBS-MUSTER-008-r2, not worked this tick (row not picked; next tick inherits)"
+      },
+      {
+        "id": "INT-CI-018",
+        "disposition": "still_stranded — worktree /home/kara/worktrees/muster-INT-CI-018, branch wt/INT-CI-018, not worked this tick (row not picked; next tick inherits)"
+      }
     ]
   },
   "dispatched_at": null,
-  "finished_at": null
+  "finished_at": "2026-11-25T08:35:00Z"
 }
