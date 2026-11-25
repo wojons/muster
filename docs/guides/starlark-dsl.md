@@ -294,6 +294,29 @@ validate_data = <function validate_data>
 
 All global bindings — functions as well as values — are listed after the script's own output (binding order may vary between runs). Without `--verbose`, only the `print()` lines appear.
 
+### Runnable Example: Builtins Against Task Forge
+
+`demo/scripts/dsl-builtins.star` runs the three builtin call shapes covered above against the bundled Task Forge demo service (`demo/services/task-forge`): a dict body, the `json()` encoder, and a headers dict. Start and seed the service first — `seed.py` creates project `1`, the endpoint the script posts to:
+
+```bash
+# In one shell: start the demo service, then seed it (project 1 required)
+python3 demo/services/task-forge/server.py 9801 &
+python3 demo/services/task-forge/seed.py 9801
+
+# In another shell: run the script
+openapi-cli dsl run demo/scripts/dsl-builtins.star
+```
+
+Expected output:
+
+```
+dict body           -> status 201
+json() encoded body -> status 201
+headers dict        -> status 200
+```
+
+The script makes exactly three calls: a `http_post` with a dict body (marshalled to JSON automatically, 201), a `http_post` whose payload is pre-encoded with `json()` (also 201), and a `http_get` with a headers dict (`X-Dsl-Example`, 200). Task Forge's `POST /projects/1/tasks` accepts `{"title": "...", "priority": "..."}` — `title` is required and `priority` is optional (server default `medium`). Run the script without seeding the service first and both POSTs return 404, because project `1` does not exist yet.
+
 ## Configuration
 
 ### No Script-Level Configuration
