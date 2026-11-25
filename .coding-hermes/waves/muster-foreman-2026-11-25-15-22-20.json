@@ -19,6 +19,7 @@
       "integrated_commit": "83eff08da28cff80b351fd60010287a0c4f5c079",
       "evidence": ".coding-hermes/evidence/obs-muster-008/",
       "verdict_run": "3bef6f9a PASS (graded 83eff08d, tier1+tier2)",
+      "completion_judge_run": "035d297e PASS (graded 385083f1, TR-251 completion re-grade; row commit_hash repointed to graded live tip, product sha db07ea98 + merge 83eff08d disclosed in row note)",
       "outcome": "closed",
       "note": "Dead-wave recovery per muster foreman skill: rebase onto origin/main 232e7fd9 (no main-side changes to row paths), merge once, gates on merged tree (build/vet/focused/named-selector/short suite/golangci-lint green), live .prom probe (upstream via unreachable base-url, auth via 401 stub), live tool.call audit entry, judged at integrated tip from control checkout."
     }
