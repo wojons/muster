@@ -1,0 +1,53 @@
+{
+  "tick_id": "muster-foreman-2026-11-25-06-40-29",
+  "project": "muster",
+  "workdir": "/home/kara/wojons/muster",
+  "mode": "wave",
+  "wave_budget": 2,
+  "worker_model": "glm-5.3-flash",
+  "worker_provider": "zai-glm",
+  "tasks": [
+    {
+      "id": "QA-MUSTER-053",
+      "row": "fresh dispatch — metrics bind failure silent in daemonized mode",
+      "worktree": null,
+      "branch": null,
+      "base": null,
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm",
+      "worker_commits": [],
+      "integrated_commit": null,
+      "evidence": null,
+      "verdict_run": null,
+      "outcome": "dispatched"
+    },
+    {
+      "id": "RELEASE-022",
+      "row": "dead-wave recovery — integrate stranded worker commit b30c9113 (wt/RELEASE-022, base db2f4ac3, covers both ACs: README 1.26.11 sync + internal/version/docsync_test.go guard)",
+      "worktree": "/home/kara/worktrees/muster-RELEASE-022",
+      "branch": "wt/RELEASE-022",
+      "base": "db2f4ac300f5d34268957b60e810d2943757ea4c",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm",
+      "worker_commits": [
+        "b30c9113"
+      ],
+      "integrated_commit": null,
+      "evidence": null,
+      "verdict_run": null,
+      "outcome": "integration-in-progress",
+      "note": "No re-dispatch per muster foreman skill; rebase onto origin/main 20f6287d (hunks non-overlapping), gate, merge once, grade integrated tip with fresh verification lifecycle. Supersedes duplicate row DOC-26 (same three README spots, same gate arm)."
+    }
+  ],
+  "stranded_inventory": {
+    "from_wave": "muster-foreman-2026-11-21-18-36-06",
+    "rows": [
+      {"id": "DF-062", "disposition": "recovered by tick muster-foreman-2026-11-25-02-01-13, outcome complete"},
+      {"id": "RELEASE-022", "disposition": "worked this tick — integration of b30c9113"},
+      {"id": "OBS-MUSTER-008", "disposition": "still_stranded — worktree /home/kara/worktrees/muster-OBS-MUSTER-008-r2, branch wt/OBS-MUSTER-008-r2, not worked this tick (row not picked; next tick inherits)"},
+      {"id": "INT-CI-018", "disposition": "still_stranded — worktree /home/kara/worktrees/muster-INT-CI-018, branch wt/INT-CI-018, not worked this tick (row not picked; next tick inherits)"}
+    ]
+  },
+  "dispatched_at": null,
+  "finished_at": null
+}
