@@ -1,0 +1,310 @@
+{
+  "task_id": "OBS-MUSTER-008",
+  "task_title": "Close error_class gaps: upstream, auth, unobserved tool calls",
+  "task_criteria": [
+    "PROOF: go test ./pkg/mcp/ -count=1 -run \"TestMCPErrorClass_HandlerDeclaredClasses|TestServerToolObserver_UpstreamAndAuthClassesRecorded|TestServerToolObserver_UnknownToolRecordedAsError|TestObserveToolCall_LabelSetIsClosedEnum|TestServerToolObserver_BadParamsRecordedAsError\" passes at the integrated tip, and pkg/mcp/tool_observer.go mcpErrorClass maps a handler-declared upstream_error marker to the upstream metric class and credential_rejected/missing_credential markers to the auth metric class instead of internal. FAILIF: any named test fails, a tools/call whose structured result carries the upstream_error marker records muster_mcp_tool_executions_total with error_class=internal, or any emitted error_class label falls outside the closed enum none/auth/upstream/validation/internal."
+  ],
+  "passed": true,
+  "worktree": "/home/kara/wojons/muster",
+  "branch": "main",
+  "commit": "83eff08da28cff80b351fd60010287a0c4f5c079",
+  "pass_class": "judged",
+  "tier2_skipped": false,
+  "working_tree_content_fingerprint": "6cff588584ac56900b2af0ed53a4a984cc526ae2fc5e05cae3d84ec957f9b5ec",
+  "working_tree_dirty_path_count": 10,
+  "items": [
+    {
+      "criterion": "PROOF: go test ./pkg/mcp/ -count=1 -run \"TestMCPErrorClass_HandlerDeclaredClasses|TestServerToolObserver_UpstreamAndAuthClassesRecorded|TestServerToolObserver_UnknownToolRecordedAsError|TestObserveToolCall_LabelSetIsClosedEnum|TestServerToolObserver_BadParamsRecordedAsError\" passes at the integrated tip, and pkg/mcp/tool_observer.go mcpErrorClass maps a handler-declared upstream_error marker to the upstream metric class and credential_rejected/missing_credential markers to the auth metric class instead of internal. FAILIF: any named test fails, a tools/call whose structured result carries the upstream_error marker records muster_mcp_tool_executions_total with error_class=internal, or any emitted error_class label falls outside the closed enum none/auth/upstream/validation/internal.",
+      "status": "PASS",
+      "detail": "(a) Ran the exact named command fresh: exit_code 0, all five tests --- PASS, `ok github.com/wojons/muster/pkg/mcp 0.021s`; full package `go test ./pkg/mcp/ -count=1` also ok (1.982s) and go vet clean. (b) Mapping: pkg/mcp/tool_observer.go metricClass() returns errorClassUpstream for handlers.ErrorClassUpstream (constant \"upstream_error\", pkg/mcp/handlers/tool_errors.go:26) and errorClassAuth for handlers.ReasonCredentialRejected/ReasonMissingCredential (tool_errors.go:43,46) \u2014 neither falls to internal. End-to-end proof via real dispatch (pkg/mcp/server.go:283 handler.Handle \u2192 :284 observeToolCall): TestServerToolObserver_UpstreamAndAuthClassesRecorded asserts muster_mcp_tool_executions_total{tool=flaky,status=error,error_class=upstream}=1 and {tool=profile,error_class=auth}=1. (c) Closed enum: observer constants are exactly none/auth/upstream/validation/internal (tool_observer.go:43-50); TestObserveToolCall_LabelSetIsClosedEnum walks all gathered metric label pairs rejecting anything outside that set and cross-checks each spelling against the sink's NormalizeMCPErrorClass (internal/monitoring/muster.go:330-337, which accepts only auth/upstream/validation/internal and normalizes the rest to internal), plus asserts no raw error text (`secret-token-abc`, `upstream 500`) reaches any label. [resolution 0.47; pkg/mcp/tool_observer.go]"
+    },
+    {
+      "criterion": "derived: Production reachability \u2014 the observer is installed at the cmd/mcp-server entrypoint so real tools/call traffic is observed",
+      "status": "PASS",
+      "detail": "cmd/mcp-server/main.go:307 `server.SetToolCallObserver(mcp.NewMCPToolObserver(metricsRecorder, auditHook, mcpActorID()))` runs before runMCPServer/server.Run on the same server that loadAndRegisterTools registers handlers.NewCallToolHandler(executor) on (main.go:401, 415-416). Server.handleRequest is the sole handler dispatch point (only `handler.Handle(ctx` call site: pkg/mcp/server.go:283), so every tools/call \u2014 OpenAPI, gRPC (grpc_integration.go), asyncapi, graphql, jsonrpc registries all feed NewCallToolHandler \u2014 passes through observeToolCall.",
+      "derived": true
+    },
+    {
+      "criterion": "derived: Seam fidelity \u2014 the marker shape toolResultError parses is exactly the shape the CallTool handler renders",
+      "status": "PASS",
+      "detail": "pkg/mcp/handlers/types.go:313 renders StructuredContent{\"error\": toolErrorMeta(...)} with class/code keys; CallToolResult JSON tags are `isError`/`structuredContent` (types.go:94-95), matching toolResultError's envelope (tool_observer.go) key-for-key. The seam is proven end-to-end, not unit-only: TestServerToolObserver_UpstreamAndAuthClassesRecorded sends cannedExecutor errors through real handleRequest dispatch and observes the correct upstream/auth classes on the gathered counter.",
+      "derived": true
+    },
+    {
+      "criterion": "derived: Protocol neutrality \u2014 observing a tool call does not change the JSON-RPC response bytes (the 'unobserved tool calls' gap must not be closed by altering responses)",
+      "status": "PASS",
+      "detail": "observeToolCall is called after handler.Handle and before identical sendError/sendResponse logic (pkg/mcp/server.go:283-292). TestServerToolObserver_UnknownToolRecordedAsError and TestServerToolObserver_LeavesProtocolResponseUnchanged byte-compare observed vs plain server output (`plainOut != observedOut` fails) and both pass in the named run; the unknown-tool test also confirms the isError:true result shape is preserved.",
+      "derived": true
+    }
+  ],
+  "merge_recommendation": "no_concerns_found",
+  "stages": {
+    "tier1": {
+      "id": "tier1",
+      "passed": true,
+      "any_failed": false,
+      "summary": "  \u2713 secrets: \u25cb\n  \u2713 lint: ok (no output)\n  \u2713 tests: ok  \tgithub.com/wojons/muster/alertmanager\t0.015s",
+      "steps": [
+        {
+          "id": "secrets",
+          "type": "script",
+          "passed": true,
+          "output": "\n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n10:30AM INF scanned ~29095281 bytes (29.10 MB) in 3.08s\n10:30AM INF no leaks found\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "lint",
+          "type": "script",
+          "passed": true,
+          "output": "",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        },
+        {
+          "id": "tests",
+          "type": "script",
+          "passed": true,
+          "output": "ok  \tgithub.com/wojons/muster/alertmanager\t0.015s\nok  \tgithub.com/wojons/muster/cmd/daemon\t21.396s\nok  \tgithub.com/wojons/muster/cmd/mcp-server\t26.458s\nok  \tgithub.com/wojons/muster/cmd/openapi-cli\t2.303s\n?   \tgithub.com/wojons/muster/demo/services/transport-fixture\t[no test files]\nok  \tgithub.com/wojons/muster/demo/test-suites\t12.357s\nok  \tgithub.com/wojons/muster/deployments/backup\t0.063s\nok  \tgithub.com/wojons/muster/deployments/scripts\t0.384s\n?   \tgithub.com/wojons/muster/exploits/auth\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/network\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/ratelimit\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/symlink\t[no test files]\n?   \tgithub.com/wojons/muster/exploits/wasm\t[no test files]\nok  \tgithub.com/wojons/muster/internal/audit\t0.129s\nok  \tgithub.com/wojons/muster/internal/builtin\t14.206s\nok  \tgithub.com/wojons/muster/internal/monitoring\t0.343s\n?   \tgithub.com/wojons/muster/internal/platform/linux\t[no test files]\nok  \tgithub.com/wojons/muster/internal/telemetry\t0.029s\nok  \tgithub.com/wojons/muster/internal/version\t0.009s\nok  \tgithub.com/wojons/muster/packaging\t0.348s\nok  \tgithub.com/wojons/muster/pkg/auth\t12.354s\nok  \tgithub.com/wojons/muster/pkg/auth/ratelimit\t0.267s\nok  \tgithub.com/wojons/muster/pkg/cache\t0.412s\nok  \tgithub.com/wojons/muster/pkg/cli\t0.006s\nok  \tgithub.com/wojons/muster/pkg/client\t5.961s\nok  \tgithub.com/wojons/muster/pkg/cmdstore\t0.723s\nok  \tgithub.com/wojons/muster/pkg/completion\t0.484s\nok  \tgithub.com/wojons/muster/pkg/config\t0.101s\nok  \tgithub.com/wojons/muster/pkg/daemon\t0.692s\nok  \tgithub.com/wojons/muster/pkg/dsl\t0.037s\nok  \tgithub.com/wojons/muster/pkg/errors\t0.012s\nok  \tgithub.com/wojons/muster/pkg/generator\t0.369s\nok  \tgithub.com/wojons/muster/pkg/log\t0.031s\nok  \tgithub.com/wojons/muster/pkg/mcp\t2.308s\nok  \tgithub.com/wojons/muster/pkg/mcp/handlers\t0.039s\nok  \tgithub.com/wojons/muster/pkg/openapi\t0.265s\nok  \tgithub.com/wojons/muster/pkg/protocol\t0.013s\nok  \tgithub.com/wojons/muster/pkg/protocol/asyncapi\t10.652s\nok  \tgithub.com/wojons/muster/pkg/protocol/asyncapi/kafkatest\t10.490s\nok  \tgithub.com/wojons/muster/pkg/protocol/graphql\t4.248s\nok  \tgithub.com/wojons/muster/pkg/protocol/grpc\t0.662s\nok  \tgithub.com/wojons/muster/pkg/protocol/jsonrpc\t0.970s\nok  \tgithub.com/wojons/muster/pkg/protocol/soap\t0.028s\nok  \tgithub.com/wojons/muster/pkg/rate\t0.465s\nok  \tgithub.com/wojons/muster/pkg/repository\t0.108s\nok  \tgithub.com/wojons/muster/pkg/repository/sql\t0.133s\nok  \tgithub.com/wojons/muster/pkg/request\t7.774s\nok  \tgithub.com/wojons/muster/pkg/response\t0.005s\nok  \tgithub.com/wojons/muster/pkg/retry\t0.099s\nok  \tgithub.com/wojons/muster/pkg/wasm\t0.318s\nok  \tgithub.com/wojons/muster/test/benchmarks\t0.007s\nok  \tgithub.com/wojons/muster/test/buildscript\t0.010s\nok  \tgithub.com/wojons/muster/test/docker\t2.843s\nok  \tgithub.com/wojons/muster/test/e2e\t13.521s\nok  \tgithub.com/wojons/muster/test/functional/behaviors\t0.018s\n?   \tgithub.com/wojons/muster/test/functional/harness\t[no test files]\nok  \tgithub.com/wojons/muster/test/functional/states\t0.012s\nok  \tgithub.com/wojons/muster/test/functional/workflows\t0.058s\nok  \tgithub.com/wojons/muster/test/production\t6.073s\nok  \tgithub.com/wojons/muster/test/upgrade\t0.044s\n?   \tgithub.com/wojons/muster/test/util\t[no test files]\n",
+          "error": "",
+          "data": {
+            "exit_code": 0
+          }
+        }
+      ]
+    },
+    "tier2": {
+      "id": "tier2",
+      "passed": true,
+      "any_failed": false,
+      "summary": "COMPLETE\n  \u2713 PROOF: go test ./pkg/mcp/ -count=1 -run \"TestMCPErrorClass_HandlerDeclaredClasses|TestServerToolObserver_UpstreamAndAuthClassesRecorded|TestServerToolObserver_UnknownToolRecordedAsError|TestObserveToolCall_LabelSetIsClosedEnum|TestServerToolObserver_BadParamsRecordedAsError\" passes at the integrated tip, and pkg/mcp/tool_observer.go mcpErrorClass maps a handler-declared upstream_error marker to the upstream metric class and credential_rejected/missing_credential markers to the auth metric class instead of internal. FAILIF: any named test fails, a tools/call whose structured result carries the upstream_error marker records muster_mcp_tool_executions_total with error_class=internal, or any emitted error_class label falls outside the closed enum none/auth/upstream/validation/internal.: (a) Ran the exact named command fresh: exit_code 0, all five tests --- PASS, `ok github.com/wojons/muster/pkg/mcp 0.021s`; full package `go test ./pkg/mcp/ -count=1` also ok (1.982s) and go vet clean. (b) Mapping: pkg/mcp/tool_observer.go metricClass() returns errorClassUpstream for handlers.ErrorClassUpstream (constant \"upstream_error\", pkg/mcp/handlers/tool_errors.go:26) and errorClassAuth for handlers.ReasonCredentialRejected/ReasonMissingCredential (tool_errors.go:43,46) \u2014 neither falls to internal. End-to-end proof via real dispatch (pkg/mcp/server.go:283 handler.Handle \u2192 :284 observeToolCall): TestServerToolObserver_UpstreamAndAuthClassesRecorded asserts muster_mcp_tool_executions_total{tool=flaky,status=error,error_class=upstream}=1 and {tool=profile,error_class=auth}=1. (c) Closed enum: observer constants are exactly none/auth/upstream/validation/internal (tool_observer.go:43-50); TestObserveToolCall_LabelSetIsClosedEnum walks all gathered metric label pairs rejecting anything outside that set and cross-checks each spelling against the sink's NormalizeMCPErrorClass (internal/monitoring/muster.go:330-337, which accepts only auth/upstream/validation/internal and normalizes the rest to internal), plus asserts no raw error text (`secret-token-abc`, `upstream 500`) reaches any label. [resolution 0.47; pkg/mcp/tool_observer.go]\n  \u2713 derived: Production reachability \u2014 the observer is installed at the cmd/mcp-server entrypoint so real tools/call traffic is observed: cmd/mcp-server/main.go:307 `server.SetToolCallObserver(mcp.NewMCPToolObserver(metricsRecorder, auditHook, mcpActorID()))` runs before runMCPServer/server.Run on the same server that loadAndRegisterTools registers handlers.NewCallToolHandler(executor) on (main.go:401, 415-416). Server.handleRequest is the sole handler dispatch point (only `handler.Handle(ctx` call site: pkg/mcp/server.go:283), so every tools/call \u2014 OpenAPI, gRPC (grpc_integration.go), asyncapi, graphql, jsonrpc registries all feed NewCallToolHandler \u2014 passes through observeToolCall.\n  \u2713 derived: Seam fidelity \u2014 the marker shape toolResultError parses is exactly the shape the CallTool handler renders: pkg/mcp/handlers/types.go:313 renders StructuredContent{\"error\": toolErrorMeta(...)} with class/code keys; CallToolResult JSON tags are `isError`/`structuredContent` (types.go:94-95), matching toolResultError's envelope (tool_observer.go) key-for-key. The seam is proven end-to-end, not unit-only: TestServerToolObserver_UpstreamAndAuthClassesRecorded sends cannedExecutor errors through real handleRequest dispatch and observes the correct upstream/auth classes on the gathered counter.\n  \u2713 derived: Protocol neutrality \u2014 observing a tool call does not change the JSON-RPC response bytes (the 'unobserved tool calls' gap must not be closed by altering responses): observeToolCall is called after handler.Handle and before identical sendError/sendResponse logic (pkg/mcp/server.go:283-292). TestServerToolObserver_UnknownToolRecordedAsError and TestServerToolObserver_LeavesProtocolResponseUnchanged byte-compare observed vs plain server output (`plainOut != observedOut` fails) and both pass in the named run; the unknown-tool test also confirms the isError:true result shape is preserved.\nAll five named tests pass fresh at the tip (exit_code 0), mcpErrorClass maps upstream_error\u2192upstream and credential_rejected/missing_credential\u2192auth exactly as specified, every emitted error_class label provably stays inside the closed enum none/auth/upstream/validation/internal, and the observer is wired into the production cmd/mcp-server entrypoint without altering JSON-RPC response bytes.",
+      "steps": [
+        {
+          "id": "tier2",
+          "type": "ai_eval",
+          "passed": true,
+          "output": "COMPLETE\n  \u2713 PROOF: go test ./pkg/mcp/ -count=1 -run \"TestMCPErrorClass_HandlerDeclaredClasses|TestServerToolObserver_UpstreamAndAuthClassesRecorded|TestServerToolObserver_UnknownToolRecordedAsError|TestObserveToolCall_LabelSetIsClosedEnum|TestServerToolObserver_BadParamsRecordedAsError\" passes at the integrated tip, and pkg/mcp/tool_observer.go mcpErrorClass maps a handler-declared upstream_error marker to the upstream metric class and credential_rejected/missing_credential markers to the auth metric class instead of internal. FAILIF: any named test fails, a tools/call whose structured result carries the upstream_error marker records muster_mcp_tool_executions_total with error_class=internal, or any emitted error_class label falls outside the closed enum none/auth/upstream/validation/internal.: (a) Ran the exact named command fresh: exit_code 0, all five tests --- PASS, `ok github.com/wojons/muster/pkg/mcp 0.021s`; full package `go test ./pkg/mcp/ -count=1` also ok (1.982s) and go vet clean. (b) Mapping: pkg/mcp/tool_observer.go metricClass() returns errorClassUpstream for handlers.ErrorClassUpstream (constant \"upstream_error\", pkg/mcp/handlers/tool_errors.go:26) and errorClassAuth for handlers.ReasonCredentialRejected/ReasonMissingCredential (tool_errors.go:43,46) \u2014 neither falls to internal. End-to-end proof via real dispatch (pkg/mcp/server.go:283 handler.Handle \u2192 :284 observeToolCall): TestServerToolObserver_UpstreamAndAuthClassesRecorded asserts muster_mcp_tool_executions_total{tool=flaky,status=error,error_class=upstream}=1 and {tool=profile,error_class=auth}=1. (c) Closed enum: observer constants are exactly none/auth/upstream/validation/internal (tool_observer.go:43-50); TestObserveToolCall_LabelSetIsClosedEnum walks all gathered metric label pairs rejecting anything outside that set and cross-checks each spelling against the sink's NormalizeMCPErrorClass (internal/monitoring/muster.go:330-337, which accepts only auth/upstream/validation/internal and normalizes the rest to internal), plus asserts no raw error text (`secret-token-abc`, `upstream 500`) reaches any label. [resolution 0.47; pkg/mcp/tool_observer.go]\n\n\u2026 [1301 chars omitted \u2014 2 line(s)] \u2026\n  \u2713 derived: Protocol neutrality \u2014 observing a tool call does not change the JSON-RPC response bytes (the 'unobserved tool calls' gap must not be closed by altering responses): observeToolCall is called after handler.Handle and before identical sendError/sendResponse logic (pkg/mcp/server.go:283-292). TestServerToolObserver_UnknownToolRecordedAsError and TestServerToolObserver_LeavesProtocolResponseUnchanged byte-compare observed vs plain server output (`plainOut != observedOut` fails) and both pass in the named run; the unknown-tool test also confirms the isError:true result shape is preserved.\nAll five named tests pass fresh at the tip (exit_code 0), mcpErrorClass maps upstream_error\u2192upstream and credential_rejected/missing_credential\u2192auth exactly as specified, every emitted error_class label provably stays inside the closed enum none/auth/upstream/validation/internal, and the observer is wired into the production cmd/mcp-server entrypoint without altering JSON-RPC response bytes.",
+          "error": "",
+          "data": {
+            "verdict": "COMPLETE",
+            "items": [
+              {
+                "criterion": "PROOF: go test ./pkg/mcp/ -count=1 -run \"TestMCPErrorClass_HandlerDeclaredClasses|TestServerToolObserver_UpstreamAndAuthClassesRecorded|TestServerToolObserver_UnknownToolRecordedAsError|TestObserveToolCall_LabelSetIsClosedEnum|TestServerToolObserver_BadParamsRecordedAsError\" passes at the integrated tip, and pkg/mcp/tool_observer.go mcpErrorClass maps a handler-declared upstream_error marker to the upstream metric class and credential_rejected/missing_credential markers to the auth metric class instead of internal. FAILIF: any named test fails, a tools/call whose structured result carries the upstream_error marker records muster_mcp_tool_executions_total with error_class=internal, or any emitted error_class label falls outside the closed enum none/auth/upstream/validation/internal.",
+                "status": "PASS",
+                "detail": "(a) Ran the exact named command fresh: exit_code 0, all five tests --- PASS, `ok github.com/wojons/muster/pkg/mcp 0.021s`; full package `go test ./pkg/mcp/ -count=1` also ok (1.982s) and go vet clean. (b) Mapping: pkg/mcp/tool_observer.go metricClass() returns errorClassUpstream for handlers.ErrorClassUpstream (constant \"upstream_error\", pkg/mcp/handlers/tool_errors.go:26) and errorClassAuth for handlers.ReasonCredentialRejected/ReasonMissingCredential (tool_errors.go:43,46) \u2014 neither falls to internal. End-to-end proof via real dispatch (pkg/mcp/server.go:283 handler.Handle \u2192 :284 observeToolCall): TestServerToolObserver_UpstreamAndAuthClassesRecorded asserts muster_mcp_tool_executions_total{tool=flaky,status=error,error_class=upstream}=1 and {tool=profile,error_class=auth}=1. (c) Closed enum: observer constants are exactly none/auth/upstream/validation/internal (tool_observer.go:43-50); TestObserveToolCall_LabelSetIsClosedEnum walks all gathered metric label pairs rejecting anything outside that set and cross-checks each spelling against the sink's NormalizeMCPErrorClass (internal/monitoring/muster.go:330-337, which accepts only auth/upstream/validation/internal and normalizes the rest to internal), plus asserts no raw error text (`secret-token-abc`, `upstream 500`) reaches any label. [resolution 0.47; pkg/mcp/tool_observer.go]",
+                "resolution_probability": 0.47,
+                "cited_path": "pkg/mcp/tool_observer.go"
+              },
+              {
+                "criterion": "derived: Production reachability \u2014 the observer is installed at the cmd/mcp-server entrypoint so real tools/call traffic is observed",
+                "status": "PASS",
+                "detail": "cmd/mcp-server/main.go:307 `server.SetToolCallObserver(mcp.NewMCPToolObserver(metricsRecorder, auditHook, mcpActorID()))` runs before runMCPServer/server.Run on the same server that loadAndRegisterTools registers handlers.NewCallToolHandler(executor) on (main.go:401, 415-416). Server.handleRequest is the sole handler dispatch point (only `handler.Handle(ctx` call site: pkg/mcp/server.go:283), so every tools/call \u2014 OpenAPI, gRPC (grpc_integration.go), asyncapi, graphql, jsonrpc registries all feed NewCallToolHandler \u2014 passes through observeToolCall.",
+                "derived": true
+              },
+              {
+                "criterion": "derived: Seam fidelity \u2014 the marker shape toolResultError parses is exactly the shape the CallTool handler renders",
+                "status": "PASS",
+                "detail": "pkg/mcp/handlers/types.go:313 renders StructuredContent{\"error\": toolErrorMeta(...)} with class/code keys; CallToolResult JSON tags are `isError`/`structuredContent` (types.go:94-95), matching toolResultError's envelope (tool_observer.go) key-for-key. The seam is proven end-to-end, not unit-only: TestServerToolObserver_UpstreamAndAuthClassesRecorded sends cannedExecutor errors through real handleRequest dispatch and observes the correct upstream/auth classes on the gathered counter.",
+                "derived": true
+              },
+              {
+                "criterion": "derived: Protocol neutrality \u2014 observing a tool call does not change the JSON-RPC response bytes (the 'unobserved tool calls' gap must not be closed by altering responses)",
+                "status": "PASS",
+                "detail": "observeToolCall is called after handler.Handle and before identical sendError/sendResponse logic (pkg/mcp/server.go:283-292). TestServerToolObserver_UnknownToolRecordedAsError and TestServerToolObserver_LeavesProtocolResponseUnchanged byte-compare observed vs plain server output (`plainOut != observedOut` fails) and both pass in the named run; the unknown-tool test also confirms the isError:true result shape is preserved.",
+                "derived": true
+              }
+            ],
+            "summary": "All five named tests pass fresh at the tip (exit_code 0), mcpErrorClass maps upstream_error\u2192upstream and credential_rejected/missing_credential\u2192auth exactly as specified, every emitted error_class label provably stays inside the closed enum none/auth/upstream/validation/internal, and the observer is wired into the production cmd/mcp-server entrypoint without altering JSON-RPC response bytes.",
+            "provenance": {
+              "model": "glm-5.3-flash",
+              "base_url_source": "GITREINS_LLM_BASE_URL",
+              "api_key_source": "GITREINS_LLM_API_KEY"
+            },
+            "context_stats": {
+              "diff_source": "first-parent-merge",
+              "diff_bytes": 21175,
+              "prompt_bytes": 25335
+            }
+          }
+        }
+      ],
+      "model": "glm-5.3-flash",
+      "base_url_source": "GITREINS_LLM_BASE_URL",
+      "api_key_source": "GITREINS_LLM_API_KEY",
+      "context_stats": {
+        "diff_source": "first-parent-merge",
+        "diff_bytes": 21175,
+        "prompt_bytes": 25335
+      },
+      "tool_calls": [
+        {
+          "tool": "get_task_item",
+          "command": "get_task_item {\"id\": \"OBS-MUSTER-008\"}",
+          "exit_code": 0,
+          "output_sha": "ad8f22cec529d6c80006a876e0460604c9fde8d350fb65169e33d164de12e411"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"pkg/mcp/tool_observer.go\"}",
+          "exit_code": 0,
+          "output_sha": "03cadb996c76d6221f5338f6d539f1e8ed3d9334f9544e8a6af9df0ed2282143"
+        },
+        {
+          "tool": "run_command",
+          "command": "go test ./pkg/mcp/ -count=1 -run \"TestMCPErrorClass_HandlerDeclaredClasses|TestServerToolObserver_UpstreamAndAuthClassesRecorded|TestServerToolObserver_UnknownToolRecordedAsError|TestObserveToolCall_LabelSetIsClosedEnum|TestServerToolObserver_BadParamsRecordedAsError\" -v 2>&1 | tail -60",
+          "exit_code": 0,
+          "output_sha": "ea8cc0b618fb84b4261889e174822bdfb5dea1977a1e357a427d7a2a76e36080"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"pkg/mcp/handlers/*.go\", \"regex\": \"ErrorClassUpstream|ReasonCredentialRejected|ReasonMissingCredential|upstream_error\"}",
+          "exit_code": 0,
+          "output_sha": "b0380af93faede9b6b2091ca44a278ce4dc71fd9750d6f6a8457ef25ea0ff1c5"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 280, \"offset\": 200, \"path\": \"pkg/mcp/tool_observer_test.go\"}",
+          "exit_code": 0,
+          "output_sha": "ee914669aa8d3c0d24228c00157707d9a9bb034f66ba8f58b1ee4d4411be732c"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"path\": \"pkg/mcp/handlers/tool_errors.go\"}",
+          "exit_code": 0,
+          "output_sha": "4cb7c646df3c9a474bc717d767c6992a50d86fa527b92c46f880efa80a1f087b"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"pkg/mcp/*.go\", \"regex\": \"observeToolCall|SetToolCallObserver|toolCallObserver\"}",
+          "exit_code": 0,
+          "output_sha": "f1c1681f6640727f7a2a9bfec47ae64d73bc85faeec1dbcb7f1be6de98930d57"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"pkg/mcp/handlers/call_tool.go\", \"regex\": \"StructuredContent|IsError.*true|toolErrorMeta\"}",
+          "exit_code": 0,
+          "output_sha": "bb6cdc377f35371bfaf9396cf1f5dd9348d615cfa418e9a5e600e5925e4253d0"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"*.go\", \"regex\": \"toolErrorMeta\\\\(|NewCallToolHandler\"}",
+          "exit_code": 0,
+          "output_sha": "fbb40b99613cd8cf3f08418632598a986797c1d77e8905c6302bd4d894e4149e"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 80, \"offset\": 230, \"path\": \"pkg/mcp/server.go\"}",
+          "exit_code": 0,
+          "output_sha": "a913f550412c65a56403f6db99fa49ef20d51fb46eed0ff3cedb6ec740161cce"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 80, \"offset\": 255, \"path\": \"pkg/mcp/handlers/types.go\"}",
+          "exit_code": 0,
+          "output_sha": "69cf81fd0ec2750463e1decbb683704fecd79aecdb07fc6bfe66fda3e96b60d5"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"cmd/mcp-server/*.go\", \"regex\": \"NewMCPToolObserver|SetToolCallObserver\"}",
+          "exit_code": 0,
+          "output_sha": "6758a040996f8c9c161b62d2f9044de5787d311008b835d274c65419364eb1cf"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"internal/monitoring/*.go\", \"regex\": \"NormalizeMCPErrorClass|RecordMCPTool|error_class\"}",
+          "exit_code": 0,
+          "output_sha": "ceee1dda0851292d94290affdd61b52a73d7002fc399a147fcebbe3ba7e38c24"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 130, \"offset\": 290, \"path\": \"cmd/mcp-server/main.go\"}",
+          "exit_code": 0,
+          "output_sha": "ac6644ebcecc419d44f7a880f5790d8eaeb48c349b3ef65902c30a110511bb97"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 50, \"offset\": 296, \"path\": \"internal/monitoring/muster.go\"}",
+          "exit_code": 0,
+          "output_sha": "1071e2c5fbf83c0a00b7f91effe4cf0099c8e9e56b2e09267e1ef291d24c5457"
+        },
+        {
+          "tool": "read_file",
+          "command": "read_file {\"limit\": 80, \"path\": \"pkg/mcp/grpc_integration.go\"}",
+          "exit_code": 0,
+          "output_sha": "c060ba94c8c3d758e1224039c6ff2bc7843402149ba3f626487c22890174534c"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"pkg/mcp/*.go\", \"regex\": \"func \\\\(s \\\\*Server\\\\) handleRequest|handler\\\\.Handle\\\\(ctx\"}",
+          "exit_code": 0,
+          "output_sha": "9baa3e3b8219af6cfad54c1ff4efb60642e0a13574eeaec6a63358a728be74f9"
+        },
+        {
+          "tool": "search_pattern",
+          "command": "search_pattern {\"file_glob\": \"pkg/mcp/handlers/*.go\", \"regex\": \"type CallToolResult|StructuredContent .*json|IsError .*json\"}",
+          "exit_code": 0,
+          "output_sha": "b1149ea912df4ad335eeb5bb8157412974dbcf9309c2492373c374d06893e063"
+        },
+        {
+          "tool": "run_command",
+          "command": "go test ./pkg/mcp/ -count=1 2>&1 | tail -5 && go vet ./pkg/mcp/ ./internal/monitoring/ 2>&1 | tail -5",
+          "exit_code": 0,
+          "output_sha": "a5cad719b6e6e4080d0c96788f8cc811d73fcf7b7e2a2bd02ad59ad6016df90e"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"PASS: (1) Ran `go test ./pkg/mcp/ -count=1 -run \\\"TestMCPErrorClass_HandlerDeclaredClasses|TestServerToolObserver_UpstreamAndAuthClassesRecorded|TestServerToolObserver_UnknownToolRecordedAsError|TestObserveToolCall_LabelSetIsClosedEnum|TestServerToolObserver_BadParamsRecordedAsError\\\"` \\u2192 exit_code 0, all 5 named tests PASS (--- PASS for each), `ok github.com/wojons/muster/pkg/mcp 0.021s`. Full package also passes (`go test ./pkg/mcp/ -count=1` \\u2192 ok 1.982s) and go vet clean. (2) pkg/mcp/tool_observer.go metricClass() maps handlers.ErrorClassUpstream (\\\"upstream_error\\\", defined pkg/mcp/handlers/tool_errors.go:26) \\u2192 errorClassUpstream (\\\"upstream\\\") and ReasonCredentialRejected/ReasonMissingCredential (\\\"credential_rejected\\\"/\\\"missing_credential\\\", tool_errors.go:43/46) \\u2192 errorClassAuth (\\\"auth\\\") \\u2014 never internal. End-to-end proof: TestServerToolObserver_UpstreamAndAuthClassesRecorded drives the real server dispatch (server.go:283 handler.Handle \\u2192 server.go:284 observeToolCall) with a cannedExecutor returning an upstream_error marker and asserts muster_mcp_tool_executions_total{tool=flaky,status=error,error_class=upstream}=1 and {tool=profile,error_class=auth}=1. Closed enum enforced: tool_observer.go errorClass* constants are exactly none/auth/upstream/validation/internal; TestObserveToolCall_LabelSetIsClosedEnum walks gathered families asserting every error_class label is in that set and cross-checks observer spellings against the sink's NormalizeMCPErrorClass (internal/monitoring/muster.go:330 accepts only auth/upstream/validation/internal, else\\u2192internal).\", \"key\": \"verified_0\"}",
+          "exit_code": 0,
+          "output_sha": "47e48c3c64526a05030c57364d4bac33ba16a0b2b7d682701ea0c4ae9775acc6"
+        },
+        {
+          "tool": "sandbox_write",
+          "command": "sandbox_write {\"content\": \"derived_0: Reachability \\u2014 the observer must be installed in the production entrypoint (cmd/mcp-server) so real tools/call traffic is observed. Verified: cmd/mcp-server/main.go:307 `server.SetToolCallObserver(mcp.NewMCPToolObserver(metricsRecorder, auditHook, mcpActorID()))` runs in run() before runMCPServer/server.Run; the loadAndRegisterTools path registers handlers.NewCallToolHandler(executor) on the same server instance (main.go:401, 415-416). grpc_integration.go/asyncapi/graphql/jsonrpc all construct tools via the same NewCallToolHandler and dispatch through the single Server.handleRequest path (only call site: pkg/mcp/server.go:283-284), so every tools/call reaches observeToolCall. PASS.\\n\\nderived_1: Seam fidelity \\u2014 the value the observer reads must be the value the handler writes: the CallTool handler renders the marker at StructuredContent[\\\"error\\\"][\\\"class\\\"/\\\"code\\\"] with JSON tag \\\"structuredContent\\\" (pkg/mcp/handlers/types.go:313, tags at types.go:94-95), and toolResultError parses exactly envelope.StructuredContent[\\\"error\\\"] \\u2192 class/code (tool_observer.go toolResultError). JSON marshal\\u2192unmarshal round-trip on map[string]interface{} yields string values for class/code as written. PASS \\u2014 server-level tests (UpstreamAndAuthClassesRecorded) prove the seam end-to-end through real dispatch.\\n\\nderived_2: Protocol neutrality \\u2014 observation must not change the JSON-RPC response bytes (task title's \\\"unobserved tool calls\\\" gap-closing must not alter responses). Verified: TestServerToolObserver_UnknownToolRecordedAsError and TestServerToolObserver_LeavesProtocolResponseUnchanged byte-compare observed vs plain server output (plainOut != observedOut fails the test); both pass. handleRequest calls observeToolCall after Handle and sends the identical error/response. PASS.\", \"key\": \"derived_criteria\"}",
+          "exit_code": 0,
+          "output_sha": "20b2555b16786bb82cd43edede6483cba521aeb0df36cec1214bc8a0aa88da43"
+        }
+      ]
+    }
+  },
+  "context_stats": {
+    "diff_source": "first-parent-merge",
+    "diff_bytes": 21175,
+    "prompt_bytes": 25335
+  },
+  "review": {
+    "reviewer_email": "totalwindupflightsystems@gmail.com",
+    "reviewer_name": "totalwindupflightsystems",
+    "commit_author_email": "totalwindupflightsystems@gmail.com",
+    "commit_author_name": "totalwindupflightsystems",
+    "self_review": true,
+    "findings": [],
+    "summary": "",
+    "error": "no diff to review (clean tree, no commit anchor)",
+    "review_state": {
+      "emitted": [],
+      "carried": []
+    }
+  },
+  "summary": "Stage tier1: PASS\n    \u2713 secrets: \u25cb\n  \u2713 lint: ok (no output)\n  \u2713 tests: ok  \tgithub.com/wojons/muster/alertmanager\t0.015s\n\nStage tier2: PASS\n  COMPLETE\n  \u2713 PROOF: go test ./pkg/mcp/ -count=1 -run \"TestMCPErrorClass_HandlerDeclaredClasses|TestServerToolObserver_UpstreamAndAuthClassesRecorded|TestServerToolObserver_UnknownToolRecordedAsError|TestObserveToolCall_LabelSetIsClosedEnum|TestServerToolObserver_BadParamsRecordedAsError\" passes at the integrated tip, and pkg/mcp/tool_observer.go mcpErrorClass maps a handler-declared upstream_error marker to the upstream metric class and credential_rejected/missing_credential markers to the auth metric class instead of internal. FAILIF: any named test fails, a tools/call whose structured result carries the upstream_error marker records muster_mcp_tool_executions_total with error_class=internal, or any emitted error_class label falls outside the closed enum none/auth/upstream/validation/internal.: (a) Ran the exact named command fresh: exit_code 0, all five tests --- PASS, `ok github.com/wojons/muster/pkg/mcp 0.021s`; full package `go test ./pkg/mcp/ -count=1` also ok (1.982s) and go vet clean. (b) Mapping: pkg/mcp/tool_observer.go metricClass() returns errorClassUpstream for handlers.ErrorClassUpstream (constant \"upstream_error\", pkg/mcp/handlers/tool_errors.go:26) and errorClassAuth for handlers.ReasonCredentialRejected/ReasonMissingCredential (tool_errors.go:43,46) \u2014 neither falls to internal. End-to-end proof via real dispatch (pkg/mcp/server.go:283 handler.Handle \u2192 :284 observeToolCall): TestServerToolObserver_UpstreamAndAuthClassesRecorded asserts muster_mcp_tool_executions_total{tool=flaky,status=error,error_class=upstream}=1 and {tool=profile,error_class=auth}=1. (c) Closed enum: observer constants are exactly none/auth/upstream/validation/internal (tool_observer.go:43-50); TestObserveToolCall_LabelSetIsClosedEnum walks all gathered metric label pairs rejecting anything outside that set and cross-checks each spelling against the sink's NormalizeMCPErrorClass (internal/monitoring/muster.go:330-337, which accepts only auth/upstream/validation/internal and normalizes the rest to internal), plus asserts no raw error text (`secret-token-abc`, `upstream 500`) reaches any label. [resolution 0.47; pkg/mcp/tool_observer.go]\n  \u2713 derived: Production reachability \u2014 the observer is installed at the cmd/mcp-server entrypoint so real tools/call traffic is observed: cmd/mcp-server/main.go:307 `server.SetToolCallObserver(mcp.NewMCPToolObserver(metricsRecorder, auditHook, mcpActorID()))` runs before runMCPServer/server.Run on the same server that loadAndRegisterTools registers handlers.NewCallToolHandler(executor) on (main.go:401, 415-416). Server.handleRequest is the sole handler dispatch point (only `handler.Handle(ctx` call site: pkg/mcp/server.go:283), so every tools/call \u2014 OpenAPI, gRPC (grpc_integration.go), asyncapi, graphql, jsonrpc registries all feed NewCallToolHandler \u2014 passes through observeToolCall.\n  \u2713 derived: Seam fidelity \u2014 the marker shape toolResultError parses is exactly the shape the CallTool handler renders: pkg/mcp/handlers/types.go:313 renders StructuredContent{\"error\": toolErrorMeta(...)} with class/code keys; CallToolResult JSON tags are `isError`/`structuredContent` (types.go:94-95), matching toolResultError's envelope (tool_observer.go) key-for-key. The seam is proven end-to-end, not unit-only: TestServerToolObserver_UpstreamAndAuthClassesRecorded sends cannedExecutor errors through real handleRequest dispatch and observes the correct upstream/auth classes on the gathered counter.\n  \u2713 derived: Protocol neutrality \u2014 observing a tool call does not change the JSON-RPC response bytes (the 'unobserved tool calls' gap must not be closed by altering responses): observeToolCall is called after handler.Handle and before identical sendError/sendResponse logic (pkg/mcp/server.go:283-292). TestServerToolObserver_UnknownToolRecordedAsError and TestServerToolObserver_LeavesProtocolResponseUnchanged byte-compare observed vs plain server output (`plainOut != observedOut` fails) and both pass in the named run; the unknown-tool test also confirms the isError:true result shape is preserved.\nAll five named tests pass fresh at the tip (exit_code 0), mcpErrorClass maps upstream_error\u2192upstream and credential_rejected/missing_credential\u2192auth exactly as specified, every emitted error_class label provably stays inside the closed enum none/auth/upstream/validation/internal, and the observer is wired into the production cmd/mcp-server entrypoint without altering JSON-RPC response bytes.\n\nOverall: PASS \u2713",
+  "evaluated_at": "2026-11-25T15:32:42.215585",
+  "supersedes": null,
+  "superseded_by": null,
+  "evidence": {
+    "collected_at": "2026-11-25T15:32:42.255827+00:00",
+    "items": [
+      {
+        "name": "patch",
+        "label": "Landed commit patch",
+        "file": "commit.patch",
+        "bytes": 1098,
+        "truncated": false,
+        "source": "git show 83eff08da28c"
+      }
+    ],
+    "task_id": "OBS-MUSTER-008"
+  }
+}

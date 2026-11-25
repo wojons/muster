@@ -1,0 +1,44 @@
+{
+  "tick_id": "muster-foreman-2026-11-25-15-22-20",
+  "project": "muster",
+  "workdir": "/home/kara/wojons/muster",
+  "mode": "serial-recovery",
+  "wave_budget": 1,
+  "worker_model": "glm-5.3-flash",
+  "worker_provider": "zai-glm",
+  "tasks": [
+    {
+      "id": "OBS-MUSTER-008",
+      "row": "inherited still_stranded — close error_class gaps (upstream, auth, unobserved tool calls); stranded worker commit 21595f51 on wt/OBS-MUSTER-008-r2",
+      "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-008-r2",
+      "branch": "wt/OBS-MUSTER-008-r2",
+      "base": "db2f4ac300f5d34268957b60e810d2943757ea4c",
+      "worker_model": "glm-5.3-flash",
+      "worker_provider": "zai-glm",
+      "worker_commits": ["21595f51859ce385101c39002a9a8e9903b6a539"],
+      "integrated_commit": "83eff08da28cff80b351fd60010287a0c4f5c079",
+      "evidence": ".coding-hermes/evidence/obs-muster-008/",
+      "verdict_run": "3bef6f9a PASS (graded 83eff08d, tier1+tier2)",
+      "outcome": "closed",
+      "note": "Dead-wave recovery per muster foreman skill: rebase onto origin/main 232e7fd9 (no main-side changes to row paths), merge once, gates on merged tree (build/vet/focused/named-selector/short suite/golangci-lint green), live .prom probe (upstream via unreachable base-url, auth via 401 stub), live tool.call audit entry, judged at integrated tip from control checkout."
+    }
+  ],
+  "stranded_inventory": {
+    "from_wave": "muster-foreman-2026-11-25-06-40-29",
+    "rows": [
+      {
+        "id": "OBS-MUSTER-008",
+        "disposition": "worked this tick — integrated and closed"
+      },
+      {
+        "id": "INT-CI-018",
+        "disposition": "still_stranded — worktree /home/kara/worktrees/muster-INT-CI-018, branch wt/INT-CI-018, worker commit c94d9bc8 pins govulncheck/trivy + job timeouts; not worked this tick (one-row budget), next tick inherits; AC4 needs post-push CI verification"
+      }
+    ]
+  },
+  "cleanup": {
+    "wt/OBS-MUSTER-008-r2": "worktree retention decision recorded post-push; integrated commit ancestor of published main before any reap"
+  },
+  "dispatched_at": null,
+  "finished_at": "2026-11-25T15:33:55Z"
+}
