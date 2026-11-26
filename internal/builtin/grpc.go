@@ -88,6 +88,13 @@ the contract, the bound flags, and the truncation markers.`,
 	cmd.AddCommand(newGrpcDiscoverCommand())
 	cmd.AddCommand(newGrpcSchemaCommand())
 	cmd.AddCommand(newGrpcCallCommand())
+	// A failed discover/schema/call is a runtime outcome (unreadable source,
+	// reflection failure, mapped RPC error): report only the error line
+	// (REVIEW-MUSTER-32, the DF-019 pattern from request.go). Flag and arg
+	// misuse still show usage — each subcommand un-silences for those.
+	for _, sub := range cmd.Commands() {
+		silenceRuntimeUsage(sub, sub.Args)
+	}
 	return cmd
 }
 

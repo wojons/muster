@@ -192,6 +192,12 @@ Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 	cmd.Flags().DurationVar(&timeout, FlagGraphQLTimeout, graphqladapter.DefaultTimeout, "Per-call timeout (applies only when the call has no other deadline)")
 	cmd.Flags().StringVarP(&output, FlagGraphQLOutput, "o", "json", "Output format (json, raw)")
 
+	// A failed ingestion or call is a runtime outcome (unreadable schema,
+	// refused connection, mapped GraphQL error): report only the error line
+	// (REVIEW-MUSTER-32, the DF-019 pattern from request.go). Flag misuse
+	// still shows usage via the FlagErrorFunc inside the helper.
+	silenceRuntimeUsage(cmd, nil)
+
 	return cmd
 }
 
