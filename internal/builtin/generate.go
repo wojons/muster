@@ -560,6 +560,19 @@ func extractCommandMetadata(cmd *cobra.Command, specPath, baseURL string, doc *o
 			flagMeta.JSONName = jsonName
 		}
 
+		// QA-MUSTER-036: record required body properties so reloaded commands
+		// enforce requestBody.required + the schema required list locally
+		// (fail before any network I/O, naming the missing flags). The
+		// generator stamps the annotation when the property is required. Only
+		// body-kind flags are marked: if a request-body property shares its
+		// name with a spec parameter, the parameter owns the flag (DF-MUSTER-9)
+		// and the loader's cobra-level requirement applies to the parameter.
+		if flagMeta.Kind == cmdstore.FlagKindBody {
+			if ann := flag.Annotations[generator.AnnotationRequiredBodyProperty]; len(ann) > 0 && ann[0] == "true" {
+				flagMeta.Required = true
+			}
+		}
+
 		// Tag the raw JSON body flag (--body/-b, DF-MUSTER-5) so the loader
 		// sends its value verbatim as the request body instead of routing it
 		// as a query parameter. The generator stamps RawBodyAnnotation on

@@ -220,6 +220,13 @@ const (
 	// annotation is the only way to know which body key it belongs to
 	// (QA-MUSTER-041).
 	AnnotationBodyProperty = "muster/body-property"
+
+	// AnnotationRequiredBodyProperty is stamped on each per-property request
+	// body flag whose schema marks the property required (QA-MUSTER-036).
+	// The persistence layer reads it to record FlagMetadata.Required so a
+	// reloaded command can enforce requestBody.required + the schema
+	// required list locally, before any network I/O.
+	AnnotationRequiredBodyProperty = "muster/required-body-property"
 )
 
 // resolveStoredFn resolves a stored credential by name for the --auth
@@ -444,7 +451,6 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation, usedNames map[s
 
 	usage := g.buildUsage(name, op)
 	longDesc := g.buildLongDescription(op)
-	example := g.buildExample(name, op)
 
 	// DF-019: SilenceUsage keeps a runtime/HTTP error (e.g. a 404 from the
 	// server) from dumping the full Usage/Examples/Flags block, which read
@@ -455,7 +461,6 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation, usedNames map[s
 		Use:          usage,
 		Short:        op.Summary,
 		Long:         longDesc,
-		Example:      example,
 		SilenceUsage: true,
 		RunE:         g.createRunHandler(op),
 	}
@@ -487,13 +492,19 @@ func (g *Generator) buildOperationCommand(op *openapi.Operation, usedNames map[s
 	cmd.Annotations = map[string]string{
 		AnnotationOperationPath:    op.Path,
 		AnnotationOperationMethod:  op.Method,
-		AnnotationOperationExample: g.buildFlatExample(name, op),
 	}
 	if serverURL := g.effectiveBaseURL(op); serverURL != "" {
 		cmd.Annotations[AnnotationOperationServer] = serverURL
 	}
 
 	g.addFlags(cmd, op)
+
+	// Examples are rendered AFTER the flags are registered: a required body
+	// property that collides with a reserved CLI name is registered under a
+	// renamed flag (--header-2), and the example must name the flag that
+	// actually exists (QA-MUSTER-036).
+	cmd.Example = g.buildExample(name, op, cmd)
+	cmd.Annotations[AnnotationOperationExample] = g.buildFlatExample(name, op, cmd)
 
 	// DF-023: runtime credential attachment. --auth resolves a stored
 	// credential (see 'auth add') at execution time and injects it as a
@@ -764,6 +775,27 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 			cmd.Flags().StringP(flagName, shorthand, "", description)
 		}
 
+		// QA-MUSTER-036: surface required body properties in the Flags
+		// table and record the fact for persistence. Enforcement stays in
+		// the run handler (validateRequiredBodyProps) — a cobra-level
+		// MarkFlagRequired would reject "--body '{...}'" before the handler
+		// ever runs (DF-MUSTER-5) — but the help must show which properties
+		// the API demands, and the persisted store needs the fact so
+		// reloaded commands can enforce it locally.
+		// QA-MUSTER-036: the marker is gated on the operation-level
+		// requestBody.required — schema.required alone describes the payload
+		// shape and must NOT force CLI enforcement or a "(required)" marker
+		// when the body itself is optional.
+		if bodyProp.Required && op.RequestBodyRequired {
+			if f := cmd.Flags().Lookup(flagName); f != nil {
+				f.Usage = strings.TrimSpace(f.Usage) + " (required)"
+				if f.Annotations == nil {
+					f.Annotations = map[string][]string{}
+				}
+				f.Annotations[AnnotationRequiredBodyProperty] = []string{"true"}
+			}
+		}
+
 		// Required body properties are enforced by the run handler, not via
 		// cobra's MarkFlagRequired: --body replaces the per-property flags
 		// entirely when set, and a cobra-level requirement would reject
@@ -919,8 +951,8 @@ func (g *Generator) buildLongDescription(op *openapi.Operation) string {
 // buildExample emits the examples shown in the in-session (grouped) command
 // tree: "AppName [APIName] resource name …". The resource group exists on
 // that tree, so the examples run there.
-func (g *Generator) buildExample(name string, op *openapi.Operation) string {
-	return g.renderExample(name, op, true)
+func (g *Generator) buildExample(name string, op *openapi.Operation, cmd *cobra.Command) string {
+	return g.renderExample(name, op, true, cmd)
 }
 
 // buildFlatExample emits examples WITHOUT the resource group (and without
@@ -928,15 +960,17 @@ func (g *Generator) buildExample(name string, op *openapi.Operation) string {
 // at the root, where "AppName resource name …" would reference a non-existent
 // group command. The flat form is what persistence consumers must show in
 // help so users can run examples verbatim (DF-010).
-func (g *Generator) buildFlatExample(name string, op *openapi.Operation) string {
-	return g.renderExample(name, op, false)
+func (g *Generator) buildFlatExample(name string, op *openapi.Operation, cmd *cobra.Command) string {
+	return g.renderExample(name, op, false, cmd)
 }
 
 // renderExample builds the Examples text for an operation command. When
 // grouped is true the resource (and APIName, when configured) prefix is
 // included; when false the example is "AppName name …" — runnable against
-// the flattened/persisted tree.
-func (g *Generator) renderExample(name string, op *openapi.Operation, grouped bool) string {
+// the flattened/persisted tree. cmd carries the registered flags so the
+// example names a flag that actually exists after a collision rename
+// (QA-MUSTER-036).
+func (g *Generator) renderExample(name string, op *openapi.Operation, grouped bool, cmd *cobra.Command) string {
 	var examples []string
 
 	base := fmt.Sprintf("%s %s", g.config.AppName, name)
@@ -955,6 +989,25 @@ func (g *Generator) renderExample(name string, op *openapi.Operation, grouped bo
 		}
 	}
 
+	// QA-MUSTER-036: required body properties belong in the Basic usage
+	// example — a bodyless POST against an operation whose schema declares
+	// required properties is not runnable, and the runtime refuses it
+	// before any network I/O. The flag name must be the REGISTERED one: a
+	// property named `header` collides with the reserved --header flag and
+	// is registered as --header-2, so the example must say --header-2.
+	for _, bodyProp := range op.RequestBody {
+		if !bodyProp.Required {
+			continue
+		}
+		flagName := g.normalizeFlagName(bodyProp.Name)
+		if cmd != nil {
+			if f := g.bodyPropertyFlag(cmd, bodyProp.Name); f != nil {
+				flagName = f.Name
+			}
+		}
+		base += fmt.Sprintf(" --%s %s", flagName, bodyPropertyExampleValue(bodyProp))
+	}
+
 	examples = append(examples, fmt.Sprintf("  # Basic usage\n  %s", base))
 
 	if g.hasQueryParams(op) {
@@ -971,6 +1024,25 @@ func (g *Generator) renderExample(name string, op *openapi.Operation, grouped bo
 	examples = append(examples, fmt.Sprintf("\n  # JSON output\n  %s --output json", base))
 
 	return strings.Join(examples, "\n")
+}
+
+// bodyPropertyExampleValue returns the example token for a required body
+// property in generated examples: the schema default when declared, otherwise
+// a quoted concrete placeholder derived from the property name. The value MUST
+// be copy-pasteable into a shell verbatim (QA-MUSTER-036): an unquoted
+// `<placeholder>` is parsed by bash as an input redirection
+// ("cannot open title") — never emit angle-bracket placeholders here.
+func bodyPropertyExampleValue(bodyProp openapi.RequestBodyProperty) string {
+	if bodyProp.Default != nil {
+		return shellQuoteExampleValue(fmt.Sprintf("%v", bodyProp.Default))
+	}
+	return shellQuoteExampleValue("My " + strings.ToLower(bodyProp.Name))
+}
+
+// shellQuoteExampleValue single-quotes a value so it survives a verbatim
+// shell paste, including values that contain single quotes.
+func shellQuoteExampleValue(v string) string {
+	return "'" + strings.ReplaceAll(v, "'", `'\''`) + "'"
 }
 
 // queryParamExampleValue returns the best example value for a query parameter,
@@ -1491,13 +1563,25 @@ func (g *Generator) rawBodyValue(cmd *cobra.Command, contentType string) (string
 // flag is unset. Called only when --body is absent: the raw payload
 // satisfies every required property at once, so individual flags must not be
 // cobra-required (DF-MUSTER-5).
+//
+// QA-MUSTER-036: two gates. (1) Enforcement is gated on the operation-level
+// requestBody.required — schema.required alone never forces it. (2) The flag
+// name is the REGISTERED one: a property named `header` collides with the
+// reserved --header flag and is renamed --header-2, so looking up the
+// normalized property name would demand a flag that does not exist.
 func (g *Generator) validateRequiredBodyProps(cmd *cobra.Command, op *openapi.Operation) error {
+	if !op.RequestBodyRequired {
+		return nil
+	}
 	var missing []string
 	for _, bodyProp := range op.RequestBody {
 		if !bodyProp.Required {
 			continue
 		}
 		flagName := g.normalizeFlagName(bodyProp.Name)
+		if flag := g.bodyPropertyFlag(cmd, bodyProp.Name); flag != nil {
+			flagName = flag.Name
+		}
 		flag := cmd.Flags().Lookup(flagName)
 		if flag != nil && flag.Changed {
 			continue
@@ -1551,16 +1635,30 @@ func executeAndPrint(g *Generator, builder *request.Builder, cmd *cobra.Command,
 		return fmt.Errorf("read response body: %w", err)
 	}
 
+	// QA-MUSTER-036: log EVERY completed HTTP response — success or error —
+	// before any body handling, so the INF line stays on stderr and stdout
+	// carries only the payload on error paths too.
+	logger := log.FromContext(ctx)
+	logger.Info().
+		Int("status_code", resp.StatusCode).
+		Str("status", resp.Status).
+		Msg("HTTP response received")
+
 	out := cmd.OutOrStdout()
 
 	// --raw flag: dump the body untouched regardless of format.
+	// QA-MUSTER-036: a raw body reaches stdout only on 2xx. An ERROR body
+	// (e.g. the HTML 400 page a Flask dev server answers with) must never
+	// leak to stdout — piped consumers (`--raw | jq`) would choke on it —
+	// so it travels to stderr as a snippet inside the returned error, same
+	// discipline as the -o json path below.
 	raw, _ := cmd.Flags().GetBool("raw")
 	if raw || len(body) == 0 {
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("HTTP error: %s: %s", resp.Status, summarizeNonJSONBody(body))
+		}
 		if len(body) > 0 {
 			_, _ = fmt.Fprintln(out, string(body))
-		}
-		if resp.StatusCode >= 400 {
-			return fmt.Errorf("HTTP error: %s", resp.Status)
 		}
 		return nil
 	}
@@ -1579,10 +1677,15 @@ func executeAndPrint(g *Generator, builder *request.Builder, cmd *cobra.Command,
 	// ExecuteAndFormat).
 	var data interface{}
 	if err := json.Unmarshal(body, &data); err != nil {
-		_, _ = fmt.Fprintln(out, string(body))
+		// QA-MUSTER-036: a non-JSON ERROR body (e.g. the HTML 400 page a
+		// Flask dev server answers with) must never reach stdout — it
+		// corrupts piped consumers (`create-post -o json | jq`). On errors
+		// the body travels to stderr as a snippet inside the returned
+		// error; successful non-JSON payloads still dump raw.
 		if resp.StatusCode >= 400 {
-			return fmt.Errorf("HTTP error: %s", resp.Status)
+			return fmt.Errorf("HTTP error: %s: %s", resp.Status, summarizeNonJSONBody(body))
 		}
+		_, _ = fmt.Fprintln(out, string(body))
 		return nil
 	}
 
@@ -1617,14 +1720,21 @@ func executeAndPrint(g *Generator, builder *request.Builder, cmd *cobra.Command,
 		return fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
-	// Log response status
-	logger := log.FromContext(ctx)
-	logger.Info().
-		Int("status_code", resp.StatusCode).
-		Str("status", resp.Status).
-		Msg("HTTP response received")
-
 	return nil
+}
+
+// summarizeNonJSONBody condenses a non-JSON error response body into a short
+// single-line snippet for the stderr error message: whitespace collapsed,
+// capped at a fixed length (QA-MUSTER-036).
+func summarizeNonJSONBody(body []byte) string {
+	s := strings.Join(strings.Fields(string(body)), " ")
+	if s == "" {
+		return "empty response body"
+	}
+	if len(s) > 160 {
+		s = s[:157] + "..."
+	}
+	return s
 }
 
 // printTableOutput renders JSON data as an aligned table using tabwriter.
