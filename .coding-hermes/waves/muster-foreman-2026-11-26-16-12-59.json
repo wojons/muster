@@ -1,0 +1,10 @@
+{
+  "tick": "muster-foreman-2026-11-26-16-12-59",
+  "wave_budget": 2,
+  "workers": [
+    {"task_id": "INT-CI-018", "mode": "harvest-dead-wave", "worktree": "/home/kara/worktrees/muster-INT-CI-018", "branch": "wt/INT-CI-018", "commit": "c94d9bc8", "note": "existing verified fix from dead wave; rebase onto origin/main, gate, merge, push"},
+    {"task_id": "QA-MUSTER-045", "mode": "worker-dispatch", "worktree": "/home/kara/worktrees/muster-QA-MUSTER-045", "branch": "wt/QA-MUSTER-045", "model": "glm-5.3-flash", "provider": "opencode-go-2"}
+  ],
+  "independence": "file-disjoint: .github/workflows vs pkg/request+docs/guides+docs/api",
+  "manifest_written_before_dispatch": true
+}
