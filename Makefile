@@ -13,6 +13,9 @@ BUILD_DIR := bin
 DIST_DIR := dist
 CMD_DIR := cmd
 
+# Pinned tool versions (must match .github/workflows pins; INT-CI-018)
+GOVULNCHECK_VERSION := v1.10.0
+
 # Version information (injected at build time).
 #
 # These stamps must be TOTAL: their value must never be able to carry
@@ -351,7 +354,7 @@ deps-audit: ## Audit dependencies for vulnerabilities using govulncheck
 	@echo "Auditing dependencies with govulncheck..."
 	@if ! command -v govulncheck >/dev/null 2>&1 && ! command -v $(GOBIN)/govulncheck >/dev/null 2>&1; then \
 		echo "Installing govulncheck..."; \
-		go install golang.org/x/vuln/cmd/govulncheck@latest; \
+		go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION); \
 	fi
 	@$(GOBIN)/govulncheck ./... || govulncheck ./...
 	@echo "✓ Dependency audit complete"
