@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -164,8 +165,25 @@ Use --list to inspect the current persisted store, or --clear to remove it.`,
 					fmt.Printf("✓ Registered command: %s\n", generatedCmd.Name())
 				}
 
+				// DF-061: "go look at --help" was a dead end — the root help
+				// hides persisted commands and a freshly generated store is
+				// only visible on the NEXT invocation anyway. Name the
+				// commands that were actually registered (total + a preview)
+				// and point at the listing that enumerates the full store.
+				leaves := flattenLeafCommands(commands)
 				fmt.Printf("\n✓ Success! Commands registered and persisted\n")
-				fmt.Printf("Run 'openapi-cli --help' to see available commands\n")
+				fmt.Printf("Registered %d generated commands:\n", len(leaves))
+				preview := leaves
+				if len(preview) > 10 {
+					preview = preview[:10]
+				}
+				for _, leaf := range preview {
+					fmt.Printf("  - %s\n", leaf.Name())
+				}
+				if extra := len(leaves) - len(preview); extra > 0 {
+					fmt.Printf("  ... and %d more\n", extra)
+				}
+				fmt.Printf("Run 'openapi-cli generate --list' to enumerate every persisted command\n")
 				fmt.Printf("Commands will load automatically on next CLI start\n")
 			}
 
@@ -842,7 +860,10 @@ func warnOnOverwrite(metadata *cmdstore.StoredData, cfg *config.Config) error {
 	return nil
 }
 
-// listPersistedStore prints the current persisted store info.
+// listPersistedStore prints the current persisted store info, followed by the
+// full command listing grouped by HTTP method (DF-061): the listing is the
+// discovery surface the generate hint points at, so a user can find a
+// generated command's name without guessing.
 func listPersistedStore(cfg *config.Config) error {
 	dataPath := resolvePersistedCommandsPath(cfg)
 	store := cmdstore.NewCommandStore(dataPath)
@@ -856,7 +877,94 @@ func listPersistedStore(cfg *config.Config) error {
 	fmt.Printf("Spec hash:     %s\n", sd.SpecHash)
 	fmt.Printf("Generated at:  %s\n", sd.GeneratedAt.Format(time.RFC3339))
 	fmt.Printf("Command count: %d\n", len(sd.Commands))
+	fmt.Print(renderCommandListing(sd))
 	return nil
+}
+
+// renderCommandListing renders every persisted command grouped by HTTP
+// method, one "METHOD path → name" entry per operation, deterministically
+// sorted. It is a pure function so tests can assert the enumeration without
+// capturing stdout. Names fall back to Use when Name is empty (legacy
+// stores), so the listing always shows something runnable.
+func renderCommandListing(sd *cmdstore.StoredData) string {
+	if sd == nil || len(sd.Commands) == 0 {
+		return ""
+	}
+
+	byMethod := make(map[string][]cmdstore.CommandMetadata)
+	methods := []string{}
+	for _, c := range sd.Commands {
+		m := strings.ToUpper(c.Method)
+		if m == "" {
+			m = "UNKNOWN"
+		}
+		if !containsString(methods, m) {
+			methods = append(methods, m)
+		}
+		byMethod[m] = append(byMethod[m], c)
+	}
+	sort.Slice(methods, func(i, j int) bool {
+		oi, oj := methodOrder(methods[i]), methodOrder(methods[j])
+		if oi != oj {
+			return oi < oj
+		}
+		return methods[i] < methods[j]
+	})
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Commands (%d):\n", len(sd.Commands))
+	for _, m := range methods {
+		cmds := byMethod[m]
+		sort.Slice(cmds, func(i, j int) bool {
+			pi, pj := cmds[i].Path, cmds[j].Path
+			if pi != pj {
+				return pi < pj
+			}
+			return cmds[i].Name < cmds[j].Name
+		})
+		fmt.Fprintf(&b, "  %s:\n", m)
+		for _, c := range cmds {
+			name := c.Name
+			if name == "" {
+				name = c.Use
+			}
+			fmt.Fprintf(&b, "    %-40s → %s\n", c.Path, name)
+		}
+	}
+	return b.String()
+}
+
+func containsString(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// flattenLeafCommands collects the leaf (operation) commands from the
+// generator's grouped command tree, in declaration order — the same commands
+// commandsToMetadata persists.
+func flattenLeafCommands(commands []*cobra.Command) []*cobra.Command {
+	var leaves []*cobra.Command
+	var walk func(cmd *cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		if cmd == nil {
+			return
+		}
+		if cmd.HasSubCommands() {
+			for _, sub := range cmd.Commands() {
+				walk(sub)
+			}
+			return
+		}
+		leaves = append(leaves, cmd)
+	}
+	for _, c := range commands {
+		walk(c)
+	}
+	return leaves
 }
 
 // clearPersistedStore removes the persisted store file.

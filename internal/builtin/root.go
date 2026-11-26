@@ -57,7 +57,7 @@ and serves them via MCP protocol.`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// When the user invokes a meta-command, hide the
 			// dynamically-loaded persisted commands so they don't
-			// pollute help/version/completion output. This mirrors
+			// pollute help/version output. This mirrors
 			// the skip in cmd/openapi-cli/main.go persistentPreRun so
 			// stored commands are not advertised in the same
 			// contexts where we skip config initialization.
@@ -66,7 +66,11 @@ and serves them via MCP protocol.`,
 			// (e.g. "openapi-cli --help") — the root name is
 			// "openapi-cli", not "help", so isMetaCommandName
 			// alone doesn't catch it.
-			if isMetaCommandName(cmd.Name()) || (cmd == cmd.Root() && helpRequested(cmd)) {
+			//
+			// DF-061: the completion surfaces (completion, __complete,
+			// __completeNoDesc) deliberately do NOT hide them — generated
+			// commands must appear in shell completion.
+			if persistedCommandsHiddenFor(cmd) {
 				hidePersistedCommands(cmd.Root(), true)
 			}
 		},
@@ -185,8 +189,14 @@ func invocationNeedsPersistedCommands(root *cobra.Command, args []string) bool {
 		}
 
 		switch arg {
-		case "version", "completion", "__complete", "__completeNoDesc":
+		case "version":
 			return false
+		case "completion", "__complete", "__completeNoDesc":
+			// DF-061: shell completion must surface persisted commands.
+			// `completion <shell>` embeds them in the generated script
+			// (bash) and `__complete` is the runtime engine the zsh/fish
+			// scripts delegate to, so the store is loaded for both.
+			return true
 		case "help":
 			// The default help command's next word is a command target, so
 			// `help <generated-command>` must load persisted commands.
@@ -262,6 +272,22 @@ func isMetaCommandName(name string) bool {
 		return true
 	}
 	return false
+}
+
+// persistedCommandsHiddenFor reports whether persisted (generated) commands
+// must be HIDDEN while the given command runs. Help/version presentations
+// hide them; the completion surfaces must NOT (DF-061): generated commands
+// have to be discoverable through `completion bash`/`zsh` and the
+// `__complete` engine those scripts delegate to.
+func persistedCommandsHiddenFor(cmd *cobra.Command) bool {
+	switch cmd.Name() {
+	case "completion", "__complete", "__completeNoDesc":
+		return false
+	}
+	if isMetaCommandName(cmd.Name()) {
+		return true
+	}
+	return cmd == cmd.Root() && helpRequested(cmd)
 }
 
 // expandAliasArgs rewrites the command word of args when it names a
