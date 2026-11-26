@@ -92,7 +92,7 @@ func TestDiscover_SDLOverHTTP(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	ops, schema := discoverFrom(t, srv.URL+"/schema.graphql")
-	assert.Len(t, ops, 9)
+	assert.Len(t, ops, 10)
 	assert.Equal(t, graphql.FormatSDL, schema.SourceFormat)
 	assert.Equal(t, srv.URL+"/schema.graphql", schema.Source)
 }

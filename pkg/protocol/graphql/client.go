@@ -123,6 +123,7 @@ type Client struct {
 	rate       rateLimiter
 	timeout    time.Duration
 	sel        SelectionOptions
+	subLimits  SubscriptionLimits
 
 	schema    *Schema
 	builder   *Builder
@@ -176,6 +177,17 @@ func WithSchema(uri string) Option {
 func WithSelection(sel SelectionOptions) Option {
 	return func(cl *Client) {
 		cl.sel = sel.withDefaults()
+	}
+}
+
+// WithSubscriptionLimits sets the bounds of the bounded collect an
+// event-source operation runs when invoked through Execute (the MCP path,
+// specs/PROTOCOLS.md §4.5(4)). MCP surfaces should construct the executor
+// with the MCP hard caps (mcp.go); the CLI path passes explicit limits to
+// Subscribe instead.
+func WithSubscriptionLimits(l SubscriptionLimits) Option {
+	return func(cl *Client) {
+		cl.subLimits = l
 	}
 }
 
@@ -237,13 +249,9 @@ func (c *Client) Discover(ctx context.Context, uri string) ([]*protocol.Operatio
 	}
 	if len(ops) == 0 {
 		counts := schema.Counts()
-		extra := ""
-		if counts.Subscriptions > 0 {
-			extra = fmt.Sprintf(" (%d subscription field(s) are out of scope for this adapter)", counts.Subscriptions)
-		}
 		return nil, errors.New(errors.CodeValidation, fmt.Sprintf(
-			"graphql: schema %s exposes no ingestable operations: %d query and %d mutation field(s)%s",
-			uri, counts.Queries, counts.Mutations, extra))
+			"graphql: schema %s exposes no ingestable operations: %d query, %d mutation and %d subscription field(s)",
+			uri, counts.Queries, counts.Mutations, counts.Subscriptions))
 	}
 
 	builder, err := NewBuilder(schema, c.sel)
@@ -435,6 +443,14 @@ func (c *Client) Execute(ctx context.Context, opID string, args map[string]inter
 		return nil, errors.New(errors.CodeValidation, fmt.Sprintf(
 			"graphql: operation %q is not in the discovered schema (discovered: %s)",
 			opID, strings.Join(OperationIDs(c.ops), ", ")))
+	}
+
+	// §4.5(4): a KindEventSource op has no natural end, so Execute runs the
+	// bounded collect — subscribe, collect up to the client's caps,
+	// unsubscribe, return the transcript. There is deliberately no
+	// long-lived path behind this interface.
+	if op.Kind == protocol.KindEventSource {
+		return c.Subscribe(ctx, opID, args, c.subLimits)
 	}
 
 	req, err := c.builder.Build(op, args, c.endpoint)

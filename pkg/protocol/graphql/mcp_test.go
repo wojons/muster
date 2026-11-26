@@ -67,8 +67,8 @@ func TestMCP_ToolsMirrorTheCLIArgumentModel(t *testing.T) {
 	registry, _ := mcpRegistryFor(t, srv)
 
 	tools := registry.ListTools()
-	require.Len(t, tools, 9, "one tool per ingested operation")
-	assert.Equal(t, []string{"user", "users", "nodes", "search", "ping", "viewer", "createUser", "setRole", "noop"},
+	require.Len(t, tools, 10, "one tool per ingested operation")
+	assert.Equal(t, []string{"user", "users", "nodes", "search", "ping", "viewer", "createUser", "setRole", "noop", "userChanged"},
 		toolNames(tools))
 
 	// A query with a required argument, an optional Int with a default, and an
@@ -135,7 +135,7 @@ func TestMCP_CommandsCarryFlags(t *testing.T) {
 	registry, _ := mcpRegistryFor(t, srv)
 
 	commands := registry.ListCommands()
-	require.Len(t, commands, 9)
+	require.Len(t, commands, 10)
 
 	var user handlers.Command
 	for _, cmd := range commands {
@@ -218,7 +218,7 @@ func TestMCP_RegisterWithServer_ServesListAndCall(t *testing.T) {
 	require.NoError(t, err)
 	listResult, ok := listed.(*handlers.ListToolsResult)
 	require.True(t, ok, "got %T", listed)
-	require.Len(t, listResult.Tools, 9)
+	require.Len(t, listResult.Tools, 10)
 	assert.NotEmpty(t, listResult.Tools[0].InputSchema)
 
 	// tools/call

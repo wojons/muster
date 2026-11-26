@@ -16,6 +16,18 @@ import (
 // finish).
 const maxMCPInputDepth = 3
 
+// MCP hard caps (specs/PROTOCOLS.md §4.5(4)): an MCP-exposed subscription tool
+// performs a bounded collect — subscribe, collect up to the caps, unsubscribe,
+// return the transcript — and there is deliberately no long-lived surface an
+// MCP tool could reach. The caps bind the executor: an MCP server constructs
+// its graphql executor with WithSubscriptionLimits of these values, so a tool
+// call can never outlive them. The CLI path is not capped by these constants —
+// it passes its own limits to Client.Subscribe directly.
+const (
+	MCPHardCapMaxMessages = DefaultSubscriptionMaxMessages
+	MCPHardCapMaxDuration = DefaultSubscriptionDuration
+)
+
 // GraphQLRegistry is the MCP surface for GraphQL operations (stage 3b,
 // specs/PROTOCOLS.md §3.4): tool names, flag lists and JSON input schemas derive
 // from the neutral protocol.Operation model — the SAME model the CLI surfaces —
@@ -313,15 +325,22 @@ func RegisterWithServer(server ServerHandlerRegistrar, ops []*protocol.Operation
 
 // operationDescription picks the tool description: the field's description,
 // else its summary, else a GraphQL-shaped fallback naming operation type and
-// field.
+// field. A subscription tool's description always names the §4.5(4)
+// bounded-collect contract, so the agent sees the transcript semantics and
+// never expects a live stream.
 func (r *GraphQLRegistry) operationDescription(op *protocol.Operation) string {
+	base := ""
 	if op.Description != "" {
-		return op.Description
+		base = op.Description
+	} else if op.Summary != "" {
+		base = op.Summary
+	} else {
+		base = fmt.Sprintf("GraphQL %s field %s", op.Source[SourceOperationType], FieldName(op))
 	}
-	if op.Summary != "" {
-		return op.Summary
+	if op.Kind == protocol.KindEventSource {
+		base += " (bounded collect: subscribes, gathers up to the collect caps, unsubscribes and returns the transcript — never a live stream)"
 	}
-	return fmt.Sprintf("GraphQL %s field %s", op.Source[SourceOperationType], FieldName(op))
+	return base
 }
 
 // parametersToFlags converts neutral parameters to MCP command flags (matching

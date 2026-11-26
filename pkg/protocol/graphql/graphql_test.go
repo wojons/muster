@@ -327,21 +327,22 @@ func TestIngest_SDL_ProducesTypedOperations(t *testing.T) {
 	require.Equal(t, sdlFixturePath, schema.Source)
 
 	ids := graphql.OperationIDs(ops)
-	assert.Equal(t, []string{"user", "users", "nodes", "search", "ping", "viewer", "createUser", "setRole", "noop"}, ids,
-		"every Query and Mutation field becomes one command, in declaration order")
+	assert.Equal(t, []string{"user", "users", "nodes", "search", "ping", "viewer", "createUser", "setRole", "noop", "userChanged"}, ids,
+		"every Query, Mutation and Subscription field becomes one command, in declaration order")
 
 	for _, op := range ops {
 		assert.Equal(t, protocol.ProtocolGraphQL, op.Protocol)
-		assert.Equal(t, protocol.KindUnary, op.Kind)
-		assert.Contains(t, []string{"query", "mutation"}, op.Source[graphql.SourceOperationType])
+		assert.Contains(t, []protocol.OperationKind{protocol.KindUnary, protocol.KindEventSource}, op.Kind)
+		assert.Contains(t, []string{"query", "mutation", "subscription"}, op.Source[graphql.SourceOperationType])
 		assert.Equal(t, sdlFixturePath, op.Source[graphql.SourceSchemaSource])
 		assert.Equal(t, graphql.FormatSDL, op.Source[graphql.SourceSchemaFormat])
 		assert.NotEmpty(t, op.Source[graphql.SourceFieldType], "every operation records its return type")
 	}
 
-	// Subscriptions are out of scope: recognized, not ingested.
-	assert.NotContains(t, ids, "userChanged")
-	assert.Equal(t, 1, schema.Counts().Subscriptions)
+	// The subscription root is ingested as event-source operations.
+	sub := graphql.OperationByID(ops, "userChanged")
+	require.NotNil(t, sub)
+	assert.Equal(t, protocol.KindEventSource, sub.Kind)
 
 	// A field's arguments become flags with the neutral type vocabulary.
 	user := graphql.OperationByID(ops, "user")
@@ -581,7 +582,7 @@ func TestIngest_EmptySchemaSource_FailsLoud(t *testing.T) {
 	assert.Contains(t, err.Error(), "empty")
 }
 
-func TestIngest_SubscriptionOnlySchema_FailsWithActionableError(t *testing.T) {
+func TestIngest_SubscriptionOnlySchema_ProducesEventSourceOperations(t *testing.T) {
 	const sdl = `
 type Query { nothing: String }
 type Subscription { ticks: String }
@@ -592,8 +593,11 @@ type Subscription { ticks: String }
 	schema.QueryType = ""
 	ops, err := schema.Operations("")
 	require.NoError(t, err)
-	require.Empty(t, ops)
+	require.Len(t, ops, 1)
 	assert.Equal(t, 1, schema.Counts().Subscriptions)
+	assert.Equal(t, "ticks", ops[0].ID)
+	assert.Equal(t, protocol.KindEventSource, ops[0].Kind,
+		"subscription fields ingest as event-source operations (PROTO-022)")
 }
 
 func TestIngest_MissingSource_FailsWithActionableError(t *testing.T) {
@@ -629,7 +633,7 @@ func TestIngest_IntrospectionResponseShapes(t *testing.T) {
 			require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
 
 			ops, schema := discoverFrom(t, path)
-			assert.Len(t, ops, 9)
+			assert.Len(t, ops, 10)
 			assert.Equal(t, "Query", schema.QueryType)
 		})
 	}

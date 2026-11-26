@@ -156,7 +156,7 @@
         {
           "kind": "OBJECT",
           "name": "Subscription",
-          "description": "Out of scope: subscriptions are recognized and skipped by this adapter.",
+          "description": "Subscription root: fields ingest as event-source operations (PROTO-022).",
           "fields": [
             {
               "name": "userChanged",

@@ -46,7 +46,7 @@ type Mutation {
   noop: String
 }
 
-"""Out of scope: subscriptions are recognized and skipped by this adapter."""
+"""Subscription root: fields ingest as event-source operations (PROTO-022)."""
 type Subscription {
   userChanged(id: ID!): User
 }
