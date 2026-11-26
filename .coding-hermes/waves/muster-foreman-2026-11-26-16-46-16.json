@@ -1,0 +1,26 @@
+{
+  "tick": "muster-foreman-2026-11-26-16-46-16",
+  "project": "muster",
+  "workdir": "/home/kara/wojons/muster",
+  "wave_budget": 6,
+  "workers": [
+    {
+      "task_id": "PROTO-022",
+      "worktree": "/home/kara/worktrees/muster-PROTO-022",
+      "branch": "wt/PROTO-022",
+      "base_sha": "2f104cbb",
+      "model": "glm-5.3-flash",
+      "provider": "opencode-go-2"
+    },
+    {
+      "task_id": "DF-061",
+      "worktree": "/home/kara/worktrees/muster-DF-061",
+      "branch": "wt/DF-061",
+      "base_sha": "2f104cbb",
+      "model": "glm-5.3-flash",
+      "provider": "opencode-go-2"
+    }
+  ],
+  "independence": "PROTO-022 touches internal/builtin/graphql.go + pkg/protocol/graphql + PROTOCOLS.md + demo leg; DF-061 touches internal/builtin/generate.go + pkg/cmdstore + pkg/completion. Different files, no depends_on edges. QA-MUSTER-056 was staged then unstaged (cross-repo harness fix + JIT-bunker AC not closable this tick).",
+  "created_at": "2026-11-26T16:50:00-05:00"
+}

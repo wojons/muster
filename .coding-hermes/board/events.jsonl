@@ -1188,3 +1188,5 @@
 {"id":1795164467717878229,"timestamp":"2026-11-26 14:16:58.610646","event_type":"task_completed","task_id":"OBS-MUSTER-5","actor":"foreman","detail":"{\"status\":\"complete\"}"}
 {"id":1795164467717878230,"timestamp":"2026-11-26 14:17:04.712966","event_type":"task_completed","task_id":"REVIEW-MUSTER-32","actor":"foreman","detail":"{\"status\":\"complete\"}"}
 {"id":1795164467717878231,"timestamp":"2026-11-26 15:47:00.854572","event_type":"task_completed","task_id":"QA-MUSTER-036","actor":"foreman","detail":"{\"status\":\"complete\"}"}
+{"id":1795164467717878232,"timestamp":"2026-11-26 16:22:37.706638","event_type":"task_completed","task_id":"INT-CI-018","actor":"foreman","detail":"{\"status\":\"complete\"}"}
+{"id":1795164467717878233,"timestamp":"2026-11-26 16:30:10.912184","event_type":"task_completed","task_id":"QA-MUSTER-045","actor":"foreman","detail":"{\"status\":\"complete\"}"}
