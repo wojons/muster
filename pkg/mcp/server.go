@@ -187,7 +187,9 @@ func (s *Server) Run(ctx context.Context) error {
 	// wait: a client may have stopped reading stdout partway through a reply.
 	s.wg.Wait()
 	s.closeDone()
-	timer := time.NewTimer(250 * time.Millisecond)
+	// Normal tool handlers can take longer than a quarter second even after
+	// stdin closes; give the writer enough time to flush a legitimate reply.
+	timer := time.NewTimer(2 * time.Second)
 	defer timer.Stop()
 	select {
 	case <-s.writerDone:
