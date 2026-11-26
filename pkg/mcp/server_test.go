@@ -641,6 +641,60 @@ func TestServer_Run_NotificationThenRequestStillAnswered(t *testing.T) {
 	stdoutR.Close()
 }
 
+// TestServer_Run_EOFWaitsForFinalResponse holds the final stdout write until
+// after the handler has completed, as can happen when stdin closes immediately.
+func TestServer_Run_EOFWaitsForFinalResponse(t *testing.T) {
+	stdinR, stdinW := newStdinPipe(t)
+	stdoutR, stdoutW := io.Pipe()
+	defer stdoutR.Close()
+	defer stdoutW.Close()
+	s := NewServer(stdinR, stdoutW, io.Discard)
+	done := make(chan error, 1)
+	go func() { done <- s.Run(context.Background()) }()
+	_, err := io.WriteString(stdinW, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}\n{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\"}\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stdinW.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// With stdout held back, the old implementation returns immediately and
+	// a real process exits before its asynchronous writer can send id 2.
+	select {
+	case err := <-done:
+		t.Fatalf("Run returned before final response was read: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	responses := make(chan []JSONRPCResponse, 1)
+	go func() {
+		decoder := json.NewDecoder(stdoutR)
+		var got []JSONRPCResponse
+		for len(got) < 2 {
+			var response JSONRPCResponse
+			if decoder.Decode(&response) != nil {
+				break
+			}
+			got = append(got, response)
+		}
+		responses <- got
+	}()
+	select {
+	case got := <-responses:
+		found := false
+		for _, response := range got {
+			if response.ID == float64(2) {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("final id=2 missing from responses: %+v", got)
+		}
+	case <-time.After(runReturnTimeout):
+		t.Fatal("timed out waiting for responses")
+	}
+	requireRunReturned(t, done, func() {})
+}
+
 // TestServer_Run_PartialResponseDrainDoesNotWedgeShutdown reproduces
 // QA-MUSTER-19-R2 deterministically on any toolchain: a client that consumes
 // the response value but never its trailing newline must not wedge Run's

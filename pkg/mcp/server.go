@@ -55,9 +55,10 @@ type Server struct {
 	// the response value from an io.Pipe and never the trailing newline) parks
 	// whoever writes. Parking the writer goroutine must not park Run's
 	// shutdown: s.wg covers handler completion, never client consumption.
-	writeCh  chan []byte
-	done     chan struct{}
-	doneOnce sync.Once
+	writeCh    chan []byte
+	done       chan struct{}
+	writerDone chan struct{}
+	doneOnce   sync.Once
 }
 
 func NewServer(stdin io.Reader, stdout, stderr io.Writer) *Server {
@@ -73,8 +74,9 @@ func NewServer(stdin io.Reader, stdout, stderr io.Writer) *Server {
 		concurrencySem: make(chan struct{}, maxConcurrent),
 		// One queued response per in-flight request cannot block an enqueue
 		// while the writer is draining.
-		writeCh: make(chan []byte, maxConcurrent),
-		done:    make(chan struct{}),
+		writeCh:    make(chan []byte, maxConcurrent),
+		done:       make(chan struct{}),
+		writerDone: make(chan struct{}),
 	}
 
 	s.registerHandlers()
@@ -181,8 +183,20 @@ func (s *Server) Run(ctx context.Context) error {
 		}()
 	}
 
-	// Wait for all in-flight request goroutines to complete before returning
+	// At EOF, let the writer finish before the process can exit. Bound the
+	// wait: a client may have stopped reading stdout partway through a reply.
 	s.wg.Wait()
+	s.closeDone()
+	timer := time.NewTimer(250 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-s.writerDone:
+	case <-timer.C:
+		_, _ = fmt.Fprintln(s.stderr, "mcp: timed out waiting for stdout response drain")
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.shutdownChan:
+	}
 	return nil
 }
 
@@ -347,6 +361,7 @@ func (s *Server) closeDone() {
 // an unresponsive client parks this goroutine alone until the client reads or
 // the stream is closed, instead of wedging shutdown.
 func (s *Server) responseWriter() {
+	defer close(s.writerDone)
 	for {
 		select {
 		case data := <-s.writeCh:
