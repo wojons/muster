@@ -3641,3 +3641,83 @@ func TestAddFlags_ReservedGlobalNamesAreRenamed(t *testing.T) {
 	require.NotNil(t, cmd.Flags().Lookup("raw-3"))
 	require.NotNil(t, cmd.Flags().Lookup("body-3"))
 }
+
+// ---------------------------------------------------------------------------
+// QA-MUSTER-036: requestBody.required + schema required list must surface in
+// help (Flags table + example) and be enforced by the run handler before any
+// network I/O.
+// ---------------------------------------------------------------------------
+
+const requiredBodySpecJSON = `{"openapi":"3.0.0","info":{"title":"Inkwell","version":"1.0.0"},"servers":[{"url":"https://api.example.com"}],"paths":{"/posts":{"post":{"operationId":"createPost","summary":"Create a post","requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CreatePost"}}}},"responses":{"201":{"description":"Created"}}}}},"components":{"schemas":{"CreatePost":{"type":"object","required":["title"],"properties":{"title":{"type":"string","description":"Post title"},"slug":{"type":"string","description":"URL slug"}}}}}}`
+
+func TestRequiredBodyProps_HelpAndExample_QAMUSTER036(t *testing.T) {
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(requiredBodySpecJSON))
+	require.NoError(t, err)
+
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	var createPost *cobra.Command
+	for _, sub := range commands[0].Commands() {
+		if sub.Name() == "create-post" {
+			createPost = sub
+		}
+	}
+	require.NotNil(t, createPost, "create-post command must be generated")
+
+	// Flags table: the schema-required property is marked required.
+	title := createPost.Flags().Lookup("title")
+	require.NotNil(t, title)
+	require.Contains(t, title.Usage, "(required)",
+		"the schema-required property must be visible as required in the Flags table")
+
+	// Optional properties stay unmarked.
+	slug := createPost.Flags().Lookup("slug")
+	require.NotNil(t, slug)
+	require.NotContains(t, slug.Usage, "(required)")
+
+	// The (required) marker reaches the rendered help.
+	usage := createPost.UsageString()
+	require.Contains(t, usage, "(required)")
+
+	// The Basic usage example includes the required flag: a bodyless POST
+	// against this spec is refused before any network I/O.
+	require.Contains(t, createPost.Example, "--title <title>",
+		"the Basic usage example must include required body flags")
+
+	// The persistence annotation is stamped for the store.
+	require.Equal(t, []string{"true"}, title.Annotations[AnnotationRequiredBodyProperty])
+}
+
+func TestValidateRequiredBodyProps_QAMUSTER036(t *testing.T) {
+	gen, err := NewGenerator(Config{AppName: "test", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+
+	cmd := &cobra.Command{Use: "create-post"}
+	op := &openapi.Operation{
+		Method: http.MethodPost,
+		Path:   "/posts",
+		RequestBody: []openapi.RequestBodyProperty{
+			{Name: "title", Type: "string", Required: true},
+			{Name: "slug", Type: "string"},
+		},
+	}
+	gen.addFlags(cmd, op)
+
+	t.Run("bodyless write fails locally naming the missing flag", func(t *testing.T) {
+		err := gen.validateRequiredBodyProps(cmd, op)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "--title")
+		require.Contains(t, err.Error(), "missing required body flag(s)")
+	})
+
+	t.Run("satisfied when the required flag is set", func(t *testing.T) {
+		require.NoError(t, cmd.Flags().Set("title", "Hello"))
+		require.NoError(t, gen.validateRequiredBodyProps(cmd, op))
+	})
+}

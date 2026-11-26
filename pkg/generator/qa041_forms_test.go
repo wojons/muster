@@ -188,7 +188,10 @@ func TestQA041_FormEncoded_BodyFlagsGenerated(t *testing.T) {
 	for _, name := range []string{"email", "name", "balance", "active", "tags", "metadata"} {
 		require.NotNil(t, cmd.Flag(name), "form body property %q must be a flag (was: silently dropped)", name)
 	}
-	require.Equal(t, "Customer email", cmd.Flag("email").Usage)
+	// QA-MUSTER-036: `email` is a schema-required body property, so its
+	// usage string now carries the (required) marker shown in the Flags
+	// table (enforcement stays in the run handler, DF-MUSTER-5).
+	require.Equal(t, "Customer email (required)", cmd.Flag("email").Usage)
 
 	bodyFlag := cmd.Flag(RawBodyFlagName)
 	require.NotNil(t, bodyFlag, "-b/--body escape hatch must exist for a form body")

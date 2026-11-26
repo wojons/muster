@@ -220,6 +220,13 @@ const (
 	// annotation is the only way to know which body key it belongs to
 	// (QA-MUSTER-041).
 	AnnotationBodyProperty = "muster/body-property"
+
+	// AnnotationRequiredBodyProperty is stamped on each per-property request
+	// body flag whose schema marks the property required (QA-MUSTER-036).
+	// The persistence layer reads it to record FlagMetadata.Required so a
+	// reloaded command can enforce requestBody.required + the schema
+	// required list locally, before any network I/O.
+	AnnotationRequiredBodyProperty = "muster/required-body-property"
 )
 
 // resolveStoredFn resolves a stored credential by name for the --auth
@@ -764,6 +771,23 @@ func (g *Generator) addFlags(cmd *cobra.Command, op *openapi.Operation) {
 			cmd.Flags().StringP(flagName, shorthand, "", description)
 		}
 
+		// QA-MUSTER-036: surface required body properties in the Flags
+		// table and record the fact for persistence. Enforcement stays in
+		// the run handler (validateRequiredBodyProps) — a cobra-level
+		// MarkFlagRequired would reject "--body '{...}'" before the handler
+		// ever runs (DF-MUSTER-5) — but the help must show which properties
+		// the API demands, and the persisted store needs the fact so
+		// reloaded commands can enforce it locally.
+		if bodyProp.Required {
+			if f := cmd.Flags().Lookup(flagName); f != nil {
+				f.Usage = strings.TrimSpace(f.Usage) + " (required)"
+				if f.Annotations == nil {
+					f.Annotations = map[string][]string{}
+				}
+				f.Annotations[AnnotationRequiredBodyProperty] = []string{"true"}
+			}
+		}
+
 		// Required body properties are enforced by the run handler, not via
 		// cobra's MarkFlagRequired: --body replaces the per-property flags
 		// entirely when set, and a cobra-level requirement would reject
@@ -955,6 +979,17 @@ func (g *Generator) renderExample(name string, op *openapi.Operation, grouped bo
 		}
 	}
 
+	// QA-MUSTER-036: required body properties belong in the Basic usage
+	// example — a bodyless POST against an operation whose schema declares
+	// required properties is not runnable, and the runtime refuses it
+	// before any network I/O.
+	for _, bodyProp := range op.RequestBody {
+		if !bodyProp.Required {
+			continue
+		}
+		base += fmt.Sprintf(" --%s %s", g.normalizeFlagName(bodyProp.Name), bodyPropertyExampleValue(bodyProp))
+	}
+
 	examples = append(examples, fmt.Sprintf("  # Basic usage\n  %s", base))
 
 	if g.hasQueryParams(op) {
@@ -971,6 +1006,17 @@ func (g *Generator) renderExample(name string, op *openapi.Operation, grouped bo
 	examples = append(examples, fmt.Sprintf("\n  # JSON output\n  %s --output json", base))
 
 	return strings.Join(examples, "\n")
+}
+
+// bodyPropertyExampleValue returns the example token for a required body
+// property in generated examples: the schema default when declared,
+// otherwise a lowercase placeholder derived from the property name
+// (mirroring the path-parameter placeholder style).
+func bodyPropertyExampleValue(bodyProp openapi.RequestBodyProperty) string {
+	if bodyProp.Default != nil {
+		return fmt.Sprintf("%v", bodyProp.Default)
+	}
+	return "<" + strings.ToLower(bodyProp.Name) + ">"
 }
 
 // queryParamExampleValue returns the best example value for a query parameter,
@@ -1551,6 +1597,15 @@ func executeAndPrint(g *Generator, builder *request.Builder, cmd *cobra.Command,
 		return fmt.Errorf("read response body: %w", err)
 	}
 
+	// QA-MUSTER-036: log EVERY completed HTTP response — success or error —
+	// before any body handling, so the INF line stays on stderr and stdout
+	// carries only the payload on error paths too.
+	logger := log.FromContext(ctx)
+	logger.Info().
+		Int("status_code", resp.StatusCode).
+		Str("status", resp.Status).
+		Msg("HTTP response received")
+
 	out := cmd.OutOrStdout()
 
 	// --raw flag: dump the body untouched regardless of format.
@@ -1579,10 +1634,15 @@ func executeAndPrint(g *Generator, builder *request.Builder, cmd *cobra.Command,
 	// ExecuteAndFormat).
 	var data interface{}
 	if err := json.Unmarshal(body, &data); err != nil {
-		_, _ = fmt.Fprintln(out, string(body))
+		// QA-MUSTER-036: a non-JSON ERROR body (e.g. the HTML 400 page a
+		// Flask dev server answers with) must never reach stdout — it
+		// corrupts piped consumers (`create-post -o json | jq`). On errors
+		// the body travels to stderr as a snippet inside the returned
+		// error; successful non-JSON payloads still dump raw.
 		if resp.StatusCode >= 400 {
-			return fmt.Errorf("HTTP error: %s", resp.Status)
+			return fmt.Errorf("HTTP error: %s: %s", resp.Status, summarizeNonJSONBody(body))
 		}
+		_, _ = fmt.Fprintln(out, string(body))
 		return nil
 	}
 
@@ -1617,14 +1677,21 @@ func executeAndPrint(g *Generator, builder *request.Builder, cmd *cobra.Command,
 		return fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
-	// Log response status
-	logger := log.FromContext(ctx)
-	logger.Info().
-		Int("status_code", resp.StatusCode).
-		Str("status", resp.Status).
-		Msg("HTTP response received")
-
 	return nil
+}
+
+// summarizeNonJSONBody condenses a non-JSON error response body into a short
+// single-line snippet for the stderr error message: whitespace collapsed,
+// capped at a fixed length (QA-MUSTER-036).
+func summarizeNonJSONBody(body []byte) string {
+	s := strings.Join(strings.Fields(string(body)), " ")
+	if s == "" {
+		return "empty response body"
+	}
+	if len(s) > 160 {
+		s = s[:157] + "..."
+	}
+	return s
 }
 
 // printTableOutput renders JSON data as an aligned table using tabwriter.

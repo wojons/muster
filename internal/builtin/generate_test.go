@@ -1668,3 +1668,79 @@ func TestGenerateCommand_BaseURLOverrideEndToEnd(t *testing.T) {
 	require.Equal(t, []string{"/projects"}, paths,
 		"the reloaded command must call the --base-url host, not the spec's servers[0]")
 }
+
+// QA-MUSTER-036: requestBody.required + the schema required list must
+// survive persistence so a RELOADED create-post refuses a bodyless write
+// before any network I/O, naming the missing flag.
+func TestGenerateCommand_RequiredBodyPropsPersistAndEnforce_QAMUSTER036(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
+	storePath := filepath.Join(t.TempDir(), "commands.json")
+
+	// Minimal inkwell-shaped spec: POST /posts with requestBody.required
+	// and components.schemas.CreatePost.required=["title"].
+	specPath := filepath.Join(t.TempDir(), "inkwell.json")
+	spec := `{"openapi":"3.0.3","info":{"title":"Inkwell API","version":"1.0.0"},
+"paths":{"/posts":{"post":{"operationId":"createPost","summary":"Create a post",
+"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CreatePost"}}}},
+"responses":{"201":{"description":"Created"}}}}},
+"components":{"schemas":{"CreatePost":{"type":"object","required":["title"],
+"properties":{"title":{"type":"string","description":"Post title"},"slug":{"type":"string","description":"URL slug"}}}}}}`
+	require.NoError(t, os.WriteFile(specPath, []byte(spec), 0o600))
+
+	cfg := &config.Config{PersistedCommandsPath: storePath}
+	genCmd := newGenerateCommand(cfg)
+	require.NoError(t, genCmd.RunE(genCmd, []string{specPath}))
+
+	sd := cmdstore.NewCommandStore(storePath).List()
+	require.NotNil(t, sd)
+	require.NotEmpty(t, sd.Commands)
+
+	var postMeta *cmdstore.CommandMetadata
+	for i := range sd.Commands {
+		if sd.Commands[i].Name == "create-post" {
+			postMeta = &sd.Commands[i]
+		}
+	}
+	require.NotNil(t, postMeta, "create-post must persist")
+
+	// The store records Required on the schema-required body flag.
+	var titleRequired bool
+	for _, f := range postMeta.Flags {
+		if f.Name == "title" {
+			require.Equal(t, cmdstore.FlagKindBody, f.Kind)
+			titleRequired = f.Required
+		}
+	}
+	require.True(t, titleRequired, "the store must record Required for the schema-required body property 'title'")
+
+	// Reload exactly like a new CLI start and run bodyless against a server
+	// that must never be hit.
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	loader := cmdstore.NewLoader(cmdstore.NewCommandStore(storePath), srv.URL)
+	cmds, err := loader.LoadCommands()
+	require.NoError(t, err)
+	var createPost *cobra.Command
+	for _, c := range cmds {
+		if c.Name() == "create-post" {
+			createPost = c
+		}
+	}
+	require.NotNil(t, createPost, "create-post must reload from the store")
+
+	buf := &bytes.Buffer{}
+	createPost.SetOut(buf)
+	createPost.SetErr(buf)
+
+	err = createPost.Execute()
+	require.Error(t, err, "a bodyless write against a required-body operation must fail locally")
+	require.Contains(t, err.Error(), "--title")
+	require.Equal(t, 0, hits, "the refusal must happen before any network I/O")
+}

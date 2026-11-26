@@ -26,6 +26,12 @@ import (
 // internal/builtin (which imports both packages) pins the two values equal.
 const AuthFlagName = "auth"
 
+// RawBodyFlagName is the raw request-body flag on persisted commands.
+// Mirror of generator.RawBodyFlagName (pkg/generator cannot be imported
+// here without an import cycle); used for messaging when persisted
+// metadata carries no raw-body flag (QA-MUSTER-036).
+const RawBodyFlagName = "body"
+
 // resolveStoredFn resolves a stored credential by name for the --auth
 // flag. Package-level var (default auth.ResolveStored) so tests can seam
 // it without touching the platform keychain; production paths always use
@@ -198,7 +204,7 @@ func (l *Loader) reconstructCommand(meta CommandMetadata) (*cobra.Command, error
 			cmd.Flags().StringSliceP(flagMeta.Name, flagMeta.Shorthand, defaultVal, flagMeta.Description)
 		}
 
-		if flagMeta.Required {
+		if flagMeta.Required && flagMeta.Kind != FlagKindBody {
 			_ = cmd.MarkFlagRequired(flagMeta.Name)
 		}
 	}
@@ -350,6 +356,41 @@ func (l *Loader) createRunHandler(meta CommandMetadata, baseURL string) func(*co
 				}
 			default:
 				queryFlags = append(queryFlags, flagMeta)
+			}
+		}
+
+		// QA-MUSTER-036: enforce required request-body properties BEFORE any
+		// network I/O. A bodyless write against an operation whose schema
+		// declares required properties must fail locally with the missing flag
+		// names; stdout stays untouched. The raw --body payload satisfies every
+		// required property at once (DF-MUSTER-5), so the check is skipped
+		// when it is set.
+		if len(bodyFlags) > 0 &&
+			(meta.Method == http.MethodPost || meta.Method == http.MethodPut || meta.Method == http.MethodPatch) {
+			rawBodySet := false
+			for _, flagMeta := range rawBodyFlags {
+				if f := cmd.Flag(flagMeta.Name); f != nil && f.Changed {
+					rawBodySet = true
+					break
+				}
+			}
+			if !rawBodySet {
+				var missing []string
+				for _, flagMeta := range bodyFlags {
+					if !flagMeta.Required {
+						continue
+					}
+					if f := cmd.Flag(flagMeta.Name); f == nil || !f.Changed {
+						missing = append(missing, "--"+flagMeta.Name)
+					}
+				}
+				if len(missing) > 0 {
+					rawFlag := RawBodyFlagName
+					if len(rawBodyFlags) > 0 {
+						rawFlag = rawBodyFlags[0].Name
+					}
+					return fmt.Errorf("missing required body flag(s): %s (or provide --%s with raw JSON)", strings.Join(missing, ", "), rawFlag)
+				}
 			}
 		}
 
@@ -511,6 +552,11 @@ func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx co
 		return fmt.Errorf("read response body: %w", err)
 	}
 
+	// QA-MUSTER-036: log EVERY completed HTTP response — success or error —
+	// before any body handling, so the INF line stays on stderr and stdout
+	// carries only the payload on error paths too.
+	logResponse(ctx, resp)
+
 	out := cmd.OutOrStdout()
 
 	// --raw flag: dump the body untouched regardless of format.
@@ -522,7 +568,6 @@ func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx co
 		if resp.StatusCode >= 400 {
 			return fmt.Errorf("HTTP error: %s", resp.Status)
 		}
-		logResponse(ctx, resp)
 		return nil
 	}
 
@@ -538,11 +583,15 @@ func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx co
 	// path).
 	var data interface{}
 	if err := json.Unmarshal(body, &data); err != nil {
-		_, _ = fmt.Fprintln(out, string(body))
+		// QA-MUSTER-036: a non-JSON ERROR body (e.g. the HTML 400 page a
+		// Flask dev server answers with) must never reach stdout — piped
+		// consumers (`create-post -o json | jq`) would choke on it. On
+		// errors the body travels to stderr as a snippet inside the
+		// returned error; successful non-JSON payloads still dump raw.
 		if resp.StatusCode >= 400 {
-			return fmt.Errorf("HTTP error: %s", resp.Status)
+			return fmt.Errorf("HTTP error: %s: %s", resp.Status, summarizeNonJSONBody(body))
 		}
-		logResponse(ctx, resp)
+		_, _ = fmt.Fprintln(out, string(body))
 		return nil
 	}
 
@@ -578,8 +627,22 @@ func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx co
 		return fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
-	logResponse(ctx, resp)
 	return nil
+}
+
+// summarizeNonJSONBody condenses a non-JSON error response body into a short
+// single-line snippet for the stderr error message: whitespace collapsed,
+// capped at a fixed length (QA-MUSTER-036). Mirrors the generator-side
+// helper in pkg/generator.
+func summarizeNonJSONBody(body []byte) string {
+	s := strings.Join(strings.Fields(string(body)), " ")
+	if s == "" {
+		return "empty response body"
+	}
+	if len(s) > 160 {
+		s = s[:157] + "..."
+	}
+	return s
 }
 
 // logResponse emits the structured log entry for a completed HTTP response.
