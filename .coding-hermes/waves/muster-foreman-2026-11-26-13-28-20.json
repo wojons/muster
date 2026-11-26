@@ -1,0 +1,28 @@
+{
+  "wave_id": "muster-foreman-2026-11-26-13-28-20",
+  "tick": "muster-foreman-2026-11-26-13-28-20",
+  "wave_budget": 2,
+  "workers": [
+    {
+      "row": "OBS-MUSTER-5",
+      "worktree": "/home/kara/worktrees/muster-OBS-MUSTER-5",
+      "branch": "wt/OBS-MUSTER-5",
+      "base_sha": "32a54420",
+      "model": "glm-5.3-flash",
+      "provider": "opencode-go-2",
+      "dispatched_at": "2026-11-26T13:35Z",
+      "brief": "Instrument cmd/openapi-cli/main.go with muster_cli_invocations_total{command,status} and muster_cli_duration_seconds{command,status} using the existing internal/monitoring recorder; write muster_cli.prom to the configured node_exporter textfile dir atomically (temp+rename) after each CLI run so success and error runs both record series."
+    },
+    {
+      "row": "REVIEW-MUSTER-32",
+      "worktree": "/home/kara/worktrees/muster-REVIEW-MUSTER-32",
+      "branch": "wt/REVIEW-MUSTER-32",
+      "base_sha": "32a54420",
+      "model": "glm-5.3-flash",
+      "provider": "opencode-go-2",
+      "dispatched_at": "2026-11-26T13:35Z",
+      "brief": "Silence the Usage/Flags dump on failure for openapi-cli grpc call, protocol graphql (and confirm jsonrpc/soap/inventory covered), matching generated command behavior; add stderr assertions covering grpc, protocol graphql, protocol jsonrpc, protocol soap and inventory."
+    }
+  ],
+  "note": "Two independent product-repo P2/P3 c1 rows (different files: cmd/openapi-cli vs internal/builtin protocol/grpc groups). Harness rows QA-MUSTER-025-R2-R2/047/048 excluded — all edit shared host-only ~/.hermes/scripts/bunker-qa.sh (mutually colliding + not repo-tracked). RELEASE-023 dating arm owner-gated."
+}
