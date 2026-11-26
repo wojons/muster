@@ -1190,3 +1190,4 @@
 {"id":1795164467717878233,"timestamp":"2026-11-26 15:47:00.854572","event_type":"task_completed","task_id":"QA-MUSTER-036","actor":"foreman","detail":"{\"status\":\"complete\"}"}
 {"id":1795164467717878234,"timestamp":"2026-11-26 16:22:37.706638","event_type":"task_completed","task_id":"INT-CI-018","actor":"foreman","detail":"{\"status\":\"complete\"}"}
 {"id":1795164467717878235,"timestamp":"2026-11-26 16:30:10.912184","event_type":"task_completed","task_id":"QA-MUSTER-045","actor":"foreman","detail":"{\"status\":\"complete\"}"}
+{"id":1795164467717878236,"timestamp":"2026-11-26 20:23:44.770288","event_type":"task_updated","task_id":"PROTO-022","actor":"muster-qa","detail":"Clean-agent full suite reproduced subscription timeout; see task note."}
