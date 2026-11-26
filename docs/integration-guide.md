@@ -613,7 +613,7 @@ Precedence on generated commands and on `request`: an explicit `-H
 | `MUSTER_BASE_URL` | Substitute for `--base-url` on generated commands, `request`, and the MCP server's `--base-url` |
 | `MUSTER_AUTH_TOKEN` | Attached as `Authorization: Bearer <token>` on generated (persisted) commands when `--auth` is not used |
 | `MUSTER_PROFILE` | Selects a config profile (the `--profile` flag overrides it) |
-| `MUSTER_HTTP_TIMEOUT` | Per-request timeout for generated calls, in seconds (default 30) |
+| `MUSTER_HTTP_TIMEOUT` | Per-request timeout for generated calls, in seconds (default 30; Go durations like `2s` are also accepted) |
 
 ```bash
 export MUSTER_BASE_URL=https://api.example.com

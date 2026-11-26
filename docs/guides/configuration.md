@@ -136,7 +136,7 @@ this table has no effect. "Default" is the behavior when the variable is unset.
 | `MUSTER_DAEMON_CHILD` | `1` makes `daemon start` serve in the foreground instead of spawning a detached child | Unset (`start` daemonizes) |
 | `MUSTER_DATABASE_URL` | Overrides the `database_url` configuration value | Unset |
 | `MUSTER_HOST` | Overrides the `host` configuration value | Unset |
-| `MUSTER_HTTP_TIMEOUT` | Timeout for generated API calls, in **seconds** | `30` (absent, unparseable or non-positive values fall back to 30s) |
+| `MUSTER_HTTP_TIMEOUT` | Timeout for generated API calls, in **seconds** (a Go duration like `2s` is also accepted) | `30` (absent, invalid or non-positive values fall back to 30, with a warning for invalid ones) |
 | `MUSTER_HTTP_VERSION` | Overrides `request.http_version` (`auto`, `1.1`, `2`, `3`); the `request` verb's `--http-version` flag overrides both | `auto` |
 | `MUSTER_LOG_FORMAT` | Overrides `log_format` (`json` or `text`) | Unset |
 | `MUSTER_LOG_LEVEL` | Overrides `log_level` (`debug`, `info`, `warn`, `error`) | Unset |

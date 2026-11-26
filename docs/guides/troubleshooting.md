@@ -229,7 +229,7 @@ Error: Configuration file not found
    ```bash
    # Correct
    export MUSTER_SPEC_PATH=openapi.yaml
-   export MUSTER_HTTP_TIMEOUT=30s
+   export MUSTER_HTTP_TIMEOUT=30
    
    # Incorrect (will be ignored)
    export SPEC_PATH=openapi.yaml

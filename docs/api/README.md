@@ -342,7 +342,7 @@ All config values can be overridden:
 
 ```bash
 export MUSTER_SPEC_PATH=/path/to/openapi.yaml
-export MUSTER_HTTP_TIMEOUT=60s
+export MUSTER_HTTP_TIMEOUT=60
 export MUSTER_LOG_LEVEL=debug
 ```
 

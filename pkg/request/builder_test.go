@@ -973,6 +973,68 @@ func TestNewHTTPClient_DefaultWhenEnvAbsent(t *testing.T) {
 	}
 }
 
+// TestHTTPTimeoutFromEnv_IntegerAndDurationForms is the QA-MUSTER-045
+// regression test: MUSTER_HTTP_TIMEOUT must accept both the integer-seconds
+// form and the Go duration form, and the effective timeout must match.
+func TestHTTPTimeoutFromEnv_IntegerAndDurationForms(t *testing.T) {
+	cases := []struct {
+		name string
+		val  string
+		want time.Duration
+	}{
+		{"integer seconds", "2", 2 * time.Second},
+		{"integer seconds 60", "60", 60 * time.Second},
+		{"go duration", "2s", 2 * time.Second},
+		{"go duration ms", "500ms", 500 * time.Millisecond},
+		{"go duration minutes", "1m30s", 90 * time.Second},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("MUSTER_HTTP_TIMEOUT", tc.val)
+			c := newHTTPClient()
+			if c.Timeout != tc.want {
+				t.Errorf("newHTTPClient() Timeout = %v for %q, want %v", c.Timeout, tc.val, tc.want)
+			}
+		})
+	}
+}
+
+// TestExecute_HTTPTimeoutDurationFormErrorsOnHang proves the suffixed form
+// actually takes effect end to end: MUSTER_HTTP_TIMEOUT=2s must error at
+// ~2s against a hanging endpoint (before QA-MUSTER-045 it silently fell
+// back to the 30s default).
+func TestExecute_HTTPTimeoutDurationFormErrorsOnHang(t *testing.T) {
+	t.Setenv("MUSTER_HTTP_TIMEOUT", "2s")
+	// Isolate the timeout from the retry path (default ceiling 3 would turn
+	// one 2s timeout into ~6.2s of wall time across attempts + backoff).
+	t.Setenv("MUSTER_MAX_RETRIES", "0")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(10 * time.Second) // hang beyond the 2s timeout
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	b := NewBuilder(srv.URL, "/hang", "GET")
+
+	start := time.Now()
+	_, err := b.Execute(context.Background())
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Execute() should error on hung endpoint with 2s timeout")
+	}
+	// Must fail well before the 30s default would have fired (and before the
+	// 10s handler sleep), but no earlier than the configured 2s allows.
+	if elapsed < 1500*time.Millisecond {
+		t.Errorf("Execute() errored after %v; expected >= 1.5s (the 2s timeout)", elapsed)
+	}
+	if elapsed > 5*time.Second {
+		t.Errorf("Execute() took %v to error; suffixed '2s' did not take effect (expected < 5s, 30s default would be ~30s)", elapsed)
+	}
+	t.Logf("MUSTER_HTTP_TIMEOUT=2s errored after %d ms against a non-responding endpoint", elapsed.Milliseconds())
+}
+
 // =============================================================================
 // QA-MUSTER-044: generated commands retry transient failures
 // =============================================================================

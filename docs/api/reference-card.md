@@ -184,7 +184,7 @@ The MCP server is a separate binary (`openapi-mcp`), built with `make build`:
 |----------|-------------|---------|
 | `MUSTER_SPEC_PATH` | Spec file path | `openapi.json` |
 | `MUSTER_BASE_URL` | API base URL | From spec |
-| `MUSTER_HTTP_TIMEOUT` | Request timeout | `30s` |
+| `MUSTER_HTTP_TIMEOUT` | Request timeout | `30` |
 | `MUSTER_OUTPUT_FORMAT` | Output format | `table` |
 | `MUSTER_LOG_LEVEL` | Logging level | `info` |
 | `MUSTER_PROFILE` | Profile name | `default` |

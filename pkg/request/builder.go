@@ -335,18 +335,41 @@ func executeHTTPClient() *client.Client {
 }
 
 // defaultHTTPTimeout is the fallback timeout for generated API calls when
-// the MUSTER_HTTP_TIMEOUT env var is absent, unparseable, or <= 0.
+// the MUSTER_HTTP_TIMEOUT env var is absent, invalid, or <= 0.
 const defaultHTTPTimeout = 30 * time.Second
 
+// httpTimeoutFromEnv resolves the MUSTER_HTTP_TIMEOUT value to a duration.
+// It accepts either an integer number of seconds ("30") or a Go duration
+// ("30s", "500ms"), so a unit-suffixed value like "2s" takes effect instead
+// of silently falling back to the default (QA-MUSTER-045). A value that
+// parses as neither — or parses to <= 0 — is rejected with a one-line stderr
+// warning naming the variable, the rejected value and the fallback in effect.
+func httpTimeoutFromEnv(v string) (time.Duration, bool) {
+	if secs, err := strconv.Atoi(v); err == nil {
+		if secs > 0 {
+			return time.Duration(secs) * time.Second, true
+		}
+	} else if d, derr := time.ParseDuration(v); derr == nil {
+		if d > 0 {
+			return d, true
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "warning: MUSTER_HTTP_TIMEOUT=%q is not an integer number of seconds or a Go duration (e.g. 30 or 30s); using default %v\n", v, defaultHTTPTimeout)
+		return 0, false
+	}
+	fmt.Fprintf(os.Stderr, "warning: MUSTER_HTTP_TIMEOUT=%q is not a positive timeout; using default %v\n", v, defaultHTTPTimeout)
+	return 0, false
+}
+
 // newHTTPClient returns an *http.Client whose Timeout is configured from the
-// MUSTER_HTTP_TIMEOUT env var (value in seconds). If the env var is absent,
-// unparseable, or <= 0, the 30s default is used. This follows the same
-// os.Getenv pattern as MUSTER_BASE_URL in pkg/generator/generator.go.
+// MUSTER_HTTP_TIMEOUT env var (integer seconds or a Go duration). If the env
+// var is absent, invalid, or <= 0, the 30s default is used. This follows the
+// same os.Getenv pattern as MUSTER_BASE_URL in pkg/generator/generator.go.
 func newHTTPClient() *http.Client {
 	timeout := defaultHTTPTimeout
 	if v := os.Getenv("MUSTER_HTTP_TIMEOUT"); v != "" {
-		if secs, err := strconv.Atoi(v); err == nil && secs > 0 {
-			timeout = time.Duration(secs) * time.Second
+		if d, ok := httpTimeoutFromEnv(v); ok {
+			timeout = d
 		}
 	}
 	return &http.Client{Timeout: timeout}
