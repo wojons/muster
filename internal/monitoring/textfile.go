@@ -14,8 +14,10 @@ import (
 
 const (
 	mcpTextfilePathEnv = "MUSTER_MCP_METRICS_PATH"
+	cliTextfilePathEnv = "MUSTER_CLI_METRICS_PATH"
 	textfileDirEnv     = "MUSTER_TEXTFILE_DIR"
 	defaultTextfile    = "/var/lib/node_exporter/textfile/muster_mcp.prom"
+	defaultCLITextfile = "/var/lib/node_exporter/textfile/muster_cli.prom"
 )
 
 // MCPTextfilePath returns the configured node_exporter textfile path. An exact
@@ -28,6 +30,20 @@ func MCPTextfilePath() string {
 		return filepath.Join(dir, "muster_mcp.prom")
 	}
 	return defaultTextfile
+}
+
+// CLITextfilePath returns the configured node_exporter textfile path for the
+// openapi-cli completion record (OBS-MUSTER-5). It mirrors MCPTextfilePath:
+// an exact path override wins, otherwise the shared collector directory is
+// used with the CLI's own file name.
+func CLITextfilePath() string {
+	if path := os.Getenv(cliTextfilePathEnv); path != "" {
+		return path
+	}
+	if dir := os.Getenv(textfileDirEnv); dir != "" {
+		return filepath.Join(dir, "muster_cli.prom")
+	}
+	return defaultCLITextfile
 }
 
 // MCPTextfileWriter atomically publishes one explicit Prometheus registry.
