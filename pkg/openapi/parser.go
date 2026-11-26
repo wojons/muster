@@ -132,6 +132,12 @@ type Operation struct {
 	Description string
 	Parameters  []Parameter
 	RequestBody []RequestBodyProperty
+	// RequestBodyRequired mirrors the operation-level requestBody.required
+	// flag (QA-MUSTER-036). OpenAPI defaults it to false: schema.required
+	// alone describes the payload shape, it does NOT make the body itself
+	// mandatory. Required-body enforcement and "(required)" help markers are
+	// gated on this — schema.Required alone must never force enforcement.
+	RequestBodyRequired bool
 	// BodyContentType is the request-body media type whose schema produced
 	// RequestBody (ContentTypeJSON or ContentTypeForm), or "" when the
 	// operation declares no supported body. QA-MUSTER-041: without it, a
@@ -200,16 +206,17 @@ func (p *Parser) ExtractOperations(spec *openapi3.T) ([]*Operation, error) {
 			mergedParams := append(append(openapi3.Parameters{}, pathItem.Parameters...), op.Parameters...)
 			bodyProps, bodyType := extractRequestBody(spec, op.RequestBody)
 			operation := &Operation{
-				ID:              op.OperationID,
-				Path:            path,
-				Method:          method,
-				Summary:         op.Summary,
-				Description:     op.Description,
-				Tags:            op.Tags,
-				Parameters:      extractParameters(mergedParams),
-				RequestBody:     bodyProps,
-				BodyContentType: bodyType,
-				ServerURL:       serverURL,
+				ID:                  op.OperationID,
+				Path:                path,
+				Method:              method,
+				Summary:             op.Summary,
+				Description:         op.Description,
+				Tags:                op.Tags,
+				Parameters:          extractParameters(mergedParams),
+				RequestBody:         bodyProps,
+				RequestBodyRequired: requestBodyRequired(op.RequestBody),
+				BodyContentType:     bodyType,
+				ServerURL:           serverURL,
 			}
 
 			// QA-MUSTER-041: a body declared ONLY as a media type we do not
@@ -325,6 +332,13 @@ func extractParameters(params openapi3.Parameters) []Parameter {
 func extractRequestBodyProperties(spec *openapi3.T, bodyRef *openapi3.RequestBodyRef) []RequestBodyProperty {
 	props, _ := extractRequestBody(spec, bodyRef)
 	return props
+}
+
+// requestBodyRequired reports whether the operation-level requestBody is
+// marked required (QA-MUSTER-036). OpenAPI defaults `required` to false, so a
+// missing requestBody object or an absent flag means the body is optional.
+func requestBodyRequired(bodyRef *openapi3.RequestBodyRef) bool {
+	return bodyRef != nil && bodyRef.Value != nil && bodyRef.Value.Required
 }
 
 // extractRequestBody returns the body properties and the media type they came

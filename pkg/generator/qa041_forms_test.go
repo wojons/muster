@@ -43,6 +43,7 @@ func qa041FormSpecJSON() string {
         "operationId": "createCustomer",
         "summary": "Create customer",
         "requestBody": {
+          "required": true,
           "content": {
             "application/x-www-form-urlencoded": {
               "schema": {

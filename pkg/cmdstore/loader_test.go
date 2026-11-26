@@ -1174,3 +1174,116 @@ func TestLoader_NonJSONErrorBodyNeverReachesStdout_QAMUSTER036(t *testing.T) {
 	require.NotContains(t, stdout.String(), "DOCTYPE")
 	require.Empty(t, stdout.String(), "stdout must be empty on a non-JSON error response")
 }
+
+// ---------------------------------------------------------------------------
+// QA-MUSTER-036 fix round 2 (judge findings on dd177d55)
+// ---------------------------------------------------------------------------
+
+// TestLoader_RunHandler_RawErrorBodies_NeverOnStdout_QAMUSTER036 covers the
+// reloaded-path raw branch: an error body must never reach stdout under
+// --raw, in every output mode — raw bodies land on stdout only for 2xx.
+func TestLoader_RunHandler_RawErrorBodies_NeverOnStdout_QAMUSTER036(t *testing.T) {
+	t.Run("HTML 400 with --raw", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("<html><body><h1>400 Bad Request</h1></body></html>"))
+		}))
+		defer srv.Close()
+
+		cs := NewCommandStore()
+		cs.commands = []CommandMetadata{{Name: "get-text", Use: "get-text", Method: "GET", Path: "/text", BaseURL: srv.URL}}
+		l := NewLoader(cs, srv.URL)
+		cmds, err := l.LoadCommands()
+		require.NoError(t, err)
+
+		stdout := new(testWriter)
+		cmds[0].SetOut(stdout)
+		require.NoError(t, cmds[0].Flags().Set("raw", "true"))
+
+		err = cmds[0].RunE(cmds[0], []string{})
+		require.Error(t, err)
+		require.Empty(t, stdout.String(), "a non-JSON error body must never reach stdout, even under --raw")
+		require.Contains(t, err.Error(), "HTTP error")
+		require.Contains(t, err.Error(), "400 Bad Request")
+	})
+
+	t.Run("JSON 400 with --raw", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"nope"}`))
+		}))
+		defer srv.Close()
+
+		cs := NewCommandStore()
+		cs.commands = []CommandMetadata{{Name: "get-text", Use: "get-text", Method: "GET", Path: "/text", BaseURL: srv.URL}}
+		l := NewLoader(cs, srv.URL)
+		cmds, err := l.LoadCommands()
+		require.NoError(t, err)
+
+		stdout := new(testWriter)
+		cmds[0].SetOut(stdout)
+		require.NoError(t, cmds[0].Flags().Set("raw", "true"))
+
+		err = cmds[0].RunE(cmds[0], []string{})
+		require.Error(t, err)
+		require.Empty(t, stdout.String(), "raw bodies reach stdout only on 2xx")
+		require.Contains(t, err.Error(), "HTTP error: 400")
+	})
+}
+
+// TestLoader_RunHandler_RequiredBodyRenamedFlag_QAMUSTER036 proves the
+// persisted/reloaded path enforces required body properties under the
+// RENAMED flag name: a schema property `header` collides with the reserved
+// --header flag, persists as --header-2, and the loader's refusal must name
+// --header-2 — the flag that actually exists.
+func TestLoader_RunHandler_RequiredBodyRenamedFlag_QAMUSTER036(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		b, _ := io.ReadAll(r.Body)
+		_, _ = w.Write([]byte(`{"id":"q1"}`))
+		_ = b
+	}))
+	defer srv.Close()
+
+	meta := CommandMetadata{
+		Name:    "create-quote",
+		Use:     "create-quote",
+		Method:  http.MethodPost,
+		Path:    "/quotes",
+		BaseURL: srv.URL,
+		Flags: []FlagMetadata{
+			{Name: "body", Shorthand: "b", Type: "string", Kind: FlagKindRawBody, Description: "Raw JSON request body"},
+			// The generator renamed `header` → `header-2` at generate time;
+			// the store persists the registered name with the spec JSON key.
+			{Name: "header-2", Type: "string", Kind: FlagKindBody, JSONName: "header", Required: true, Description: "Quote header (required)"},
+		},
+	}
+
+	cs := NewCommandStore()
+	cs.commands = []CommandMetadata{meta}
+	l := NewLoader(cs, srv.URL)
+	cmds, err := l.LoadCommands()
+	require.NoError(t, err)
+	require.Len(t, cmds, 1)
+
+	stdout := new(testWriter)
+	cmds[0].SetOut(stdout)
+
+	t.Run("bodyless without the renamed flag fails naming --header-2", func(t *testing.T) {
+		hits = 0
+		err := cmds[0].RunE(cmds[0], []string{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing required body flag(s): --header-2")
+		require.Equal(t, 0, hits, "refusal must happen before any network I/O")
+		require.Empty(t, stdout.String())
+	})
+
+	t.Run("with the renamed flag set the request proceeds", func(t *testing.T) {
+		hits = 0
+		require.NoError(t, cmds[0].Flags().Set("header-2", "quote header"))
+		require.NoError(t, cmds[0].RunE(cmds[0], []string{}))
+		require.Equal(t, 1, hits, "the request must reach the network once the renamed flag is set")
+	})
+}

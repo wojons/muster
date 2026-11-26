@@ -851,7 +851,7 @@ func TestBuildExample(t *testing.T) {
 				{Name: "limit", In: "query"},
 			},
 		}
-		result := gen.buildExample("list-pets", op)
+		result := gen.buildExample("list-pets", op, nil)
 		require.Contains(t, result, "# Basic usage")
 		require.Contains(t, result, "muster pets list-pets")
 		require.Contains(t, result, "# With filters")
@@ -870,7 +870,7 @@ func TestBuildExample(t *testing.T) {
 				{Name: "id", In: "path", Required: true},
 			},
 		}
-		result := gen.buildExample("get-pet-by-id", op)
+		result := gen.buildExample("get-pet-by-id", op, nil)
 		require.Contains(t, result, "# Basic usage")
 		require.Contains(t, result, "muster pets get-pet-by-id <id>")
 		require.Contains(t, result, "# JSON output")
@@ -884,7 +884,7 @@ func TestBuildExample(t *testing.T) {
 			Path:   "/pets",
 			Method: "POST",
 		}
-		result := gen.buildExample("create-pet", op)
+		result := gen.buildExample("create-pet", op, nil)
 		require.Contains(t, result, "# Basic usage")
 		require.Contains(t, result, "muster pets create-pet")
 		require.Contains(t, result, "# JSON output")
@@ -900,7 +900,7 @@ func TestBuildExample(t *testing.T) {
 				{Name: "limit", In: "query"},
 			},
 		}
-		result := gen.buildExample("list-pets", op)
+		result := gen.buildExample("list-pets", op, nil)
 		require.Contains(t, result, "petstore-cli pets list-pets")
 		require.NotContains(t, result, "muster pets list-pets")
 	})
@@ -914,7 +914,7 @@ func TestBuildExample(t *testing.T) {
 				{Name: "name", In: "path", Required: true},
 			},
 		}
-		result := gen.buildExample("say-hello", op)
+		result := gen.buildExample("say-hello", op, nil)
 		require.Contains(t, result, "musterflow tiny-test-api hello say-hello <name>")
 		require.Contains(t, result, "musterflow tiny-test-api hello say-hello <name> --output json")
 		// Must NOT contain the un-prefixed form
@@ -930,7 +930,7 @@ func TestBuildExample(t *testing.T) {
 				{Name: "name", In: "path", Required: true},
 			},
 		}
-		result := gen.buildExample("say-hello", op)
+		result := gen.buildExample("say-hello", op, nil)
 		require.Contains(t, result, "musterflow hello say-hello <name>")
 		require.NotContains(t, result, "tiny-test-api")
 	})
@@ -944,7 +944,7 @@ func TestBuildExample(t *testing.T) {
 				{Name: "limit", In: "query"},
 			},
 		}
-		result := gen.buildExample("list-pets", op)
+		result := gen.buildExample("list-pets", op, nil)
 		require.Contains(t, result, "musterflow my-api pets list-pets")
 		require.Contains(t, result, "musterflow my-api pets list-pets --limit")
 		require.Contains(t, result, "musterflow my-api pets list-pets --output json")
@@ -964,7 +964,7 @@ func TestBuildExample(t *testing.T) {
 				},
 			},
 		}
-		result := gen.buildExample("find-pets-by-status", op)
+		result := gen.buildExample("find-pets-by-status", op, nil)
 		require.Contains(t, result, "--status available")
 		require.NotContains(t, result, "--namespace production")
 	})
@@ -983,7 +983,7 @@ func TestBuildExample(t *testing.T) {
 				},
 			},
 		}
-		result := gen.buildExample("list-pets", op)
+		result := gen.buildExample("list-pets", op, nil)
 		require.Contains(t, result, "--limit 10")
 	})
 }
@@ -1003,7 +1003,7 @@ func TestBuildFlatExample(t *testing.T) {
 				{Name: "limit", In: "query"},
 			},
 		}
-		result := gen.buildFlatExample("list-pets", op)
+		result := gen.buildFlatExample("list-pets", op, nil)
 		require.Contains(t, result, "muster list-pets")
 		require.Contains(t, result, "muster list-pets --output json")
 		require.NotContains(t, result, "pets list-pets")
@@ -1018,7 +1018,7 @@ func TestBuildFlatExample(t *testing.T) {
 				{Name: "id", In: "path", Required: true},
 			},
 		}
-		result := gen.buildFlatExample("get-pet-by-id", op)
+		result := gen.buildFlatExample("get-pet-by-id", op, nil)
 		require.Contains(t, result, "muster get-pet-by-id <id>")
 		require.Contains(t, result, "muster get-pet-by-id <id> --output json")
 		require.NotContains(t, result, "pets get-pet-by-id")
@@ -1035,9 +1035,9 @@ func TestBuildFlatExample(t *testing.T) {
 		}
 		// The grouped form (in-session tree) keeps the APIName prefix;
 		// the flat form (persisted tree) must not.
-		grouped := gen.buildExample("say-hello", op)
+		grouped := gen.buildExample("say-hello", op, nil)
 		require.Contains(t, grouped, "musterflow tiny-test-api hello say-hello <name>")
-		flat := gen.buildFlatExample("say-hello", op)
+		flat := gen.buildFlatExample("say-hello", op, nil)
 		require.Contains(t, flat, "musterflow say-hello <name>")
 		require.NotContains(t, flat, "tiny-test-api")
 		require.NotContains(t, flat, "hello say-hello")
@@ -1052,7 +1052,7 @@ func TestBuildFlatExample(t *testing.T) {
 				{Name: "status", In: "query", Enum: []interface{}{"available", "pending"}},
 			},
 		}
-		result := gen.buildFlatExample("find-pets-by-status", op)
+		result := gen.buildFlatExample("find-pets-by-status", op, nil)
 		require.Contains(t, result, "muster find-pets-by-status --status available")
 	})
 
@@ -1062,7 +1062,7 @@ func TestBuildFlatExample(t *testing.T) {
 			Path:   "/projects/{project_id}",
 			Method: "GET",
 		}
-		result := gen.buildFlatExample("get-project", op)
+		result := gen.buildFlatExample("get-project", op, nil)
 		require.Contains(t, result, "muster get-project <project_id>")
 		require.Contains(t, result, "muster get-project <project_id> --output json")
 		require.NotContains(t, result, "projects get-project")
@@ -3392,7 +3392,7 @@ type bodyCapture struct {
 // rawBodySpecJSON returns a minimal spec with a POST operation whose request
 // body has a required "title" property, plus a GET collection operation.
 func rawBodySpecJSON() string {
-	return `{"openapi":"3.0.0","info":{"title":"Tasks","version":"1.0.0"},"paths":{"/tasks":{"get":{"operationId":"listTasks","summary":"List tasks","responses":{"200":{"description":"OK"}}},"post":{"operationId":"createTask","summary":"Create task","requestBody":{"content":{"application/json":{"schema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}}}},"responses":{"201":{"description":"Created"}}}}}}`
+	return `{"openapi":"3.0.0","info":{"title":"Tasks","version":"1.0.0"},"paths":{"/tasks":{"get":{"operationId":"listTasks","summary":"List tasks","responses":{"200":{"description":"OK"}}},"post":{"operationId":"createTask","summary":"Create task","requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}}}},"responses":{"201":{"description":"Created"}}}}}}`
 }
 
 func TestGenerateCommands_RawBodyFlag_AddedToPostOnly(t *testing.T) {
@@ -3685,10 +3685,14 @@ func TestRequiredBodyProps_HelpAndExample_QAMUSTER036(t *testing.T) {
 	usage := createPost.UsageString()
 	require.Contains(t, usage, "(required)")
 
-	// The Basic usage example includes the required flag: a bodyless POST
-	// against this spec is refused before any network I/O.
-	require.Contains(t, createPost.Example, "--title <title>",
-		"the Basic usage example must include required body flags")
+	// The Basic usage example includes the required flag with a QUOTED,
+	// copy-pasteable value (QA-MUSTER-036): an unquoted `<title>` placeholder
+	// is parsed by bash as an input redirection — pasting the example fails
+	// with "cannot open title" instead of running the command.
+	require.Contains(t, createPost.Example, "--title 'My title'",
+		"the Basic usage example must include required body flags with a quoted value")
+	require.NotContains(t, createPost.Example, "<",
+		"generated examples must not contain angle-bracket placeholders")
 
 	// The persistence annotation is stamped for the store.
 	require.Equal(t, []string{"true"}, title.Annotations[AnnotationRequiredBodyProperty])
@@ -3700,8 +3704,9 @@ func TestValidateRequiredBodyProps_QAMUSTER036(t *testing.T) {
 
 	cmd := &cobra.Command{Use: "create-post"}
 	op := &openapi.Operation{
-		Method: http.MethodPost,
-		Path:   "/posts",
+		Method:              http.MethodPost,
+		Path:                "/posts",
+		RequestBodyRequired: true,
 		RequestBody: []openapi.RequestBodyProperty{
 			{Name: "title", Type: "string", Required: true},
 			{Name: "slug", Type: "string"},
@@ -3720,4 +3725,205 @@ func TestValidateRequiredBodyProps_QAMUSTER036(t *testing.T) {
 		require.NoError(t, cmd.Flags().Set("title", "Hello"))
 		require.NoError(t, gen.validateRequiredBodyProps(cmd, op))
 	})
+}
+
+// ---------------------------------------------------------------------------
+// QA-MUSTER-036 fix round 2 (judge findings on dd177d55):
+//   1. examples are copy-pasteable (quoted values, no angle brackets)
+//   2. --raw never leaks a non-2xx error body to stdout
+//   3. renamed collision flags are named correctly in enforcement + examples
+//   4. optional request bodies (requestBody.required=false) are not enforced
+// ---------------------------------------------------------------------------
+
+// optionalBodySpecJSON: the schema requires "title" but the operation-level
+// requestBody is NOT required — the CLI must not enforce the body.
+const optionalBodySpecJSON = `{"openapi":"3.0.0","info":{"title":"Notes","version":"1.0.0"},"paths":{"/notes":{"post":{"operationId":"createNote","summary":"Create a note","requestBody":{"required":false,"content":{"application/json":{"schema":{"type":"object","required":["title"],"properties":{"title":{"type":"string","description":"Note title"}}}}}},"responses":{"201":{"description":"Created"}}}}}}`
+
+// collisionHeaderSpecJSON: a required body property named `header` collides
+// with the reserved --header flag and is registered as --header-2.
+const collisionHeaderSpecJSON = `{"openapi":"3.0.0","info":{"title":"Quotes","version":"1.0.0"},"paths":{"/quotes":{"post":{"operationId":"createQuote","summary":"Create quote","requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["header"],"properties":{"header":{"type":"string","description":"Quote header"}}}}}},"responses":{"201":{"description":"Created"}}}}}}`
+
+func generateOne(t *testing.T, spec string) *cobra.Command {
+	t.Helper()
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: "https://api.example.com"})
+	require.NoError(t, err)
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(spec))
+	require.NoError(t, err)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+	subs := commands[0].Commands()
+	require.Len(t, subs, 1)
+	return subs[0]
+}
+
+func TestRequiredBodyExample_CopyPasteable_QAMUSTER036(t *testing.T) {
+	createPost := generateOne(t, requiredBodySpecJSON)
+
+	// The whole example must be pasteable verbatim: no angle-bracket
+	// placeholder anywhere (bash parses `<title>` as an input redirection —
+	// "cannot open title"), and the required value is a quoted concrete
+	// placeholder.
+	require.Contains(t, createPost.Example, "--title 'My title'")
+	require.NotContains(t, createPost.Example, "<",
+		"generated examples must not contain angle-bracket placeholders")
+	require.Contains(t, createPost.Example, "--output json",
+		"the JSON output example line inherits the same quoted form")
+}
+
+func TestBodyPropertyExampleValue_Quoting_QAMUSTER036(t *testing.T) {
+	require.Equal(t, `'My title'`, bodyPropertyExampleValue(openapi.RequestBodyProperty{Name: "title"}))
+	require.Equal(t, `'draft'`, bodyPropertyExampleValue(openapi.RequestBodyProperty{Name: "status", Default: "draft"}))
+	// A default containing a single quote must still survive a shell paste.
+	require.Equal(t, `'it'\''s'`, bodyPropertyExampleValue(openapi.RequestBodyProperty{Name: "x", Default: "it's"}))
+}
+
+func TestExecuteAndPrint_RawErrorBodies_NeverOnStdout_QAMUSTER036(t *testing.T) {
+	t.Run("HTML 400 with --raw", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("<html><body><h1>400 Bad Request</h1></body></html>"))
+		}))
+		defer srv.Close()
+
+		gen, err := NewGenerator(Config{AppName: "muster", BaseURL: srv.URL})
+		require.NoError(t, err)
+		loader := openapi3.NewLoader()
+		doc, err := loader.LoadFromData([]byte(rawBodySpecJSON()))
+		require.NoError(t, err)
+		commands, err := gen.GenerateCommands(doc)
+		require.NoError(t, err)
+		listCmd, _, err := commands[0].Find([]string{"list-tasks"})
+		require.NoError(t, err)
+
+		out := new(bytes.Buffer)
+		listCmd.SetOut(out)
+		require.NoError(t, listCmd.Flags().Set("raw", "true"))
+
+		err = listCmd.RunE(listCmd, []string{})
+		require.Error(t, err)
+		// THE assertion: stdout stays empty for a non-JSON error body, even
+		// under --raw. The body snippet travels to stderr via the error.
+		require.Empty(t, out.String(), "a non-JSON error body must never reach stdout")
+		require.Contains(t, err.Error(), "HTTP error")
+		require.Contains(t, err.Error(), "400 Bad Request")
+	})
+
+	t.Run("JSON 400 with --raw", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"nope"}`))
+		}))
+		defer srv.Close()
+
+		gen, err := NewGenerator(Config{AppName: "muster", BaseURL: srv.URL})
+		require.NoError(t, err)
+		loader := openapi3.NewLoader()
+		doc, err := loader.LoadFromData([]byte(rawBodySpecJSON()))
+		require.NoError(t, err)
+		commands, err := gen.GenerateCommands(doc)
+		require.NoError(t, err)
+		listCmd, _, err := commands[0].Find([]string{"list-tasks"})
+		require.NoError(t, err)
+
+		out := new(bytes.Buffer)
+		listCmd.SetOut(out)
+		require.NoError(t, listCmd.Flags().Set("raw", "true"))
+
+		err = listCmd.RunE(listCmd, []string{})
+		require.Error(t, err)
+		// Raw bodies reach stdout only on 2xx — a JSON error body is routed
+		// to stderr with the status line too.
+		require.Empty(t, out.String())
+		require.Contains(t, err.Error(), "HTTP error: 400")
+	})
+}
+
+func TestRequiredBodyFlagCollision_RenamedEverywhere_QAMUSTER036(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		b, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"q1"}`))
+		_ = b
+	}))
+	defer srv.Close()
+
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: srv.URL})
+	require.NoError(t, err)
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(collisionHeaderSpecJSON))
+	require.NoError(t, err)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	createQuote, _, err := commands[0].Find([]string{"create-quote"})
+	require.NoError(t, err)
+
+	out := new(bytes.Buffer)
+	createQuote.SetOut(out)
+
+	t.Run("help and example name the renamed flag", func(t *testing.T) {
+		hdr := createQuote.Flags().Lookup("header-2")
+		require.NotNil(t, hdr, "the colliding property must be registered as --header-2")
+		require.Contains(t, hdr.Usage, "(required)")
+		require.Contains(t, createQuote.Example, "--header-2 'My header'",
+			"the example must name the flag that actually exists")
+		require.NotContains(t, createQuote.Example, "--header ",
+			"the example must not name the reserved --header flag")
+	})
+
+	t.Run("bodyless run without --header-2 fails naming --header-2 before network", func(t *testing.T) {
+		hits = 0
+		err := createQuote.RunE(createQuote, []string{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing required body flag(s): --header-2")
+		require.NotContains(t, err.Error(), "--header)",
+			"the refusal must not name the unregistered --header flag")
+		require.Equal(t, 0, hits, "refusal must happen before any network I/O")
+		require.Empty(t, out.String())
+	})
+
+	t.Run("bodyless run with --header-2 set proceeds to the network", func(t *testing.T) {
+		hits = 0
+		require.NoError(t, createQuote.Flags().Set("header-2", "quote header"))
+		require.NoError(t, createQuote.RunE(createQuote, []string{}))
+		require.Equal(t, 1, hits, "the request must reach the network once the renamed flag is set")
+	})
+}
+
+func TestOptionalRequestBody_NotEnforced_QAMUSTER036(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_, _ = w.Write([]byte(`{"id":"n1"}`))
+	}))
+	defer srv.Close()
+
+	gen, err := NewGenerator(Config{AppName: "muster", BaseURL: srv.URL})
+	require.NoError(t, err)
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData([]byte(optionalBodySpecJSON))
+	require.NoError(t, err)
+	commands, err := gen.GenerateCommands(doc)
+	require.NoError(t, err)
+	createNote, _, err := commands[0].Find([]string{"create-note"})
+	require.NoError(t, err)
+
+	out := new(bytes.Buffer)
+	createNote.SetOut(out)
+
+	// Schema.required alone must NOT produce the "(required)" marker.
+	titleFlag := createNote.Flags().Lookup("title")
+	require.NotNil(t, titleFlag)
+	require.NotContains(t, titleFlag.Usage, "(required)",
+		"requestBody.required=false means schema.required must not force the marker")
+	require.Empty(t, titleFlag.Annotations[AnnotationRequiredBodyProperty],
+		"the required-body annotation must not be stamped for an optional body")
+
+	// And a bodyless run must attempt the request, not refuse locally.
+	require.NoError(t, createNote.RunE(createNote, []string{}))
+	require.Equal(t, 1, hits, "a bodyless write against an optional body must reach the network")
 }

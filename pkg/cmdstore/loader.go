@@ -560,13 +560,16 @@ func executeAndReadResponse(builder *request.Builder, cmd *cobra.Command, ctx co
 	out := cmd.OutOrStdout()
 
 	// --raw flag: dump the body untouched regardless of format.
+	// QA-MUSTER-036: a raw body reaches stdout only on 2xx — an ERROR body
+	// must never leak to stdout (see pkg/generator.executeAndPrint for the
+	// same discipline on the generated path).
 	raw, _ := cmd.Flags().GetBool("raw")
 	if raw || len(body) == 0 {
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("HTTP error: %s: %s", resp.Status, summarizeNonJSONBody(body))
+		}
 		if len(body) > 0 {
 			_, _ = fmt.Fprintln(out, string(body))
-		}
-		if resp.StatusCode >= 400 {
-			return fmt.Errorf("HTTP error: %s", resp.Status)
 		}
 		return nil
 	}
