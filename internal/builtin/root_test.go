@@ -27,9 +27,11 @@ func TestPersistedCommandLoadGating(t *testing.T) {
 		want int
 	}{
 		{name: "version", args: []string{"version"}, want: 0},
-		{name: "completion", args: []string{"completion", "bash"}, want: 0},
-		{name: "completion hidden command", args: []string{"__complete", ""}, want: 0},
-		{name: "completion hidden command no descriptions", args: []string{"__completeNoDesc", ""}, want: 0},
+		// DF-061: completion surfaces now LOAD the store — generated
+		// commands must appear in shell completion and __complete output.
+		{name: "completion", args: []string{"completion", "bash"}, want: 1},
+		{name: "completion hidden command", args: []string{"__complete", ""}, want: 1},
+		{name: "completion hidden command no descriptions", args: []string{"__completeNoDesc", ""}, want: 1},
 		{name: "root help", args: []string{"--help"}, want: 0},
 		{name: "short root help", args: []string{"-h"}, want: 0},
 		{name: "bare help", args: []string{"help"}, want: 0},
