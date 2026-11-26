@@ -12,8 +12,25 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wojons/muster/internal/audit"
 	"github.com/wojons/muster/internal/builtin"
+	"github.com/wojons/muster/internal/monitoring"
 	"github.com/wojons/muster/pkg/config"
 )
+
+// TestMain redirects the CLI completion record away from the host's live
+// node_exporter textfile directory: run() publishes muster_cli.prom to
+// monitoring.CLITextfilePath() on EVERY invocation, and without this default
+// the test run would write into /var/lib/node_exporter/textfile. Individual
+// tests still override it with t.Setenv for hermetic assertions.
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "openapi-cli-test-textfile")
+	if err == nil {
+		defer func() { _ = os.RemoveAll(dir) }()
+		if os.Getenv("MUSTER_CLI_METRICS_PATH") == "" {
+			_ = os.Setenv("MUSTER_CLI_METRICS_PATH", filepath.Join(dir, "muster_cli.prom"))
+		}
+	}
+	os.Exit(m.Run())
+}
 
 func TestRun_ConfigLoad(t *testing.T) {
 	cfg, err := config.Load()
@@ -502,4 +519,122 @@ func TestNewRootCommand_CompletionCommand(t *testing.T) {
 	err := root.ExecuteContext(ctx)
 
 	require.NoError(t, err)
+}
+
+// runWithArgs runs run() with the given argv (as a real process would see it)
+// and a hermetic HOME so config loading cannot touch the developer's config.
+func runWithArgs(t *testing.T, args ...string) error {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
+
+	originalArgs := os.Args
+	t.Cleanup(func() { os.Args = originalArgs })
+	os.Args = append([]string{"openapi-cli"}, args...)
+	return run()
+}
+
+// TestCLICompletionRecord_AccumulatesAcrossInvocations is the OBS-MUSTER-5
+// acceptance behavior: every invocation — success or error — is folded into
+// the muster_cli textfile (muster_cli_invocations_total plus
+// muster_cli_duration_seconds), and the record ACCUMULATES across sequential
+// invocations instead of the last run clobbering the previous one.
+func TestCLICompletionRecord_AccumulatesAcrossInvocations(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("MUSTER_CLI_METRICS_PATH", filepath.Join(dir, "muster_cli.prom"))
+
+	// First invocation: a valid subcommand exits successfully.
+	require.NoError(t, runWithArgs(t, "version"))
+
+	path := monitoring.CLITextfilePath()
+	first, err := os.ReadFile(path)
+	require.NoError(t, err, "completion record must exist after a successful run")
+	firstText := string(first)
+	require.Contains(t, firstText,
+		`muster_cli_invocations_total{command="version",status="success"} 1`,
+		"successful run must record the version subcommand:\n%s", firstText)
+	require.Contains(t, firstText,
+		`muster_cli_duration_seconds_count{command="version",status="success"} 1`,
+		"successful run must observe a duration:\n%s", firstText)
+	require.Contains(t, firstText,
+		`muster_cli_duration_seconds_sum{command="version",status="success"}`,
+		"duration sum must be present:\n%s", firstText)
+
+	// Second invocation: an invalid command name must still be recorded,
+	// with status=error, and must NOT clobber the previous run's series.
+	require.Error(t, runWithArgs(t, "nosuchcommand"), "an invalid command must exit with an error")
+
+	second, err := os.ReadFile(path)
+	require.NoError(t, err, "completion record must exist after a failed run")
+	secondText := string(second)
+	require.Contains(t, secondText, `muster_cli_invocations_total{command="version",status="success"} 1`,
+		"the failed run must not clobber the successful run's series:\n%s", secondText)
+	require.Contains(t, secondText, `muster_cli_invocations_total{command="openapi-cli",status="error"} 1`,
+		"the failed run must be recorded with status=error (command label = root name, never an argv tail):\n%s", secondText)
+	require.Contains(t, secondText, `muster_cli_duration_seconds_count{command="openapi-cli",status="error"} 1`,
+		"the failed run must observe a duration:\n%s", secondText)
+
+	// Atomic publish: no temp files left in the textfile directory.
+	leftovers, err := filepath.Glob(filepath.Join(dir, ".*.tmp"))
+	require.NoError(t, err)
+	require.Empty(t, leftovers, "temporary files must not survive the publish")
+}
+
+// TestCLICompletionRecord_DifferentBucketLayoutStartsFresh pins the defensive
+// merge rule: a record written with different histogram buckets is not merged
+// into a lie — the counter still accumulates, the histogram starts over.
+func TestCLICompletionRecord_DifferentBucketLayoutStartsFresh(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "muster_cli.prom")
+	t.Setenv("MUSTER_CLI_METRICS_PATH", path)
+
+	legacy := "# HELP muster_cli_duration_seconds old layout\n" +
+		"# TYPE muster_cli_duration_seconds histogram\n" +
+		`muster_cli_duration_seconds_bucket{command="version",status="success",le="1"} 7` + "\n" +
+		`muster_cli_duration_seconds_bucket{command="version",status="success",le="+Inf"} 7` + "\n" +
+		`muster_cli_duration_seconds_sum{command="version",status="success"} 3.5` + "\n" +
+		`muster_cli_duration_seconds_count{command="version",status="success"} 7` + "\n" +
+		"# HELP muster_cli_invocations_total old layout\n" +
+		"# TYPE muster_cli_invocations_total counter\n" +
+		`muster_cli_invocations_total{command="version",status="success"} 7` + "\n"
+	require.NoError(t, os.WriteFile(path, []byte(legacy), 0o644))
+
+	require.NoError(t, runWithArgs(t, "version"))
+
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	text := string(raw)
+	require.Contains(t, text, `muster_cli_invocations_total{command="version",status="success"} 8`,
+		"the counter must accumulate across the bucket-layout change:\n%s", text)
+	require.Contains(t, text, `muster_cli_duration_seconds_count{command="version",status="success"} 1`,
+		"an incompatible histogram must start fresh, not merge into a lie:\n%s", text)
+}
+
+// TestCLICommandLabel pins the label rule: the command label is the
+// subcommand path --help prints, resolved through the cobra tree — never an
+// argv tail (unknown commands, positionals, flag values are dropped).
+func TestCLICommandLabel(t *testing.T) {
+	root := builtin.NewRootCommand(&config.Config{Version: "test"})
+
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"no args", nil, "openapi-cli"},
+		{"only flags", []string{"--help"}, "openapi-cli"},
+		{"unknown command", []string{"nosuchcommand", "--bogus"}, "openapi-cli"},
+		{"single command", []string{"version"}, "version"},
+		{"nested command", []string{"webhook", "create", "--bogus-flag", "1"}, "webhook create"},
+		{"unresolvable nested word dropped", []string{"webhook", "add", "--url", "http://x"}, "webhook"},
+		{"persistent flag value skipped", []string{"--profile", "acme", "webhook", "list"}, "webhook list"},
+		{"positional arg dropped", []string{"webhook", "delete", "wh-1", "--bogus"}, "webhook delete"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, cliCommandLabel(root, tc.args))
+		})
+	}
 }

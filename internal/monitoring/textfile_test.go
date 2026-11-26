@@ -85,6 +85,18 @@ func TestMCPTextfilePath_EnvPrecedence(t *testing.T) {
 	}
 }
 
+func TestCLITextfilePath_EnvPrecedence(t *testing.T) {
+	t.Setenv(textfileDirEnv, "/tmp/collector")
+	t.Setenv(cliTextfilePathEnv, "")
+	if got := CLITextfilePath(); got != filepath.Join("/tmp/collector", "muster_cli.prom") {
+		t.Fatalf("dir-derived path = %q", got)
+	}
+	t.Setenv(cliTextfilePathEnv, "/tmp/exact-cli.prom")
+	if got := CLITextfilePath(); got != "/tmp/exact-cli.prom" {
+		t.Fatalf("exact override = %q", got)
+	}
+}
+
 func TestMCPTextfileWriter_NilRegistry(t *testing.T) {
 	writer := NewMCPTextfileWriter(nil, filepath.Join(t.TempDir(), "metrics.prom"))
 	if err := writer.Write(); err == nil {
