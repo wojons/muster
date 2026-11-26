@@ -1,0 +1,18 @@
+{
+  "wave_id": "muster-foreman-2026-11-26-12-09-11",
+  "tick": "muster-foreman-2026-11-26-12-09-11",
+  "wave_budget": 1,
+  "workers": [
+    {
+      "row": "RELEASE-026",
+      "worktree": "/home/kara/worktrees/muster-RELEASE-026",
+      "branch": "wt/RELEASE-026",
+      "base_sha": "04c8c190",
+      "model": "glm-5.3-flash",
+      "provider": "opencode-go-2",
+      "dispatched_at": "2026-11-26T12:15Z",
+      "brief": "Fix 6 reproducible race-detector findings in test harnesses (cmd/mcp-server/auth_e2e_test.go driveAuthedBinary capture, demo/test-suites/500-daemon-socket-integration_test.go TestDaemonSocket_ProxyFlow capture, pkg/client/client_retry_test.go + pkg/client/retry_attempts_test.go sync) so full make test (-race) exits 0."
+    }
+  ],
+  "note": "P0 RELEASE-014 parked (owner-gated publication authorization). RELEASE-026 is highest-value dispatchable P2 engineering row; it gates release full-suite evidence."
+}
