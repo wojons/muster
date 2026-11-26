@@ -94,6 +94,11 @@ a single request.`,
 	cmd.Flags().StringVar(&argsJSON, "args", "{}", "method arguments as a JSON object")
 	cmd.Flags().DurationVar(&callTimeout, "timeout", jsonrpcDefaultTimeout, "per-call timeout (applies only when the call has no other deadline)")
 
+	// A failed discovery or call is a runtime outcome: report only the error
+	// line (REVIEW-MUSTER-32, the DF-019 pattern from request.go). Flag misuse
+	// still shows usage via the FlagErrorFunc inside the helper.
+	silenceRuntimeUsage(cmd, nil)
+
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if ctx == nil {

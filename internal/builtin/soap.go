@@ -197,6 +197,12 @@ Spec: specs/implementation/PROTO-008-soap-wsdl.md`,
 	cmd.Flags().DurationVar(&timeout, FlagSoapTimeout, soapadapter.DefaultTimeout, "Per-call timeout (applies only when the call has no other deadline)")
 	cmd.Flags().StringVarP(&output, FlagSoapOutput, "o", "json", "Output format (json, raw)")
 
+	// A failed ingestion or call is a runtime outcome (unreadable WSDL,
+	// refused connection, mapped SOAP fault): report only the error line
+	// (REVIEW-MUSTER-32, the DF-019 pattern from request.go). Flag misuse
+	// still shows usage via the FlagErrorFunc inside the helper.
+	silenceRuntimeUsage(cmd, nil)
+
 	return cmd
 }
 

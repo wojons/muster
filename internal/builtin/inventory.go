@@ -102,10 +102,14 @@ Each inventory maps a remote host URL to a local inventory file.`,
 	}
 	addCmd.Flags().String("host", "", "Inventory host URL")
 	addCmd.Flags().String("file", "", "Local inventory file path")
+	// "inventory add" without --host/--file is reported by the RunE check as a
+	// one-line error; cobra must not bury it under the usage block
+	// (REVIEW-MUSTER-32, the DF-019 pattern from request.go).
+	silenceRuntimeUsage(addCmd, nil)
 	cmd.AddCommand(addCmd)
 
 	// inventory list
-	cmd.AddCommand(&cobra.Command{
+	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List configured inventories",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -119,11 +123,13 @@ Each inventory maps a remote host URL to a local inventory file.`,
 			}
 			sort.Slice(invs, func(i, j int) bool { return invs[i].Host < invs[j].Host })
 			for _, inv := range invs {
-				fmt.Printf("%s\t%s\n", inv.Host, inv.File)
+				fmt.Printf("%s	%s\n", inv.Host, inv.File)
 			}
 			return nil
 		},
-	})
+	}
+	silenceRuntimeUsage(listCmd, nil)
+	cmd.AddCommand(listCmd)
 
 	// inventory remove --host URL
 	removeCmd := &cobra.Command{
@@ -158,6 +164,8 @@ Each inventory maps a remote host URL to a local inventory file.`,
 		},
 	}
 	removeCmd.Flags().String("host", "", "Inventory host URL")
+	// Same one-line error policy as `inventory add` (REVIEW-MUSTER-32).
+	silenceRuntimeUsage(removeCmd, nil)
 	cmd.AddCommand(removeCmd)
 
 	return cmd
