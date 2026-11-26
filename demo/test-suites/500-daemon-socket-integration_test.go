@@ -11,9 +11,30 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
+
+// synchronizedBuffer is a bytes.Buffer safe for concurrent use: os/exec
+// drains the child's stdout/stderr into it on background goroutines while
+// the test later reads it back (RELEASE-026 race-detector findings).
+type synchronizedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *synchronizedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *synchronizedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
 
 // TestDaemonSocket_ProxyFlow proves daemon creates socket, proxies HTTP, routes requests using REAL binary
 func TestDaemonSocket_ProxyFlow(t *testing.T) {
@@ -52,26 +73,15 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 		// IMPORTANT: Pass flags BEFORE the subcommand for standard Go flag parsing
 		cmd := exec.CommandContext(ctx, binaryPath, "--backend-url", backendAPI.URL, "--socket-path", socketPath, "proxy")
 
-		// Capture stderr and stdout for logging
-		stderr, err := cmd.StderrPipe()
-		if err != nil {
-			t.Fatalf("Failed to create stderr pipe: %v", err)
-		}
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			t.Fatalf("Failed to create stdout pipe: %v", err)
-		}
-
-		// Read streams in background
-		bufStderr := &bytes.Buffer{}
-		bufStdout := &bytes.Buffer{}
-
-		go func() {
-			_, _ = io.Copy(bufStderr, stderr)
-		}()
-		go func() {
-			_, _ = io.Copy(bufStdout, stdout)
-		}()
+		// Capture stderr and stdout into mutex-protected buffers: os/exec
+		// drains the child's streams into these writers on background
+		// goroutines, which must not race the test's later reads
+		// (RELEASE-026). cmd.Wait() below joins those goroutines, so the
+		// deferred logging happens strictly after all capture is complete.
+		bufStderr := &synchronizedBuffer{}
+		bufStdout := &synchronizedBuffer{}
+		cmd.Stdout = bufStdout
+		cmd.Stderr = bufStderr
 
 		// Start the daemon
 		if err := cmd.Start(); err != nil {
@@ -86,12 +96,15 @@ func TestDaemonSocket_ProxyFlow(t *testing.T) {
 				t.Logf("Killing daemon process")
 				_ = cmd.Process.Kill()
 			}
+			// Wait joins the internal stream-drain goroutines: reading the
+			// buffers before it returns would race them.
+			_ = cmd.Wait()
 
 			// Log all output after test completes
-			if bufStdout.Len() > 0 {
+			if bufStdout.String() != "" {
 				t.Logf("Daemon stdout:\n%s", bufStdout.String())
 			}
-			if bufStderr.Len() > 0 {
+			if bufStderr.String() != "" {
 				t.Logf("Daemon stderr:\n%s", bufStderr.String())
 			}
 		}()

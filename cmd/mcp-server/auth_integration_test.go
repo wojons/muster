@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -71,8 +70,8 @@ paths:
 	require.NoError(t, err)
 	stdout, err := cmd.StdoutPipe()
 	require.NoError(t, err)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	stderr := &synchronizedBuffer{}
+	cmd.Stderr = stderr
 	require.NoError(t, cmd.Start())
 	t.Cleanup(func() {
 		_ = stdin.Close()
