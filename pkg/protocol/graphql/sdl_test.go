@@ -182,20 +182,22 @@ func TestBuilder_SchemaThatNoLongerDescribesTheOperation(t *testing.T) {
 	assert.True(t, errors.IsError(err, errors.CodeNotFound), "got %v", err)
 	assert.Contains(t, err.Error(), "Query.ghost")
 
-	// A subscription-shaped operation is refused: subscriptions are out of scope.
-	subscription := &protocol.Operation{
+	// An operation stamped with an operation_type the adapter does not ingest
+	// (a future or foreign stamp on a stale operation list) fails as a
+	// validation error, not as a silently empty document.
+	foreign := &protocol.Operation{
 		ID:       "ticks",
 		Protocol: protocol.ProtocolGraphQL,
 		Source: map[string]string{
 			graphql.SourceField:         "ticks",
-			graphql.SourceOperationType: "subscription",
+			graphql.SourceOperationType: "live-query",
 		},
 	}
-	_, err = client.Builder().Build(subscription, nil, "")
+	_, err = client.Builder().Build(foreign, nil, "")
 	require.Error(t, err)
 	assert.True(t, errors.IsError(err, errors.CodeValidation), "got %v", err)
-	assert.Contains(t, err.Error(), `unsupported operation_type "subscription"`)
-	assert.Contains(t, err.Error(), "only query and mutation are ingested")
+	assert.Contains(t, err.Error(), `unsupported operation_type "live-query"`)
+	assert.Contains(t, err.Error(), "only query, mutation and subscription are ingested")
 }
 
 func TestBuilder_SelectionAllowList_OnAUnionRootFailsLoud(t *testing.T) {
@@ -213,6 +215,6 @@ func TestClient_DiscoverFromFileURL(t *testing.T) {
 	client := newClient("")
 	ops, err := client.Discover(context.Background(), "file://"+sdlFixturePath)
 	require.NoError(t, err)
-	assert.Len(t, ops, 9)
+	assert.Len(t, ops, 10)
 	assert.Equal(t, "file://"+sdlFixturePath, client.Schema().Source)
 }

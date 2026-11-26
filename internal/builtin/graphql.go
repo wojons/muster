@@ -56,6 +56,10 @@ const (
 	FlagGraphQLMaxDepth  = "max-depth"
 	FlagGraphQLMaxFields = "max-fields"
 
+	// FlagGraphQLMaxMessages bounds a subscription invocation's collected
+	// events (the §4.5(4) bounded collect; same flag the grpc call uses).
+	FlagGraphQLMaxMessages = "max-messages"
+
 	// FlagGraphQLTimeout bounds a call whose caller's context carries no
 	// deadline.
 	FlagGraphQLTimeout = "timeout"
@@ -67,16 +71,17 @@ const (
 // newProtocolGraphQLCommand builds `protocol graphql` (PROTO-005).
 func newProtocolGraphQLCommand() *cobra.Command {
 	var (
-		schemaURI string
-		endpoint  string
-		operation string
-		argsJSON  string
-		fieldsCSV string
-		document  bool
-		maxDepth  int
-		maxFields int
-		timeout   time.Duration
-		output    string
+		schemaURI   string
+		endpoint    string
+		operation   string
+		argsJSON    string
+		fieldsCSV   string
+		document    bool
+		maxDepth    int
+		maxFields   int
+		maxMessages int
+		timeout     time.Duration
+		output      string
 	)
 
 	cmd := &cobra.Command{
@@ -100,14 +105,31 @@ endpoint the schema source named, i.e. the introspection target). The REST-style
 path/method request builder is deliberately not used: GraphQL is one endpoint,
 one POST, a document plus variables.
 
+Subscriptions (PROTO-022): subscription fields ingest as event-source
+operations. Invoking one runs the BOUNDED COLLECT of specs/PROTOCOLS.md
+§4.5(4) over the graphql-transport-ws subprotocol: subscribe, collect up to
+--max-messages events within --timeout, unsubscribe, print the transcript.
+The transcript mirrors the grpc call envelope:
+  "kind": "subscription", "status": "complete | truncated | cancelled | error",
+  "items": [ ... up to --max-messages event payloads ... ],
+  "items_truncated": false,
+  "trailer": { "received": 3, "max_messages": 1000, "duration_ms": 12,
+               "limit_reason": "max-messages", "unsubscribed": true }
+Hitting a bound is a clean stop (status truncated, no error); the WS URL is
+derived from the SAME endpoint the unary path posts to (http→ws, https→wss) —
+there is no second call path.
+
 Other flags:
   --document           print the query document instead of calling the endpoint
   --fields a,b         restrict the derived selection's top level, in order
   --max-depth N        selection recursion depth (default 2)
   --max-fields N       max selected fields per level (default 25)
+  --max-messages N     subscription bound: stop after N events (default 1000;
+                       0 selects the default)
+  --timeout D          wall-clock bound for a subscription collect; also the
+                       per-call deadline for unary queries/mutations
 
-Known limits (bounded first row — subscriptions are the follow-up row):
-  * Subscriptions are not ingested; the Subscription root is recognized and skipped.
+Known limits:
   * Selection sets are DERIVED from the schema (never hand-written): leaf fields,
     recursion to --max-depth, union fields selected as __typename, and fields whose
     arguments include a required argument are skipped. The document therefore
@@ -173,6 +195,20 @@ Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 				return nil
 			}
 
+			// A subscription runs the §4.5(4) bounded collect — the CLI
+			// passes its flags as the limits; there is no long-lived
+			// mode to select.
+			if target.Kind == protocol.KindEventSource {
+				result, subErr := adapter.Subscribe(ctx, operation, callArgs, graphqladapter.SubscriptionLimits{
+					MaxMessages: maxMessages,
+					MaxDuration: timeout,
+				})
+				if subErr != nil {
+					return subErr
+				}
+				return printGraphQLResult(cmd, result, output)
+			}
+
 			result, err := adapter.Execute(ctx, operation, callArgs)
 			if err != nil {
 				return err
@@ -189,7 +225,8 @@ Spec: specs/PROTOCOLS.md (protocol adapter seam).`,
 	cmd.Flags().BoolVar(&document, FlagGraphQLDocument, false, "Print the query document the operation builds instead of calling the endpoint")
 	cmd.Flags().IntVar(&maxDepth, FlagGraphQLMaxDepth, graphqladapter.DefaultSelectionDepth, "Selection recursion depth (object levels)")
 	cmd.Flags().IntVar(&maxFields, FlagGraphQLMaxFields, graphqladapter.DefaultSelectionFields, "Maximum selected fields per level")
-	cmd.Flags().DurationVar(&timeout, FlagGraphQLTimeout, graphqladapter.DefaultTimeout, "Per-call timeout (applies only when the call has no other deadline)")
+	cmd.Flags().DurationVar(&timeout, FlagGraphQLTimeout, graphqladapter.DefaultSubscriptionDuration, "Wall-clock bound for a subscription collect; also the per-call deadline for unary calls (applies only when the call has no other deadline)")
+	cmd.Flags().IntVar(&maxMessages, FlagGraphQLMaxMessages, graphqladapter.DefaultSubscriptionMaxMessages, "Subscription bound: stop after this many collected events (0 selects the default)")
 	cmd.Flags().StringVarP(&output, FlagGraphQLOutput, "o", "json", "Output format (json, raw)")
 
 	// A failed ingestion or call is a runtime outcome (unreadable schema,

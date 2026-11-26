@@ -162,18 +162,17 @@ func TestProtocolGraphQL_Discovery_PrintsOperationsWithTheirSource(t *testing.T)
 		Source map[string]string `json:"source"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(out), &views))
-	require.Len(t, views, 9)
+	require.Len(t, views, 10)
 
 	ids := make([]string, 0, len(views))
 	for _, v := range views {
 		ids = append(ids, v.ID)
-		assert.Equal(t, "unary", v.Kind)
+		assert.Contains(t, []string{"unary", "event-source"}, v.Kind)
 		assert.Equal(t, graphqlFixtureSchema, v.Source["schema_source"], "discovery records where the schema came from")
 		assert.Equal(t, "sdl", v.Source["schema_format"])
 		assert.NotEmpty(t, v.Field, "discovery records the schema field behind the command")
 	}
-	assert.Equal(t, []string{"user", "users", "nodes", "search", "ping", "viewer", "createUser", "setRole", "noop"}, ids)
-	assert.NotContains(t, ids, "userChanged", "subscriptions are out of scope")
+	assert.Equal(t, []string{"user", "users", "nodes", "search", "ping", "viewer", "createUser", "setRole", "noop", "userChanged"}, ids)
 
 	user := views[0]
 	assert.Equal(t, "query", user.OperationType)

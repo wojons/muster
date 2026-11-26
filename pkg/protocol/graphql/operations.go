@@ -8,9 +8,9 @@ import (
 	"github.com/wojons/muster/pkg/protocol"
 )
 
-// OperationType names the two root operation types this adapter ingests.
-// Subscriptions are a third GraphQL root but are deliberately out of scope for
-// the bounded first row (specs/PROTOCOLS.md §2 row 6).
+// OperationType names the three root operation types this adapter ingests.
+// Subscriptions ingest as KindEventSource operations (PROTO-022); queries and
+// mutations are KindUnary.
 type OperationType string
 
 const (
@@ -70,34 +70,37 @@ func (s *Schema) Counts() FieldCounts {
 	return c
 }
 
-// Operations maps the schema's Query fields onto query operations and its
-// Mutation fields onto mutation operations, on the protocol-neutral operation
-// model (stage 2 mapping, specs/PROTOCOLS.md §3.2). Subscription fields are
-// skipped: they are the follow-up row, and a bounded first row ships nothing
-// half-supported.
+// Operations maps the schema's Query fields onto query operations, its
+// Mutation fields onto mutation operations and — since PROTO-022 — its
+// Subscription fields onto KindEventSource operations, on the
+// protocol-neutral operation model (stage 2 mapping, specs/PROTOCOLS.md §3.2).
 //
-// Every field becomes exactly one KindUnary operation (GraphQL queries and
-// mutations are single request → single response). endpoint, when non-empty, is
-// stamped onto each operation's source so the executor can invoke without the
-// caller repeating it (single-endpoint servers make this the normal case).
+// Every field becomes exactly one operation: query and mutation fields are
+// KindUnary (single request → single response); subscription fields are
+// KindEventSource — invoking one runs the §4.5(4) bounded collect, never a
+// live stream. endpoint, when non-empty, is stamped onto each operation's
+// source so the executor can invoke without the caller repeating it
+// (single-endpoint servers make this the normal case).
 //
-// IDs are the field names. A mutation whose field name is already claimed by a
-// query keeps the bare name when it is free and otherwise takes the
-// "mutation_<field>" form, so IDs stay unique and deterministic; a remaining
-// collision is reported instead of silently overwriting.
+// IDs are the field names. A mutation or subscription whose field name is
+// already claimed keeps the bare name when it is free and otherwise takes the
+// "mutation_<field>" / "subscription_<field>" form, so IDs stay unique and
+// deterministic; a remaining collision is reported instead of silently
+// overwriting.
 func (s *Schema) Operations(endpoint string) ([]*protocol.Operation, error) {
-	ops := make([]*protocol.Operation, 0, s.Counts().Queries+s.Counts().Mutations)
+	counts := s.Counts()
+	ops := make([]*protocol.Operation, 0, counts.Queries+counts.Mutations+counts.Subscriptions)
 
 	claimed := make(map[string]bool)
-	appendRoot := func(root *Type, opType OperationType) error {
+	appendRoot := func(root *Type, opType OperationType, prefix string) error {
 		if root == nil {
 			return nil
 		}
 		for i := range root.Fields {
 			field := &root.Fields[i]
 			id := field.Name
-			if opType == OperationMutation && claimed[id] {
-				id = string(OperationMutation) + "_" + field.Name
+			if claimed[id] {
+				id = prefix + "_" + field.Name
 			}
 			op, err := s.operation(id, opType, field, endpoint)
 			if err != nil {
@@ -109,10 +112,13 @@ func (s *Schema) Operations(endpoint string) ([]*protocol.Operation, error) {
 		return nil
 	}
 
-	if err := appendRoot(s.QueryRoot(), OperationQuery); err != nil {
+	if err := appendRoot(s.QueryRoot(), OperationQuery, string(OperationQuery)); err != nil {
 		return nil, err
 	}
-	if err := appendRoot(s.MutationRoot(), OperationMutation); err != nil {
+	if err := appendRoot(s.MutationRoot(), OperationMutation, string(OperationMutation)); err != nil {
+		return nil, err
+	}
+	if err := appendRoot(s.SubscriptionRoot(), OperationSubscription, string(OperationSubscription)); err != nil {
 		return nil, err
 	}
 	if err := uniqueIDs(ops); err != nil {
@@ -139,6 +145,11 @@ func (s *Schema) operation(id string, opType OperationType, field *Field, endpoi
 		argTypes = append(argTypes, fmt.Sprintf("%s:%s", arg.Name, arg.Type.String()))
 	}
 
+	kind := protocol.KindUnary
+	if opType == OperationSubscription {
+		kind = protocol.KindEventSource
+	}
+
 	source := map[string]string{
 		SourceField:         field.Name,
 		SourceOperationType: string(opType),
@@ -156,7 +167,7 @@ func (s *Schema) operation(id string, opType OperationType, field *Field, endpoi
 	return &protocol.Operation{
 		ID:          id,
 		Protocol:    protocol.ProtocolGraphQL,
-		Kind:        protocol.KindUnary,
+		Kind:        kind,
 		Tags:        []string{string(opType)},
 		Summary:     firstSentence(field.Description),
 		Description: field.Description,
@@ -224,6 +235,8 @@ func (s *Schema) OperationField(op *protocol.Operation) *Field {
 		root = s.QueryRoot()
 	case OperationMutation:
 		root = s.MutationRoot()
+	case OperationSubscription:
+		root = s.SubscriptionRoot()
 	default:
 		return nil
 	}

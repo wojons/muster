@@ -229,9 +229,11 @@ func (b *Builder) resolve(op *protocol.Operation) (OperationType, *Field, error)
 		root = b.schema.QueryRoot()
 	case OperationMutation:
 		root = b.schema.MutationRoot()
+	case OperationSubscription:
+		root = b.schema.SubscriptionRoot()
 	default:
 		return "", nil, errors.New(errors.CodeValidation, fmt.Sprintf(
-			"graphql: operation %q carries unsupported operation_type %q (only query and mutation are ingested)", op.ID, op.Source[SourceOperationType]))
+			"graphql: operation %q carries unsupported operation_type %q (only query, mutation and subscription are ingested)", op.ID, op.Source[SourceOperationType]))
 	}
 	if root == nil {
 		return "", nil, errors.New(errors.CodeNotFound, fmt.Sprintf(
