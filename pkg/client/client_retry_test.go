@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -46,9 +48,9 @@ func TestClient_SetRetrier(t *testing.T) {
 
 // TestClient_Retry_SuccessOnFirstAttempt tests that successful requests don't retry
 func TestClient_Retry_SuccessOnFirstAttempt(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
+		attemptCount.Add(1)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("success"))
 	}))
@@ -70,15 +72,15 @@ func TestClient_Retry_SuccessOnFirstAttempt(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, 1, attemptCount) // Should only try once for success
+	assert.Equal(t, int32(1), attemptCount.Load()) // Should only try once for success
 }
 
 // TestClient_Retry_RetriesOn5xxStatusCodes tests that 5xx errors trigger retries
 func TestClient_Retry_RetriesOn5xxStatusCodes(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 3 {
+		attemptCount.Add(1)
+		if attemptCount.Load() < 3 {
 			w.WriteHeader(http.StatusServiceUnavailable) // 503
 			return
 		}
@@ -103,15 +105,15 @@ func TestClient_Retry_RetriesOn5xxStatusCodes(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, 3, attemptCount) // Should retry 2 times before success
+	assert.Equal(t, int32(3), attemptCount.Load()) // Should retry 2 times before success
 }
 
 // TestClient_Retry_RetriesOn429StatusCode tests that 429 (Too Many Requests) triggers retries
 func TestClient_Retry_RetriesOn429StatusCode(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 2 {
+		attemptCount.Add(1)
+		if attemptCount.Load() < 2 {
 			w.WriteHeader(http.StatusTooManyRequests) // 429
 			return
 		}
@@ -136,7 +138,7 @@ func TestClient_Retry_RetriesOn429StatusCode(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, int32(2), attemptCount.Load())
 }
 
 // TestClient_Retry_NoRetryOn4xxStatusCodes tests that 4xx errors (except 429) don't retry
@@ -154,9 +156,9 @@ func TestClient_Retry_NoRetryOn4xxStatusCodes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			attemptCount := 0
+			var attemptCount atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				attemptCount++
+				attemptCount.Add(1)
 				w.WriteHeader(tc.statusCode)
 			}))
 			defer server.Close()
@@ -177,7 +179,7 @@ func TestClient_Retry_NoRetryOn4xxStatusCodes(t *testing.T) {
 			defer func() { _ = resp.Body.Close() }()
 
 			assert.Equal(t, tc.statusCode, resp.StatusCode)
-			assert.Equal(t, 1, attemptCount) // Should not retry
+			assert.Equal(t, int32(1), attemptCount.Load()) // Should not retry
 		})
 	}
 }
@@ -188,9 +190,9 @@ func TestClient_Retry_NoRetryOn4xxStatusCodes(t *testing.T) {
 // retrier. The attempts are reported on stderr instead of being folded into an
 // error, so nothing about the retrying is hidden.
 func TestClient_Retry_Exhaustion(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
+		attemptCount.Add(1)
 		w.WriteHeader(http.StatusInternalServerError) // Always fail
 	}))
 	defer server.Close()
@@ -213,7 +215,7 @@ func TestClient_Retry_Exhaustion(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-	assert.Equal(t, 3, attemptCount, "the ceiling is the number of attempts including the first")
+	assert.Equal(t, int32(3), attemptCount.Load(), "the ceiling is the number of attempts including the first")
 }
 
 // TestClient_Retry_NetworkError tests that network errors trigger retries
@@ -239,10 +241,10 @@ func TestClient_Retry_NetworkError(t *testing.T) {
 // TestClient_Retry_WithAllMethods tests retry works with replay-safe methods
 // and that non-idempotent methods are attempted exactly once.
 func TestClient_Retry_WithAllMethods(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 2 {
+		attemptCount.Add(1)
+		if attemptCount.Load() < 2 {
 			w.WriteHeader(http.StatusBadGateway) // 502
 			return
 		}
@@ -263,46 +265,46 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 	ctx := context.Background()
 
 	// Test GET
-	attemptCount = 0
+	attemptCount.Store(0)
 	resp, err := client.Get(ctx, server.URL+"/test")
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, int32(2), attemptCount.Load())
 
 	// POST is not replay-safe: the transient status is the answer, so the
 	// request reaches the server once and the caller sees the 502 itself.
-	attemptCount = 0
+	attemptCount.Store(0)
 	resp, err = client.Post(ctx, server.URL+"/test", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 
-	assert.Equal(t, 1, attemptCount, "POST must not be replayed")
+	assert.Equal(t, int32(1), attemptCount.Load(), "POST must not be replayed")
 	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
 
 	// Test PUT
-	attemptCount = 0
+	attemptCount.Store(0)
 	resp, err = client.Put(ctx, server.URL+"/test", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, int32(2), attemptCount.Load())
 
 	// Test DELETE
-	attemptCount = 0
+	attemptCount.Store(0)
 	resp, err = client.Delete(ctx, server.URL+"/test")
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, int32(2), attemptCount.Load())
 
 	// PATCH is not replay-safe either: one attempt, first 5xx returned.
-	attemptCount = 0
+	attemptCount.Store(0)
 	resp, err = client.Patch(ctx, server.URL+"/test", "application/json", strings.NewReader("{}"))
 	require.NoError(t, err)
 	_ = resp.Body.Close()
 
-	assert.Equal(t, 1, attemptCount, "PATCH must not be replayed")
+	assert.Equal(t, int32(1), attemptCount.Load(), "PATCH must not be replayed")
 	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
 }
 
@@ -311,10 +313,10 @@ func TestClient_Retry_WithAllMethods(t *testing.T) {
 // exactly once — the transient status is handed back, not retried, so a
 // non-idempotent create cannot be duplicated.
 func TestClient_Retry_PostNotReplayed(t *testing.T) {
-	requestCount := 0
+	var requestCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		if requestCount == 1 {
+		requestCount.Add(1)
+		if requestCount.Load() == 1 {
 			w.WriteHeader(http.StatusServiceUnavailable) // 503
 			return
 		}
@@ -339,7 +341,7 @@ func TestClient_Retry_PostNotReplayed(t *testing.T) {
 	require.NotNil(t, resp)
 	defer func() { _ = resp.Body.Close() }()
 
-	assert.Equal(t, 1, requestCount, "exactly one request may reach the upstream")
+	assert.Equal(t, int32(1), requestCount.Load(), "exactly one request may reach the upstream")
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
 
@@ -349,10 +351,10 @@ func TestClient_Retry_PostNotReplayed(t *testing.T) {
 // deduplicates the write. Without the option the same sequence is the
 // one-request case above.
 func TestClient_Retry_NonIdempotentOptIn(t *testing.T) {
-	requestCount := 0
+	var requestCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		if requestCount == 1 {
+		requestCount.Add(1)
+		if requestCount.Load() == 1 {
 			w.WriteHeader(http.StatusServiceUnavailable) // 503
 			return
 		}
@@ -375,17 +377,17 @@ func TestClient_Retry_NonIdempotentOptIn(t *testing.T) {
 	require.NotNil(t, resp)
 	defer func() { _ = resp.Body.Close() }()
 
-	assert.Equal(t, 2, requestCount, "an opted-in caller replays the POST")
+	assert.Equal(t, int32(2), requestCount.Load(), "an opted-in caller replays the POST")
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 }
 
 // TestClient_Retry_PatchNotReplayed covers PATCH with the same non-replay
 // assertion: it is not idempotent, so a transient status is the answer.
 func TestClient_Retry_PatchNotReplayed(t *testing.T) {
-	requestCount := 0
+	var requestCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		if requestCount == 1 {
+		requestCount.Add(1)
+		if requestCount.Load() == 1 {
 			w.WriteHeader(http.StatusBadGateway) // 502
 			return
 		}
@@ -410,7 +412,7 @@ func TestClient_Retry_PatchNotReplayed(t *testing.T) {
 	require.NotNil(t, resp)
 	defer func() { _ = resp.Body.Close() }()
 
-	assert.Equal(t, 1, requestCount, "exactly one request may reach the upstream")
+	assert.Equal(t, int32(1), requestCount.Load(), "exactly one request may reach the upstream")
 	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
 }
 
@@ -418,9 +420,9 @@ func TestClient_Retry_PatchNotReplayed(t *testing.T) {
 // gate: a transport failure may have reached the server, so a POST fails fast
 // with the transport error instead of being re-sent.
 func TestClient_Retry_PostTransportFailureNotRetried(t *testing.T) {
-	requestCount := 0
+	var requestCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
+		requestCount.Add(1)
 		// Drop the connection without a response: the client sees a
 		// transport failure on the first (and only) attempt.
 		hj, ok := w.(http.Hijacker)
@@ -452,16 +454,16 @@ func TestClient_Retry_PostTransportFailureNotRetried(t *testing.T) {
 
 	require.Error(t, err, "a transport failure on POST is returned, not retried")
 	assert.Nil(t, resp)
-	assert.Equal(t, 1, requestCount, "exactly one request may reach the upstream")
+	assert.Equal(t, int32(1), requestCount.Load(), "exactly one request may reach the upstream")
 }
 
 // TestClient_Retry_GetStillReplayed guards against over-broad suppression: a
 // transient status on a replay-safe method still retries.
 func TestClient_Retry_GetStillReplayed(t *testing.T) {
-	requestCount := 0
+	var requestCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		if requestCount == 1 {
+		requestCount.Add(1)
+		if requestCount.Load() == 1 {
 			w.WriteHeader(http.StatusServiceUnavailable) // 503
 			return
 		}
@@ -487,15 +489,15 @@ func TestClient_Retry_GetStillReplayed(t *testing.T) {
 	require.NotNil(t, resp)
 	defer func() { _ = resp.Body.Close() }()
 
-	assert.Equal(t, 2, requestCount, "a safe method is still retried")
+	assert.Equal(t, int32(2), requestCount.Load(), "a safe method is still retried")
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 // TestClient_Retry_WithoutRetry tests that requests work without retry configured
 func TestClient_Retry_WithoutRetry(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
+		attemptCount.Add(1)
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
@@ -509,14 +511,14 @@ func TestClient_Retry_WithoutRetry(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
-	assert.Equal(t, 1, attemptCount) // No retry, single attempt
+	assert.Equal(t, int32(1), attemptCount.Load()) // No retry, single attempt
 }
 
 // TestClient_Retry_RespectsContextCancellation tests that context cancellation stops retries
 func TestClient_Retry_RespectsContextCancellation(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
+		attemptCount.Add(1)
 		w.WriteHeader(http.StatusServiceUnavailable)
 		time.Sleep(50 * time.Millisecond) // Slow response
 	}))
@@ -539,15 +541,15 @@ func TestClient_Retry_RespectsContextCancellation(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Less(t, attemptCount, 10) // Should stop before max attempts due to context cancellation
+	assert.Less(t, attemptCount.Load(), int32(10)) // Should stop before max attempts due to context cancellation
 }
 
 // TestClient_Retry_ResponseBodyPreserved tests that response body is readable after retry
 func TestClient_Retry_ResponseBodyPreserved(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 2 {
+		attemptCount.Add(1)
+		if attemptCount.Load() < 2 {
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
@@ -578,10 +580,10 @@ func TestClient_Retry_ResponseBodyPreserved(t *testing.T) {
 
 // TestClient_Retry_ConcurrentRequests tests that retry works with concurrent requests
 func TestClient_Retry_ConcurrentRequests(t *testing.T) {
-	var attemptCount int
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount%2 == 1 {
+		attemptCount.Add(1)
+		if attemptCount.Load()%2 == 1 {
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
@@ -648,10 +650,10 @@ func TestRetryableError(t *testing.T) {
 
 // TestClient_Retry_WithCustomHTTPClient tests retry with a custom HTTP client
 func TestClient_Retry_WithCustomHTTPClient(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 2 {
+		attemptCount.Add(1)
+		if attemptCount.Load() < 2 {
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
@@ -686,20 +688,25 @@ func TestClient_Retry_WithCustomHTTPClient(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, int32(2), attemptCount.Load())
 }
 
 // TestClient_Retry_IntegrationWithHeaders tests retry works with default headers
 func TestClient_Retry_IntegrationWithHeaders(t *testing.T) {
-	attemptCount := 0
-	receivedHeaders := make(map[string]string)
+	var attemptCount atomic.Int32
+	var (
+		hdrMu           sync.Mutex
+		receivedHeaders = make(map[string]string)
+	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
+		attemptCount.Add(1)
+		hdrMu.Lock()
 		receivedHeaders["Authorization"] = r.Header.Get("Authorization")
 		receivedHeaders["X-Custom-Header"] = r.Header.Get("X-Custom-Header")
+		hdrMu.Unlock()
 
-		if attemptCount < 2 {
+		if attemptCount.Load() < 2 {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -727,17 +734,19 @@ func TestClient_Retry_IntegrationWithHeaders(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, int32(2), attemptCount.Load())
+	hdrMu.Lock()
+	defer hdrMu.Unlock()
 	assert.Equal(t, "Bearer token123", receivedHeaders["Authorization"])
 	assert.Equal(t, "custom-value", receivedHeaders["X-Custom-Header"])
 }
 
 // TestClient_Retry_WithBaseURL tests retry works with base URL
 func TestClient_Retry_WithBaseURL(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 2 {
+		attemptCount.Add(1)
+		if attemptCount.Load() < 2 {
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
@@ -764,15 +773,15 @@ func TestClient_Retry_WithBaseURL(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, int32(2), attemptCount.Load())
 }
 
 // TestClient_Retry_DoMethodDirectly tests retry with the Do method directly
 func TestClient_Retry_DoMethodDirectly(t *testing.T) {
-	attemptCount := 0
+	var attemptCount atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attemptCount++
-		if attemptCount < 2 {
+		attemptCount.Add(1)
+		if attemptCount.Load() < 2 {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -799,5 +808,5 @@ func TestClient_Retry_DoMethodDirectly(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, 2, attemptCount)
+	assert.Equal(t, int32(2), attemptCount.Load())
 }

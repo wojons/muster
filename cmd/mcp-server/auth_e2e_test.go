@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -32,6 +33,26 @@ import (
 )
 
 const e2eAuthToken = "df036-e2e-fixture-token"
+
+// synchronizedBuffer is a bytes.Buffer safe for concurrent use: os/exec
+// copies the child's stderr into it on a background goroutine while the
+// test goroutine reads it back (RELEASE-026 race-detector findings).
+type synchronizedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *synchronizedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *synchronizedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
 
 // bearerGatedUpstream answers 200 only for the exact configured bearer
 // credential and 401 otherwise, counting authorized exchanges.
@@ -98,8 +119,8 @@ func driveAuthedBinary(t *testing.T, token string, args ...string) (map[string]i
 	require.NoError(t, err)
 	stdout, err := cmd.StdoutPipe()
 	require.NoError(t, err)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	stderr := &synchronizedBuffer{}
+	cmd.Stderr = stderr
 	require.NoError(t, cmd.Start())
 	t.Cleanup(func() {
 		_ = stdin.Close()
