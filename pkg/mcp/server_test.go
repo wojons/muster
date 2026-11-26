@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -639,6 +640,78 @@ func TestServer_Run_NotificationThenRequestStillAnswered(t *testing.T) {
 	requireRunReturned(t, done, cancel)
 
 	stdoutR.Close()
+}
+
+// TestServer_Run_EOFWaitsForFinalResponse holds the first stdout write until
+// after the handler has completed, as can happen when stdin closes immediately.
+func TestServer_Run_EOFWaitsForFinalResponse(t *testing.T) {
+	stdinR, stdinW := newStdinPipe(t)
+	stdout := newBlockingWriter()
+	s := NewServer(stdinR, stdout, io.Discard)
+	done := make(chan error, 1)
+	go func() { done <- s.Run(context.Background()) }()
+	_, err := io.WriteString(stdinW, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}\n{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\"}\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stdinW.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// Wait until the writer has actually blocked. This makes the pre-fix
+	// failure deterministic: the old Run returns while its writer is stuck.
+	select {
+	case <-stdout.started:
+	case <-time.After(runReturnTimeout):
+		t.Fatal("response writer did not reach the controlled block")
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("Run returned before final response was released: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(stdout.release)
+	requireRunReturned(t, done, func() {})
+
+	decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
+	found := false
+	for {
+		var response JSONRPCResponse
+		if err := decoder.Decode(&response); err != nil {
+			break
+		}
+		if response.ID == float64(2) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("final id=2 missing from responses: %s", stdout.Bytes())
+	}
+}
+
+type blockingWriter struct {
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+	mu      sync.Mutex
+	data    bytes.Buffer
+}
+
+func newBlockingWriter() *blockingWriter {
+	return &blockingWriter{started: make(chan struct{}), release: make(chan struct{})}
+}
+
+func (w *blockingWriter) Write(p []byte) (int, error) {
+	w.once.Do(func() { close(w.started) })
+	<-w.release
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.data.Write(p)
+}
+
+func (w *blockingWriter) Bytes() []byte {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return append([]byte(nil), w.data.Bytes()...)
 }
 
 // TestServer_Run_PartialResponseDrainDoesNotWedgeShutdown reproduces
