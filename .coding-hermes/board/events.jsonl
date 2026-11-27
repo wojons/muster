@@ -1191,3 +1191,5 @@
 {"id":1795164467717878234,"timestamp":"2026-11-26 16:22:37.706638","event_type":"task_completed","task_id":"INT-CI-018","actor":"foreman","detail":"{\"status\":\"complete\"}"}
 {"id":1795164467717878235,"timestamp":"2026-11-26 16:30:10.912184","event_type":"task_completed","task_id":"QA-MUSTER-045","actor":"foreman","detail":"{\"status\":\"complete\"}"}
 {"id":1795164467717878236,"timestamp":"2026-11-26 20:23:44.770288","event_type":"task_updated","task_id":"PROTO-022","actor":"muster-qa","detail":"Clean-agent full suite reproduced subscription timeout; see task note."}
+{"id":1795164467717878237,"timestamp":"2026-11-27 10:44:53.879665","event_type":"task_created","task_id":"RELEASE-029","actor":"foreman","detail":"{\"id\":\"RELEASE-029\",\"status\":\"pending\"}"}
+{"id":1795164467717878238,"timestamp":"2026-11-27 10:46:31.779882","event_type":"task_updated","task_id":"RELEASE-014","actor":"foreman","detail":"{\"title\":\"P0 — Release readiness 2026-11-27: NO-GO at dc06a79f — exact-SHA Build and Cross-Platform CI red, GitReins/dogfood unbound, first publication gated\"}"}
