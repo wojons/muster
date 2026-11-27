@@ -1713,3 +1713,69 @@ pre-append run.
 **Artifacts**: `.coding-hermes/dogfood-evidence/t20261121-cli-real-use/` — `INDEX.md` (verified-vs-filed
 table, perf numbers, boundary), `g1.txt` / `g2.txt` (PTY transcripts of the two generates, including the
 overwrite warning), `workflow.star`, `workflow2.star`, `guide_example4.star`.
+## 2026-11-27 06:52 — The day-old CLI completion record, used the way a script would use it (tick `muster-dogfood-2026-11-27-10-14-45`)
+
+**Angle**: the last runs covered the CLI (11-21) and the daemon HTTP surface (11-17). What changed
+since 11-21 is the user-facing surface itself: DF-061 discoverability (merge `caad067e`, 11-26) and
+OBS-MUSTER-5's CLI completion record (`b1505b57`, 11-26). This fire used both as a user would.
+
+**Promise**: a user can point the CLI at a spec, generate typed commands, find them, run them, and
+have their invocations show up in the operator's Prometheus — all from the documented path.
+
+**What held** (most of the run): `make build` 5.99 s warm -> `discover` 54 ms (22 operations) ->
+`generate` 72 ms with the new DF-061 hint ("Registered 22 generated commands:" + first 10 + "Run
+'openapi-cli generate --list'") -> `generate --list` enumerates all 22 grouped by METHOD ->
+`create-project` 201, `list-projects` shows the row. DF-061 works. Completion for `create-` returns
+5 candidates (bash script embeds them; `__complete` is dynamic).
+
+**What broke** — all five findings are in the completion record, and none of them needed source
+reading to find:
+
+1. `DF-064` P2 — the record LOSES concurrent increments. 40 invocations via `xargs -P16` left
+   `muster_cli_invocations_total{command="version",status="success"} 7`; 20 at `-P4` left 13; 20
+   sequential left 20. The write is a read-modify-write with only an in-process mutex
+   (`internal/monitoring/textfile.go:71-77`), so parallel scripted use — the normal case — reports a
+   fraction of the truth with no error.
+2. `DF-065` P2 — the published record is mode 0600 even under `umask 000` (`os.CreateTemp` at
+   `textfile.go:83`, no chmod before the rename at `:110`), so node_exporter, running as its own uid,
+   can never read it: the operator configures the feature and sees nothing, silently.
+3. `DF-066` P2 — there is no opt-out and the default path is a root-owned system directory
+   (`textfile.go:20`). `sudo -u nobody openapi-cli version` prints
+   `warning: cli completion textfile: mcp textfile: create temporary file: ... permission denied`
+   on every successful run; on this host kara has group write, so a plain `openapi-cli version`
+   silently wrote the real `/var/lib/node_exporter/textfile/muster_cli.prom` (55,606 B, 0600).
+4. `DF-067` P3 — the feature is undocumented: no `*.md` outside `.gitreins/history` mentions
+   `MUSTER_CLI_METRICS_PATH`, the file name, the enable step or the mode requirement.
+5. `DF-068` P4 — DF-061's shipped `--list` enumeration and completion support are not reflected in
+   `docs/guides/commands.md:60` / `docs/guides/quickstart.md:66-68` / the completion section
+   `commands.md:786-802`, which also never says the bash script needs the `bash-completion` package
+   (without it: `_get_comp_words_by_ref: command not found`, zero completions).
+
+**Not filed**: the six `✓ Registered command: <group>` lines for 22 commands is `REVIEW-MUSTER-17`
+(P4, pending); `--profile` store namespacing is `DF-060`; the store-discoverability symptom is
+`DF-061` (its fix is on main, the row is still pending — a reconciliation item, not a new row).
+
+**Performance (Step 2b)** — no PERF row, and here is why. Host load average 24.8, so treat absolutes
+as upper bounds. `version` median: 26.9 ms with an unwritable metrics path, 36.2 ms writing a 1.7 KB
+record, 32.7 ms on tmpfs, 46.7 ms with the real 55 KB record; `list-projects` 41.7 vs 63.8 ms. Record
+size is linear in labelled commands: 22/612/3000/10000 series -> 32.6/36.1/49.8/99.9 ms. A 612-command
+spec (GitHub v3 scale) costs ~3.5 ms over the 22-command record. The cost of the feature is ~9 ms per
+invocation — real, measurable, but below what a user notices, so it is recorded here and in the
+evidence index, not filed. The defects are the lost counts and the unreadable file, not the speed.
+
+**Verify-the-write**: rows read back from `tasks.jsonl` (418 lines, was 413), all five `pending`, no
+duplicate ids (`jq -r '.id' | sort | uniq -d` empty). `boardctl validate`: `RESULT: OK (267
+warning(s))` — identical to the pre-append baseline after rewriting `DF-064`'s title (the first create
+tripped the "title carries P4 but priority is P2" warning because the title quoted `-P4`; fixed with
+`boardctl update --title`, re-validated clean, 0 warnings naming any of the five).
+
+**Boundary**: no product code touched, no existing row closed/reopened, no visibility or permission
+changed, no credential minted, no disabled project touched. The Task Forge mock ran on port 9801 and
+was stopped. One disclosed side effect: the product's own default metrics path wrote the host's
+`/var/lib/node_exporter/textfile/muster_cli.prom` before I set an isolated path (left in place — it is
+the product's output, and removing another agent's textfile could blank a dashboard).
+
+**Artifacts**: `.coding-hermes/dogfood-evidence/2026-11-27-t20261127/` — `INDEX.md` (verified-vs-filed
+table, commands, boundary), `perf.txt` (all arms incl. the scaling table), `prom-*.prom` (sequential
+20, parallel-P4 20-sent, parallel-P16 40-sent, single run), `mode-0600-proof.txt`,
+`nonroot-warning.txt`.

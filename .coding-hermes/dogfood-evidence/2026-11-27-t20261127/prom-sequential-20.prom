@@ -1,0 +1,22 @@
+# HELP muster_cli_duration_seconds openapi-cli invocation duration in seconds, by subcommand and exit status.
+# TYPE muster_cli_duration_seconds histogram
+muster_cli_duration_seconds_bucket{command="version",status="success",le="0.005"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="0.01"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="0.025"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="0.05"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="0.1"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="0.25"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="0.5"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="1"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="2.5"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="5"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="10"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="30"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="120"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="600"} 20
+muster_cli_duration_seconds_bucket{command="version",status="success",le="+Inf"} 20
+muster_cli_duration_seconds_sum{command="version",status="success"} 0.015373558
+muster_cli_duration_seconds_count{command="version",status="success"} 20
+# HELP muster_cli_invocations_total Total openapi-cli invocations, by subcommand and exit status.
+# TYPE muster_cli_invocations_total counter
+muster_cli_invocations_total{command="version",status="success"} 20

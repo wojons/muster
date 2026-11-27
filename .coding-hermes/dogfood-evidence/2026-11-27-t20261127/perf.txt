@@ -1,0 +1,34 @@
+Performance — measured 2026-11-27 06:46-06:49 -05, host load average 24.8 (12+ cores busy),
+so absolutes are upper bounds; deltas are the signal. Binary: make build at 8577f120.
+
+Arm A/B/C/D — `openapi-cli version`, 30 reps each, median wall (python perf_counter):
+  metrics path unwritable (/proc/nope/x.prom)   26.9 ms   (baseline + failed write)
+  record on local disk, 1.7 KB                  36.2 ms
+  record on tmpfs (/dev/shm/mcli.prom)          32.7 ms
+  record 55 KB (real, accumulated)              46.7 ms
+
+Real command with network: `list-projects` (local Flask)
+  metrics path unwritable                       41.7 ms
+  55 KB record                                  63.8 ms
+
+Record-size scaling — `version` with a synthetic record of N command series (median of 15):
+  series=22     file=  1.5 KB   median=32.6 ms
+  series=612    file= 41.1 KB   median=36.1 ms
+  series=3000   file=205.9 KB   median=49.8 ms
+  series=10000  file=691.3 KB   median=99.9 ms
+
+Tab completion (__complete, what zsh/fish run per TAB), median of 12:
+  record 22 series    28.1 ms
+  record 10000 series 99.9 ms
+
+Build: `make build` (3 binaries, warm module cache, go1.26.11, CGO on) = 5.99 s wall.
+discover = 54 ms; generate = 72 ms; generate --list = 54 ms; typed request to local API 30-40 ms.
+
+Verdict: the completion record adds ~9 ms per invocation (~20 ms with a 55 KB record) and
+scales linearly with the number of labelled commands; at 612 commands (GitHub v3 scale) the
+delta over a 22-command record is ~3.5 ms. No arm reaches a latency a user would notice, so
+no PERF row was filed. No flamegraph was taken: the cost is a known file read+fsync+rename on
+the CLI exit path (internal/monitoring/textfile.go:78-112), not an unknown hot path.
+
+Side effect recorded for the report: a plain `openapi-cli version` with no env var wrote the
+host's /var/lib/node_exporter/textfile/muster_cli.prom (55,606 B, mode 0600, mtime 06:46).

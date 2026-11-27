@@ -1,0 +1,1 @@
+warning: cli completion textfile: mcp textfile: create temporary file: open /var/lib/node_exporter/textfile/.muster_mcp-4216793095.prom.tmp: permission denied

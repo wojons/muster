@@ -1,0 +1,1 @@
+-rw------- 1 kara kara 1664 Nov 27 06:48 /tmp/df27mode/x.prom
