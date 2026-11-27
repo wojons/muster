@@ -32,7 +32,7 @@ require (
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/golang/protobuf v1.5.4
-	github.com/gorilla/websocket v1.5.3
+	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/prometheus/client_golang v1.24.1
 	github.com/quic-go/quic-go v0.63.0
